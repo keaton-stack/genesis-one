@@ -55,6 +55,7 @@ function onState(msg) {
     introduced = true;
     const mine = view.players[ME];
     if (mine && (mine.x || mine.z)) { player.position.x = mine.x; player.position.z = mine.z; yaw = mine.ry; }
+    else { player.position.x = 0; player.position.z = 48; }
     pushMove(true);
     const savedName = localStorage.getItem("g1:name");
     if (savedName) act({ t: "name", name: savedName });
@@ -68,13 +69,13 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.88;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xe7d6bd);
 scene.fog = new THREE.FogExp2(0xe7d6bd, 0.00042);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.5, 6000);
-scene.add(new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.95));
-const sun = new THREE.DirectionalLight(0xffe6c4, 1.25); sun.position.set(-600, 700, 300); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.62));
+const sun = new THREE.DirectionalLight(0xffe6c4, 1.25); sun.position.set(-600, 500, 300); scene.add(sun);
 
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
@@ -357,7 +358,7 @@ function makeLabel(text) {
   const w = Math.min(240, x.measureText(text).width + 28); x.beginPath(); x.roundRect ? x.roundRect(128 - w / 2, 10, w, 44, 12) : x.rect(128 - w / 2, 10, w, 44); x.fill();
   x.fillStyle = "#f5f1e6"; x.fillText(text, 128, 42);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); s.scale.set(3.2, 0.8, 1); s.position.y = 2.35; return s;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); s.scale.set(2.2, 0.55, 1); s.position.y = 2.3; return s;
 }
 function avatar(id, name) {
   const hue = (parseInt(id.slice(0, 6), 36) % 360) / 360;
@@ -488,6 +489,7 @@ function pushMove(force) {
   const now = performance.now();
   const moved = Math.hypot(player.position.x - lastSent.x, player.position.z - lastSent.z) > 0.08 || Math.abs(yaw - lastSent.ry) > 0.02;
   if (force || (moved && now - lastSent.at > 120) || now - lastSent.at > 3000) {
+    if (!lastSent.at) { lastSent = { x: 0, z: 48, ry: 0, at: 0 }; }
     act({ t: "move", x: +player.position.x.toFixed(2), z: +player.position.z.toFixed(2), ry: +yaw.toFixed(3), cart });
     lastSent = { x: player.position.x, z: player.position.z, ry: yaw, at: now };
   }
@@ -517,7 +519,7 @@ function frame() {
     const tx = Math.sin(now * 0.00012) * 220, tz = Math.cos(now * 0.00012) * 220;
     camera.position.set(tx, getH(tx, tz) + 160, tz); camera.lookAt(player.position.x, gh + 20, player.position.z);
   } else {
-    const dist = cart ? 9 : 6.5, h = 2.4 + pitch * 4;
+    const dist = cart ? 10 : 7.5, h = 2.6 + pitch * 4;
     const cx = nx - fwd[0] * dist * Math.cos(pitch) , cz = nz - fwd[1] * dist * Math.cos(pitch);
     const cy = Math.max(getH(cx, cz) + 1.2, gh + h);
     camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.35);
@@ -554,7 +556,7 @@ function showEmote(g, p) {
 // ───────────────────────────── boot ─────────────────────────────
 buildWorld().then(() => {
   player = avatar(ME, localStorage.getItem("g1:name") || "You");
-  player.position.set(0, getH(0, 0), 0);
+  player.position.set(0, getH(0, 48), 48);
   $("#load").classList.add("off");
   askName();
   connect();
