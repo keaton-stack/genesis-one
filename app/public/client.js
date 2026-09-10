@@ -519,7 +519,7 @@ function frame() {
     const tx = Math.sin(now * 0.00012) * 220, tz = Math.cos(now * 0.00012) * 220;
     camera.position.set(tx, getH(tx, tz) + 160, tz); camera.lookAt(player.position.x, gh + 20, player.position.z);
   } else {
-    const dist = cart ? 10 : 7.5, h = 2.6 + pitch * 4;
+    const dist = cart ? 13 : 9.5, h = 3.2 + pitch * 4;
     const cx = nx - fwd[0] * dist * Math.cos(pitch) , cz = nz - fwd[1] * dist * Math.cos(pitch);
     const cy = Math.max(getH(cx, cz) + 1.2, gh + h);
     camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.35);
