@@ -364,7 +364,7 @@ function avatar(id, name) {
   const col = new THREE.Color().setHSL(hue, 0.55, 0.5);
   const g = new THREE.Group();
   const walk = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.34, 0.9, 4, 10) : new THREE.CylinderGeometry(0.34, 0.34, 1.2, 10), new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 }));
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 }));
   body.position.y = 0.95; walk.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf1d3b6, roughness: 0.8 })); head.position.y = 1.7; walk.add(head);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.12, 12), M.green); cap.position.y = 1.93; walk.add(cap);
