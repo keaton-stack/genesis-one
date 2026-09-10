@@ -78,16 +78,16 @@
     </div></div>
 
     <div id="tl" class="hud"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div></div></div>
-    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div></div>
+    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><button id="snd" class="mono" style="pointer-events:auto;margin-top:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(245,241,230,.35);background:rgba(10,22,16,.6);color:#f5f1e6;cursor:pointer">SOUND OFF</button></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
     <div id="prompt" class="hud"><span id="prompt-t"></span></div>
-    <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>mouse</kbd> look &middot; <kbd>shift</kbd> run &middot; <kbd>C</kbd> cart &middot; <kbd>E</kbd> info &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-4</kbd> emote &middot; <kbd>M</kbd> tower view</div>
+    <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>mouse</kbd> look &middot; <kbd>shift</kbd> run &middot; <kbd>C</kbd> cart &middot; <kbd>E</kbd> info &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-4</kbd> emote &middot; <kbd>M</kbd> tower view &middot; <kbd>N</kbd> day/night &middot; <kbd>X</kbd> sound</div>
     <div id="status" class="hud mono">connecting&hellip;</div>
     <div id="fine" class="hud">Concept walkthrough on the real terrain of Douglas Municipal Airport. Every structure is illustrative.</div>
     <div id="mm" class="hud"><canvas id="mmc" width="368" height="368"></canvas></div>
 
     <div id="joy" class="hud"><i></i></div>
-    <div id="tbtns" class="hud"><button data-k="KeyE">INFO</button><button data-k="KeyC">CART</button><button data-k="KeyG">BOOK</button><button data-k="KeyM">TOWER</button><button data-k="Digit1">WAVE</button></div>
+    <div id="tbtns" class="hud"><button data-k="KeyE">INFO</button><button data-k="KeyC">CART</button><button data-k="KeyG">BOOK</button><button data-k="KeyM">TOWER</button><button data-k="Digit1">WAVE</button><button data-k="KeyN">TIME</button></div>
 
     <div id="name" class="card">
       <h2>Welcome to Genesis One</h2>
@@ -109,6 +109,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/GLTFLoader.js"></script>
     <script src="/client.js"></script>
   </body>
 </html>

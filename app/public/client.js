@@ -74,8 +74,40 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xe7d6bd);
 scene.fog = new THREE.FogExp2(0xe7d6bd, 0.00042);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.5, 6000);
-scene.add(new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.62));
+const hemi = new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.62); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe6c4, 1.25); sun.position.set(-600, 500, 300); scene.add(sun);
+const moon = new THREE.DirectionalLight(0x9fb4ff, 0); moon.position.set(400, 500, -300); scene.add(moon);
+// stars: a dome of points far out, faded in after dusk
+const starGeo = new THREE.BufferGeometry(); { const a = []; for (let i = 0; i < 1800; i++) { const t = Math.random() * 6.283, u = Math.random() * 0.9 + 0.08; const r = 5200; a.push(Math.cos(t) * Math.sqrt(1 - u * u) * r, u * r, Math.sin(t) * Math.sqrt(1 - u * u) * r); } starGeo.setAttribute("position", new THREE.Float32BufferAttribute(a, 3)); }
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 9, transparent: true, opacity: 0, fog: false, sizeAttenuation: true })); scene.add(stars);
+// One shared clock for every visitor: a full day is 24 real minutes, keyed to
+// wall-clock UTC so everyone on the site sees the same sky. N previews the
+// other half of the day locally.
+const DAY_SECONDS = 24 * 60; let timeOffset = 0;
+function dayT() { return ((((Date.now() / 1000 + timeOffset) % DAY_SECONDS) + DAY_SECONDS) % DAY_SECONDS) / DAY_SECONDS; }  // 0 = midnight, .5 = noon
+const C = (h) => new THREE.Color(h);
+const SKY = [ [0.00, C(0x070b16)], [0.20, C(0x0b1327)], [0.27, C(0xd9895a)], [0.33, C(0xe7d6bd)], [0.66, C(0xdfcfb4)], [0.75, C(0xe28a55)], [0.81, C(0x1c1a33)], [0.88, C(0x070b16)], [1.00, C(0x070b16)] ];
+function skyAt(t) { for (let i = 0; i < SKY.length - 1; i++) { if (t >= SKY[i][0] && t <= SKY[i + 1][0]) { const f = (t - SKY[i][0]) / (SKY[i + 1][0] - SKY[i][0]); return SKY[i][1].clone().lerp(SKY[i + 1][1], f); } } return SKY[0][1].clone(); }
+let night = 0;
+function updateSky() {
+  const t = dayT();
+  const el = -Math.cos(t * 6.283);                       // sun elevation, -1..1
+  const sky = skyAt(t); scene.background = sky; scene.fog.color = sky;
+  const day = Math.max(0, Math.min(1, (el + 0.12) / 0.4));
+  night = 1 - day;
+  const az = t * 6.283;
+  sun.position.set(Math.cos(az) * 700, Math.max(el, 0.02) * 700 + 40, Math.sin(az) * 300);
+  sun.intensity = 1.25 * day; sun.color.setHSL(0.09, 0.55, 0.6 + 0.3 * Math.min(1, Math.max(0, el)));
+  moon.intensity = 0.28 * night; hemi.intensity = 0.62 * day + 0.16;
+  hemi.color.setHSL(0.6, 0.35, 0.55 + 0.35 * day);
+  renderer.toneMappingExposure = 0.88 - 0.3 * night;
+  stars.material.opacity = Math.max(0, night - 0.35) * 1.4;
+  for (const m of nightGlow) m.emissiveIntensity = 0.4 + 2.2 * night;
+  M.glass.emissive.setHex(0xffd08a); M.glass.emissiveIntensity = 0.9 * night;
+  M.green.emissiveIntensity = 0.4 + 1.6 * night;
+  const hh = Math.floor(t * 24), mm = Math.floor((t * 24 - hh) * 60);
+  const clk = document.getElementById("clock"); if (clk) clk.textContent = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")} site time`;
+}
 
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
@@ -158,8 +190,47 @@ function box(w, h, d, mat, x, z, rot, yoff) {
 }
 function place(group, x, z, rot) { group.position.set(x, getH(x, z), z); group.rotation.y = rot || 0; return group; }
 
+// ───────────────────────────── generated 3D models ─────────────────────────────
+// Each building type is an image-to-3D GLB (Higgsfield / Meshy). `size` is the
+// real-world width in metres the model is scaled to; the procedural stand-ins
+// below remain as fallbacks if a file is missing.
+const MODEL_SPECS = {
+  home:      { size: 15, rot: 0 },
+  clubhouse: { size: 38, rot: 0 },
+  hangar:    { size: 24, rot: 0 },
+  dome:      { size: 13, rot: 0 },
+  pavilion:  { size: 18, rot: 0 },
+  store:     { size: 11, rot: 0 },
+  saloon:    { size: 15, rot: 0 },
+  tower:     { size: 16, rot: 0, height: 27 },
+};
+const MODELS = {};
+const nightGlow = [];   // materials that light up after dark
+async function loadModels() {
+  if (!THREE.GLTFLoader) return;
+  const loader = new THREE.GLTFLoader();
+  await Promise.all(Object.keys(MODEL_SPECS).map((k) => new Promise((res) => {
+    loader.load(`/models/${k}.glb`, (g) => {
+      const root = g.scene;
+      root.traverse((o) => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.material.transparent = false; o.material.depthWrite = true; if (o.material.map) o.material.map.encoding = THREE.sRGBEncoding; o.material.roughness = 0.85; o.material.metalness = 0; } });
+      const box = new THREE.Box3().setFromObject(root); const sz = new THREE.Vector3(); box.getSize(sz); const c = new THREE.Vector3(); box.getCenter(c);
+      const spec = MODEL_SPECS[k];
+      const sc = spec.height ? spec.height / sz.y : spec.size / Math.max(sz.x, sz.z);
+      const wrap = new THREE.Group();
+      root.position.set(-c.x, -box.min.y, -c.z);
+      wrap.add(root); wrap.scale.setScalar(sc); wrap.rotation.y = spec.rot;
+      MODELS[k] = wrap; res();
+    }, undefined, () => res());
+  })));
+}
+function model(k, x, z, rot) {
+  if (!MODELS[k]) return null;
+  const g = new THREE.Group(); g.add(MODELS[k].clone()); return place(g, x, z, rot || 0);
+}
+
 // ───────────────────────────── structures ─────────────────────────────
 function home(x, z, rot) {
+  const m = model('home', x, z, rot); if (m) return m;
   const g = new THREE.Group();
   const w = 11 + rnd() * 6, d = 8 + rnd() * 5;
   const a = new THREE.Mesh(new THREE.BoxGeometry(w, 3.6, d), rnd() < 0.5 ? M.stucco : M.stucco2); a.position.y = 1.8; g.add(a);
@@ -170,6 +241,7 @@ function home(x, z, rot) {
   return place(g, x, z, rot);
 }
 function clubhouse(x, z, rot) {
+  const m = model('clubhouse', x, z, rot); if (m) return m;
   const g = new THREE.Group();
   const a = new THREE.Mesh(new THREE.BoxGeometry(34, 5, 18), M.stucco); a.position.y = 2.5; g.add(a);
   const r = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 24), M.roof); r.position.y = 5.3; g.add(r);
@@ -178,6 +250,7 @@ function clubhouse(x, z, rot) {
   return place(g, x, z, rot);
 }
 function dome(x, z, r) {
+  const mm = model('dome', x, z, rnd() * 6.28); if (mm) { mm.scale.setScalar(r / 6.5); return mm; }
   const g = new THREE.Group();
   const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), M.dome); m.position.y = r * 0.28; g.add(m);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.98, r * 1.05, r * 0.3, 24), M.stucco2); base.position.y = r * 0.15; g.add(base);
@@ -185,6 +258,7 @@ function dome(x, z, r) {
   return place(g, x, z, rnd() * 6.28);
 }
 function pavilion(x, z, s) {
+  const m = model('pavilion', x, z, rnd() * 6.28); if (m) { m.scale.setScalar(s / 8); return m; }
   const g = new THREE.Group();
   const cone = new THREE.Mesh(new THREE.ConeGeometry(s, s * 0.85, 6, 1, true), M.tent); cone.position.y = s * 0.85 / 2 + 2.4; g.add(cone);
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const p = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.6), M.steel); p.position.set(Math.cos(a) * s * 0.95, 1.3, Math.sin(a) * s * 0.95); g.add(p); }
@@ -192,6 +266,7 @@ function pavilion(x, z, s) {
   return place(g, x, z, rnd() * 6.28);
 }
 function hangar(x, z, rot, w, d) {
+  const m = model('hangar', x, z, rot); if (m) return m;
   const g = new THREE.Group();
   const arch = new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, d, 20, 1, false, 0, Math.PI), M.hangar);
   arch.rotation.z = Math.PI / 2; arch.rotation.y = Math.PI / 2; arch.position.y = 2.5; g.add(arch);
@@ -201,6 +276,7 @@ function hangar(x, z, rot, w, d) {
   return place(g, x, z, rot);
 }
 function storefront(x, z, rot) {
+  const m = model(rnd() < 0.3 ? 'saloon' : 'store', x, z, rot); if (m) return m;
   const g = new THREE.Group();
   const w = 8 + rnd() * 4, d = 10 + rnd() * 4, h = 4 + rnd() * 1.2;
   const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rnd() < 0.5 ? M.wood : M.woodL); body.position.y = h / 2; g.add(body);
@@ -222,6 +298,7 @@ function sculpture(x, z, kind) {
   return place(g, x, z, 0);
 }
 function tower(x, z) {
+  const m = model('tower', x, z, 0); if (m) { const ring = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.16, 8, 32), M.green.clone()); ring.rotation.x = Math.PI / 2; ring.position.y = 21; nightGlow.push(ring.material); m.add(ring); return m; }
   const g = new THREE.Group();
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.4, 20, 12), M.stucco); shaft.position.y = 10; g.add(shaft);
   const cab = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 4.2, 4.2, 8), M.glass); cab.position.y = 22.2; g.add(cab);
@@ -260,7 +337,9 @@ async function buildWorld() {
   setLoad(0.05);
   const [site, hbuf] = await Promise.all([fetch("/site.json").then((r) => r.json()), fetch("/height.bin").then((r) => r.arrayBuffer())]);
   SITE = site; T = site.terrain; H = new Float32Array(hbuf);
-  setLoad(0.25);
+  setLoad(0.2);
+  await loadModels();
+  setLoad(0.3);
 
   // terrain
   const W = T.xmax - T.xmin, D = T.zmax - T.zmin;
@@ -397,6 +476,8 @@ addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (e.code === "KeyC") toggleCart();
   if (e.code === "KeyM") { towerView = !towerView; }
+  if (e.code === "KeyN") { timeOffset += DAY_SECONDS / 2; }
+  if (e.code === "KeyX") toggleSound();
   if (e.code === "KeyE") openNearest();
   if (e.code === "KeyG") toggleGuestbook();
   if (e.code === "Escape") { closeCards(); }
@@ -417,7 +498,7 @@ if ("ontouchstart" in window) document.body.classList.add("touch");
 canvas.addEventListener("touchstart", (e) => { for (const t of e.changedTouches) { if (t.clientX < innerWidth / 2 && joy.id === null) { joy.id = t.identifier; joy.cx = t.clientX; joy.cy = t.clientY; joy.active = true; } else if (look.id === null) { look.id = t.identifier; look.x = t.clientX; look.y = t.clientY; } } }, { passive: true });
 canvas.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) { if (t.identifier === joy.id) { joy.dx = Math.max(-1, Math.min(1, (t.clientX - joy.cx) / 50)); joy.dy = Math.max(-1, Math.min(1, (t.clientY - joy.cy) / 50)); joyKnob.style.transform = `translate(${joy.dx * 30}px,${joy.dy * 30}px)`; } else if (t.identifier === look.id) { yaw -= (t.clientX - look.x) * 0.005; pitch = Math.max(-0.35, Math.min(0.9, pitch + (t.clientY - look.y) * 0.004)); look.x = t.clientX; look.y = t.clientY; } } }, { passive: true });
 canvas.addEventListener("touchend", (e) => { for (const t of e.changedTouches) { if (t.identifier === joy.id) { joy.id = null; joy.active = false; joy.dx = joy.dy = 0; joyKnob.style.transform = ""; } if (t.identifier === look.id) look.id = null; } }, { passive: true });
-document.querySelectorAll("#tbtns button").forEach((b) => b.addEventListener("click", () => { const k = b.dataset.k; if (k === "KeyC") toggleCart(); else if (k === "KeyM") towerView = !towerView; else if (k === "KeyE") openNearest(); else if (k === "KeyG") toggleGuestbook(); else if (k === "Digit1") act({ t: "emote", e: "wave" }); }));
+document.querySelectorAll("#tbtns button").forEach((b) => b.addEventListener("click", () => { const k = b.dataset.k; if (k === "KeyC") toggleCart(); else if (k === "KeyM") towerView = !towerView; else if (k === "KeyE") openNearest(); else if (k === "KeyG") toggleGuestbook(); else if (k === "Digit1") act({ t: "emote", e: "wave" }); else if (k === "KeyN") timeOffset += DAY_SECONDS / 2; }));
 
 // ───────────────────────────── HUD: cards, guestbook, zones, minimap ─────────────────────────────
 let gbOpen = false;
@@ -543,7 +624,7 @@ function frame() {
     }
     for (const [id, a] of avatars) if (!view.players[id]) { scene.remove(a.g); avatars.delete(id); }
   }
-  updateZone(dt); drawMinimap();
+  updateZone(dt); drawMinimap(); updateSky(); updateAudio(dt);
   renderer.render(scene, camera);
 }
 const emoteShown = new Map();
@@ -552,6 +633,33 @@ function showEmote(g, p) {
   if (p.emote && p.emoteTick && (!prev || prev.tick !== p.emoteTick)) { emoteShown.set(key, { tick: p.emoteTick, at: performance.now() }); g.userData.emote.material.map = emojiTex[p.emote]; g.userData.emote.material.needsUpdate = true; g.userData.emote.visible = true; }
   const e = emoteShown.get(key); if (e && performance.now() - e.at > 3000) g.userData.emote.visible = false;
 }
+
+// ───────────────────────────── ambient audio ─────────────────────────────
+const AUD = {}; let soundOn = false, audioReady = false, planeTimer = 40 + Math.random() * 60;
+function mkAudio(src, vol, loop) { const a = new Audio(src); a.loop = loop; a.volume = 0; a.preload = "auto"; a.dataset.vol = vol; return a; }
+AUD.music = mkAudio("/audio/music.m4a", 0.22, true);
+AUD.wind = mkAudio("/audio/wind.mp3", 0.5, true);
+AUD.night = mkAudio("/audio/night.mp3", 0.55, true);
+AUD.plane = mkAudio("/audio/plane.mp3", 0.45, false);
+function startAudio() {
+  if (audioReady) return; audioReady = true;
+  for (const k of ["music", "wind", "night"]) AUD[k].play().catch(() => {});
+  soundOn = localStorage.getItem("g1:sound") !== "off";
+  updateSoundBtn();
+}
+function toggleSound() { soundOn = !soundOn; localStorage.setItem("g1:sound", soundOn ? "on" : "off"); if (!audioReady) { audioReady = true; for (const k of ["music", "wind", "night"]) AUD[k].play().catch(() => {}); } updateSoundBtn(); }
+function updateSoundBtn() { const b = document.getElementById("snd"); if (b) b.textContent = soundOn ? "SOUND ON" : "SOUND OFF"; }
+function updateAudio(dt) {
+  if (!audioReady) return;
+  const on = soundOn ? 1 : 0;
+  const target = { music: 1, wind: 0.25 + 0.75 * (1 - night), night: night };
+  for (const k in target) { const a = AUD[k], want = on * +a.dataset.vol * target[k]; a.volume += (want - a.volume) * Math.min(1, dt * 1.5); }
+  planeTimer -= dt;
+  if (planeTimer <= 0) { planeTimer = 70 + Math.random() * 90; if (soundOn && night < 0.6) { AUD.plane.volume = +AUD.plane.dataset.vol; AUD.plane.currentTime = 0; AUD.plane.play().catch(() => {}); } }
+}
+addEventListener("pointerdown", startAudio);
+addEventListener("keydown", startAudio);
+document.getElementById("snd").addEventListener("click", (e) => { e.stopPropagation(); toggleSound(); });
 
 // ───────────────────────────── boot ─────────────────────────────
 buildWorld().then(() => {
