@@ -205,6 +205,7 @@ export function applyAction(state, playerId, action) {
     me.z = Math.round(action.z * 100) / 100;
     me.ry = Math.round(action.ry * 1000) / 1000;
     if (action.cart !== undefined) me.cart = action.cart;
+    if (typeof action.y === "number" && isFinite(action.y)) me.y = Math.round(action.y * 100) / 100;
   } else if (action.t === "ball") {
     me.ball = action.b ? { x: Math.round(action.b.x * 100) / 100, z: Math.round(action.b.z * 100) / 100, h: Math.round(action.b.h) } : null;
   } else if (action.t === "score") {

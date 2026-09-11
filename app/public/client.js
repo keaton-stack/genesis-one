@@ -213,7 +213,7 @@ addSway(M.scrub, 0.9);
 async function loadModels() {
   if (!THREE.GLTFLoader) return; const loader = new THREE.GLTFLoader(); const kinds = Object.keys(MODEL_SPECS); let done = 0;
   await Promise.all(kinds.map((k) => new Promise((res) => {
-    loader.load(`/models/${k}.glb`, (g) => {
+    loader.load(`/models/${k}.glb?v=${window.BUILD || 0}`, (g) => {
       const root = g.scene; root.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(root); const sz = new THREE.Vector3(); box.getSize(sz); const c = new THREE.Vector3(); box.getCenter(c);
       const spec = MODEL_SPECS[k]; const s = spec.height ? spec.height / sz.y : spec.size / Math.max(sz.x, sz.z);
@@ -716,8 +716,8 @@ async function loadCharacters() {
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return; const loader = new THREE.GLTFLoader();
   const load = (url) => new Promise((res) => loader.load(url, res, undefined, () => res(null)));
   for (const body of ["m", "f"]) {
-    const walk = await load(`/models/char_${body}.glb`); if (!walk) continue;
-    const idle = await load(`/models/char_${body}_idle.glb`); const run = await load(`/models/char_${body}_run.glb`); const jump = await load(`/models/char_${body}_jump.glb`);
+    const walk = await load(`/models/char_${body}.glb?v=${window.BUILD || 0}`); if (!walk) continue;
+    const vq = `?v=${window.BUILD || 0}`; const idle = await load(`/models/char_${body}_idle.glb` + vq); const run = await load(`/models/char_${body}_run.glb` + vq); const jump = await load(`/models/char_${body}_jump.glb` + vq);
     const root = walk.scene; root.updateMatrixWorld(true);
     // measure the SKINNED pose (Meshy rigs keep bones in cm and geometry in m, so plain bounds are 100x off)
     const box = new THREE.Box3(); const v = new THREE.Vector3();
@@ -939,7 +939,7 @@ function drawMinimap() {
 
 // ───────────────────────────── movement + net sync ─────────────────────────────
 let lastSent = { x: 0, z: 48, ry: 0, at: 0 };
-function pushMove(force) { if (!player || riding) return; const now = performance.now(); const moved = Math.hypot(player.position.x - lastSent.x, player.position.z - lastSent.z) > 0.08 || Math.abs(yaw - lastSent.ry) > 0.02; if (force || (moved && now - lastSent.at > 120) || now - lastSent.at > 3000) { act({ t: "move", x: +player.position.x.toFixed(2), z: +player.position.z.toFixed(2), ry: +yaw.toFixed(3), cart: cartMode }); lastSent = { x: player.position.x, z: player.position.z, ry: yaw, at: now }; } }
+function pushMove(force) { if (!player || riding) return; const now = performance.now(); const moved = Math.hypot(player.position.x - lastSent.x, player.position.z - lastSent.z) > 0.08 || Math.abs(yaw - lastSent.ry) > 0.02 || Math.abs(player.position.y - (lastSent.y || 0)) > 0.15; if (force || (moved && now - lastSent.at > 120) || now - lastSent.at > 3000) { act({ t: "move", x: +player.position.x.toFixed(2), y: +player.position.y.toFixed(2), z: +player.position.z.toFixed(2), ry: +yaw.toFixed(3), cart: cartMode }); lastSent = { x: player.position.x, y: player.position.y, z: player.position.z, ry: yaw, at: now }; } }
 let lastT = performance.now(), bob = 0, bobY = 0; const camTarget = new THREE.Vector3(); const CAM = { dist: 9.5, look: new THREE.Vector3(), init: false, prAcc: 0, prN: 0, pr: 0 };
 const smoothK = (dt, rate) => 1 - Math.exp(-dt * rate);
 function camLook(x, y, z, dt, rate) { if (!CAM.init) { CAM.look.set(x, y, z); CAM.init = true; } else CAM.look.lerp(camTarget.set(x, y, z), smoothK(dt, rate || 22)); camera.lookAt(CAM.look); }
@@ -1023,7 +1023,7 @@ function frame() {
       { const u = a.g.userData; const sp = Math.hypot(a.g.position.x - u.lastPos.x, a.g.position.z - u.lastPos.z) / Math.max(dt, 0.001); u.lastPos.copy(a.g.position); animateWalk(a.g, Math.min(sp, 12), dt); }
       if (p.veh && view.vehicles && view.vehicles[p.veh]) continue;
       a.g.userData.walk.visible = true; a.g.userData.label.visible = true; if (a.g.userData.cartG.visible !== !!p.cart) setCartVisual(a.g, !!p.cart);
-      a.g.position.x += (p.x - a.g.position.x) * 0.12; a.g.position.z += (p.z - a.g.position.z) * 0.12; a.g.position.y = getH(a.g.position.x, a.g.position.z) + rampHeight(a.g.position.x, a.g.position.z);
+      { const k = 1 - Math.exp(-dt * 9); a.g.position.x += (p.x - a.g.position.x) * k; a.g.position.z += (p.z - a.g.position.z) * k; const ground = getH(a.g.position.x, a.g.position.z) + rampHeight(a.g.position.x, a.g.position.z); const ty = typeof p.y === "number" && p.y > ground - 2 ? Math.max(ground, p.y) : ground; a.g.position.y += (ty - a.g.position.y) * (1 - Math.exp(-dt * 12)); a.g.userData.air = a.g.position.y > ground + 0.6; }
       const dx = p.x - a.g.position.x, dz = p.z - a.g.position.z; if (dx * dx + dz * dz > 0.02) a.g.rotation.y = Math.atan2(dx, dz);
     }
     for (const [id, a] of avatars) if (!view.players[id]) { scene.remove(a.g); avatars.delete(id); }
