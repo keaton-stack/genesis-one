@@ -148,10 +148,15 @@
     </div>
     <div id="creator" class="card">
       <h2>Your character</h2><div class="k mono">Everyone on the site sees this</div>
-      <div class="cols"><div><label>Skin</label><input type="color" id="c-skin" value="#e8c19a" /><label>Shirt</label><input type="color" id="c-shirt" value="#4dde6f" /></div><div><label>Pants</label><input type="color" id="c-pants" value="#2b3a4a" /><label>Hair</label><select id="c-hair"><option value="0">Short</option><option value="1">Cropped</option><option value="2">Long</option><option value="3">Flat top</option></select></div></div>
+      <div class="cols"><div><label>Skin</label><input type="color" id="c-skin" value="#e8c19a" /><label>Shirt</label><input type="color" id="c-shirt" value="#4dde6f" /></div><div><label>Pants</label><input type="color" id="c-pants" value="#2b3a4a" /><label>Body</label><select id="c-body"><option value="m">Man</option><option value="f">Woman</option></select><label>Hair</label><select id="c-hair"><option value="0">Short</option><option value="1">Cropped</option><option value="2">Long</option><option value="3">Flat top</option></select></div></div>
       <p style="margin-top:10px">Hats and outfits are sold at the General Store on Main Street and the terminal shop. Earn GB coins by playing.</p>
       <div class="row"><button class="btn" id="c-go">Looks good</button></div>
     </div>
+    <div id="tour" class="hud" style="left:50%;bottom:90px;transform:translateX(-50%);width:min(620px,94vw);padding:18px 22px;border-radius:16px;background:rgba(10,22,16,.9);border:1px solid rgba(77,222,111,.5);pointer-events:auto;display:none;z-index:18">
+      <div class="k mono" style="color:#4DDE6F;margin-bottom:4px">Sky · Tour guide · <span id="tour-n"></span></div><div style="font-family:Anton,Impact,sans-serif;font-size:22px;letter-spacing:.03em" id="tour-h"></div><p id="tour-p" style="margin:6px 0 10px;color:rgba(245,241,230,.88)"></p>
+      <div class="row" style="display:flex;gap:8px"><button class="btn" id="tour-next" style="padding:8px 14px">Next stop</button><button class="btn ghost" id="tour-end" style="padding:8px 14px">End tour</button></div>
+    </div>
+    <style>#tour.on { display:block !important; }</style>
     <div id="board" class="card">
       <h2>Leaderboards</h2>
       <div class="k mono">Best of the site</div>
@@ -161,6 +166,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="/GLTFLoader.js"></script>
+    <script src="/SkeletonUtils.js"></script>
     <script src="/client.js"></script>
   </body>
 </html>

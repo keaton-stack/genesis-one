@@ -45,11 +45,12 @@ function logLine(name, text) { const log = $("#log"); const d = document.createE
 // ───────────────────────────── scene ─────────────────────────────
 const canvas = $("#gl");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
 const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0xe7d6bd, 0.00005);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.5, 120000);
 const hemi = new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.62); scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffe6c4, 1.25); sun.position.set(-600, 500, 300); scene.add(sun);
+const sun = new THREE.DirectionalLight(0xffe6c4, 1.25); sun.position.set(-600, 500, 300); scene.add(sun); scene.add(sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.near = 20; sun.shadow.camera.far = 1600; sun.shadow.camera.left = sun.shadow.camera.bottom = -130; sun.shadow.camera.right = sun.shadow.camera.top = 130; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.6;
 const moon = new THREE.DirectionalLight(0x9fb4ff, 0); moon.position.set(400, 500, -300); scene.add(moon);
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
@@ -110,6 +111,7 @@ function sampleGrid(h, t, x, z) {
   return (h[i] * (1 - fu) + h[i + 1] * fu) * (1 - fv) + (h[i + t.cols] * (1 - fu) + h[i + t.cols + 1] * fu) * fv;
 }
 function getH(x, z) {
+  if (inside && Math.hypot(x - inside.door.e[0], z - inside.door.e[2]) < inside.half * 1.5) return inside.door.e[1];
   if (H && x > T.xmin && x < T.xmax && z > T.zmin && z < T.zmax) return sampleGrid(H, T, x, z);
   if (HR) return sampleGrid(HR, TR, x, z);
   return 0;
@@ -142,9 +144,10 @@ const M = {
 const buildingMats = [];
 
 // ───────────────────────────── geometry helpers ─────────────────────────────
-const ROADS = [];
-function ribbon(points, width, mat, lift, dashed) {
-  if (mat === M.dirt || mat === M.track || mat === M.walk || mat === M.asphalt || mat === M.taxi) ROADS.push({ pts: points, w: width });
+const ROADS = [], DEFER = [];
+function ribbon(points, width, mat, lift, dashed) { if (mat === M.dirt || mat === M.track || mat === M.walk || mat === M.asphalt || mat === M.taxi) ROADS.push({ pts: points, w: width }); const g = new THREE.Group(); DEFER.push(() => g.add(ribbonNow(points, width, mat, lift, dashed))); return g; }
+function polygon(points, mat, lift) { const g = new THREE.Group(); DEFER.push(() => g.add(polygonNow(points, mat, lift))); return g; }
+function ribbonNow(points, width, mat, lift, dashed) {
   const pts = [];
   for (let i = 0; i < points.length - 1; i++) { const [ax, az] = points[i], [bx, bz] = points[i + 1]; const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 8)); for (let k = 0; k < n; k++) pts.push([ax + (bx - ax) * k / n, az + (bz - az) * k / n]); }
   pts.push(points[points.length - 1]);
@@ -159,7 +162,7 @@ function ribbon(points, width, mat, lift, dashed) {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return new THREE.Mesh(g, mat);
 }
-function polygon(points, mat, lift) {
+function polygonNow(points, mat, lift) {
   const tri = THREE.ShapeUtils.triangulateShape(points.map((p) => new THREE.Vector2(p[0], p[1])), []); const pos = [], idx = [];
   const hAvg = points.reduce((s, p) => s + getH(p[0], p[1]), 0) / points.length; const uv = [];
   for (const p of points) { pos.push(p[0], hAvg + lift, p[1]); uv.push(p[0] / 12, p[1] / 12); } for (const t of tri) idx.push(t[0], t[2], t[1]);
@@ -192,6 +195,7 @@ const MODEL_SPECS = {
   bigtent: { size: 58 }, hangarhome: { size: 34 }, diner: { size: 30 }, chapel: { size: 16 }, hotel: { size: 26 }, barn: { size: 22 }, gallery: { size: 30 }, observatory: { size: 12 },
   amphitheater: { size: 40, solid: 0 }, solar: { size: 26, solid: 0 }, fbo: { size: 36 },
   bank: { size: 16 }, restaurant: { size: 32 }, villa: { size: 19 }, ranch: { size: 18 }, casita: { size: 9 }, bush1: { size: 2.6, solid: 0, prop: true, sway: 0.9 }, bush2: { size: 2.2, solid: 0, prop: true, sway: 0.9 }, mesquite: { height: 6, solid: 0.5, prop: true, sway: 0.5 }, ocotillo: { height: 4, solid: 0.3, prop: true, sway: 0.7 }, boulder: { size: 3.5, solid: 1.4, prop: true }, art1: { height: 9, solid: 2, prop: true }, art2: { height: 8, solid: 2, prop: true }, art3: { height: 10, solid: 2, prop: true }, art4: { height: 7, solid: 2, prop: true },
+  coyote: { size: 1.3, prop: true, solid: 0, animal: true }, roadrunner: { size: 0.55, prop: true, solid: 0, animal: true }, scorpion: { size: 0.28, prop: true, solid: 0, animal: true }, jackrabbit: { size: 0.55, prop: true, solid: 0, animal: true }, javelina: { size: 1.1, prop: true, solid: 0, animal: true }, snake: { size: 0.9, prop: true, solid: 0, animal: true }, tortoise: { size: 0.45, prop: true, solid: 0, animal: true }, quail: { size: 0.3, prop: true, solid: 0, animal: true },
   saguaro: { height: 7, solid: 0.6, prop: true, sway: 0.12 }, paloverde: { height: 8, solid: 0.6, prop: true, sway: 0.55 }, sculpture: { height: 7, solid: 1.5, prop: true }, lamp: { height: 4.2, solid: 0.3, prop: true, sway: 0.08 }, windmill: { height: 14, solid: 2 },
   cart: { size: 3.2, vehicle: true, rot: Math.PI / 2 }, jet: { size: 22, vehicle: true, rot: Math.PI / 2 }, gbjet: { size: 22, vehicle: true, rot: Math.PI / 2 },
 };
@@ -221,6 +225,15 @@ async function loadModels() {
   })));
 }
 const HOME_KINDS = ["home", "villa", "ranch", "casita"];
+// level pads: grade the ground to the building's base height inside its footprint
+function flattenPads() {
+  const W = T.xmax - T.xmin, D = T.zmax - T.zmin; const cw = W / (T.cols - 1), ch = D / (T.rows - 1); const sm = (t) => t * t * (3 - 2 * t);
+  const pads = [];
+  for (const kind in PLACE) { const spec = MODEL_SPECS[kind]; if (spec.prop || spec.vehicle || !MODELS[kind]) continue; for (const e of PLACE[kind]) pads.push([e[0], e[2], MODELS[kind].radius * e[4] * 1.2 + 1.5, e[1]]); }
+  for (const l of LOTS) pads.push([l.x, l.z, 12, getH(l.x, l.z)]);
+  for (const [px, pz, pr, target] of pads) { const edge = 5; const c0 = Math.max(0, Math.floor((px - pr - edge - T.xmin) / cw)), c1 = Math.min(T.cols - 1, Math.ceil((px + pr + edge - T.xmin) / cw)), r0 = Math.max(0, Math.floor((pz - pr - edge - T.zmin) / ch)), r1 = Math.min(T.rows - 1, Math.ceil((pz + pr + edge - T.zmin) / ch));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const x = T.xmin + c * cw, z = T.zmin + r * ch; const d = Math.hypot(x - px, z - pz); if (d > pr + edge) continue; const k = d < pr ? 1 : 1 - sm((d - pr) / edge); const i = r * T.cols + c; H[i] = H[i] + (target - H[i]) * k; } }
+}
 function put(kind, x, z, rot, scale) {
   if (kind === "home") { const v = HOME_KINDS.filter((k) => MODELS[k]); kind = v[Math.floor(rnd() * v.length)] || "home"; }
   const sc = scale || 1; (PLACE[kind] || (PLACE[kind] = [])).push([x, getH(x, z), z, rot || 0, sc]);
@@ -230,7 +243,8 @@ function put(kind, x, z, rot, scale) {
 function buildInstances() {
   const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   for (const kind in PLACE) { const m = MODELS[kind], list = PLACE[kind]; if (!m || !list.length) continue;
-    for (const part of m.parts) { const inst = new THREE.InstancedMesh(part.geometry, part.material, list.length); list.forEach((e, i) => { p.set(e[0], e[1], e[2]); q.setFromAxisAngle(up, e[3]); s.setScalar(e[4]); mtx.compose(p, q, s); inst.setMatrixAt(i, mtx); }); inst.frustumCulled = false; scene.add(inst); (INST[kind] || (INST[kind] = [])).push(inst); } }
+    if (MODEL_SPECS[kind].prop) for (const e of list) e[1] = getH(e[0], e[2]);
+    for (const part of m.parts) { const inst = new THREE.InstancedMesh(part.geometry, part.material, list.length); inst.castShadow = !MODEL_SPECS[kind].prop || m.height > 3; inst.receiveShadow = true; list.forEach((e, i) => { p.set(e[0], e[1], e[2]); q.setFromAxisAngle(up, e[3]); s.setScalar(e[4]); mtx.compose(p, q, s); inst.setMatrixAt(i, mtx); }); inst.frustumCulled = false; scene.add(inst); (INST[kind] || (INST[kind] = [])).push(inst); } }
 }
 function makeModel(kind) { const m = MODELS[kind]; const g = new THREE.Group(); if (!m) return g; for (const part of m.parts) g.add(new THREE.Mesh(part.geometry, part.material)); return g; }
 function collide(x, z, r) { if (inside) return [x, z]; for (const c of COLLIDERS) { const dx = x - c[0], dz = z - c[1], d = Math.hypot(dx, dz), min = c[2] + r; if (d < min && d > 0.001) { x = c[0] + dx / d * min; z = c[1] + dz / d * min; } } return [x, z]; }
@@ -295,7 +309,7 @@ function ring(cx, cz, r, kinds, spacing, lamps) {
 function sculptTerrain(site) {
   const Z = site.zones; const W = T.xmax - T.xmin, D = T.zmax - T.zmin;
   const hills = [[-170, 420, 190, 11], [560, 470, 170, 9], [-520, 920, 210, 12], [930, -330, 230, 12], [-260, -380, 140, 7], [1000, 900, 240, 14], [-950, -150, 200, 9], [300, -820, 180, 8], [-600, 1200, 160, 8]];
-  const pads = [[Z.landing.center[0], Z.landing.center[1], 300, 60], [Z.expanse.center[0], Z.expanse.center[1], 330, 70], [0, 0, 160, 60], [-360, 330, 200, 40], [560, -720, 90, 40], [-170, 170, 340, 60], [-700, -600, 170, 40], [-800, 300, 150, 40]];
+  const pads = [[Z.landing.center[0], Z.landing.center[1], 300, 60], [Z.expanse.center[0], Z.expanse.center[1], 330, 70], [0, 0, 160, 60], [-200, 1000, 300, 60], [-360, 330, 200, 40], [560, -720, 90, 40], [-170, 170, 340, 60], [-700, -600, 170, 40], [-800, 300, 150, 40]];
   const rwMid = runwayMid;
   const sm = (t) => t * t * (3 - 2 * t);
   const H2 = new Float32Array(H.length);
@@ -327,15 +341,17 @@ async function buildWorld() {
   U = site.runway_dir; Nn = [-U[1], U[0]]; heading = Math.atan2(U[0], U[1]);
   runwayMid = [(site.runway[0][0] + site.runway[site.runway.length - 1][0]) / 2, (site.runway[0][1] + site.runway[site.runway.length - 1][1]) / 2];
   sculptTerrain(site);
-  setLoad(0.12, "Raising the buildings"); await loadModels(); setLoad(0.58, "Laying the ground");
+  // upsample the survey grid 2x each way so pads and roads can be graded at ~4.7 m
+  { const C = T.cols, R = T.rows, C2 = C * 2 - 1, R2 = R * 2 - 1; const H2 = new Float32Array(C2 * R2);
+    for (let r = 0; r < R2; r++) for (let c = 0; c < C2; c++) { const fx = c / 2, fz = r / 2; const x0 = Math.min(C - 2, Math.floor(fx)), z0 = Math.min(R - 2, Math.floor(fz)); const tx = fx - x0, tz = fz - z0; H2[r * C2 + c] = (H[z0 * C + x0] * (1 - tx) + H[z0 * C + x0 + 1] * tx) * (1 - tz) + (H[(z0 + 1) * C + x0] * (1 - tx) + H[(z0 + 1) * C + x0 + 1] * tx) * tz; }
+    H = H2; T.cols = C2; T.rows = R2; }
+  setLoad(0.12, "Raising the buildings"); await loadModels(); await loadCharacters(); setLoad(0.58, "Laying the ground");
 
   const W = T.xmax - T.xmin, D = T.zmax - T.zmin;
-  const geo = new THREE.PlaneGeometry(W, D, T.cols - 1, T.rows - 1); geo.rotateX(-Math.PI / 2);
-  const pa = geo.attributes.position; for (let i = 0; i < pa.count; i++) pa.setY(i, H[i]); geo.computeVertexNormals();
   const texLoader = new THREE.TextureLoader(); const tex = await new Promise((res) => texLoader.load("/ground.jpg", res)); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const gmat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, bumpMap: TEX.detail, bumpScale: 0.35 });
   gmat.onBeforeCompile = (sh) => { sh.uniforms.detailMap = { value: TEX.detail }; sh.uniforms.groundMap = { value: TEX.detail2 }; sh.uniforms.rockMap = { value: TEX.rock }; sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWN;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvWN = normalize(normal);"); sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vWN;").replace("#include <map_fragment>", "#include <map_fragment>\n float dist = length(vViewPosition); float near = smoothstep(700.0, 40.0, dist); vec3 grd = texture2D(groundMap, vUv * 480.0).rgb; vec3 grd2 = texture2D(groundMap, vUv * 61.0 + 0.37).rgb; vec3 det = texture2D(detailMap, vUv * 1400.0).rgb; vec3 closeCol = grd * mix(vec3(1.0), grd2 * 1.6, 0.45) * mix(vec3(1.0), det * 1.5, 0.35); vec3 aerialTint = diffuseColor.rgb / vec3(0.62, 0.55, 0.45); diffuseColor.rgb = mix(diffuseColor.rgb, closeCol * 0.78 * clamp(aerialTint, 0.55, 1.15), near * 0.85); float slope = 1.0 - clamp(vWN.y, 0.0, 1.0); vec3 rock = texture2D(rockMap, vUv * 300.0).rgb; diffuseColor.rgb = mix(diffuseColor.rgb, rock, smoothstep(0.12, 0.35, slope) * 0.8);").replace("uniform vec3 diffuse;", "uniform vec3 diffuse; uniform sampler2D detailMap; uniform sampler2D groundMap; uniform sampler2D rockMap;"); };
-  const ground = new THREE.Mesh(geo, gmat); ground.position.set((T.xmin + T.xmax) / 2, 0, (T.zmin + T.zmax) / 2); scene.add(ground);
+  const buildGround = () => { const geo = new THREE.PlaneGeometry(W, D, T.cols - 1, T.rows - 1); geo.rotateX(-Math.PI / 2); const pa = geo.attributes.position; for (let i = 0; i < pa.count; i++) pa.setY(i, H[i]); geo.computeVertexNormals(); const ground = new THREE.Mesh(geo, gmat); ground.receiveShadow = true; ground.position.set((T.xmin + T.xmax) / 2, 0, (T.zmin + T.zmax) / 2); scene.add(ground); };
   if (HR) { const WR = TR.xmax - TR.xmin, DR = TR.zmax - TR.zmin; const rg = new THREE.PlaneGeometry(WR, DR, TR.cols - 1, TR.rows - 1); rg.rotateX(-Math.PI / 2); const ra = rg.attributes.position; for (let i = 0; i < ra.count; i++) ra.setY(i, HR[i] - 3); rg.computeVertexNormals();
     const rtex = await new Promise((res) => texLoader.load("/region_ground.jpg", res)); rtex.encoding = THREE.sRGBEncoding; rtex.anisotropy = 4;
     const rmat = new THREE.MeshStandardMaterial({ map: rtex, roughness: 1, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }); rmat.onBeforeCompile = (sh) => { sh.uniforms.rockMap = { value: TEX.rock }; sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying float vH;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvH = position.y;"); sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vH; uniform sampler2D rockMap;").replace("#include <map_fragment>", "#include <map_fragment>\n float rk = smoothstep(120.0, 700.0, vH); vec3 rock = texture2D(rockMap, vUv * 260.0).rgb * texture2D(rockMap, vUv * 41.0).rgb * 1.9; diffuseColor.rgb = mix(diffuseColor.rgb, rock * vec3(0.95, 0.85, 0.8), rk * 0.85); float snow = smoothstep(1500.0, 2100.0, vH); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93), snow * 0.7);"); };
@@ -347,11 +363,11 @@ async function buildWorld() {
 
   const Z = site.zones;
   // keep-out zones for the two games (placed before anything is scattered)
-  GOLF.origin = [-120, 1120]; KEEPOUT.push([GOLF.origin[0], GOLF.origin[1], 360]);
+  GOLF.origin = [-200, 1000]; KEEPOUT.push([GOLF.origin[0], GOLF.origin[1], 330]);
   COURSE.origin = [-360, 330]; KEEPOUT.push([COURSE.origin[0], COURSE.origin[1], 190]);
   const roads = [[Z.tower.center, Z.flightline.center], [Z.tower.center, Z.landing.center], [Z.landing.center, Z.expanse.center], [Z.flightline.center, Z.expanse.center], [Z.expanse.center, [Z.expanse.center[0] - 260, Z.expanse.center[1] + 330]], [[Z.expanse.center[0] - 260, Z.expanse.center[1] + 330], Z.landing.center], [Z.tower.center, COURSE.origin], [Z.landing.center, GOLF.origin]];
   for (const r of roads) scene.add(ribbon(r, 7, M.dirt, 0.2));
-  for (const r of [[Z.tower.center, [560, -720]], [Z.flightline.center, COURSE.origin], [COURSE.origin, [COURSE.origin[0] + 190, COURSE.origin[1] - 160]], [Z.expanse.center, [560, -720]]]) scene.add(ribbon(r, 4, M.walk, 0.34));
+  for (const r of [[Z.tower.center, [560, -720]], [Z.landing.center, GOLF.origin], [Z.flightline.center, COURSE.origin], [COURSE.origin, [COURSE.origin[0] + 190, COURSE.origin[1] - 160]], [Z.expanse.center, [560, -720]]]) scene.add(ribbon(r, 4, M.walk, 0.34));
   setLoad(0.74, "Building the stages");
 
   for (const c of [Z.landing.center, Z.expanse.center]) { const pts = []; for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283; pts.push([c[0] + Math.cos(a) * 46, c[1] + Math.sin(a) * 46]); } scene.add(polygon(pts, M.walk, 0.36)); }
@@ -417,11 +433,11 @@ async function buildWorld() {
   hotspots.push({ x: (site.runway[0][0] + site.runway[6][0]) / 2, z: (site.runway[0][1] + site.runway[6][1]) / 2, r: 70, t: "Runway 03/21", k: "6,000 ft · Douglas Municipal", p: "The real runway, traced from survey data. Douglas Municipal opened in 1928 as one of the first international airports in the United States." });
 
   setLoad(0.8, "Building home base, the obby and the games");
-  buildHome(); buildObby(); buildCourse(); buildDrag(); buildGolf(); buildDetails();
+  buildHome(); buildObby(); buildCourse(); buildDrag(); buildGolf(); buildDetails(); buildFauna(); buildGuide();
   setLoad(0.88, "Planting the desert");
   scatter("saguaro", 0, 0, 1050, 700, 2, () => 0.6 + rnd() * 0.9); scatter("paloverde", 0, 0, 1050, 480, 3, () => 0.7 + rnd() * 0.8);
   if (MODELS.bush1) scatter("bush1", 0, 0, 1080, 4200, 0.3, () => 0.6 + rnd() * 1.1); if (MODELS.bush2) scatter("bush2", 0, 0, 1080, 3400, 0.3, () => 0.6 + rnd() * 1.1); if (MODELS.mesquite) scatter("mesquite", 0, 0, 1050, 260, 3, () => 0.8 + rnd() * 0.6); if (MODELS.ocotillo) scatter("ocotillo", 0, 0, 1050, 320, 1, () => 0.7 + rnd() * 0.8); if (MODELS.boulder) scatter("boulder", 0, 0, 1050, 160, 3, () => 0.5 + rnd() * 1.6);
-  buildInstances();
+  flattenPads(); buildInstances(); buildGround(); for (const f of DEFER) f(); DEFER.length = 0;
   // door portals: a lit frame and a mat at every enterable door
   { const portals = []; for (const kind of DOOR_KINDS) for (const e of PLACE[kind] || []) { if (!MODELS[kind]) continue; const rr = MODELS[kind].radius * e[4]; portals.push([e[0] + Math.sin(e[3]) * rr * 0.86, e[1], e[2] + Math.cos(e[3]) * rr * 0.86, e[3]]); }
     const matG = new THREE.InstancedMesh(new THREE.BoxGeometry(2.6, 0.06, 1.4), new THREE.MeshStandardMaterial({ color: 0x3a2e26, roughness: 1 }), portals.length); const frameG = new THREE.InstancedMesh(new THREE.TorusGeometry(1.35, 0.05, 6, 24, Math.PI), M.green, portals.length); const mt = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
@@ -533,10 +549,10 @@ function golfSurface(x, z) {
 }
 function buildGolf() {
   const o = GOLF.origin; golf.base = getH(o[0], o[1]);
-  const defs = [[3, 128, 0], [4, 225, 0.35], [3, 105, 0], [4, 250, -0.4], [5, 300, 0.3], [3, 150, 0]];
+  const defs = [[3, 120, 0], [4, 190, 0.35], [3, 100, 0], [4, 200, -0.4], [5, 235, 0.3], [3, 130, 0]];
   const turf2 = new THREE.MeshStandardMaterial({ map: TEX.turf, color: 0xbfe2a0, roughness: 1 });
   defs.forEach(([par, len, dog], i) => {
-    const a = i / 6 * 6.283 + 0.3; const tee = [o[0] + Math.cos(a) * 55, o[1] + Math.sin(a) * 55]; const dir = a;
+    const a = i / 6 * 6.283 + 0.3; const tee = [o[0] + Math.cos(a) * 40, o[1] + Math.sin(a) * 40]; const dir = a;
     const mid = [tee[0] + Math.cos(dir) * len * 0.55, tee[1] + Math.sin(dir) * len * 0.55]; const gdir = dir + dog; const green = [mid[0] + Math.cos(gdir) * len * 0.45, mid[1] + Math.sin(gdir) * len * 0.45];
     const pts = dog ? [tee, mid, green] : [tee, green]; const h = { i, par, len, tee, pts, w: 24, green: [green[0], green[1], 11], cup: [green[0] + Math.cos(gdir) * 3, green[1] + Math.sin(gdir) * 2], bunkers: [], dir };
     for (let k = 0; k < (par === 3 ? 1 : 2); k++) { const t = 0.65 + k * 0.2; const side = k % 2 ? 1 : -1; const bx = tee[0] + Math.cos(dir) * len * t + Math.cos(dir + Math.PI / 2) * side * 16, bz = tee[1] + Math.sin(dir) * len * t + Math.sin(dir + Math.PI / 2) * side * 16; h.bunkers.push([bx, bz, 5 + k * 2]); }
@@ -559,7 +575,7 @@ function golfStart() { golf.playing = true; golf.hole = 0; golf.total = 0; golf.
 function golfTee() { const h = golf.holes[golf.hole]; golf.ball.set(h.tee[0], getH(h.tee[0], h.tee[1]) + 0.5 + 0.16, h.tee[1]); golf.vel.set(0, 0, 0); golf.moving = false; golf.air = false; golf.aim = Math.atan2(h.cup[0] - h.tee[0], h.cup[1] - h.tee[1]); golf.strokes = 0; golf.club = h.par === 3 && h.len < 140 ? 2 : 0; golf.ballMesh.visible = true; golf.arrow.visible = true; golf.shadow.visible = true; golf.last.copy(golf.ball); golfSync(true); }
 function golfEnd(quit) {
   if (!quit) { act({ t: "score", game: "golf", v: golf.total }); logLine("Desert Golf", `${player.userData.name} finished 6 holes in ${golf.total} (${golf.total - 22 >= 0 ? "+" : ""}${golf.total - 22})`); }
-  golf.playing = false; golf.ballMesh.visible = false; golf.arrow.visible = false; golf.shadow.visible = false; $("#game").classList.remove("on"); $("#power").style.display = "none"; act({ t: "ball", b: null }); player.userData.arms.forEach((a) => (a.rotation.x = 0));
+  golf.playing = false; golf.ballMesh.visible = false; golf.arrow.visible = false; golf.shadow.visible = false; $("#game").classList.remove("on"); $("#power").style.display = "none"; act({ t: "ball", b: null }); if (player.userData.legs) player.userData.arms.forEach((a) => (a.rotation.x = 0));
 }
 let lastBallSync = 0;
 function golfSync(force) { const now = performance.now(); if (!force && now - lastBallSync < 250) return; lastBallSync = now; act({ t: "ball", b: { x: +golf.ball.x.toFixed(2), z: +golf.ball.z.toFixed(2), h: golf.hole } }); }
@@ -584,7 +600,7 @@ function updateGolf(dt) {
         const dc = Math.hypot(b.x - h.cup[0], b.z - h.cup[1]); if (dc < 1.0 && spd < 3) { golf.vel.x -= (b.x - h.cup[0]) / dc * 2.5 * sdt; golf.vel.z -= (b.z - h.cup[1]) / dc * 2.5 * sdt; }
         if (dc < 0.34 && spd < 4.5) { golf.moving = false; golf.vel.set(0, 0, 0); golf.holed = 1; b.set(h.cup[0], cupY - 0.2, h.cup[1]); golf.total += golf.strokes; golf.card.push(golf.strokes); sfx("coin"); logLine("Desert Golf", `${player.userData.name} holed ${golf.hole + 1} in ${golf.strokes} (par ${h.par})`); setTimeout(() => { if (!golf.playing) return; if (golf.hole < 5) { golf.hole++; golfTee(); } else golfEnd(false); }, 1600); return; }
         if (spd < 0.25 && !golf.air) { golf.moving = false; golf.vel.set(0, 0, 0); if (golf.strokes >= 12) { golf.total += 12; golf.card.push(12); if (golf.hole < 5) { golf.hole++; golfTee(); } else golfEnd(false); return; } } }
-      if (Math.hypot(b.x - GOLF.origin[0], b.z - GOLF.origin[1]) > 420 || !onLand(b.x, b.z)) { b.copy(golf.last); golf.vel.set(0, 0, 0); golf.moving = false; golf.air = false; golf.strokes++; logLine("Desert Golf", "out of bounds, one stroke penalty"); break; }
+      if (Math.hypot(b.x - GOLF.origin[0], b.z - GOLF.origin[1]) > 330 || !onLand(b.x, b.z)) { b.copy(golf.last); golf.vel.set(0, 0, 0); golf.moving = false; golf.air = false; golf.strokes++; logLine("Desert Golf", "out of bounds, one stroke penalty"); break; }
     }
     golfSync();
   }
@@ -592,7 +608,7 @@ function updateGolf(dt) {
   golf.arrow.visible = !golf.moving; const ang = golf.aim; golf.arrow.position.set(b.x + Math.sin(ang) * 1.2, b.y, b.z + Math.cos(ang) * 1.2); golf.arrow.rotation.y = ang;
   // the golfer stands beside the ball, facing across the line, and swings
   if (!golf.moving) { const side = ang + Math.PI / 2; player.position.set(b.x - Math.sin(side) * 0.75, getH(b.x, b.z) + 0.32, b.z - Math.cos(side) * 0.75); player.rotation.y = side; yaw = ang; }
-  const arms = player.userData.arms; if (arms) { if (golf.charging) { const back = -1.6 * golf.power; arms[0].rotation.x = back; arms[1].rotation.x = back; } else if (golf.swing > 0) { golf.swing -= dt; const k = golf.swing / 0.45; const fw = 1.8 * Math.sin((1 - k) * Math.PI); arms[0].rotation.x = fw; arms[1].rotation.x = fw; } else { arms[0].rotation.x = -0.35; arms[1].rotation.x = -0.35; } }
+  const arms = player.userData.legs ? player.userData.arms : null; if (arms) { if (golf.charging) { const back = -1.6 * golf.power; arms[0].rotation.x = back; arms[1].rotation.x = back; } else if (golf.swing > 0) { golf.swing -= dt; const k = golf.swing / 0.45; const fw = 1.8 * Math.sin((1 - k) * Math.PI); arms[0].rotation.x = fw; arms[1].rotation.x = fw; } else { arms[0].rotation.x = -0.35; arms[1].rotation.x = -0.35; } }
   const dist = Math.hypot(b.x - h.cup[0], b.z - h.cup[1]); const sp = golfSurface(b.x, b.z);
   $("#game-n").textContent = `DESERT GOLF · HOLE ${golf.hole + 1} · PAR ${h.par}`; $("#game-big").textContent = `${golf.strokes} stroke${golf.strokes === 1 ? "" : "s"} · ${Math.round(dist)} m to the pin`; $("#game-s").textContent = `${CLUBS[golf.club][0]} (1-6 or wheel) · ${sp} · A D aim · hold space to swing · total ${golf.total} · Esc quits`;
 }
@@ -616,7 +632,8 @@ function updateSky(dt) {
   skyMat.uniforms.horizon.value.copy(hor); skyMat.uniforms.kDusk.value = Math.min(1, dusk * 1.4); skyMat.uniforms.kNight.value = Math.pow(Math.max(0, night - 0.25) / 0.75, 1.3); scene.fog.color.copy(hor).lerp(mid, 0.35);
   const sdir = new THREE.Vector3(Math.cos(az), el, Math.sin(az) * 0.45).normalize();
   skyMat.uniforms.sunDir.value.copy(sdir); skyMat.uniforms.glow.value = el > -0.2 ? 1 : 0; skyMat.uniforms.sunCol.value.setHSL(0.08, 0.9, 0.55 + 0.25 * Math.min(1, Math.max(0, el)));
-  sun.position.copy(sdir).multiplyScalar(900); sun.position.y = Math.max(sun.position.y, 30);
+  if (player) { sun.target.position.copy(player.position); sun.position.copy(player.position).addScaledVector(sdir, 700); if (sun.position.y < player.position.y + 40) sun.position.y = player.position.y + 40; } else { sun.position.copy(sdir).multiplyScalar(900); sun.position.y = Math.max(sun.position.y, 30); }
+  sun.castShadow = day > 0.05;
   sun.intensity = 1.3 * day; sun.color.setHSL(0.09, 0.6, 0.55 + 0.35 * Math.min(1, Math.max(0, el)));
   moon.intensity = 0.55 * night; hemi.intensity = 0.62 * day + 0.3; hemi.color.setHSL(0.6, 0.35, 0.55 + 0.35 * day);
   renderer.toneMappingExposure = 0.9 - 0.22 * night; stars.material.opacity = Math.max(0, night - 0.35) * 1.4 * (0.85 + 0.15 * Math.sin(performance.now() * 0.006)); stars.material.size = 80 + 20 * Math.sin(performance.now() * 0.0041);
@@ -636,7 +653,33 @@ function emojiTexture(ch) { const c = document.createElement("canvas"); c.width 
 const emojiTex = {}; for (const k in EMOJI) emojiTex[k] = emojiTexture(EMOJI[k]);
 const HAIR_COLORS = [0x2a1b12, 0x6b3f22, 0xd9b26a, 0x1a1a1a];
 const OUTFITS = { outfit_flight: { shirt: 0x1f3b2c, pants: 0x1c1f24, trim: 0x4dde6f }, outfit_ranch: { shirt: 0x8a2f26, pants: 0x2f4a7a, trim: 0xe9e2d3 }, outfit_desert: { shirt: 0xd8c39a, pants: 0x6d5a3e, trim: 0x2a7a3e } };
+const CHAR = {};   // body -> { scene, clips: { walk, idle }, height }
+async function loadCharacters() {
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return; const loader = new THREE.GLTFLoader();
+  const load = (url) => new Promise((res) => loader.load(url, res, undefined, () => res(null)));
+  for (const body of ["m", "f"]) {
+    const walk = await load(`/models/char_${body}.glb`); if (!walk) continue;
+    const idle = await load(`/models/char_${body}_idle.glb`);
+    const root = walk.scene; root.updateMatrixWorld(true);
+    // measure the SKINNED pose (Meshy rigs keep bones in cm and geometry in m, so plain bounds are 100x off)
+    const box = new THREE.Box3(); const v = new THREE.Vector3();
+    root.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); const n = o.geometry.attributes.position.count, step = Math.max(1, Math.floor(n / 4000)); for (let i = 0; i < n; i += step) { o.boneTransform(i, v); v.applyMatrix4(o.matrixWorld); box.expandByPoint(v); } } else if (o.isMesh) box.expandByObject(o); });
+    const sz = new THREE.Vector3(); box.getSize(sz); if (!(sz.y > 0)) continue;
+    const wantH = body === "m" ? 1.78 : 1.68; const sc = wantH / sz.y;
+    root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material.side = THREE.FrontSide; o.material.emissive && o.material.emissive.set(0x000000); if (o.material.map) { o.material.map.encoding = THREE.sRGBEncoding; o.material.map.anisotropy = 8; } } });
+    CHAR[body] = { scene: root, scale: sc, yoff: -box.min.y * sc, clips: { walk: walk.animations && walk.animations[0], idle: idle && idle.animations && idle.animations[0] } };
+  }
+}
+// tint the plain white shirt and dark trousers of the generated body by luminance mask
+function tintMaterial(mat, look) {
+  const m = mat.clone(); const shirt = new THREE.Color("#" + (look && look.shirt || "4dde6f")), pants = new THREE.Color("#" + (look && look.pants || "2b3a4a")), skin = new THREE.Color("#" + (look && look.skin || "e8c19a"));
+  m.onBeforeCompile = (sh) => { sh.uniforms.uShirt = { value: shirt }; sh.uniforms.uPants = { value: pants }; sh.uniforms.uSkin = { value: skin };
+    sh.fragmentShader = sh.fragmentShader.replace("uniform vec3 diffuse;", "uniform vec3 diffuse; uniform vec3 uShirt; uniform vec3 uPants; uniform vec3 uSkin;").replace("#include <map_fragment>", "#include <map_fragment>\n { float lum = dot(diffuseColor.rgb, vec3(0.333)); float sat = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)); float wht = smoothstep(0.62, 0.8, lum) * (1.0 - smoothstep(0.08, 0.2, sat)); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uShirt * 1.15, wht); float drk = (1.0 - smoothstep(0.16, 0.3, lum)) * (1.0 - smoothstep(0.1, 0.2, sat)); diffuseColor.rgb = mix(diffuseColor.rgb, uPants * (0.35 + lum * 2.0), drk * 0.85); float sk = smoothstep(0.08, 0.25, sat) * smoothstep(0.35, 0.6, lum) * step(diffuseColor.b, diffuseColor.r); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * (uSkin / vec3(0.91, 0.76, 0.6)), sk * 0.9); }"); };
+  m.needsUpdate = true; return m;
+}
 function buildBody(g, look, hat, outfit) {
+  const body = (look && look.body) || "m";
+  if (CHAR[body]) return buildRigged(g, look, hat, outfit, CHAR[body]);
   const walk = g.userData && g.userData.walk; if (walk) g.remove(walk);
   const w = new THREE.Group(); const o = outfit && OUTFITS[outfit]; const skin = new THREE.Color("#" + (look && look.skin || "e8c19a")); const shirt = new THREE.Color(o ? o.shirt : "#" + (look && look.shirt || "4dde6f")); const pants = new THREE.Color(o ? o.pants : "#" + (look && look.pants || "2b3a4a"));
   const mSkin = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.75 }), mShirt = new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.8 }), mPants = new THREE.MeshStandardMaterial({ color: pants, roughness: 0.85 }), mShoe = new THREE.MeshStandardMaterial({ color: 0x2a2320, roughness: 0.9 });
@@ -658,14 +701,34 @@ function buildBody(g, look, hat, outfit) {
   else if (hat === "hat_band") { const band = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.03, 6, 20), M.green); band.rotation.x = Math.PI / 2; band.position.y = 1.86; w.add(band); }
   g.add(w); g.userData.walk = w; g.userData.legs = legs; g.userData.arms = arms; g.userData.phase = 0; g.userData.lookKey = JSON.stringify([look, hat, outfit]);
 }
+function buildRigged(g, look, hat, outfit, C) {
+  const walk = g.userData && g.userData.walk; if (walk) g.remove(walk);
+  const w = new THREE.Group(); const clone = THREE.SkeletonUtils.clone(C.scene); clone.scale.setScalar(C.scale); clone.position.y = C.yoff;
+  const o = outfit && OUTFITS[outfit]; const lk = Object.assign({}, look || {}); if (o) { lk.shirt = o.shirt.toString(16).padStart(6, "0"); lk.pants = o.pants.toString(16).padStart(6, "0"); }
+  clone.traverse((n) => { if (n.isMesh) { n.material = tintMaterial(n.material, lk); n.castShadow = true; n.receiveShadow = true; } });
+  w.add(clone);
+  const mixer = new THREE.AnimationMixer(clone); const acts = {};
+  if (C.clips.walk) { acts.walk = mixer.clipAction(C.clips.walk); acts.walk.play(); acts.walk.setEffectiveWeight(0); }
+  if (C.clips.idle) { acts.idle = mixer.clipAction(C.clips.idle); acts.idle.play(); acts.idle.setEffectiveWeight(1); }
+  // hats ride the head bone when there is one
+  let head = null; clone.traverse((n) => { if (!head && n.isBone && /head/i.test(n.name)) head = n; });
+  if (hat && head) { const hg = new THREE.Group(); const inv = 1 / C.scale;
+    if (hat === "hat_cap") { const b = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 8, 0, 6.283, 0, 1.4), M.green); hg.add(b); const peak = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.015, 0.1), M.green); peak.position.set(0, 0.02, 0.13); hg.add(peak); hg.position.y = 0.06; }
+    else if (hat === "hat_cowboy") { const mH = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.9 }); const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.015, 18), mH); hg.add(brim); const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.11, 0.12, 14), mH); crown.position.y = 0.065; hg.add(crown); hg.position.y = 0.1; }
+    else if (hat === "hat_band") { const band = new THREE.Mesh(new THREE.TorusGeometry(0.112, 0.014, 6, 20), M.green); band.rotation.x = Math.PI / 2; hg.add(band); hg.position.y = 0.06; }
+    hg.scale.setScalar(inv); head.add(hg); }
+  g.add(w); g.userData.walk = w; g.userData.mixer = mixer; g.userData.acts = acts; g.userData.legs = null; g.userData.lookKey = JSON.stringify([look, hat, outfit]);
+}
 function animateWalk(g, speed, dt) {
-  const u = g.userData; if (!u.legs) return; u.phase += dt * Math.min(12, speed * 2.4); const a = speed > 0.2 ? Math.sin(u.phase) * 0.6 : 0;
+  const u = g.userData;
+  if (u.mixer) { u.mixer.update(dt); const k = Math.min(1, speed / 1.2); if (u.acts.walk) { u.acts.walk.setEffectiveWeight(k); u.acts.walk.setEffectiveTimeScale(Math.max(0.6, speed / 1.5)); } if (u.acts.idle) u.acts.idle.setEffectiveWeight(1 - k); else if (u.acts.walk) u.acts.walk.setEffectiveTimeScale(speed > 0.2 ? Math.max(0.6, speed / 1.5) : 0); return; }
+  if (!u.legs) return; u.phase += dt * Math.min(12, speed * 2.4); const a = speed > 0.2 ? Math.sin(u.phase) * 0.6 : 0;
   u.legs[0].rotation.x = a; u.legs[1].rotation.x = -a; u.arms[0].rotation.x = -a * 0.8; u.arms[1].rotation.x = a * 0.8;
   if (speed <= 0.2) { u.arms[0].rotation.x = u.arms[1].rotation.x = Math.sin(performance.now() / 900) * 0.04; }
 }
 function avatar(id, name, look, hat, outfit) {
   const g = new THREE.Group(); g.userData = {};
-  buildBody(g, look, hat, outfit);
+  buildBody(g, look, hat, outfit); g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   const walk = g.userData.walk;
   const cartG = makeModel("cart"); cartG.visible = false; g.add(cartG);
   const label = makeLabel(name); g.add(label);
@@ -768,7 +831,7 @@ canvas.addEventListener("touchend", (e) => { for (const t of e.changedTouches) {
 document.querySelectorAll("#tbtns button").forEach((b) => { const k = b.dataset.k;
   const fire = () => { if (k === "KeyF") toggleRide(); else if (k === "KeyC") toggleCart(); else if (k === "KeyM") towerView = !towerView; else if (k === "KeyE") openNearest(); else if (k === "KeyG") toggleGuestbook(); else if (k === "KeyL") toggleBoard(); else if (k === "Digit1") act({ t: "emote", e: "wave" }); else if (k === "KeyN") timeOffset += DAY_SECONDS / 2; else if (k === "Enter") openChat(); };
   if (k === "Space" || k === "KeyQ") { b.addEventListener("touchstart", (e) => { e.preventDefault(); keys[k] = true; if (k === "Space" && !riding && !golf.playing && !airborne) { vy = 6.6; airborne = true; } }, { passive: false }); b.addEventListener("touchend", () => { keys[k] = false; }); } else b.addEventListener("click", fire); });
-document.querySelectorAll("#warp button").forEach((b) => b.addEventListener("click", () => { const w = b.dataset.w; if (w === "golf") warpTo(golf.holes[0].tee[0] - 4, golf.holes[0].tee[1] - 4); else if (w === "course") warpTo(COURSE.start.x + 20, COURSE.start.z + 20); else if (w === "home") warpTo(HOME.x + 20, HOME.z + 40); else if (w === "obby") warpTo(OBBY.start[0], OBBY.start[2] + 4); else if (w === "drag") warpTo(DRAG.origin[0], DRAG.origin[1] - 8); else { const z = SITE && SITE.zones[w]; if (z) warpTo(z.center[0] + 20, z.center[1] + 30); } }));
+document.querySelectorAll("#warp button").forEach((b) => b.addEventListener("click", () => { const w = b.dataset.w; if (w === "golf") warpTo(golf.holes[0].tee[0] - 4, golf.holes[0].tee[1] - 4); else if (w === "course") warpTo(COURSE.start.x + 20, COURSE.start.z + 20); else if (w === "home") warpTo(HOME.x + 20, HOME.z + 40); else if (w === "obby") warpTo(OBBY.start[0], OBBY.start[2] + 4); else if (w === "drag") warpTo(DRAG.origin[0], DRAG.origin[1] - 8); else if (w === "tower") warpTo(62, 4); else { const z = SITE && SITE.zones[w]; if (z) warpTo(z.center[0] + 20, z.center[1] + 30); } }));
 function warpTo(x, z) { if (riding) { setStatus("leave the vehicle first", true); return; } if (golf.playing) golfEnd(true); if (inside) leaveInterior(); [x, z] = collide(x, z, 1); player.position.x = x; player.position.z = z; player.position.y = getH(x, z); airborne = false; vy = 0; act({ t: "warp", x: +x.toFixed(2), z: +z.toFixed(2) }); lastSent.x = x; lastSent.z = z; }
 $("#mm").addEventListener("click", (e) => { if (!T) return; const r = e.currentTarget.getBoundingClientRect(); const u = (e.clientX - r.left) / r.width, v = (e.clientY - r.top) / r.height; warpTo(T.xmin + u * (T.xmax - T.xmin), T.zmin + v * (T.zmax - T.zmin)); });
 
@@ -776,7 +839,7 @@ $("#mm").addEventListener("click", (e) => { if (!T) return; const r = e.currentT
 let gbOpen = false, boardOpen = false;
 function closeCards() { for (const id of ["#info", "#gb", "#board", "#shop", "#lot", "#creator"]) $(id).classList.remove("on"); gbOpen = false; boardOpen = false; }
 function nearestHotspot() { let best = null, bd = 1e9; for (const h of hotspots) { const d = Math.hypot(player.position.x - h.x, player.position.z - h.z); if (d < h.r && d < bd) { bd = d; best = h; } } return best; }
-function openNearest() { if (!player) return; if (inside) { if (VENUE[inside.door.kind] && !inside.atDoor()) { openShop(inside.door.kind); return; } leaveInterior(); return; } const lot = nearestLot(); if (lot) { openLot(lot); return; } const door = nearestDoor(); if (door) { enterInterior(door); return; } const best = nearestHotspot(); if (!best) return; $("#info-h").textContent = best.t; $("#info-k").textContent = best.k; $("#info-p").textContent = best.p; $("#info-go").style.display = best.play ? "" : "none"; $("#info-go").onclick = () => { if (best.play === "golf") golfStart(); }; $("#info").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); }
+function openNearest() { if (!player) return; if (inside) { if (VENUE[inside.door.kind] && !inside.atDoor()) { openShop(inside.door.kind); return; } leaveInterior(); return; } const lot = nearestLot(); if (lot) { openLot(lot); return; } const door = nearestDoor(); if (door) { enterInterior(door); return; } const best = nearestHotspot(); if (!best) return; $("#info-h").textContent = best.t; $("#info-k").textContent = best.k; $("#info-p").textContent = best.p; $("#info-go").style.display = best.play ? "" : "none"; $("#info-go").onclick = () => { if (best.play === "golf") golfStart(); else if (best.play === "tour") startTour(); }; $("#info-go").textContent = best.play === "tour" ? "Start the tour" : "Play"; $("#info").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); }
 $("#info-x").addEventListener("click", closeCards);
 function toggleGuestbook() { gbOpen = !gbOpen; $("#gb").classList.toggle("on", gbOpen); if (gbOpen) { renderGuestbook(); if (document.exitPointerLock) document.exitPointerLock(); $("#gb-in").focus(); } }
 function renderGuestbook() { const list = $("#gb-list"); list.innerHTML = ""; const entries = (view && view.guestbook) || []; if (!entries.length) { const d = document.createElement("div"); d.textContent = "Nobody has signed yet. Be the first."; list.append(d); } for (const e of [...entries].reverse()) { const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = e.by + " "; d.append(b, document.createTextNode(e.text)); list.append(d); } }
@@ -792,7 +855,7 @@ function updateZone(dt) {
   if (inZone && inZone !== zoneShown) { zoneShown = inZone; $("#zone-n").textContent = inZone.name; $("#zone-k").textContent = inZone.k; $("#zone").classList.add("on"); zoneTimer = 3.5; } if (!inZone) zoneShown = null; if (zoneTimer > 0) { zoneTimer -= dt; if (zoneTimer <= 0) $("#zone").classList.remove("on"); }
   const near = nearestHotspot(); const nv = !riding && nearestVehicle(); const show = (near || nv) && !$("#info").classList.contains("on") && !golf.playing;
   const door = !inside && !riding && nearestDoor(); if (door && !golf.playing && !cartMode) { const rr = door.r * 0.86; const mx = door.e[0] + Math.sin(door.e[3]) * (rr + 0.9), mz = door.e[2] + Math.cos(door.e[3]) * (rr + 0.9); if (Math.hypot(player.position.x - mx, player.position.z - mz) < 1.1 && performance.now() - (inside_left_at || 0) > 1500) enterInterior(door); }
-  $("#prompt").classList.toggle("on", !!(show || door || inside || nearestLot())); const lotN = !inside && !riding && nearestLot(); if (inside) $("#prompt-t").innerHTML = VENUE[inside.door.kind] && !inside.atDoor() ? `<b>E</b> &nbsp;${VENUE[inside.door.kind].title}: browse and buy` : `<b>E</b> &nbsp;step outside`; else if (lotN) $("#prompt-t").innerHTML = `<b>E</b> &nbsp;${view && view.lots && view.lots[lotN.id] && view.lots[lotN.id].owner ? "this lot" : "lot for sale"}`; else if (door) $("#prompt-t").innerHTML = `<b>E</b> &nbsp;enter the ${DOOR_NAMES[door.kind] || door.kind}`; else if (show) $("#prompt-t").innerHTML = (nv ? `<b>F</b> &nbsp;ride the ${view.vehicles[nv].kind === "jet" ? "jet" : "cart"}` : "") + (nv && near ? " &nbsp;·&nbsp; " : "") + (near ? `<b>E</b> &nbsp;${near.play ? "play " : ""}${near.t}` : "");
+  $("#prompt").classList.toggle("on", !!(show || door || inside || nearestLot())); const lotN = !inside && !riding && nearestLot(); if (inside) $("#prompt-t").innerHTML = VENUE[inside.door.kind] && !inside.atDoor() ? `<b>E</b> &nbsp;${VENUE[inside.door.kind].title}: browse and buy` : `<b>E</b> &nbsp;step outside`; else if (lotN) $("#prompt-t").innerHTML = `<b>E</b> &nbsp;${view && view.lots && view.lots[lotN.id] && view.lots[lotN.id].owner ? "this lot" : "lot for sale"}`; else if (door) $("#prompt-t").innerHTML = `<b>E</b> &nbsp;enter the ${DOOR_NAMES[door.kind] || door.kind}`; else if (show) $("#prompt-t").innerHTML = (nv ? `<b>F</b> &nbsp;ride the ${view.vehicles[nv].kind === "jet" ? "jet" : "cart"}` : "") + (nv && near ? " &nbsp;·&nbsp; " : "") + (near ? `<b>E</b> &nbsp;${near.play === "tour" ? "talk to " : near.play ? "play " : ""}${near.t}` : "");
 }
 const mmc = $("#mmc").getContext("2d"); const mmImg = new Image(); mmImg.src = "/minimap.jpg";
 function drawMinimap() {
@@ -837,7 +900,7 @@ function frame() {
       if (L > 0.01) player.rotation.y = Math.atan2(fwd[0] * fz + right[0] * fx, fwd[1] * fz + right[1] * fx);
     }
     if (!onLand(nx, nz)) { nx = player.position.x; nz = player.position.z; cartSpeed = 0; } [nx, nz] = collide(nx, nz, cartMode ? 1.4 : 0.6);
-    if (inside) { const e = inside.door.e, hf = inside.half - 0.5; let lx = (nx - e[0]) * Math.cos(-e[3]) - (nz - e[2]) * Math.sin(-e[3]), lz = (nx - e[0]) * Math.sin(-e[3]) + (nz - e[2]) * Math.cos(-e[3]); if (lz > hf + 1.5) { leaveInterior(); nx = player.position.x; nz = player.position.z; } else { lx = Math.max(-hf, Math.min(hf, lx)); lz = Math.max(-hf, Math.min(hf + 1.5, lz)); nx = e[0] + lx * Math.cos(e[3]) + lz * Math.sin(e[3]); nz = e[2] - lx * Math.sin(e[3]) + lz * Math.cos(e[3]); } }
+    if (inside) { const e = inside.door.e, hf = inside.half - 0.5; let lx = (nx - e[0]) * Math.cos(e[3]) - (nz - e[2]) * Math.sin(e[3]), lz = (nx - e[0]) * Math.sin(e[3]) + (nz - e[2]) * Math.cos(e[3]); if (lz > hf + 1.5) { leaveInterior(); nx = player.position.x; nz = player.position.z; } else { lx = Math.max(-hf, Math.min(hf, lx)); lz = Math.max(-hf, Math.min(hf + 1.5, lz)); nx = e[0] + lx * Math.cos(e[3]) + lz * Math.sin(e[3]); nz = e[2] - lx * Math.sin(e[3]) + lz * Math.cos(e[3]); } }
     // vertical: ground + ramps, gravity, jumps
     const surfPrev = surfaceAt(player.position.x, player.position.z, player.position.y);
     player.position.x = nx; player.position.z = nz;
@@ -857,7 +920,7 @@ function frame() {
   else if (inside) {
     const fwd = [-Math.sin(yaw), -Math.cos(yaw)]; const e = inside.door.e, hf = inside.half - 0.6;
     // how far back can the camera go before it hits a wall?
-    let dist = 0; for (let d = 0; d <= 3.4; d += 0.2) { const cx = px - fwd[0] * d, cz = pz - fwd[1] * d; const lx = (cx - e[0]) * Math.cos(-e[3]) - (cz - e[2]) * Math.sin(-e[3]), lz = (cx - e[0]) * Math.sin(-e[3]) + (cz - e[2]) * Math.cos(-e[3]); if (Math.abs(lx) > hf || Math.abs(lz) > hf) break; dist = d; }
+    let dist = 0; for (let d = 0; d <= 3.4; d += 0.2) { const cx = px - fwd[0] * d, cz = pz - fwd[1] * d; const lx = (cx - e[0]) * Math.cos(e[3]) - (cz - e[2]) * Math.sin(e[3]), lz = (cx - e[0]) * Math.sin(e[3]) + (cz - e[2]) * Math.cos(e[3]); if (Math.abs(lx) > hf || Math.abs(lz) > hf) break; dist = d; }
     if (inside.fp === undefined) inside.fp = dist < 1.4; else if (inside.fp && dist > 2.2) inside.fp = false; else if (!inside.fp && dist < 1.2) inside.fp = true;
     if (inside.fp) { camera.position.set(px, player.position.y + 1.62, pz); camera.lookAt(px + fwd[0] * 10, player.position.y + 1.62 - pitch * 6, pz + fwd[1] * 10); player.userData.walk.visible = false; }
     else { camera.position.lerp(camTarget.set(px - fwd[0] * dist, player.position.y + 1.9 + pitch * 1.2, pz - fwd[1] * dist), 0.5); camera.lookAt(px, player.position.y + 1.3, pz); player.userData.walk.visible = true; }
@@ -881,7 +944,7 @@ function frame() {
     }
     for (const [id, a] of avatars) if (!view.players[id]) { scene.remove(a.g); avatars.delete(id); }
   }
-  SWAY.t.value = now / 1000; updateLots(); updateTutorial(now); updateSfx(dt); updateZone(dt); drawMinimap(); updateSky(dt); updateAudio(dt); updateDetails(dt, now); updateVoice(now); updateNPC(dt, now); updateDrag(now);
+  SWAY.t.value = now / 1000; updateLots(); updateTutorial(now); updateSfx(dt); updateFauna(dt, now); updateGuide(dt, now); updateZone(dt); drawMinimap(); updateSky(dt); updateAudio(dt); updateDetails(dt, now); updateVoice(now); updateNPC(dt, now); updateDrag(now);
   renderer.render(scene, camera);
 }
 
@@ -929,7 +992,7 @@ function buildObby() {
   // 5 bounce pads
   z -= 5; for (let i = 0; i < 4; i++) { plat(x, y, z, 2.6, 2.6, { mat: OBBY_MAT.bounce, bounce: 11.5 }); z -= 9; y += 1.5; plat(x, y, z, 3.2, 3.2, { mat: i % 2 ? A : B }); z -= 3.5; } z -= 1; checkpoint();
   // 6 spiral (tight enough to jump)
-  { const cx = x, cz = z - 12; for (let i = 0; i < 14; i++) { const a = -Math.PI / 2 + i / 14 * 6.283 * 1.35; const px = cx + Math.cos(a) * 5.4, pz = cz + Math.sin(a) * 5.4; y += 0.55; plat(px, y, pz, 2.4, 2.4, { mat: i % 2 ? A : B, move: i % 4 === 3 ? { axis: "y", amp: 0.5, speed: 0.9, phase: i } : null }); x = px; z = pz; } x = cx; z = cz - 9; y += 0.6; checkpoint(); }
+  { const cx = x, cz = z - 12; for (let i = 0; i < 14; i++) { const a = -Math.PI / 2 + i / 14 * 6.283 * 1.35; const px = cx + Math.cos(a) * 4.5, pz = cz + Math.sin(a) * 4.5; y += 0.42; plat(px, y, pz, 2.4, 2.4, { mat: i % 2 ? A : B, move: i % 4 === 3 ? { axis: "y", amp: 0.5, speed: 0.9, phase: i } : null }); x = px; z = pz; } x = cx; z = cz - 9; y += 0.6; checkpoint(); }
   // 7 zigzag movers on z
   for (let i = 0; i < 8; i++) { x += (i % 2 ? 2.4 : -2.4); z -= 3.2; y += 0.3; plat(x, y, z, 2.4, 2.4, { mat: i % 2 ? B : A, move: { axis: "z", amp: 1.0, speed: 0.7 + i * 0.05, phase: i } }); } z -= 4.5; checkpoint();
   // 8 spinning bars
@@ -949,7 +1012,7 @@ function buildObby() {
   // 15 bounce and ice
   z -= 5; for (let i = 0; i < 3; i++) { plat(x, y, z, 2.6, 2.6, { mat: OBBY_MAT.bounce, bounce: 12 }); z -= 9.5; y += 1.6; plat(x, y, z, 4, 4, { mat: OBBY_MAT.ice, ice: true }); z -= 4; } checkpoint();
   // 16 the summit tower: a second spiral to the finish
-  { const cx = x, cz = z - 10; for (let i = 0; i < 16; i++) { const a = Math.PI / 2 + i / 16 * 6.283 * 1.5; const px = cx + Math.cos(a) * 5.4, pz = cz + Math.sin(a) * 5.4; y += 0.55; plat(px, y, pz, 2.2, 2.2, { mat: i % 2 ? A : B, move: i % 5 === 4 ? { axis: "y", amp: 0.5, speed: 1.1, phase: i } : null }); x = px; z = pz; }
+  { const cx = x, cz = z - 10; for (let i = 0; i < 16; i++) { const a = Math.PI / 2 + i / 16 * 6.283 * 1.5; const px = cx + Math.cos(a) * 4.6, pz = cz + Math.sin(a) * 4.6; y += 0.42; plat(px, y, pz, 2.2, 2.2, { mat: i % 2 ? A : B, move: i % 5 === 4 ? { axis: "y", amp: 0.5, speed: 1.1, phase: i } : null }); x = px; z = pz; }
     const fx = cx, fz = cz; y += 1.2; plat(fx, y, fz, 8, 8, { mat: OBBY_MAT.fin, finish: true, rail: true }); OBBY.finish = [fx, y, fz];
     const flag = box(0.08, 4, 0.08, M.steel, fx, y + 2, fz); scene.add(flag); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.9), M.flag); fl.position.set(fx + 0.8, y + 3.6, fz); scene.add(fl);
     const lbl = new THREE.Mesh(new THREE.PlaneGeometry(4, 1.2), new THREE.MeshBasicMaterial({ map: textTexture([{ text: "FINISH", size: 110, y: 0.55 }], 512, 160, { bg: "#0a1610", border: "#f4cd5a" }), side: THREE.DoubleSide })); lbl.position.set(fx, y + 5, fz); scene.add(lbl); }
@@ -958,6 +1021,7 @@ function buildObby() {
 }
 function platSolid(p, t) { if (!p.blink) return true; return ((t + p.blink.phase) % p.blink.period) < p.blink.on; }
 function surfaceAt(x, z, y) {
+  if (inside) return inside.door.e[1] + 0.05;
   let s = getH(x, z) + rampHeight(x, z); const t = performance.now() / 1000;
   for (const p of OBBY.plats) { if (Math.abs(x - p.x) <= p.w / 2 + 0.3 && Math.abs(z - p.z) <= p.d / 2 + 0.3 && p.y <= y + 0.55 && p.y > s && platSolid(p, t)) s = p.y; }
   return s;
@@ -1029,7 +1093,7 @@ function enterInterior(door) {
   const dw = door.kind === "hangar" || door.kind === "hangarhome" ? half * 1.2 : 2.2; g.add(box(half - dw / 2, hgt, 0.2, wallMat, -(half + dw / 2) / 2, hgt / 2, half)); g.add(box(half - dw / 2, hgt, 0.2, wallMat, (half + dw / 2) / 2, hgt / 2, half)); g.add(box(dw, hgt - 2.4, 0.2, wallMat, 0, hgt - (hgt - 2.4) / 2, half)); if (!isH) { g.add(box(0.14, 2.4, 0.3, trimMat, -dw / 2 - 0.07, 1.2, half)); g.add(box(0.14, 2.4, 0.3, trimMat, dw / 2 + 0.07, 1.2, half)); g.add(box(dw + 0.28, 0.14, 0.3, trimMat, 0, 2.47, half)); }
   furnish(g, door.kind, half); scene.add(g);
   for (const inst of INST[door.kind] || []) { const m = new THREE.Matrix4().makeScale(0, 0, 0); inst.setMatrixAt(door.i, m); inst.instanceMatrix.needsUpdate = true; }
-  const atDoor = () => { const lz = (player.position.x - e[0]) * Math.sin(-e[3]) + (player.position.z - e[2]) * Math.cos(-e[3]); return lz > half - 3.5; };
+  const atDoor = () => { const lz = (player.position.x - e[0]) * Math.sin(e[3]) + (player.position.z - e[2]) * Math.cos(e[3]); return lz > half - 3.5; };
   inside = { door, g, half, atDoor, saved: COLLIDERS.filter((c) => Math.hypot(c[0] - e[0], c[1] - e[2]) < 0.01) }; for (const c of inside.saved) { const i = COLLIDERS.indexOf(c); if (i >= 0) COLLIDERS.splice(i, 1); }
   const inX = e[0] + Math.sin(e[3]) * (half - 3), inZ = e[2] + Math.cos(e[3]) * (half - 3); player.position.set(inX, e[1] + 0.05, inZ); player.rotation.y = e[3] + Math.PI; yaw = e[3]; pitch = 0.1; airborne = false; vy = 0; cartSpeed = 0; camera.position.set(inX + Math.sin(e[3]) * 2.5, e[1] + 2.0, inZ + Math.cos(e[3]) * 2.5); lastSent.at = 0; pushMove(true); sfx("ui");
 }
@@ -1171,8 +1235,9 @@ function savedLook() { try { return JSON.parse(localStorage.getItem("g1:look"));
 function openCreator() {
   const lk = savedLook() || { skin: "e8c19a", shirt: "4dde6f", pants: "2b3a4a", hair: 0 };
   $("#c-skin").value = "#" + lk.skin; $("#c-shirt").value = "#" + lk.shirt; $("#c-pants").value = "#" + lk.pants; $("#c-hair").value = String(lk.hair || 0);
-  const preview = () => { const look = { skin: $("#c-skin").value.slice(1), shirt: $("#c-shirt").value.slice(1), pants: $("#c-pants").value.slice(1), hair: +$("#c-hair").value }; buildBody(player, look, null, null); return look; };
-  for (const id of ["c-skin", "c-shirt", "c-pants", "c-hair"]) $("#" + id).oninput = preview;
+  $("#c-body").value = lk.body || "m";
+  const preview = () => { const look = { skin: $("#c-skin").value.slice(1), shirt: $("#c-shirt").value.slice(1), pants: $("#c-pants").value.slice(1), hair: +$("#c-hair").value, body: $("#c-body").value }; buildBody(player, look, null, null); return look; };
+  for (const id of ["c-skin", "c-shirt", "c-pants", "c-hair", "c-body"]) $("#" + id).oninput = preview;
   $("#c-go").onclick = () => { const look = preview(); localStorage.setItem("g1:look", JSON.stringify(look)); act({ t: "look", look }); $("#creator").classList.remove("on"); sfx("ui"); if (!localStorage.getItem("g1:tut")) startTutorial(); };
   $("#creator").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock();
 }
@@ -1193,9 +1258,74 @@ function updateTutorial(now) {
   if (!TUT.on) return;
   if (TUT.step === 0 && riding && riding.kind === "jet") { TUT.step = 1; showTut(...TUT_STEPS[1]); }
   else if (TUT.step === 1 && riding && vSpeed > 42 && VEH[riding.id] && VEH[riding.id].g.position.y > getH(VEH[riding.id].g.position.x, VEH[riding.id].g.position.z) + 30) { TUT.step = 2; TUT.cardAt = now; showTut(...TUT_STEPS[2]); }
-  else if (TUT.step === 2) { if (now - TUT.cardAt > 9000) { TUT.cardAt = now; if (TUT.card < TUT_CARDS.length) { showTut(...TUT_CARDS[TUT.card]); TUT.card++; } } if (!riding && Math.hypot(player.position.x, player.position.z) < 1400) { showTut("Welcome to Genesis One", "You made it. Press E near anything with a prompt, L for leaderboards, and the buttons on the right to jump around the site. Enjoy the walk."); setTimeout(endTutorial, 12000); TUT.on = false; localStorage.setItem("g1:tut", "done"); } }
+  else if (TUT.step === 2) { if (now - TUT.cardAt > 9000) { TUT.cardAt = now; if (TUT.card < TUT_CARDS.length) { showTut(...TUT_CARDS[TUT.card]); TUT.card++; } } if (!riding && Math.hypot(player.position.x, player.position.z) < 1400) { showTut("Welcome to Genesis One", "You made it. Sky, the tour guide, is waiting at the terminal door with a full tour of the site. Press E near anything with a prompt, L for leaderboards, and the buttons on the right to jump around."); warpTo(62, 4); setTimeout(endTutorial, 12000); TUT.on = false; localStorage.setItem("g1:tut", "done"); } }
   if (TUT.step < 2 && Math.hypot(player.position.x, player.position.z) < 1400) endTutorial();
 }
+
+// ───────────────────────────── wildlife ─────────────────────────────
+const FAUNA = [];
+function spawnAnimal(kind, x, z, opts) { if (!MODELS[kind]) return null; const g = makeModel(kind); g.traverse((o) => { if (o.isMesh) o.castShadow = true; }); g.position.set(x, getH(x, z), z); g.rotation.y = rnd() * 6.283; scene.add(g); const a = Object.assign({ kind, g, home: [x, z], target: null, wait: rnd() * 3, speed: 1, range: 40, bob: 0, night: false, hop: false, pack: null }, opts || {}); FAUNA.push(a); return a; }
+function buildFauna() {
+  const spots = []; for (let i = 0; i < 60; i++) { const a = rnd() * 6.283, d = 250 + rnd() * 800; const x = Math.cos(a) * d, z = Math.sin(a) * d; if (free(x, z, 6)) spots.push([x, z]); }
+  let si = 0; const next = () => spots[(si++) % spots.length];
+  for (let p = 0; p < 4; p++) { const [x, z] = next(); const lead = spawnAnimal("coyote", x, z, { speed: 3.2, range: 160, night: true, pack: p }); for (let k = 1; k < 3; k++) spawnAnimal("coyote", x + rnd() * 6, z + rnd() * 6, { speed: 3.2, range: 160, night: true, pack: p, follow: lead }); }
+  for (let i = 0; i < 8; i++) { const [x, z] = next(); spawnAnimal("roadrunner", x, z, { speed: 6.5, range: 70, dash: true }); }
+  for (let i = 0; i < 12; i++) { const [x, z] = next(); spawnAnimal("jackrabbit", x, z, { speed: 4.5, range: 40, hop: true }); }
+  for (let h = 0; h < 2; h++) { const [x, z] = next(); const lead = spawnAnimal("javelina", x, z, { speed: 1.1, range: 90, pack: 10 + h }); for (let k = 1; k < 5; k++) spawnAnimal("javelina", x + rnd() * 8 - 4, z + rnd() * 8 - 4, { speed: 1.1, range: 90, pack: 10 + h, follow: lead }); }
+  for (let c = 0; c < 3; c++) { const [x, z] = next(); const lead = spawnAnimal("quail", x, z, { speed: 1.8, range: 25, pack: 20 + c }); for (let k = 1; k < 6; k++) spawnAnimal("quail", x + rnd() * 3, z + rnd() * 3, { speed: 1.8, range: 25, pack: 20 + c, follow: lead }); }
+  for (let i = 0; i < 6; i++) { const [x, z] = next(); spawnAnimal("tortoise", x, z, { speed: 0.25, range: 15 }); }
+  const rocks = (PLACE.boulder || []).length ? PLACE.boulder.slice(0, 14) : spots.slice(0, 14).map((s) => [s[0], 0, s[1]]); for (const e of rocks) { spawnAnimal(rnd() < 0.5 ? "scorpion" : "snake", e[0] + 2.2, e[2] + 1.5, { speed: rnd() < 0.5 ? 0.6 : 0, range: 4, night: true, still: true }); }
+}
+function updateFauna(dt, now) {
+  if (!player) return; const t = now / 1000;
+  for (const a of FAUNA) { const g = a.g;
+    if (a.night) { const vis = night > 0.35 || a.kind === "snake"; g.visible = vis; if (!vis) continue; }
+    const dp = Math.hypot(player.position.x - g.position.x, player.position.z - g.position.z);
+    if (a.kind === "snake") { if (dp < 4 && !a.warned) { a.warned = true; sfx("rattle"); setTimeout(() => { a.warned = false; }, 4000); } g.rotation.y = Math.atan2(player.position.x - g.position.x, player.position.z - g.position.z); continue; }
+    if (a.still && a.speed === 0) continue;
+    if (dp > 400) continue;
+    // spooked: run from the player
+    if (dp < 9 && a.kind !== "tortoise" && a.kind !== "javelina") { a.target = [g.position.x + (g.position.x - player.position.x) / dp * 30, g.position.z + (g.position.z - player.position.z) / dp * 30]; a.run = 1.8; }
+    if (a.follow) { const L = a.follow.g; const d = Math.hypot(L.position.x - g.position.x, L.position.z - g.position.z); if (d > 4) a.target = [L.position.x + (rnd() - 0.5) * 3, L.position.z + (rnd() - 0.5) * 3]; else if (!a.target) { a.wait = 1; } }
+    if (!a.target) { a.wait -= dt; if (a.wait > 0) { animateIdle(a, t); continue; } const ang = rnd() * 6.283, d = rnd() * a.range; const tx = a.home[0] + Math.cos(ang) * d, tz = a.home[1] + Math.sin(ang) * d; if (!onLand(tx, tz) || nearRoad(tx, tz, 2) || !free(tx, tz, 1)) { a.wait = 0.4; continue; } a.target = [tx, tz]; a.run = a.dash ? 1.6 : 1; }
+    const dx = a.target[0] - g.position.x, dz = a.target[1] - g.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.5) { a.target = null; a.wait = a.kind === "roadrunner" ? 0.6 + rnd() * 2 : 1.5 + rnd() * 5; a.run = 1; continue; }
+    const sp = a.speed * (a.run || 1); const [nx, nz] = collide(g.position.x + dx / d * sp * dt, g.position.z + dz / d * sp * dt, 0.4);
+    g.position.x = nx; g.position.z = nz; a.bob += dt * sp * (a.hop ? 6 : 3);
+    g.position.y = getH(nx, nz) + (a.hop ? Math.abs(Math.sin(a.bob)) * 0.35 : Math.abs(Math.sin(a.bob)) * 0.04);
+    let want = Math.atan2(dx, dz); let dr = want - g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); g.rotation.y += dr * Math.min(1, dt * 6);
+    g.rotation.z = Math.sin(a.bob) * 0.04;
+  }
+}
+function animateIdle(a, t) { a.g.rotation.y += Math.sin(t * 0.7 + a.home[0]) * 0.002; if (a.kind === "jackrabbit" || a.kind === "quail") a.g.position.y = getH(a.g.position.x, a.g.position.z) + Math.abs(Math.sin(t * 2 + a.home[1])) * 0.01; }
+
+// ───────────────────────────── the tour guide ─────────────────────────────
+const GUIDE = { g: null, x: 66, z: -6, tour: null, step: 0 };
+const TOUR = [
+  ["Welcome to Genesis One", "I am Sky, your guide. This is the former Douglas Municipal Airport, opened in 1928 as one of the first international airports in the United States. Everything you see is a concept built on the real 430 acres: the runway, the ground, the mountains are real. The buildings are what the three stages could become.", [0, 40]],
+  ["The Flight Line · Stage 02", "Hangars line both sides of the 6,000 ft runway with direct taxiway access. Hangar homes sit behind them so residents live above their aircraft. The diner and the private aviation terminal are the front door for everyone who flies in, exactly the way you did.", [180, 40]],
+  ["The Landing · Stage 01", "The first stage: two ring roads of desert-modern homes around the clubhouse, low and spread out so the desert stays visible between them. The Grand Pavilion hosts the community's gatherings. The Chapel serves the faith communities in the Giveback network.", [285, 760]],
+  ["Founders Row", "Twenty-four lots you can own. Buy one with $GBACK you earn on the site, put your name on it and build a villa, dome, pavilion or casita. Everyone sees what you built. Ownership on the real site works the same way, recorded on chain.", [285 + 200, 721 - 190]],
+  ["The Expanse · Stage 03", "Old West streets of saloons, hotels, shops and the bank, on 318 acres of hospitality and commerce. Walk onto any green door mat to step inside. The General Store sells outfits, the kitchens sell meals, the bank shows your balance.", [851, 250]],
+  ["The Design District", "An artist district: monumental sculptures on the land, a gallery where you can buy pieces for your lot, and an immersive experience planned for the far edge of the site.", [851 + 60 - 260 * 0, 219 - 260]],
+  ["How the blockchain works here", "Giveback Ventures builds giving infrastructure on Solana. $GBACK is a utility token: a hard-capped supply of one billion, fully circulating, with no team allocation. Every transaction is recorded on a public ledger anyone can verify. On this site the coins you earn and spend are the same idea in miniature: a permanent, automated, verifiable record.", null],
+  ["Land on chain", "The real property is being brought on chain: the parcel, the lots and the memberships are recorded as tokens on Solana, so ownership is transparent and cannot be quietly changed. Membership tiers, Passenger, Pilot, Captain and Tower, are the same names as the ranks you earn here by playing.", null],
+  ["Play and earn", "Desert Golf, the Cart Course, the Drag Strip and the Sky Obby all pay $GBACK and XP, and all keep leaderboards under L. You also earn a little just for being here. Spend it in the shops, on meals, on art, or on a lot.", [-200, 1000 - 60]],
+  ["That is the tour", "From here the site is yours. Press E on anything with a prompt, use the buttons on the right to jump around, Enter to talk to people near you, V for voice. I will be at the terminal door if you need me again.", [66, -2]],
+];
+function buildGuide() {
+  const g = avatar("guide00", "Sky · Tour Guide", { skin: "c98f63", shirt: "4dde6f", pants: "1c1f24", hair: 2 }, "hat_cap", "outfit_flight"); g.position.set(GUIDE.x, getH(GUIDE.x, GUIDE.z), GUIDE.z); g.rotation.y = Math.PI; GUIDE.g = g;
+  hotspots.push({ x: GUIDE.x, z: GUIDE.z, r: 6, t: "Sky, your tour guide", k: "Press E to talk", p: "Hi. I can walk you through the whole site: the three stages, what you can own and build, how the blockchain side works, and where to play. Want the tour?", play: "tour" });
+}
+function startTour() { GUIDE.tour = true; GUIDE.step = 0; closeCards(); showTourStep(); }
+function showTourStep() {
+  const st = TOUR[GUIDE.step]; if (!st) { GUIDE.tour = null; $("#tour").classList.remove("on"); return; }
+  if (st[2]) { const [x, z] = st[2]; warpTo(x, z); if (GUIDE.g) { GUIDE.g.position.set(x + 2.2, getH(x + 2.2, z + 1), z + 1); GUIDE.g.rotation.y = Math.atan2(-2.2, -1); } }
+  $("#tour-h").textContent = st[0]; $("#tour-p").textContent = st[1]; $("#tour-n").textContent = `${GUIDE.step + 1} / ${TOUR.length}`; $("#tour").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); sfx("ui");
+}
+$("#tour-next").addEventListener("click", () => { GUIDE.step++; showTourStep(); });
+$("#tour-end").addEventListener("click", () => { GUIDE.tour = null; $("#tour").classList.remove("on"); });
+function updateGuide(dt, now) { if (!GUIDE.g) return; if (!GUIDE.tour) { const home = [GUIDE.x, GUIDE.z]; const d = Math.hypot(GUIDE.g.position.x - home[0], GUIDE.g.position.z - home[1]); if (d > 1) { GUIDE.g.position.x += (home[0] - GUIDE.g.position.x) * Math.min(1, dt * 2); GUIDE.g.position.z += (home[1] - GUIDE.g.position.z) * Math.min(1, dt * 2); GUIDE.g.position.y = getH(GUIDE.g.position.x, GUIDE.g.position.z); } } else if (player) { GUIDE.g.rotation.y = Math.atan2(player.position.x - GUIDE.g.position.x, player.position.z - GUIDE.g.position.z); } animateWalk(GUIDE.g, 0, dt); if (player && Math.hypot(player.position.x - GUIDE.g.position.x, player.position.z - GUIDE.g.position.z) < 8 && Math.random() < dt * 0.15) { GUIDE.g.userData.emote.material.map = emojiTex.wave; GUIDE.g.userData.emote.material.needsUpdate = true; GUIDE.g.userData.emote.visible = true; setTimeout(() => { GUIDE.g.userData.emote.visible = false; }, 2000); } }
 
 // ───────────────────────────── residents: people and shuttle carts that live here ─────────────────────────────
 const NPC = [];
@@ -1272,7 +1402,7 @@ function sfx(name) {
   if (name === "step") noise(0.07, 0.035, 600); else if (name === "jump") tone(240, 0.18, "triangle", 0.05, 480); else if (name === "land") noise(0.09, 0.05, 300);
   else if (name === "coin") { tone(880, 0.12, "sine", 0.06); setTimeout(() => tone(1320, 0.18, "sine", 0.06), 90); } else if (name === "buy") { tone(660, 0.1, "square", 0.04); setTimeout(() => tone(990, 0.16, "square", 0.04), 100); }
   else if (name === "ui") tone(520, 0.06, "sine", 0.04); else if (name === "putt") noise(0.05, 0.08, 1500); else if (name === "rank") { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.25, "triangle", 0.06), i * 110)); }
-  else if (name === "board") tone(300, 0.2, "sawtooth", 0.03, 120); else if (name === "swing") { noise(0.12, 0.07, 400); setTimeout(() => tone(180, 0.05, "square", 0.05), 60); } else if (name === "gate") tone(1200, 0.08, "sine", 0.05);
+  else if (name === "board") tone(300, 0.2, "sawtooth", 0.03, 120); else if (name === "rattle") { for (let i = 0; i < 14; i++) setTimeout(() => noise(0.03, 0.06, 3000), i * 45); } else if (name === "swing") { noise(0.12, 0.07, 400); setTimeout(() => tone(180, 0.05, "square", 0.05), 60); } else if (name === "gate") tone(1200, 0.08, "sine", 0.05);
 }
 function updateSfx(dt) {
   if (!audioReady || !soundOn) { if (engineGain) engineGain.gain.value = 0; return; }

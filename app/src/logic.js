@@ -110,6 +110,7 @@ export function validateAction(state, playerId, action) {
     const l = action.look; if (!l || typeof l !== "object") return { ok: false, error: "bad look" };
     for (const k of ["skin", "shirt", "pants"]) if (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k])) return { ok: false, error: "bad colour" };
     if (l.hair !== undefined && (!num(l.hair) || l.hair < 0 || l.hair > 3)) return { ok: false, error: "bad hair" };
+    if (l.body !== undefined && l.body !== "m" && l.body !== "f") return { ok: false, error: "bad body" };
     return { ok: true };
   }
   if (action.t === "tick") {
@@ -212,7 +213,7 @@ export function applyAction(state, playerId, action) {
     boards = { ...boards, [action.game]: list.slice(0, BOARD_MAX) };
     me.coins = (me.coins || 0) + REWARD[action.game]; me.xp = (me.xp || 0) + REWARD[action.game];
   } else if (action.t === "look") {
-    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0 };
+    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m" };
   } else if (action.t === "tick") {
     me.lastTick = tick; me.played = (me.played || 0) + 1; me.xp = (me.xp || 0) + 5; me.coins = (me.coins || 0) + 3; me.energy = Math.max(0, (me.energy === undefined ? 100 : me.energy) - 2);
   } else if (action.t === "buy") {
