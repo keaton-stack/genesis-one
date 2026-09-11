@@ -15,6 +15,7 @@
         font:14px/1.45 "Space Grotesk", system-ui, -apple-system, sans-serif; }
       canvas#gl { display:block; width:100vw; height:100vh; touch-action:none; }
       .hud { position:fixed; pointer-events:none; }
+      body.photo .hud, body.photo .card { display:none !important; }
       .mono { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; letter-spacing:.18em; text-transform:uppercase; font-size:10px; }
       #tl { left:18px; top:16px; display:flex; align-items:center; gap:12px; }
       #tl img { height:34px; width:auto; filter:drop-shadow(0 2px 8px rgba(0,0,0,.6)); }
@@ -22,22 +23,35 @@
       #tl .s { color:rgba(245,241,230,.75); margin-top:3px; }
       #tr { right:18px; top:18px; text-align:right; text-shadow:0 2px 8px rgba(0,0,0,.6); }
       #tr b { color:var(--green); }
+      #tr button { pointer-events:auto; margin-top:8px; padding:6px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
       #zone { left:50%; top:22px; transform:translateX(-50%); text-align:center; opacity:0; transition:opacity .5s; }
       #zone .n { font-family:"Anton", Impact, sans-serif; font-size:34px; letter-spacing:.03em; text-shadow:0 3px 14px rgba(0,0,0,.7); }
       #zone .k { color:var(--green); }
       #zone.on { opacity:1; }
+      #veh { left:50%; top:78px; transform:translateX(-50%); text-align:center; display:none; text-shadow:0 2px 8px rgba(0,0,0,.7); }
+      #veh.on { display:block; }
+      #veh b { font-family:"Anton", Impact, sans-serif; font-size:20px; letter-spacing:.04em; color:var(--green); }
       #hint { left:50%; bottom:18px; transform:translateX(-50%); color:rgba(245,241,230,.78); text-shadow:0 2px 8px rgba(0,0,0,.7); white-space:nowrap; }
       #hint kbd { display:inline-block; padding:1px 6px; border:1px solid rgba(245,241,230,.35); border-radius:5px; font:11px ui-monospace, monospace; margin:0 2px; }
       #prompt { left:50%; bottom:64px; transform:translateX(-50%); padding:8px 14px; border-radius:999px;
         background:rgba(10,22,16,.72); border:1px solid rgba(77,222,111,.5); color:var(--cream); opacity:0; transition:opacity .2s; }
       #prompt.on { opacity:1; }
       #prompt b { color:var(--green); }
-      #mm { right:18px; bottom:18px; width:184px; height:184px; border-radius:14px; overflow:hidden;
+      #mm { right:18px; bottom:18px; width:184px; height:184px; border-radius:14px; overflow:hidden; pointer-events:auto; cursor:crosshair;
         border:1px solid rgba(77,222,111,.45); box-shadow:0 10px 30px rgba(0,0,0,.5); background:#0a1610; }
       #mm canvas { width:100%; height:100%; display:block; }
+      #warp { right:18px; bottom:210px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; pointer-events:auto; }
+      #warp button { padding:5px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.3); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
+      #warp button:hover { border-color:var(--green); }
       #fine { left:18px; bottom:18px; color:rgba(245,241,230,.5); max-width:260px; font-size:11px; }
       #status { left:18px; bottom:52px; color:rgba(245,241,230,.6); }
       #status.err { color:#ff9180; }
+      #chat { left:18px; bottom:80px; width:min(360px, 60vw); pointer-events:auto; display:none; }
+      #chat.on { display:block; }
+      #chat input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(77,222,111,.5); background:rgba(10,22,16,.85); color:var(--cream); font:inherit; outline:none; }
+      #log { left:18px; bottom:120px; width:min(360px, 60vw); font-size:13px; text-shadow:0 1px 4px rgba(0,0,0,.8); }
+      #log div { margin-top:3px; opacity:.9; }
+      #log b { color:var(--green); }
       .card { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(520px, 92vw);
         background:rgba(10,22,16,.94); border:1px solid rgba(77,222,111,.4); border-radius:18px; padding:22px 24px;
         box-shadow:0 30px 80px rgba(0,0,0,.6); display:none; z-index:20; }
@@ -53,13 +67,12 @@
       #gb-list { max-height:40vh; overflow:auto; margin:8px 0; padding-right:6px; }
       #gb-list div { padding:8px 0; border-bottom:1px solid rgba(245,241,230,.1); }
       #gb-list b { color:var(--green); }
-      /* touch controls */
-      #joy { left:26px; bottom:96px; width:118px; height:118px; border-radius:50%; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.35); display:none; pointer-events:auto; }
+      #joy { left:26px; bottom:150px; width:118px; height:118px; border-radius:50%; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.35); display:none; pointer-events:auto; }
       #joy i { position:absolute; left:50%; top:50%; width:48px; height:48px; margin:-24px 0 0 -24px; border-radius:50%; background:rgba(77,222,111,.85); }
-      #tbtns { right:18px; bottom:214px; display:none; flex-direction:column; gap:8px; pointer-events:auto; }
-      #tbtns button { width:52px; height:44px; border-radius:12px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); font:600 13px inherit; }
+      #tbtns { right:18px; bottom:330px; display:none; flex-wrap:wrap; width:118px; justify-content:flex-end; gap:6px; pointer-events:auto; }
+      #tbtns button { width:54px; height:40px; border-radius:10px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); font:600 11px inherit; }
       body.touch #joy, body.touch #tbtns { display:flex; }
-      body.touch #hint { display:none; }
+      body.touch #hint, body.touch #warp { display:none; }
       #load { position:fixed; inset:0; display:grid; place-items:center; background:#0a1610; z-index:30; transition:opacity .6s; }
       #load .in { text-align:center; }
       #load .bar { width:220px; height:3px; background:rgba(245,241,230,.15); border-radius:2px; margin:14px auto 0; overflow:hidden; }
@@ -73,26 +86,30 @@
     <div id="load"><div class="in">
       <img src="/logo.png" alt="Giveback Ventures" style="height:44px" />
       <div style="font-family:Anton,Impact,sans-serif;font-size:30px;letter-spacing:.04em;margin-top:14px">GENESIS ONE</div>
-      <div class="mono" style="color:rgba(245,241,230,.6);margin-top:6px">Loading the site &middot; Douglas, Arizona</div>
+      <div class="mono" style="color:rgba(245,241,230,.6);margin-top:6px" id="loadmsg">Loading the site &middot; Douglas, Arizona</div>
       <div class="bar"><i id="loadbar"></i></div>
     </div></div>
 
     <div id="tl" class="hud"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div></div></div>
-    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><button id="snd" class="mono" style="pointer-events:auto;margin-top:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(245,241,230,.35);background:rgba(10,22,16,.6);color:#f5f1e6;cursor:pointer">SOUND OFF</button></div>
+    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><button id="snd">SOUND OFF</button></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
+    <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="prompt" class="hud"><span id="prompt-t"></span></div>
-    <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>mouse</kbd> look &middot; <kbd>shift</kbd> run &middot; <kbd>C</kbd> cart &middot; <kbd>E</kbd> info &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-4</kbd> emote &middot; <kbd>M</kbd> tower view &middot; <kbd>N</kbd> day/night &middot; <kbd>X</kbd> sound</div>
+    <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>shift</kbd> run &middot; <kbd>F</kbd> ride &middot; <kbd>E</kbd> info &middot; <kbd>enter</kbd> chat &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-4</kbd> emote &middot; <kbd>M</kbd> tower &middot; <kbd>N</kbd> time &middot; <kbd>X</kbd> sound &middot; <kbd>H</kbd> photo</div>
     <div id="status" class="hud mono">connecting&hellip;</div>
     <div id="fine" class="hud">Concept walkthrough on the real terrain of Douglas Municipal Airport. Every structure is illustrative.</div>
+    <div id="log" class="hud"></div>
+    <div id="chat" class="hud"><input id="chat-in" maxlength="80" placeholder="Say something to everyone on the site" autocomplete="off" /></div>
+    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">The Expanse</button></div>
     <div id="mm" class="hud"><canvas id="mmc" width="368" height="368"></canvas></div>
 
     <div id="joy" class="hud"><i></i></div>
-    <div id="tbtns" class="hud"><button data-k="KeyE">INFO</button><button data-k="KeyC">CART</button><button data-k="KeyG">BOOK</button><button data-k="KeyM">TOWER</button><button data-k="Digit1">WAVE</button><button data-k="KeyN">TIME</button></div>
+    <div id="tbtns" class="hud"><button data-k="KeyF">RIDE</button><button data-k="KeyE">INFO</button><button data-k="Enter">CHAT</button><button data-k="KeyG">BOOK</button><button data-k="KeyM">TOWER</button><button data-k="KeyN">TIME</button><button data-k="Digit1">WAVE</button><button data-k="Space">UP</button><button data-k="KeyQ">DOWN</button></div>
 
     <div id="name" class="card">
       <h2>Welcome to Genesis One</h2>
       <div class="k mono">Choose a name for the site</div>
-      <p>You are stepping onto the real ground of the former Douglas Municipal Airport. Other visitors can see you and wave.</p>
+      <p>You are stepping onto the real ground of the former Douglas Municipal Airport. Other visitors can see you, ride with you and wave.</p>
       <div class="row"><input id="name-in" maxlength="18" placeholder="Your name" autocomplete="off" /><button class="btn" id="name-go">Enter</button></div>
     </div>
     <div id="info" class="card">
