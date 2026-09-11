@@ -1293,7 +1293,7 @@ function buildObby() {
   const A = OBBY_MAT.a, B = OBBY_MAT.b;
   let x = sx, y = gy + 0.5, z = sz; let cpN = 0;
   const checkpoint = (w) => { plat(x, y, z, w || 6, w || 6, { mat: OBBY_MAT.cp, cp: cpN, rail: true }); OBBY.checkpoints.push([x, y, z]); const lbl = new THREE.Mesh(new THREE.PlaneGeometry(3, 1), new THREE.MeshBasicMaterial({ map: textTexture([{ text: cpN === 0 ? "START" : `LEVEL ${cpN + 1}`, size: 110, y: 0.55 }], 512, 170, { bg: "#0a1610", border: "#4DDE6F" }), side: THREE.DoubleSide, transparent: true })); lbl.position.set(x, y + 2.2, z + (w || 6) / 2 - 0.3); scene.add(lbl); cpN++; };
-  const bar = (p, speed) => { const m = new THREE.Mesh(new THREE.BoxGeometry(p.w * 1.7, 0.35, 0.3), OBBY_MAT.bar); m.position.set(p.x, p.y + 0.55, p.z); scene.add(m); p.bar = { mesh: m, speed, r: p.w * 0.85 }; const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.1, 8), M.steel); hub.position.set(p.x, p.y + 0.55, p.z); scene.add(hub); };
+  const bar = (p, speed) => { const m = new THREE.Mesh(new THREE.BoxGeometry(p.w * 1.7, 0.3, 0.26), OBBY_MAT.bar); m.position.set(p.x, p.y + 0.5, p.z); scene.add(m); p.bar = { mesh: m, speed, r: p.w * 0.85 }; const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.1, 8), M.steel); hub.position.set(p.x, p.y + 0.55, p.z); scene.add(hub); };
   checkpoint(8);
   sign(sx + 7, sz + 4, -Math.PI / 2, "SKY OBBY", "SIXTEEN LEVELS · SPACE TO JUMP · SHIFT TO RUN · FALL AND YOU RESPAWN");
   // 1 stepping stones
@@ -1316,7 +1316,7 @@ function buildObby() {
   // 7 zigzag movers on z
   for (let i = 0; i < 8; i++) { x += (i % 2 ? 2.4 : -2.4); z -= 3.2; y += 0.3; plat(x, y, z, 2.4, 2.4, { mat: i % 2 ? B : A, move: { axis: "z", amp: 1.0, speed: 0.7 + i * 0.05, phase: i } }); } z -= 4.5; checkpoint();
   // 8 spinning bars
-  z -= 5; for (let i = 0; i < 4; i++) { const p = plat(x, y, z, 5, 5, { mat: i % 2 ? A : B }); bar(p, 1.4 + i * 0.35); z -= 8; y += 0.6; } z += 2; checkpoint();
+  z -= 5; for (let i = 0; i < 4; i++) { const p = plat(x, y, z, 6, 6, { mat: i % 2 ? A : B }); bar(p, 0.7 + i * 0.15); z -= 8.6; y += 0.5; } z += 1.5; checkpoint();
   // 9 ice run
   z -= 5; for (let i = 0; i < 6; i++) { x += (i % 2 ? 1.2 : -1.2); z -= 3.1; y += 0.25; plat(x, y, z, 3.0, 3.0, { mat: OBBY_MAT.ice, ice: true }); } z -= 4.5; checkpoint();
   // 10 elevators
@@ -1326,7 +1326,7 @@ function buildObby() {
   // 12 fast blink chain over a long drop
   z -= 5; for (let i = 0; i < 9; i++) { z -= 3.0; y += 0.2; plat(x, y, z, 2.2, 2.2, { mat: OBBY_MAT.blink.clone(), blink: { period: 2.2, on: 1.4, phase: i * 0.55 } }); } z -= 4.5; checkpoint();
   // 13 beam gauntlet with bars
-  z -= 4; for (let i = 0; i < 3; i++) { const p = plat(x, y, z - 4, 0.9, 8, { mat: OBBY_MAT.beam }); z -= 8; const q = plat(x, y, z - 1, 4, 4, { mat: A }); bar(q, 1.8); z -= 4; y += 0.4; } z -= 3; checkpoint();
+  z -= 4; for (let i = 0; i < 3; i++) { const p = plat(x, y, z - 4, 0.9, 8, { mat: OBBY_MAT.beam }); z -= 8; const q = plat(x, y, z - 1, 5, 5, { mat: A }); bar(q, 1.0); z -= 4.5; y += 0.4; } z -= 3; checkpoint();
   // 14 movers + blinkers
   z -= 5; for (let i = 0; i < 8; i++) { z -= 3.2; y += 0.3; x += (i % 2 ? 1.5 : -1.5); plat(x, y, z, 2.4, 2.4, i % 2 ? { mat: OBBY_MAT.blink.clone(), blink: { period: 3, on: 2, phase: i } } : { mat: B, move: { axis: "x", amp: 1.4, speed: 0.8, phase: i } }); } z -= 4.5; checkpoint();
   // 15 bounce and ice
@@ -1355,7 +1355,7 @@ function updateObby(dt) {
     if (on) { player.position.x += nx - p.x; player.position.z += nz - p.z; player.position.y += ny - p.y; standing = p; }
     p.x = nx; p.z = nz; p.y = ny; p.mesh.position.set(nx, ny - 0.25, nz); }
   for (const p of OBBY.plats) { if (p.pulse) { const sc = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * p.pulse.speed + p.pulse.phase)); p.mesh.scale.set(sc, 1, sc); p.w = 2.6 * sc; p.d = 2.6 * sc; }
-    if (p.bar) { const a = t * p.bar.speed; p.bar.mesh.rotation.y = a; const dx = player.position.x - p.x, dz = player.position.z - p.z; const d = Math.hypot(dx, dz); if (d < p.bar.r && Math.abs(player.position.y - p.y) < 1.2 && !airborne) { const pa = Math.atan2(dx, dz); const diff = Math.atan2(Math.sin(pa - a), Math.cos(pa - a)); const diff2 = Math.atan2(Math.sin(pa - a - Math.PI), Math.cos(pa - a - Math.PI)); if (Math.min(Math.abs(diff), Math.abs(diff2)) < 0.22 + 0.3 / Math.max(0.5, d)) { const c = OBBY.checkpoints[OBBY.cp]; player.position.set(c[0], c[1], c[2]); airborne = false; vy = 0; sfx("land"); } } }
+    if (p.bar) { const a = t * p.bar.speed; p.bar.mesh.rotation.y = a; const dx = player.position.x - p.x, dz = player.position.z - p.z; const d = Math.hypot(dx, dz); if (d < p.bar.r && Math.abs(player.position.y - p.y) < 1.2 && !airborne) { const pa = Math.atan2(dx, dz); const diff = Math.atan2(Math.sin(pa - a), Math.cos(pa - a)); const diff2 = Math.atan2(Math.sin(pa - a - Math.PI), Math.cos(pa - a - Math.PI)); if (Math.min(Math.abs(diff), Math.abs(diff2)) < 0.1 + 0.16 / Math.max(0.6, d)) { const c = OBBY.checkpoints[OBBY.cp]; player.position.set(c[0], c[1], c[2]); airborne = false; vy = 0; sfx("land"); } } }
     if (p.lava && !airborne && Math.abs(player.position.x - p.x) <= p.w / 2 - 0.12 && Math.abs(player.position.z - p.z) <= p.d / 2 - 0.12 && Math.abs(player.position.y - p.y) < 0.3) { const c = OBBY.checkpoints[OBBY.cp]; player.position.set(c[0], c[1], c[2]); airborne = false; vy = 0; sfx("land"); emitDust(c[0], c[1], c[2], 10, 1, 1); }
     if (p.blink) { const on = platSolid(p, t); p.mesh.material.opacity = on ? 1 : 0.15; p.mesh.visible = true; } if (p.bounce && !airborne && Math.abs(player.position.x - p.x) <= p.w / 2 && Math.abs(player.position.z - p.z) <= p.d / 2 && Math.abs(player.position.y - p.y) < 0.3) { vy = p.bounce; airborne = true; } }
   const near = Math.hypot(player.position.x - OBBY.start[0], player.position.z - OBBY.start[2]) < 260;
