@@ -115,6 +115,8 @@ export function validateAction(state, playerId, action) {
     for (const k of ["skin", "shirt", "pants"]) if (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k])) return { ok: false, error: "bad colour" };
     if (l.hair !== undefined && (!num(l.hair) || l.hair < 0 || l.hair > 3)) return { ok: false, error: "bad hair" };
     if (l.body !== undefined && l.body !== "m" && l.body !== "f") return { ok: false, error: "bad body" };
+    for (const k of ["shoes", "hairc"]) if (l[k] !== undefined && (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k]))) return { ok: false, error: "bad colour" };
+    if (l.height !== undefined && (!num(l.height) || l.height < 0.88 || l.height > 1.12)) return { ok: false, error: "bad height" };
     return { ok: true };
   }
   if (action.t === "tick") {
@@ -212,6 +214,7 @@ export function applyAction(state, playerId, action) {
 
   let boards = state.boards || { golf: [], course: [], obby: [], drag: [] };
   let lots = state.lots || defaultLots();
+  let props = state.props || [];
   if (action.t === "move") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -226,7 +229,7 @@ export function applyAction(state, playerId, action) {
     boards = { ...boards, [action.game]: list.slice(0, BOARD_MAX) };
     me.coins = (me.coins || 0) + REWARD[action.game]; me.xp = (me.xp || 0) + REWARD[action.game];
   } else if (action.t === "look") {
-    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m" };
+    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m", shoes: action.look.shoes || "f5f1e6", hairc: action.look.hairc || "1c1512", height: action.look.height || 1 };
   } else if (action.t === "tick") {
     me.lastTick = tick; me.played = (me.played || 0) + 1; me.xp = (me.xp || 0) + 5; me.coins = (me.coins || 0) + 3; me.energy = Math.max(0, (me.energy === undefined ? 100 : me.energy) - 2);
   } else if (action.t === "buy") {
@@ -238,10 +241,9 @@ export function applyAction(state, playerId, action) {
   } else if (action.t === "wear") {
     if (action.hat !== undefined) me.hat = action.hat; if (action.outfit !== undefined) me.outfit = action.outfit; if (action.gear !== undefined) { const g = { ...(me.gear || {}) }; for (const slot in action.gear) { if (action.gear[slot] === null) delete g[slot]; else g[slot] = action.gear[slot]; } me.gear = g; }
   } else if (action.t === "prop") {
-    const props = [...(state.props || [])];
+    props = [...props];
     if (action.op === "add") { props.push({ id: "p" + tick.toString(36) + "_" + String(playerId).replace(/[^a-z0-9]/gi, "").slice(0, 6) + "_" + props.length.toString(36), by: playerId, kind: action.kind, x: Math.round(action.x * 100) / 100, y: Math.round(action.y * 100) / 100, z: Math.round(action.z * 100) / 100, ry: Math.round(action.ry * 100) / 100, room: action.room || null }); me.coins -= CATALOG[action.kind]; me.xp = (me.xp || 0) + 4; }
     else if (action.op === "remove") { const i = props.findIndex((q) => q.id === action.id); if (i >= 0) props.splice(i, 1); }
-    return { ...state, players: { ...state.players, [playerId]: me }, props };
   } else if (action.t === "lot") {
     const lot = { ...lots[action.id] };
     if (action.op === "buy") { lot.owner = playerId; lot.name = me.name; me.coins -= LOT_PRICE; me.xp = (me.xp || 0) + 100; }
@@ -312,7 +314,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook, boards, lots };
+  return { tick, players, vehicles: V, guestbook, boards, lots, props };
 }
 
 export function isGameOver() {
