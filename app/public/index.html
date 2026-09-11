@@ -105,17 +105,18 @@
 
     <div id="tl" class="hud"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
     <div id="compass" class="hud"><canvas id="cmp" width="900" height="56"></canvas></div>
-    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist" style="display:none"></div><button id="snd">SOUND OFF</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
+    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist" style="display:none"></div><button id="snd">SOUND OFF</button> <button id="aud">AUDIO</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
     <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="game" class="hud mono"><b id="game-n"></b><div class="big" id="game-big"></div><div id="game-s" style="margin-top:4px"></div><div id="power"><i></i></div></div>
     <div id="prompt" class="hud"><span id="prompt-t"></span></div>
     <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>space</kbd> jump &middot; <kbd>C</kbd> cart &middot; <kbd>F</kbd> ride / join a friend's cart &middot; <kbd>K</kbd> character &middot; <kbd>E</kbd> info / play &middot; <kbd>enter</kbd> chat &middot; <kbd>L</kbd> scores &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-4</kbd> emote &middot; <kbd>M</kbd> tower &middot; <kbd>N</kbd> time &middot; <kbd>V</kbd> voice &middot; <kbd>X</kbd> sound &middot; <kbd>H</kbd> photo</div>
     <div id="status" class="hud mono">connecting&hellip;</div>
+    <button id="skipfly" class="hud mono" style="display:none;position:absolute;right:18px;bottom:110px;pointer-events:auto;background:rgba(10,22,16,.7);border:1px solid rgba(77,222,111,.4);color:#f5f1e6;border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer">SKIP FLIGHT</button>
     <div id="fine" class="hud">Concept walkthrough on the real terrain of Douglas Municipal Airport. Every structure is illustrative.</div>
     <div id="log" class="hud"></div>
     <div id="chat" class="hud"><input id="chat-in" maxlength="80" placeholder="Say something to everyone on the site" autocomplete="off" /></div>
-    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">Main Street</button><button data-w="design">Design District</button><button data-w="commons">The Commons</button><button data-w="home">Home base</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button></div>
+    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">Main Street</button><button data-w="design">Design District</button><button data-w="commons">The Commons</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button></div>
     <div id="mm" class="hud"><canvas id="mmc" width="368" height="368"></canvas></div>
 
     <div id="joy" class="hud"><i></i></div>
@@ -155,9 +156,17 @@
       <h2 id="lot-h"></h2><div class="k mono" id="lot-k"></div><div id="lot-list" class="blist"></div>
       <div class="row"><button class="btn ghost" id="lot-x">Close</button></div>
     </div>
+    <div id="audio" class="card" style="width:min(380px,92vw)">
+      <h2>Audio</h2><div class="k mono">Each channel has its own level · saved on this device</div>
+      <label>Master</label><input type="range" id="v-master" min="0" max="100" step="1" style="width:100%" />
+      <label>Music &amp; radio</label><input type="range" id="v-music" min="0" max="100" step="1" style="width:100%" />
+      <label>Ambience (wind, birds, water)</label><input type="range" id="v-amb" min="0" max="100" step="1" style="width:100%" />
+      <label>Sound effects</label><input type="range" id="v-sfx" min="0" max="100" step="1" style="width:100%" />
+      <div class="row"><span style="flex:1"></span><button class="btn" id="v-close">Done</button></div>
+    </div>
     <div id="creator" class="card">
       <h2>Your character</h2><div class="k mono">Everyone on the site sees this · changes preview live</div>
-      <style>#creator .sw { width:22px; height:22px; border-radius:6px; border:2px solid rgba(255,255,255,.25); margin:2px; cursor:pointer; padding:0; } #creator .sw:hover { border-color:#4DDE6F; } #creator .swrow { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:2px 0 8px; } #creator input[type=color] { width:34px; height:26px; border:none; background:none; padding:0; margin-right:6px; } #creator label { display:block; margin-top:6px; }</style>
+      <style>#creator.on { left: auto !important; right: 24px !important; transform: translateY(-50%) !important; top: 50% !important; } #creator .sw { width:22px; height:22px; border-radius:6px; border:2px solid rgba(255,255,255,.25); margin:2px; cursor:pointer; padding:0; } #creator .sw:hover { border-color:#4DDE6F; } #creator .swrow { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:2px 0 8px; } #creator input[type=color] { width:34px; height:26px; border:none; background:none; padding:0; margin-right:6px; } #creator label { display:block; margin-top:6px; }</style>
       <div class="cols" style="grid-template-columns:1fr 1fr;gap:12px">
         <div><label>Body</label><select id="c-body"><option value="m">Man</option><option value="f">Woman</option></select>
           <label>Height <span id="c-hv" class="mono" style="opacity:.7"></span></label><input type="range" id="c-height" min="0.88" max="1.12" step="0.01" value="1" style="width:100%" />
@@ -169,7 +178,7 @@
           <label>Shoes</label><div class="swrow"><input type="color" id="c-shoes" value="#f5f1e6" /><button class="sw" data-for="c-shoes" data-c="#f5f1e6" style="background:#f5f1e6"></button><button class="sw" data-for="c-shoes" data-c="#141414" style="background:#141414"></button><button class="sw" data-for="c-shoes" data-c="#4dde6f" style="background:#4dde6f"></button><button class="sw" data-for="c-shoes" data-c="#c94a3a" style="background:#c94a3a"></button><button class="sw" data-for="c-shoes" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-shoes" data-c="#7a4a2e" style="background:#7a4a2e"></button><button class="sw" data-for="c-shoes" data-c="#f4cd5a" style="background:#f4cd5a"></button><button class="sw" data-for="c-shoes" data-c="#8a8f94" style="background:#8a8f94"></button></div>
           <p style="margin-top:10px;font-size:13px;opacity:.8">Hats, outfits and Giveback merch are sold at the General Store on Main Street. Press I any time for your inventory.</p></div>
       </div>
-      <div class="row"><button class="btn ghost rnd">Surprise me</button><span style="flex:1"></span><button class="btn" id="c-go">Looks good</button></div>
+      <div class="row"><button class="btn ghost rnd">Surprise me</button><button class="btn ghost" id="replayfly" title="Fly into the site again aboard Giveback One">Replay the fly-in</button><span style="flex:1"></span><button class="btn" id="c-go">Looks good</button></div>
     </div>
     </div>
     <div id="radio" class="hud mono" style="left:18px;bottom:64px;pointer-events:auto;display:flex;gap:6px;align-items:center;background:rgba(10,22,16,.55);border:1px solid rgba(77,222,111,.35);border-radius:12px;padding:6px 10px;font-size:12px"><span style="color:#4DDE6F;font-weight:700">GBACK FM</span><button id="radio-prev" class="btn ghost" style="padding:2px 8px">&lsaquo;</button><span id="radio-n" style="min-width:110px;text-align:center;color:#f5f1e6">Genesis Radio</span><button id="radio-next" class="btn ghost" style="padding:2px 8px">&rsaquo;</button><span style="color:rgba(245,241,230,.5)">R</span></div>
