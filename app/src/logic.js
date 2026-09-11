@@ -27,7 +27,7 @@ const SIGN_MAX = 80;
 const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
-const GAMES = ["golf", "course", "obby"];
+const GAMES = ["golf", "course", "obby", "drag"];
 const SEATS = 4;                 // one driver + three riders
 const BOARD_RANGE = 14;          // metres from the vehicle to climb in
 const DRIVER_STALE_TICKS = 400;  // a silent driver loses the wheel
@@ -58,7 +58,7 @@ function freshPlayer(playerId) {
 export function setup(players) {
   const roster = {};
   for (const id of players) roster[id] = freshPlayer(id);
-  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [], obby: [] } };
+  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [], obby: [], drag: [] } };
 }
 
 function num(v) {
