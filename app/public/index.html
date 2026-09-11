@@ -45,6 +45,7 @@
       #mm { right:18px; bottom:18px; width:184px; height:184px; border-radius:14px; overflow:hidden; pointer-events:auto; cursor:crosshair;
         border:1px solid rgba(77,222,111,.45); box-shadow:0 10px 30px rgba(0,0,0,.5); background:#0a1610; }
       #mm canvas { width:100%; height:100%; display:block; }
+      #mm.big { width:min(82vh,92vw); height:min(82vh,92vw); right:50%; bottom:50%; transform:translate(50%,50%); border:2px solid rgba(77,222,111,.7); box-shadow:0 20px 80px rgba(0,0,0,.6); z-index:30; }
       #warp { right:18px; bottom:210px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; pointer-events:auto; }
       #warp button { padding:5px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.3); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
       #warp button:hover { border-color:var(--green); }
@@ -110,7 +111,7 @@
     <div id="fine" class="hud">Concept walkthrough on the real terrain of Douglas Municipal Airport. Every structure is illustrative.</div>
     <div id="log" class="hud"></div>
     <div id="chat" class="hud"><input id="chat-in" maxlength="80" placeholder="Say something to everyone on the site" autocomplete="off" /></div>
-    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">The Expanse</button><button data-w="home">Home base</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button></div>
+    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">The Expanse</button><button data-w="home">Home base</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button></div>
     <div id="mm" class="hud"><canvas id="mmc" width="368" height="368"></canvas></div>
 
     <div id="joy" class="hud"><i></i></div>
