@@ -99,7 +99,7 @@
     </div></div>
 
     <div id="tl" class="hud"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div></div></div>
-    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><button id="snd">SOUND OFF</button> <button id="voice">VOICE OFF</button></div>
+    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><button id="snd">SOUND OFF</button> <button id="voice">VOICE OFF</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
     <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="game" class="hud mono"><b id="game-n"></b><div class="big" id="game-big"></div><div id="game-s" style="margin-top:4px"></div><div id="power"><i></i></div></div>
@@ -132,6 +132,24 @@
       <div class="k mono">Leave a mark on the site</div>
       <div id="gb-list"></div>
       <div class="row"><input id="gb-in" maxlength="80" placeholder="Say something (80 characters)" autocomplete="off" /><button class="btn" id="gb-go">Sign</button><button class="btn ghost" id="gb-x">Close</button></div>
+    </div>
+    <div id="tut" class="hud" style="left:50%;top:150px;transform:translateX(-50%);width:min(520px,92vw);padding:16px 20px;border-radius:16px;background:rgba(10,22,16,.86);border:1px solid rgba(77,222,111,.5);pointer-events:auto">
+      <div style="font-family:Anton,Impact,sans-serif;font-size:22px;letter-spacing:.03em" id="tut-h"></div><p id="tut-p" style="margin:6px 0 8px;color:rgba(245,241,230,.85)"></p><button class="btn ghost" id="tut-skip" style="padding:6px 12px">Skip the tutorial</button>
+    </div>
+    <style>#tut { display:none; } #tut.on { display:block; } #shop-list div, #lot-list div { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(245,241,230,.1); } #creator label { display:block; margin:8px 0 4px; color:rgba(245,241,230,.75); font-size:12px; } #creator input[type=color] { width:100%; height:38px; border:0; background:none; padding:0; } #creator select { width:100%; padding:9px; border-radius:10px; background:rgba(255,255,255,.06); color:var(--cream); border:1px solid rgba(245,241,230,.25); }</style>
+    <div id="shop" class="card">
+      <h2 id="shop-h"></h2><div class="k mono" id="shop-k"></div><div id="shop-list" class="blist"></div>
+      <div class="row"><span class="mono" style="align-self:center" id="shop-coins"></span><span style="flex:1"></span><button class="btn ghost" id="shop-x">Close</button></div>
+    </div>
+    <div id="lot" class="card">
+      <h2 id="lot-h"></h2><div class="k mono" id="lot-k"></div><div id="lot-list" class="blist"></div>
+      <div class="row"><button class="btn ghost" id="lot-x">Close</button></div>
+    </div>
+    <div id="creator" class="card">
+      <h2>Your character</h2><div class="k mono">Everyone on the site sees this</div>
+      <div class="cols"><div><label>Skin</label><input type="color" id="c-skin" value="#e8c19a" /><label>Shirt</label><input type="color" id="c-shirt" value="#4dde6f" /></div><div><label>Pants</label><input type="color" id="c-pants" value="#2b3a4a" /><label>Hair</label><select id="c-hair"><option value="0">Short</option><option value="1">Cropped</option><option value="2">Long</option><option value="3">Flat top</option></select></div></div>
+      <p style="margin-top:10px">Hats and outfits are sold at the General Store on Main Street and the terminal shop. Earn GB coins by playing.</p>
+      <div class="row"><button class="btn" id="c-go">Looks good</button></div>
     </div>
     <div id="board" class="card">
       <h2>Leaderboards</h2>

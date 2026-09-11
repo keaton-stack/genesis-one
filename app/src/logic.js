@@ -28,6 +28,16 @@ const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
 const GAMES = ["golf", "course", "obby", "drag"];
+// ── economy ──
+const START_COINS = 500;
+const SHOP = { hat_cap: 120, hat_cowboy: 220, hat_band: 90, outfit_flight: 300, outfit_ranch: 260, outfit_desert: 240, meal: 25, coffee: 10, art: 400 };
+const LOT_PRICE = 1200;
+const BUILD_KINDS = ["home", "dome", "pavilion", "casita"];
+const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
+const REWARD = { golf: 150, course: 80, obby: 120, drag: 60 };
+const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Tower"]];
+const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
+function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
 const SEATS = 4;                 // one driver + three riders
 const BOARD_RANGE = 14;          // metres from the vehicle to climb in
 const DRIVER_STALE_TICKS = 400;  // a silent driver loses the wheel
@@ -52,13 +62,13 @@ function defaultName(playerId) {
 }
 
 function freshPlayer(playerId) {
-  return { name: defaultName(playerId), x: HOME.x + 20, z: HOME.z + 40, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null };
+  return { name: defaultName(playerId), x: HOME.x + 20, z: HOME.z + 40, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null, look: null, xp: 0, coins: START_COINS, owned: [], hat: null, outfit: null, energy: 100, played: 0 };
 }
 
 export function setup(players) {
   const roster = {};
   for (const id of players) roster[id] = freshPlayer(id);
-  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [], obby: [], drag: [] } };
+  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [], obby: [], drag: [] }, lots: defaultLots() };
 }
 
 function num(v) {
@@ -95,6 +105,35 @@ export function validateAction(state, playerId, action) {
     if (!GAMES.includes(action.game)) return { ok: false, error: "unknown game" };
     if (!num(action.v) || action.v <= 0 || action.v > 1e7) return { ok: false, error: "bad score" };
     return { ok: true };
+  }
+  if (action.t === "look") {
+    const l = action.look; if (!l || typeof l !== "object") return { ok: false, error: "bad look" };
+    for (const k of ["skin", "shirt", "pants"]) if (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k])) return { ok: false, error: "bad colour" };
+    if (l.hair !== undefined && (!num(l.hair) || l.hair < 0 || l.hair > 3)) return { ok: false, error: "bad hair" };
+    return { ok: true };
+  }
+  if (action.t === "tick") {
+    // one minute of play: a little xp and a coin. Capped by the tick gap so it cannot be farmed.
+    if (me && state.tick - (me.lastTick || 0) < 8) return { ok: false, error: "too soon" };
+    return { ok: true };
+  }
+  if (action.t === "buy") {
+    if (!(action.item in SHOP)) return { ok: false, error: "no such item" };
+    if (!me || me.coins < SHOP[action.item]) return { ok: false, error: "not enough coins" };
+    if ((action.item.startsWith("hat_") || action.item.startsWith("outfit_")) && me.owned && me.owned.includes(action.item)) return { ok: false, error: "already owned" };
+    return { ok: true };
+  }
+  if (action.t === "wear") {
+    if (action.hat !== null && action.hat !== undefined && (!me || !me.owned || !me.owned.includes(action.hat))) return { ok: false, error: "you do not own that" };
+    if (action.outfit !== null && action.outfit !== undefined && (!me || !me.owned || !me.owned.includes(action.outfit))) return { ok: false, error: "you do not own that" };
+    return { ok: true };
+  }
+  if (action.t === "lot") {
+    const lots = state.lots || defaultLots(); const lot = lots[action.id]; if (!lot) return { ok: false, error: "no such lot" };
+    if (action.op === "buy") { if (lot.owner) return { ok: false, error: "already owned" }; if (!me || me.coins < LOT_PRICE) return { ok: false, error: "not enough coins" }; return { ok: true }; }
+    if (action.op === "build") { if (lot.owner !== playerId) return { ok: false, error: "not your lot" }; if (!BUILD_KINDS.includes(action.kind)) return { ok: false, error: "unknown building" }; if (!me || me.coins < BUILD_PRICE[action.kind]) return { ok: false, error: "not enough coins" }; return { ok: true }; }
+    if (action.op === "name") { if (lot.owner !== playerId) return { ok: false, error: "not your lot" }; if (typeof action.name !== "string" || !LOT_NAME_RE.test(action.name.trim())) return { ok: false, error: "bad name" }; return { ok: true }; }
+    return { ok: false, error: "bad lot op" };
   }
   if (action.t === "warp") {
     if (me && me.veh) return { ok: false, error: "leave the vehicle first" };
@@ -158,7 +197,8 @@ export function applyAction(state, playerId, action) {
   const V = { ...vehicles(state) };
   let guestbook = state.guestbook;
 
-  let boards = state.boards || { golf: [], course: [] };
+  let boards = state.boards || { golf: [], course: [], obby: [], drag: [] };
+  let lots = state.lots || defaultLots();
   if (action.t === "move") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -170,6 +210,24 @@ export function applyAction(state, playerId, action) {
     const list = [...(boards[action.game] || []), { by: me.name, v: Math.round(action.v), tick }];
     list.sort((a, b) => a.v - b.v);
     boards = { ...boards, [action.game]: list.slice(0, BOARD_MAX) };
+    me.coins = (me.coins || 0) + REWARD[action.game]; me.xp = (me.xp || 0) + REWARD[action.game];
+  } else if (action.t === "look") {
+    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0 };
+  } else if (action.t === "tick") {
+    me.lastTick = tick; me.played = (me.played || 0) + 1; me.xp = (me.xp || 0) + 5; me.coins = (me.coins || 0) + 3; me.energy = Math.max(0, (me.energy === undefined ? 100 : me.energy) - 2);
+  } else if (action.t === "buy") {
+    me.coins -= SHOP[action.item];
+    if (action.item.startsWith("hat_") || action.item.startsWith("outfit_")) { me.owned = [...(me.owned || []), action.item]; if (action.item.startsWith("hat_")) me.hat = action.item; else me.outfit = action.item; }
+    else if (action.item === "meal") me.energy = 100; else if (action.item === "coffee") me.energy = Math.min(100, (me.energy || 0) + 40); else if (action.item === "art") { me.owned = [...(me.owned || []), "art" + tick]; }
+    me.xp = (me.xp || 0) + 10;
+  } else if (action.t === "wear") {
+    if (action.hat !== undefined) me.hat = action.hat; if (action.outfit !== undefined) me.outfit = action.outfit;
+  } else if (action.t === "lot") {
+    const lot = { ...lots[action.id] };
+    if (action.op === "buy") { lot.owner = playerId; lot.name = me.name; me.coins -= LOT_PRICE; me.xp = (me.xp || 0) + 100; }
+    else if (action.op === "build") { lot.build = action.kind; me.coins -= BUILD_PRICE[action.kind]; me.xp = (me.xp || 0) + 60; }
+    else if (action.op === "name") lot.name = action.name.trim();
+    lots = { ...lots, [action.id]: lot };
   } else if (action.t === "warp") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -234,7 +292,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook, boards };
+  return { tick, players, vehicles: V, guestbook, boards, lots };
 }
 
 export function isGameOver() {
@@ -243,5 +301,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [] } };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), prices: { shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
 }
