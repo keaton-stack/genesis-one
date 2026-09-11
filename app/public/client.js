@@ -56,7 +56,7 @@ addEventListener("resize", resize); resize();
 
 // sky dome with gradient, sun glow and a cloud layer drawn from noise
 const texLoader0 = new THREE.TextureLoader();
-const skyDay = texLoader0.load("/tex/sky_day.jpg"), skyDusk = texLoader0.load("/tex/sky_dusk.jpg"); skyDay.encoding = skyDusk.encoding = THREE.sRGBEncoding;
+const skyDay = texLoader0.load("/tex/sky_day.jpg"), skyDusk = texLoader0.load("/tex/sky_dusk.jpg"), skyNight = texLoader0.load("/tex/sky_night.jpg"); skyDay.encoding = skyDusk.encoding = skyNight.encoding = THREE.sRGBEncoding;
 function milkyTexture() {   // a soft tilted band of galactic haze with a little structure
   const c = document.createElement("canvas"); c.width = 1024; c.height = 512; const x = c.getContext("2d"); x.fillStyle = "#000"; x.fillRect(0, 0, 1024, 512);
   for (let i = 0; i < 2600; i++) { const u = Math.random(); const band = 256 + Math.sin(u * 6.283) * 120; const y = band + (Math.random() + Math.random() + Math.random() - 1.5) * 60; const r = 6 + Math.random() * 30; const g = x.createRadialGradient(u * 1024, y, 0, u * 1024, y, r); const a = 0.02 + Math.random() * 0.05; g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = g; x.fillRect(u * 1024 - r, y - r, r * 2, r * 2); }
@@ -64,14 +64,14 @@ function milkyTexture() {   // a soft tilted band of galactic haze with a little
   const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; return t;
 }
 const skyMat = new THREE.ShaderMaterial({
-  uniforms: { tDay: { value: skyDay }, tDusk: { value: skyDusk }, tMilky: { value: milkyTexture() }, kDusk: { value: 0 }, kNight: { value: 0 }, nightCol: { value: new THREE.Color(0x070b18) }, horizon: { value: new THREE.Color(0xe7d6bd) }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunCol: { value: new THREE.Color(0xffd9a0) }, glow: { value: 1 } },
+  uniforms: { tDay: { value: skyDay }, tDusk: { value: skyDusk }, tNight: { value: skyNight }, tMilky: { value: milkyTexture() }, kDusk: { value: 0 }, kNight: { value: 0 }, nightCol: { value: new THREE.Color(0x070b18) }, horizon: { value: new THREE.Color(0xe7d6bd) }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, sunCol: { value: new THREE.Color(0xffd9a0) }, glow: { value: 1 } },
   vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `uniform sampler2D tDay; uniform sampler2D tDusk; uniform sampler2D tMilky; uniform float kDusk; uniform float kNight; uniform vec3 nightCol; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunCol; uniform float glow; varying vec3 vDir;
+  fragmentShader: `uniform sampler2D tDay; uniform sampler2D tDusk; uniform sampler2D tNight; uniform sampler2D tMilky; uniform float kDusk; uniform float kNight; uniform vec3 nightCol; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunCol; uniform float glow; varying vec3 vDir;
     void main(){ vec3 d = normalize(vDir); float u = atan(d.z, d.x) / 6.28318 + 0.5; float v = 0.5 + asin(clamp(d.y, -1.0, 1.0)) / 3.14159;
       vec3 sky = mix(texture2D(tDay, vec2(u, v)).rgb, texture2D(tDusk, vec2(u, v)).rgb, kDusk);
       float hz = smoothstep(0.0, 0.12, d.y); sky = mix(horizon, sky, hz);
       vec3 nightSky = mix(vec3(0.16, 0.14, 0.24), vec3(0.015, 0.02, 0.05), smoothstep(-0.05, 0.5, d.y));
-      float mw = texture2D(tMilky, vec2(u, v)).r; nightSky += vec3(0.55, 0.55, 0.7) * mw * 0.55;
+      float mw = texture2D(tMilky, vec2(u, v)).r; nightSky += vec3(0.55, 0.55, 0.7) * mw * 0.55; nightSky = mix(nightSky, texture2D(tNight, vec2(u, v)).rgb * 0.9, 0.4 * hz);
       sky = mix(sky, nightSky, kNight);
       float s = max(dot(d, normalize(sunDir)), 0.0); sky += sunCol * glow * (pow(s, 500.0) * 2.4 + pow(s, 8.0) * 0.3 * (1.0 - hz * 0.5));
       gl_FragColor = vec4(sky, 1.0); }`,
@@ -116,7 +116,7 @@ const loadbar = $("#loadbar"); const setLoad = (p, m) => { loadbar.style.width =
 // ───────────────────────────── materials ─────────────────────────────
 function tiled(path, rx, ry) { const t = texLoader0.load(path); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; }
 function procTex(fn, size) { const c = document.createElement("canvas"); c.width = c.height = size || 256; const x = c.getContext("2d"); fn(x, c.width); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4); t.encoding = THREE.sRGBEncoding; return t; }
-const TEX = { detail: tiled("/tex/detail.jpg", 1, 1), turf: tiled("/tex/turf.jpg", 1, 1), apron: tiled("/tex/apron.jpg", 1, 1), dirt: tiled("/tex/dirt.jpg", 1, 1),
+const TEX = { detail: tiled("/tex/detail.jpg", 1, 1), turf: tiled("/tex/turf.jpg", 1, 1), apron: tiled("/tex/apron.jpg", 1, 1), dirt: tiled("/tex/dirt.jpg", 1, 1), sand: tiled("/tex/sand.jpg", 1, 1), wood: tiled("/tex/wood.jpg", 1, 1), adobe: tiled("/tex/adobe.jpg", 1, 1), corrugated: tiled("/tex/corrugated.jpg", 1, 1),
   plank: procTex((x, S) => { x.fillStyle = "#7a5535"; x.fillRect(0, 0, S, S); for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.05)"; x.fillRect(0, i * S / 8, S, S / 8); x.fillStyle = "rgba(0,0,0,.4)"; x.fillRect(0, i * S / 8, S, 2); for (let k = 0; k < 40; k++) { x.fillStyle = "rgba(0,0,0,.08)"; x.fillRect(Math.random() * S, i * S / 8 + Math.random() * S / 8, 20 + Math.random() * 60, 1); } } }),
   adobeWall: procTex((x, S) => { x.fillStyle = "#e6dac4"; x.fillRect(0, 0, S, S); for (let k = 0; k < 900; k++) { x.fillStyle = `rgba(120,90,60,${Math.random() * 0.08})`; x.fillRect(Math.random() * S, Math.random() * S, 2 + Math.random() * 4, 2 + Math.random() * 4); } }),
   checker: procTex((x, S) => { for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? "#f5f1e6" : "#0a1610"; x.fillRect(i * S / 4, j * S / 4, S / 4, S / 4); } }) };
@@ -131,7 +131,7 @@ const M = {
   coneW: new THREE.MeshStandardMaterial({ color: 0xf5f1e6, roughness: 0.7 }), tire: new THREE.MeshStandardMaterial({ color: 0x1d1d1f, roughness: 0.95 }),
   ramp: new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.9 }), banner: new THREE.MeshStandardMaterial({ color: 0x4dde6f, roughness: 0.8, side: THREE.DoubleSide }),
   turf: new THREE.MeshStandardMaterial({ map: TEX.turf, roughness: 1 }), fringe: new THREE.MeshStandardMaterial({ color: 0x6f9a4a, roughness: 1 }),
-  sand: new THREE.MeshStandardMaterial({ color: 0xe6d3a3, roughness: 1 }), wall: new THREE.MeshStandardMaterial({ color: 0x8b6a45, roughness: 0.9 }),
+  sand: new THREE.MeshStandardMaterial({ map: TEX.sand, roughness: 1 }), wall: new THREE.MeshStandardMaterial({ color: 0x8b6a45, roughness: 0.9 }),
   bumper: new THREE.MeshStandardMaterial({ color: 0xf4cd5a, roughness: 0.6 }), flag: new THREE.MeshStandardMaterial({ color: 0xff3b30, side: THREE.DoubleSide }),
   hole: new THREE.MeshBasicMaterial({ color: 0x0a0a0a }), post: new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 0.95 }),
 };
@@ -169,9 +169,11 @@ function textTexture(lines, w, h, opts) {
   lines.forEach((ln, i) => { x.font = `${ln.weight || 400} ${ln.size}px ${ln.font || "Anton, Impact, sans-serif"}`; x.fillStyle = ln.color || "#f5f1e6"; if (ln.shadow) { x.shadowColor = "rgba(0,0,0,.6)"; x.shadowBlur = 8; x.shadowOffsetY = 4; } x.fillText(ln.text, w / 2, ln.y * h); x.shadowBlur = 0; x.shadowOffsetY = 0; });
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t;
 }
+const SIGN_ART = { "GENESIS ONE": "/tex/sign_genesis.jpg", "THE LANDING": "/tex/sign_landing.jpg", "THE FLIGHT LINE": "/tex/sign_flightline.jpg", "THE EXPANSE": "/tex/sign_expanse.jpg", "GIVEBACK HOME BASE": "/tex/sign_homebase.jpg", "DESERT GOLF": "/tex/sign_golf.jpg", "CART COURSE": "/tex/sign_course.jpg", "SKY OBBY": "/tex/sign_obby.jpg" };
+const SIGN_TEX = {}; for (const k in SIGN_ART) { const t = texLoader0.load(SIGN_ART[k]); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; SIGN_TEX[k] = t; }
 function sign(x, z, rot, title, sub, big) {
   const g = new THREE.Group(); const W = big ? 11 : 6.4, Hh = big ? 4 : 2.4;
-  const tex = textTexture([{ text: title, size: big ? 150 : 110, y: 0.42, shadow: true }, { text: sub, size: big ? 52 : 42, y: 0.74, color: "#4DDE6F", font: "'Space Grotesk', system-ui, sans-serif", weight: 600 }], 1024, 384, { planks: true, border: "#4DDE6F" });
+  const tex = SIGN_TEX[title] || textTexture([{ text: title, size: big ? 150 : 110, y: 0.42, shadow: true }, { text: sub, size: big ? 52 : 42, y: 0.74, color: "#4DDE6F", font: "'Space Grotesk', system-ui, sans-serif", weight: 600 }], 1024, 384, { planks: true, border: "#4DDE6F" });
   const board = new THREE.Mesh(new THREE.BoxGeometry(W, Hh, 0.18), [M.wood, M.wood, M.wood, M.wood, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 })]);
   board.position.y = (big ? 3.2 : 2.2) + Hh / 2; g.add(board);
   for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, board.position.y + Hh / 2, 0.3), M.post); p.position.set(s * (W / 2 - 0.4), (board.position.y + Hh / 2) / 2, 0); g.add(p); }
@@ -969,7 +971,7 @@ function furnish(g, kind, r) {
 function enterInterior(door) {
   if (inside || riding || golf.playing) return; if (cartMode) toggleCart();
   const e = door.e, r = door.r; const g = new THREE.Group(); g.position.set(e[0], e[1], e[2]); g.rotation.y = e[3];
-  const isH = door.kind === "hangar" || door.kind === "hangarhome"; const wallMat = new THREE.MeshStandardMaterial({ color: isH ? 0xb9bec4 : 0xe6dac4, map: isH ? null : TEX.adobeWall, roughness: 0.9, side: THREE.DoubleSide }), floorMat = new THREE.MeshStandardMaterial({ map: isH ? TEX.apron : TEX.plank, roughness: 0.95 });
+  const isH = door.kind === "hangar" || door.kind === "hangarhome"; const wallMat = new THREE.MeshStandardMaterial({ map: isH ? TEX.corrugated : TEX.adobe, roughness: 0.9, side: THREE.DoubleSide }), floorMat = new THREE.MeshStandardMaterial({ map: isH ? TEX.apron : TEX.wood, roughness: 0.95 });
   const hgt = door.kind === "hangar" || door.kind === "hangarhome" ? 7 : 3.6, half = r * 0.95;
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), floorMat); floor.rotation.x = -Math.PI / 2; floor.position.y = 0.05; g.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), wallMat); ceil.rotation.x = Math.PI / 2; ceil.position.y = hgt; g.add(ceil);
