@@ -98,9 +98,9 @@ function updateSky() {
   const az = t * 6.283;
   sun.position.set(Math.cos(az) * 700, Math.max(el, 0.02) * 700 + 40, Math.sin(az) * 300);
   sun.intensity = 1.25 * day; sun.color.setHSL(0.09, 0.55, 0.6 + 0.3 * Math.min(1, Math.max(0, el)));
-  moon.intensity = 0.28 * night; hemi.intensity = 0.62 * day + 0.16;
+  moon.intensity = 0.55 * night; hemi.intensity = 0.62 * day + 0.3;
   hemi.color.setHSL(0.6, 0.35, 0.55 + 0.35 * day);
-  renderer.toneMappingExposure = 0.88 - 0.3 * night;
+  renderer.toneMappingExposure = 0.88 - 0.22 * night;
   stars.material.opacity = Math.max(0, night - 0.35) * 1.4;
   for (const m of nightGlow) m.emissiveIntensity = 0.4 + 2.2 * night;
   M.glass.emissive.setHex(0xffd08a); M.glass.emissiveIntensity = 0.9 * night;
@@ -400,7 +400,7 @@ async function buildWorld() {
     const sx = Math.cos(dir), sz = Math.sin(dir);        // street direction
     scene.add(ribbon([[c[0] - sx * 140, c[1] - sz * 140], [c[0] + sx * 140, c[1] + sz * 140]], 10, M.dirt, 0.22));
     for (let i = 0; i < 7; i++) { const t = -120 + i * 40;
-      for (const side of [-1, 1]) { const ox = -sz * side * 14, oz = sx * side * 14; scene.add(storefront(c[0] + sx * t + ox, c[1] + sz * t + oz, dir + (side > 0 ? Math.PI : 0) + Math.PI / 2)); } }
+      for (const side of [-1, 1]) { const ox = -sz * side * 14, oz = sx * side * 14; scene.add(storefront(c[0] + sx * t + ox, c[1] + sz * t + oz, Math.atan2(sz * side, -sx * side))); } }
     hotspots.push({ x: c[0], z: c[1], r: 60, t: "Main Street", k: "Stage 03 · The Expanse · 318 acres", p: "Old West frontier storefronts on a dirt main street: hospitality, commerce and gathering places for the community and its visitors." });
     scatterIn(c[0] + 220, c[1] + 40, 150, 6, (x, z) => scene.add(dome(x, z, 6 + rnd() * 3)), 30);
     scatterIn(c[0] - 200, c[1] - 120, 130, 3, (x, z) => scene.add(pavilion(x, z, 9)), 36);
