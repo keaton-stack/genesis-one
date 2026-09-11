@@ -707,7 +707,7 @@ function updateSky(dt) {
   if (DETAILS.portals) DETAILS.portals.material === M.green || 0;
   M.lampGlow.emissiveIntensity = 2.5 * glow; if (DETAILS.bulbs) DETAILS.bulbs.emissiveIntensity = 2.2 * glow; if (DETAILS.halo) DETAILS.halo.material.opacity = 0.7 * glow; M.rwLight.emissiveIntensity = 3 * glow; M.rwLightB.emissiveIntensity = 3 * glow; M.green.emissiveIntensity = 0.4 + 1.6 * night;
   { const sp = new THREE.Vector3().copy(sdir).multiplyScalar(5000).add(camera.position); const v = sp.clone().project(camera); const front = v.z < 1 && sdir.dot(new THREE.Vector3().copy(camera.getWorldDirection(new THREE.Vector3()))) > 0; POST.sunUV.set(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5); const inView = front && Math.abs(v.x) < 1.6 && Math.abs(v.y) < 1.6; const target = inView && el > -0.08 ? Math.min(1, (el + 0.08) / 0.2) * (1 - Math.max(0, Math.abs(v.x) - 1) / 0.6) * (1 - Math.max(0, Math.abs(v.y) - 1) / 0.6) : 0; POST.sunVis += (target - POST.sunVis) * Math.min(1, dt * 6);
-    POST.hazeCol.copy(hor).lerp(mid, 0.45); POST.sunCol.setHSL(0.07, 0.85, 0.5 + 0.2 * Math.min(1, Math.max(0, el))).multiplyScalar(1 - night * 0.9); if (POST.mFinal) POST.mFinal.uniforms.uHazeK.value = 0.00003 + 0.00004 * dusk + 0.00002 * night; }
+    POST.heat = Math.max(0, Math.min(1, (el - 0.45) / 0.4)); POST.hazeCol.copy(hor).lerp(mid, 0.45); POST.sunCol.setHSL(0.07, 0.85, 0.5 + 0.2 * Math.min(1, Math.max(0, el))).multiplyScalar(1 - night * 0.9); if (POST.mFinal) POST.mFinal.uniforms.uHazeK.value = 0.00003 + 0.00004 * dusk + 0.00002 * night; }
   const hh = Math.floor(t * 24), mm = Math.floor((t * 24 - hh) * 60); $("#clock").textContent = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")} site time`;
 }
 
@@ -877,7 +877,7 @@ addEventListener("keydown", (e) => {
   if (e.target && e.target.tagName === "INPUT") { if (e.code === "Escape") { e.target.blur(); closeChat(); } return; }
   if (e.repeat) { keys[e.code] = true; return; }
   keys[e.code] = true;
-  if (e.code === "KeyF") toggleRide(); if (e.code === "KeyC") toggleCart(); if (e.code === "KeyM") towerView = !towerView; if (e.code === "Tab") { e.preventDefault(); $("#mm").classList.toggle("big"); } if (e.code === "KeyE") openNearest(); if (e.code === "KeyG") toggleGuestbook(); if (e.code === "KeyL") toggleBoard();
+  if (e.code === "KeyF") toggleRide(); if (e.code === "KeyC") toggleCart(); if (e.code === "KeyM") towerView = !towerView; if (e.code === "KeyR" && !chatOpen) setStation(RADIO.i + 1); if (e.code === "BracketLeft" && !chatOpen) setStation(RADIO.i - 1); if (e.code === "BracketRight" && !chatOpen) setStation(RADIO.i + 1); if (e.code === "Tab") { e.preventDefault(); $("#mm").classList.toggle("big"); } if (e.code === "KeyE") openNearest(); if (e.code === "KeyG") toggleGuestbook(); if (e.code === "KeyL") toggleBoard();
   if (e.code === "KeyN") timeOffset += DAY_SECONDS / 2; if (e.code === "KeyV") toggleVoice(); if (e.code === "KeyX") toggleSound(); if (e.code === "KeyH") document.body.classList.toggle("photo"); if (e.code === "KeyP") snapshot(); if (e.code === "Enter") openChat();
   if (e.code === "Escape") { closeCards(); if (golf.playing) golfEnd(true); }
   if (e.code === "Space" && !riding && !golf.playing && !airborne) { vy = cartMode ? 7 : 6.6; airborne = true; sfx("jump"); }
@@ -888,7 +888,7 @@ addEventListener("keydown", (e) => {
 addEventListener("keyup", (e) => { keys[e.code] = false; });
 function openChat() { chatOpen = true; $("#chat").classList.add("on"); $("#chat-in").focus(); if (document.exitPointerLock) document.exitPointerLock(); }
 function closeChat() { chatOpen = false; $("#chat").classList.remove("on"); $("#chat-in").blur(); }
-$("#chat-in").addEventListener("keydown", (e) => { if (e.key === "Enter") { const v = e.target.value.trim(); if (v) act({ t: "say", text: v }); e.target.value = ""; closeChat(); } });
+$("#chat-in").addEventListener("keydown", (e) => { if (e.key === "Enter") { const v = e.target.value.trim(); if (v) { act({ t: "say", text: v }); npcHear(v); } e.target.value = ""; closeChat(); } });
 function snapshot() { try { const a = document.createElement("a"); a.download = "genesis-one.png"; a.href = canvas.toDataURL("image/png"); a.click(); } catch {} }
 let locked = false;
 canvas.addEventListener("click", () => { if (!("ontouchstart" in window) && canvas.requestPointerLock) canvas.requestPointerLock(); });
@@ -911,9 +911,10 @@ $("#mm").addEventListener("click", (e) => { if (!T) return; $("#mm").classList.r
 
 // ───────────────────────────── HUD ─────────────────────────────
 let gbOpen = false, boardOpen = false;
-function closeCards() { for (const id of ["#info", "#gb", "#board", "#shop", "#lot", "#creator"]) $(id).classList.remove("on"); gbOpen = false; boardOpen = false; }
+function closeCards() { closeTalk(); for (const id of ["#info", "#gb", "#board", "#shop", "#lot", "#creator"]) $(id).classList.remove("on"); gbOpen = false; boardOpen = false; }
 function nearestHotspot() { let best = null, bd = 1e9; for (const h of hotspots) { const d = Math.hypot(player.position.x - h.x, player.position.z - h.z); if (d < h.r && d < bd) { bd = d; best = h; } } return best; }
-function openNearest() { if (!player) return; if (inside) { if (VENUE[inside.door.kind] && !inside.atDoor()) { openShop(inside.door.kind); return; } leaveInterior(); return; } const lot = nearestLot(); if (lot) { openLot(lot); return; } const door = nearestDoor(); if (door) { enterInterior(door); return; } const best = nearestHotspot(); if (!best) return; $("#info-h").textContent = best.t; $("#info-k").textContent = best.k; $("#info-p").textContent = best.p; $("#info-go").style.display = best.play ? "" : "none"; $("#info-go").onclick = () => { if (best.play === "golf") golfStart(); else if (best.play === "tour") startTour(); }; $("#info-go").textContent = best.play === "tour" ? "Start the tour" : "Play"; $("#info").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); }
+function openNearest() { if (!player) return; if (inside) { if (VENUE[inside.door.kind] && !inside.atDoor()) { openShop(inside.door.kind); return; } leaveInterior(); return; } const lot = nearestLot(); if (lot) { openLot(lot); return; } const door = nearestDoor(); if (door) { enterInterior(door); return; } const best = nearestHotspot(); if (!best) return; $("#info-h").textContent = best.t; $("#info-k").textContent = best.k; $("#info-p").textContent = best.p; $("#info-go").style.display = best.play ? "" : "none"; $("#info-go").onclick = () => { if (best.play === "golf") golfStart(); else if (best.play === "tour") startTour(); };
+  if (best.play && best.play.startsWith("npc:")) { const c = CAST.find((k) => k.id === best.play.slice(4)); if (c) { showTalk(c, 0); return; } } $("#info-go").textContent = best.play === "tour" ? "Start the tour" : "Play"; $("#info").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); }
 $("#info-x").addEventListener("click", closeCards);
 function toggleGuestbook() { gbOpen = !gbOpen; $("#gb").classList.toggle("on", gbOpen); if (gbOpen) { renderGuestbook(); if (document.exitPointerLock) document.exitPointerLock(); $("#gb-in").focus(); } }
 function renderGuestbook() { const list = $("#gb-list"); list.innerHTML = ""; const entries = (view && view.guestbook) || []; if (!entries.length) { const d = document.createElement("div"); d.textContent = "Nobody has signed yet. Be the first."; list.append(d); } for (const e of [...entries].reverse()) { const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = e.by + " "; d.append(b, document.createTextNode(e.text)); list.append(d); } }
@@ -999,7 +1000,7 @@ function frame() {
       if (!cartMode && !airborne && !inside && spd > 0.5) { FX.stepDist += spd * dt; if (FX.stepDist > (spd > 6 ? 1.15 : 0.72)) { FX.stepDist = 0; FX.side = -FX.side; stamp(FX.prints, nx + Math.cos(ry) * 0.17 * FX.side, surf, nz - Math.sin(ry) * 0.17 * FX.side, ry, 1); sfx("step"); if (spd > 6) emitDust(nx, surf, nz, 2, 0.5, 0.5); } }
       if (cartMode && !airborne && Math.abs(cartSpeed) > 3) { FX.trackDist += Math.abs(cartSpeed) * dt; FX.dustAcc += Math.abs(cartSpeed) * dt; const bx = nx - Math.sin(ry) * 0.9, bz = nz - Math.cos(ry) * 0.9; if (FX.trackDist > 0.95) { FX.trackDist = 0; for (const sd of [-1, 1]) stamp(FX.tracks, bx + Math.cos(ry) * 0.6 * sd, surf, bz - Math.sin(ry) * 0.6 * sd, ry, 1); } if (FX.dustAcc > 1.2) { FX.dustAcc = 0; emitDust(bx, surf, bz, 2 + Math.floor(Math.abs(cartSpeed) / 10), 1.3, 0.9 + Math.abs(cartSpeed) / 30); } } }
   } else if (golf.playing) updateGolf(dt);
-  updateVehicles(dt); updateBalls(); updateCourse(); updateFX(dt, now); updateMinigames(dt, now); updateTraffic(dt, now); updateEnvironment(now); if ((FRAME_N & 1) === 0) drawCompass(now); if (!HUD.gameOwner && !DRAG.showing && !golf.playing) $("#game").classList.remove("on"); HUD.gameOwner = null;
+  updateVehicles(dt); updateBalls(); updateCourse(); updateFX(dt, now); updateMinigames(dt, now); updateTraffic(dt, now); updateEnvironment(now); updateCast(dt, now); updateDevil(dt, now); if ((FRAME_N & 1) === 0) drawCompass(now); if (!HUD.gameOwner && !DRAG.showing && !golf.playing) $("#game").classList.remove("on"); HUD.gameOwner = null;
   if (riding && riding.kind !== "jet" && FX.dust && Math.abs(vSpeed) > 3) { const V = VEH[riding.id]; if (V) { FX.dustAcc += Math.abs(vSpeed) * dt; if (FX.dustAcc > 1.3) { FX.dustAcc = 0; const ry = V.g.rotation.y; emitDust(V.g.position.x - Math.sin(ry) * 1.6, V.g.position.y, V.g.position.z - Math.cos(ry) * 1.6, 3, 1.6, 1.1); } } } if (!golf.playing && player.userData.arms && !airborne && !cartMode) { /* arms rest */ }
   const px = player.position.x, pz = player.position.z, gh = getH(px, pz);
   { const fovT = riding ? (riding.kind === "jet" ? 70 : 64 + Math.min(10, Math.abs(vSpeed) * 0.3)) : cartMode ? 62 + Math.min(14, Math.abs(cartSpeed) * 0.32) : 62 + 7 * runK; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); } }
@@ -1264,6 +1265,19 @@ function updateTraffic(dt, now) {
   if (audioReady && AUD.traffic) { let best = 0; for (const j of TRAFFIC.jets) { if (j.speed < 30 || !player) continue; const dd = Math.hypot(j.g.position.x - player.position.x, j.g.position.z - player.position.z, (j.g.position.y - player.position.y) * 0.5); best = Math.max(best, Math.max(0, 1 - dd / 900) * Math.min(1, j.speed / 90)); } const want = soundOn ? +AUD.traffic.dataset.vol * best : 0; AUD.traffic.volume += (want - AUD.traffic.volume) * Math.min(1, dt * 2); if (want > 0.01 && AUD.traffic.paused) AUD.traffic.play().catch(() => {}); }
 }
 function birdTex() { const c = document.createElement("canvas"); c.width = 64; c.height = 32; const x = c.getContext("2d"); x.strokeStyle = "rgba(20,16,12,0.9)"; x.lineWidth = 3; x.lineCap = "round"; x.beginPath(); x.moveTo(4, 20); x.quadraticCurveTo(18, 4, 32, 18); x.quadraticCurveTo(46, 4, 60, 20); x.stroke(); return new THREE.CanvasTexture(c); }
+function buildLightPools() {
+  const lamps = PLACE.lamp || []; if (!lamps.length) return; const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d"); const gr = x.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, "rgba(255,214,150,0.9)"); gr.addColorStop(0.35, "rgba(255,200,130,0.35)"); gr.addColorStop(1, "rgba(255,190,120,0)"); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }); const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(9, 9).rotateX(-Math.PI / 2), mat, lamps.length); const m = new THREE.Matrix4();
+  lamps.forEach((e, i) => { m.makeTranslation(e[0], getH(e[0], e[2]) + 0.08, e[2]); im.setMatrixAt(i, m); }); im.renderOrder = 3; im.frustumCulled = false; scene.add(im); DETAILS.pools = im;
+}
+// a dust devil wanders the open desert by day
+const DEVIL = { pts: null, x: 0, z: 0, vx: 0, vz: 0, life: 0, next: 30 };
+function updateDevil(dt, now) {
+  if (!FX.dust || !T) return;
+  if (DEVIL.life <= 0) { DEVIL.next -= dt; if (DEVIL.next > 0 || night > 0.4) return; DEVIL.next = 90 + Math.random() * 120; let tries = 0; do { DEVIL.x = (Math.random() - 0.5) * 2000; DEVIL.z = (Math.random() - 0.5) * 2000; } while (tries++ < 20 && !free(DEVIL.x, DEVIL.z, 25)); const a = Math.random() * 6.283; DEVIL.vx = Math.cos(a) * 2.5; DEVIL.vz = Math.sin(a) * 2.5; DEVIL.life = 40 + Math.random() * 40; return; }
+  DEVIL.life -= dt; DEVIL.x += DEVIL.vx * dt; DEVIL.z += DEVIL.vz * dt; DEVIL.vx += (Math.random() - 0.5) * dt * 2; DEVIL.vz += (Math.random() - 0.5) * dt * 2; if (!onLand(DEVIL.x, DEVIL.z)) DEVIL.life = 0;
+  const gy = getH(DEVIL.x, DEVIL.z); for (let k = 0; k < 3; k++) { const h = Math.random() * 14; const r = 0.6 + h * 0.18; const a = now * 0.008 + h * 1.7 + k * 2; emitDust(DEVIL.x + Math.cos(a) * r, gy + h, DEVIL.z + Math.sin(a) * r, 1, 0.3, 1.8); }
+}
 function buildFX() {
   const N = 700; const g = new THREE.BufferGeometry(); const pos = new Float32Array(N * 3); const alp = new Float32Array(N); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("alpha", new THREE.BufferAttribute(alp, 1));
   const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d"); const gr = x.createRadialGradient(32, 32, 2, 32, 32, 30); gr.addColorStop(0, "rgba(255,255,255,0.8)"); gr.addColorStop(0.45, "rgba(255,255,255,0.3)"); gr.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); const tex = new THREE.CanvasTexture(c);
@@ -1271,6 +1285,7 @@ function buildFX() {
   FX.dust = { pts: new THREE.Points(g, mat), pos, alp, vel: new Float32Array(N * 3), life: new Float32Array(N), n: N, i: 0 }; FX.dust.pts.frustumCulled = false; FX.dust.pts.renderOrder = 6; scene.add(FX.dust.pts);
   const mk = (n, w, h) => { const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x2e2419, transparent: true, opacity: 0.28, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }), n); const m = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < n; i++) im.setMatrixAt(i, m); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.renderOrder = 2; im.frustumCulled = false; scene.add(im); return { im, n, i: 0 }; };
   FX.prints = mk(180, 0.13, 0.3); FX.tracks = mk(420, 0.15, 1.05);
+  buildLightPools();
   FX.birds = []; const bt = birdTex(); for (let f = 0; f < 3; f++) { const cx = (rnd() - 0.5) * 1500, cz = (rnd() - 0.5) * 1500; for (let i = 0; i < 5; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bt, transparent: true, depthWrite: false })); sp.scale.set(2.4, 1.2, 1); scene.add(sp); FX.birds.push({ s: sp, cx, cz, r: 40 + i * 9, a: rnd() * 6.283, h: 75 + i * 6, w: 0.22 + rnd() * 0.1 }); } }
 }
 function emitDust(x, y, z, n, spread, up) { const D = FX.dust; if (!D) return; for (let k = 0; k < n; k++) { const i = D.i = (D.i + 1) % D.n; D.pos[i * 3] = x + (rnd() - 0.5) * spread; D.pos[i * 3 + 1] = y + 0.15; D.pos[i * 3 + 2] = z + (rnd() - 0.5) * spread; D.vel[i * 3] = (rnd() - 0.5) * 1.4; D.vel[i * 3 + 1] = 0.5 + rnd() * up; D.vel[i * 3 + 2] = (rnd() - 0.5) * 1.4; D.life[i] = 1; D.alp[i] = 1; } }
@@ -1278,6 +1293,7 @@ const _sm = new THREE.Matrix4(), _sq = new THREE.Quaternion(), _sv = new THREE.V
 function stamp(R, x, y, z, rot, sc) { if (!R) return; const i = R.i = (R.i + 1) % R.n; _sm.compose(_sv.set(x, y + 0.03, z), _sq.setFromAxisAngle(_up, rot), _ss.set(sc, 1, sc)); R.im.setMatrixAt(i, _sm); R.im.instanceMatrix.needsUpdate = true; }
 function updateFX(dt, now) {
   const D = FX.dust; if (D) { for (let i = 0; i < D.n; i++) { if (D.life[i] <= 0) continue; D.life[i] -= dt * 0.5; D.alp[i] = Math.max(0, D.life[i]); D.pos[i * 3] += D.vel[i * 3] * dt; D.pos[i * 3 + 1] += D.vel[i * 3 + 1] * dt; D.pos[i * 3 + 2] += D.vel[i * 3 + 2] * dt; D.vel[i * 3 + 1] *= 0.96; } D.pts.geometry.attributes.position.needsUpdate = true; D.pts.geometry.attributes.alpha.needsUpdate = true; D.pts.material.uniforms.uCol.value.setRGB(0.8, 0.72, 0.58).multiplyScalar(1 - night * 0.7); }
+  if (DETAILS.pools) DETAILS.pools.material.opacity = 0.75 * Math.max(0, night - 0.2) / 0.8;
   if (FX.birds) for (const b of FX.birds) { b.a += b.w * dt; b.s.position.set(b.cx + Math.cos(b.a) * b.r, getH(b.cx, b.cz) + b.h + Math.sin(now * 0.001 + b.r) * 3, b.cz + Math.sin(b.a) * b.r); b.s.material.opacity = 0.9 - night * 0.8; }
   for (const gm of GROUND_MATS) if (gm.userData.sh) gm.userData.sh.uniforms.uTime.value = now / 1000; if (POOL_MAT) { POOL_MAT.uniforms.uTime.value = now / 1000; POOL_MAT.uniforms.uNight.value = night; POOL_MAT.uniforms.uSun.value.copy(sun.position).sub(player ? player.position : new THREE.Vector3()).normalize(); POOL_MAT.uniforms.uSunCol.value.copy(sun.color).multiplyScalar(sun.intensity); POOL_MAT.uniforms.uSky.value.copy(scene.fog.color); }
   if (inside && inside.g.userData.bags) { const bags = inside.g.userData.bags, cx = -inside.half + 9, cz = -inside.half + 8; bags.forEach((b, k) => { const a = k / 6 * 6.283 + now * 0.0004; b.position.set(cx + Math.cos(a) * 5, 1.35, cz + Math.sin(a) * 5); b.rotation.y = -a; }); }
@@ -1303,7 +1319,7 @@ function initPost() {
   POST.mAOBlur = new THREE.ShaderMaterial({ uniforms: { tCol: { value: null }, tDepth: { value: null }, uPx: { value: new THREE.Vector2() } }, vertexShader: vs, fragmentShader: `varying vec2 vUv; uniform sampler2D tCol; uniform sampler2D tDepth; uniform vec2 uPx; void main(){ float z0 = texture2D(tDepth, vUv).x; float acc = 0.0, tw = 0.0; for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) { vec2 uv = vUv + vec2(float(i), float(j)) * uPx * 1.5; float w = 1.0 - min(1.0, abs(texture2D(tDepth, uv).x - z0) * 4000.0); acc += texture2D(tCol, uv).r * w; tw += w; } gl_FragColor = vec4(vec3(acc / max(tw, 0.001)), 1.0); }` });
   POST.mBright = new THREE.ShaderMaterial({ uniforms: { tCol: { value: null } }, vertexShader: vs, fragmentShader: `varying vec2 vUv; uniform sampler2D tCol; void main(){ vec3 c = texture2D(tCol, vUv).rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); gl_FragColor = vec4(c * smoothstep(1.1, 2.2, l), 1.0); }` });
   POST.mBlur = new THREE.ShaderMaterial({ uniforms: { tCol: { value: null }, uPx: { value: new THREE.Vector2() }, uDir: { value: new THREE.Vector2(1, 0) } }, vertexShader: vs, fragmentShader: `varying vec2 vUv; uniform sampler2D tCol; uniform vec2 uPx; uniform vec2 uDir; void main(){ vec2 o = uPx * uDir; vec3 c = texture2D(tCol, vUv).rgb * 0.227; c += (texture2D(tCol, vUv + o * 1.385).rgb + texture2D(tCol, vUv - o * 1.385).rgb) * 0.316; c += (texture2D(tCol, vUv + o * 3.23).rgb + texture2D(tCol, vUv - o * 3.23).rgb) * 0.07; gl_FragColor = vec4(c, 1.0); }` });
-  POST.mFinal = new THREE.ShaderMaterial({ uniforms: { tCol: { value: null }, tDepth: { value: null }, tBloom: { value: null }, tRays: { value: null }, tAO: { value: null }, uPx: { value: new THREE.Vector2() }, uSun: { value: POST.sunUV }, uSunVis: { value: 0 }, uSunCol: { value: POST.sunCol }, uHaze: { value: POST.hazeCol }, uHazeK: { value: 0.00009 }, uNight: { value: 0 }, uTime: { value: 0 }, uNear: { value: camera.near }, uFar: { value: camera.far }, uExposure: { value: 1 } }, vertexShader: vs, fragmentShader: `varying vec2 vUv; uniform sampler2D tCol; uniform sampler2D tDepth; uniform sampler2D tBloom; uniform sampler2D tRays; uniform sampler2D tAO; uniform vec2 uPx; uniform vec2 uSun; uniform float uSunVis; uniform vec3 uSunCol; uniform vec3 uHaze; uniform float uHazeK; uniform float uNight; uniform float uTime; uniform float uNear; uniform float uFar; uniform float uExposure;
+  POST.mFinal = new THREE.ShaderMaterial({ uniforms: { tCol: { value: null }, tDepth: { value: null }, tBloom: { value: null }, tRays: { value: null }, tAO: { value: null }, uPx: { value: new THREE.Vector2() }, uSun: { value: POST.sunUV }, uSunVis: { value: 0 }, uSunCol: { value: POST.sunCol }, uHaze: { value: POST.hazeCol }, uHazeK: { value: 0.00009 }, uNight: { value: 0 }, uTime: { value: 0 }, uNear: { value: camera.near }, uFar: { value: camera.far }, uExposure: { value: 1 }, uHeat: { value: 0 } }, vertexShader: vs, fragmentShader: `varying vec2 vUv; uniform sampler2D tCol; uniform sampler2D tDepth; uniform sampler2D tBloom; uniform sampler2D tRays; uniform sampler2D tAO; uniform vec2 uPx; uniform vec2 uSun; uniform float uSunVis; uniform vec3 uSunCol; uniform vec3 uHaze; uniform float uHazeK; uniform float uNight; uniform float uTime; uniform float uNear; uniform float uFar; uniform float uExposure; uniform float uHeat;
     vec3 aces(vec3 x){ x *= 0.6; return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
     float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
     vec3 fxaa(vec2 uv){ vec3 rgbNW = texture2D(tCol, uv + vec2(-1.0, -1.0) * uPx).rgb, rgbNE = texture2D(tCol, uv + vec2(1.0, -1.0) * uPx).rgb, rgbSW = texture2D(tCol, uv + vec2(-1.0, 1.0) * uPx).rgb, rgbSE = texture2D(tCol, uv + vec2(1.0, 1.0) * uPx).rgb, rgbM = texture2D(tCol, uv).rgb;
@@ -1311,14 +1327,16 @@ function initPost() {
       vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), ((lNW + lSW) - (lNE + lSE))); float dirReduce = max((lNW + lNE + lSW + lSE) * 0.03125, 0.0078125); float rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce); dir = min(vec2(8.0), max(vec2(-8.0), dir * rcp)) * uPx;
       vec3 a = 0.5 * (texture2D(tCol, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture2D(tCol, uv + dir * (2.0 / 3.0 - 0.5)).rgb); vec3 b = a * 0.5 + 0.25 * (texture2D(tCol, uv + dir * -0.5).rgb + texture2D(tCol, uv + dir * 0.5).rgb); float lb = luma(b); return (lb < lMin || lb > lMax) ? a : b; }
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-    void main(){ vec3 c = fxaa(vUv); float ao = texture2D(tAO, vUv).r; c *= mix(1.0, ao, 0.85); float z = texture2D(tDepth, vUv).x; float lin = 2.0 * uNear * uFar / (uFar + uNear - (z * 2.0 - 1.0) * (uFar - uNear)); float isSky = step(60000.0, lin);
+    void main(){ float z0 = texture2D(tDepth, vUv).x; float lin0 = 2.0 * uNear * uFar / (uFar + uNear - (z0 * 2.0 - 1.0) * (uFar - uNear)); vec2 uvh = vUv; { float far = smoothstep(900.0, 6000.0, lin0) * (1.0 - step(60000.0, lin0)); float amp = 0.0022 * far * uHeat; uvh += vec2(sin(vUv.y * 90.0 + uTime * 2.7) + sin(vUv.y * 41.0 - uTime * 1.9), cos(vUv.x * 70.0 + uTime * 2.2)) * amp; }
+      vec3 c = fxaa(uvh); { vec3 nb = (texture2D(tCol, uvh + vec2(uPx.x, 0.0)).rgb + texture2D(tCol, uvh - vec2(uPx.x, 0.0)).rgb + texture2D(tCol, uvh + vec2(0.0, uPx.y)).rgb + texture2D(tCol, uvh - vec2(0.0, uPx.y)).rgb) * 0.25; c += (c - nb) * 0.32; }
+      float ao = texture2D(tAO, vUv).r; c *= mix(1.0, ao, 0.85); float z = texture2D(tDepth, vUv).x; float lin = 2.0 * uNear * uFar / (uFar + uNear - (z * 2.0 - 1.0) * (uFar - uNear)); float isSky = step(60000.0, lin);
       // aerial perspective: distance haze that warms toward the sun
       float haze = (1.0 - exp(-lin * uHazeK)) * (1.0 - isSky) * 0.5; vec2 sd = vUv - uSun; float sunF = exp(-dot(sd, sd) * 2.2) * uSunVis; vec3 hazeCol = mix(uHaze, uSunCol, sunF * 0.75); c = mix(c, hazeCol, haze);
       vec3 rays = texture2D(tRays, vUv).rgb; c += texture2D(tBloom, vUv).rgb * 0.38 + rays * uSunCol * 1.1;
       vec2 fd = sd * vec2(1.0, 0.62); c += uSunCol * exp(-dot(fd, fd) * 700.0) * 0.55 * uSunVis * clamp(rays.r * 3.0, 0.0, 1.0);
       c = aces(c * uExposure * 1.35);
       float l = luma(c); c = mix(vec3(l), c, 1.14); c = (c - 0.5) * 1.04 + 0.5; c = mix(c * vec3(0.93, 0.97, 1.08), c * vec3(1.07, 1.0, 0.92), smoothstep(0.15, 0.85, l));
-      c *= mix(0.74, 1.0, smoothstep(1.3, 0.4, length((vUv - 0.5) * vec2(1.25, 1.0)))); c += (hash(vUv + fract(uTime)) - 0.5) * (0.016 + uNight * 0.02); c = max(c, 0.0);
+      c *= mix(0.8, 1.0, smoothstep(1.3, 0.4, length((vUv - 0.5) * vec2(1.25, 1.0)))); c += (hash(vUv + fract(uTime)) - 0.5) * (0.016 + uNight * 0.02); c = max(c, 0.0);
       vec3 s = mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); gl_FragColor = vec4(s, 1.0); }` });
   POST.resize();
 }
@@ -1330,7 +1348,7 @@ function renderFrame() {
   POST.mRays.uniforms.tCol.value = POST.rt.texture; POST.mRays.uniforms.tDepth.value = POST.rt.depthTexture; POST.mRays.uniforms.uStrength.value = POST.sunVis * 0.9; pass(POST.mRays, POST.rays);
   POST.mAO.uniforms.tDepth.value = POST.rt.depthTexture; POST.mAO.uniforms.uAspect.value = camera.aspect; pass(POST.mAO, POST.ao); POST.mAOBlur.uniforms.tCol.value = POST.ao.texture; POST.mAOBlur.uniforms.tDepth.value = POST.rt.depthTexture; pass(POST.mAOBlur, POST.ao2);
   POST.mBright.uniforms.tCol.value = POST.rt.texture; pass(POST.mBright, POST.bA); POST.mBlur.uniforms.tCol.value = POST.bA.texture; POST.mBlur.uniforms.uDir.value.set(1, 0); pass(POST.mBlur, POST.bB); POST.mBlur.uniforms.tCol.value = POST.bB.texture; POST.mBlur.uniforms.uDir.value.set(0, 1); pass(POST.mBlur, POST.bA);
-  const F = POST.mFinal.uniforms; F.tCol.value = POST.rt.texture; F.tDepth.value = POST.rt.depthTexture; F.tBloom.value = POST.bA.texture; F.tRays.value = POST.rays.texture; F.tAO.value = POST.ao2.texture; F.uSunVis.value = POST.sunVis; F.uNight.value = night; F.uTime.value = performance.now() / 1000; F.uExposure.value = POST.exposure; pass(POST.mFinal, null);
+  const F = POST.mFinal.uniforms; F.tCol.value = POST.rt.texture; F.tDepth.value = POST.rt.depthTexture; F.tBloom.value = POST.bA.texture; F.tRays.value = POST.rays.texture; F.tAO.value = POST.ao2.texture; F.uSunVis.value = POST.sunVis; F.uNight.value = night; F.uTime.value = performance.now() / 1000; F.uExposure.value = POST.exposure; F.uHeat.value = POST.heat || 0; pass(POST.mFinal, null);
 }
 function plat(x, y, z, w, d, opts) { const o = Object.assign({ x, y, z, w, d, mat: OBBY_MAT.a }, opts || {}); const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, d), o.mat); m.position.set(x, y - 0.25, z); scene.add(m); o.mesh = m; o.bx = x; o.bz = z; o.by = y; OBBY.plats.push(o); if (o.rail) { for (const sx of [-1, 1]) { const r = box(0.08, 0.9, d, M.steel, x + sx * (w / 2 - 0.05), y + 0.45, z); scene.add(r); o.mesh.userData.rails = (o.mesh.userData.rails || []).concat(r); } } return o; }
 function buildObby() {
@@ -1458,7 +1476,7 @@ function furnishTerminal(g, half, hgt) {
   { const cx = 12, cz = 14; add(new THREE.Mesh(new THREE.BoxGeometry(7, 1.1, 1.4), new THREE.MeshStandardMaterial({ color: 0x7a5535, roughness: 0.8 })), cx, 0.55, cz); add(new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.08, 1.6), dark), cx, 1.14, cz); for (let k = 0; k < 5; k++) { add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.08, 12), dark), cx - 2.8 + k * 1.4, 0.72, cz + 1.4); add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 8), steel), cx - 2.8 + k * 1.4, 0.35, cz + 1.4); } label([{ text: "SKY CAFE", size: 100, y: 0.4 }, { text: "COFFEE · BREAKFAST BURRITOS · PRICKLY PEAR TEA", size: 40, y: 0.78 }], 7, 1.6, cx, 3.6, cz - 1.2, 0, "#3a2a1c", "#f4cd5a"); add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 0.9), steel), cx + 4.5, 0.9, cz - 0.6);
     add(new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 1.1, 24, 1, true), white), 0, 0.55, -4); add(new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.08, 24), dark), 0, 1.14, -4); label([{ text: "i  INFORMATION", size: 90, y: 0.62 }], 3.4, 0.9, 0, 2.6, -4, 0, "#0a1610", "#8fd8ff"); }
   // planters with desert plants, bins, a clock
-  for (const [x, z] of [[-10, 14], [10, -14], [-24, 18], [24, -18], [-4, 18], [18, 2]]) { add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.7, 0.9, 12), new THREE.MeshStandardMaterial({ color: 0xb5623a, roughness: 0.9 })), x, 0.45, z); if (MODELS.bush1) { const b = makeModel(rnd() < 0.5 ? "bush1" : "ocotillo"); b.scale.setScalar(0.5); add(b, x, 0.85, z, rnd() * 6.283); } add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.28, 0.9, 10), dark), x + 1.5, 0.45, z); }
+  for (const [x, z] of [[-10, 14], [10, -14], [-24, 18], [24, -18], [-4, 18], [18, 2]]) { add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.7, 0.9, 12), new THREE.MeshStandardMaterial({ color: 0xb5623a, roughness: 0.9 })), x, 0.45, z); if (MODELS.bush1) { const b = makeModel(rnd() < 0.5 ? "bush1" : "ocotillo"); b.traverse((o) => { if (o.isMesh) o.material = new THREE.MeshStandardMaterial({ map: o.material.map, roughness: 0.9, side: THREE.DoubleSide }); }); b.scale.setScalar(0.5); add(b, x, 0.85, z, rnd() * 6.283); } add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.28, 0.9, 10), dark), x + 1.5, 0.45, z); }
   // hanging wayfinding signs
   label([{ text: "EXIT  ·  GENESIS ONE  →", size: 84, y: 0.62 }], 8, 1.4, 0, 6.8, half - 3, 0, "#2a7a3e", "#f5f1e6"); label([{ text: "← BAGGAGE CLAIM   |   GATES A1-A4 →", size: 64, y: 0.62 }], 12, 1.4, 0, 6.8, -10, 0); label([{ text: "SHUTTLE CARTS · TOUR GUIDE · TOWER", size: 60, y: 0.62 }], 10, 1.2, -12, 6.6, half - 6, 0, "#1c1f24", "#8fd8ff");
   label([{ text: "WELCOME TO DOUGLAS MUNICIPAL  ·  EST. 1928", size: 64, y: 0.62 }], 14, 1.4, 0, hgt - 1.4, -half + 0.3, 0, "#0a1610", "#f4cd5a");
@@ -1734,12 +1752,140 @@ function updateGuide(dt, now) { if (!GUIDE.g) return; if (!GUIDE.tour) { const h
 
 // ───────────────────────────── residents: people and shuttle carts that live here ─────────────────────────────
 const NPC = [];
+const CAST = [];   // named characters you can talk to
+function castDefs() {
+  const T = TERM; const lw = (lx, lz) => [T.pos[0] + lx * Math.cos(T.rot) + lz * Math.sin(T.rot), T.pos[1] - lx * Math.sin(T.rot) + lz * Math.cos(T.rot)];
+  const at = (list, i, dx, dz) => { const e = (PLACE[list] || [])[i]; return e ? [e[0] + Math.sin(e[3]) * dz + Math.cos(e[3]) * dx, e[2] + Math.cos(e[3]) * dz - Math.sin(e[3]) * dx] : null; };
+  const inRoom = (list, i, lx, lz) => { const e = (PLACE[list] || [])[i]; if (!e) return null; return [e[0] + lx * Math.cos(e[3]) + lz * Math.sin(e[3]), e[2] - lx * Math.sin(e[3]) + lz * Math.cos(e[3])]; };
+  const G = "$GBACK";
+  return [
+    { id: "rosa", name: "Rosa", role: "Check-in · Douglas Municipal", pos: lw(-6, -24), look: { skin: "c98f63", shirt: "e9e2d3", pants: "1c1f24", hair: 1, body: "f" }, hat: null, outfit: "outfit_flight",
+      greet: ["Welcome to Douglas Municipal.", "Bags are on the carousel on the left.", "Follow the green carpet to the exit."],
+      talk: [{ t: "Welcome to Genesis One. You landed on the same runway that opened in 1928. Anything I can help with?", o: [["Where do I go?", 1], ["What is this place?", 2], ["Thanks", null]] },
+             { t: "Follow the green carpet past security to the exit doors. Sky, our tour guide, waits right outside. The shuttle carts by the door run to every stage.", o: [["What is this place?", 2], ["Thanks", null]] },
+             { t: "Four hundred and thirty acres, three stages: The Landing north of the runway, the Flight Line here, and the Expanse south of it. Everything is a concept on the real land.", o: [["Where do I go?", 1], ["Thanks", null]] }],
+      kw: [[/lot|buy|own/i, "Lots are on Founders Row in The Landing. Elena there can walk you through it."], [/golf/i, "Desert Golf is south past the Commons. Coach Bo runs it."], [/hello|hi|hey/i, "Hi there. Welcome to Genesis One."]] },
+    { id: "marcus", name: "Marcus", role: "Gate agent · Gate A2", pos: lw(23, -6), look: { skin: "8d5a3b", shirt: "e9e2d3", pants: "1c1f24", hair: 3, body: "m" }, hat: null, outfit: "outfit_flight",
+      greet: ["GB 204 to Phoenix is boarding.", "Gate A2, right here."],
+      talk: [{ t: "GB 204 to Sky Harbor is boarding. Not flying today? Home base is sixteen kilometres north-west if you want to take Giveback One up yourself.", o: [["How do I fly?", 1], ["Just looking", null]] },
+             { t: "Press F beside any jet on the apron. Hold W to throttle, space to climb once you pass 150, A and D to turn. The runway lights guide you back in.", o: [["Got it", null]] }],
+      kw: [[/fly|jet|plane/i, "Press F beside a jet on the apron. W to throttle, space to climb."], [/hello|hi|hey/i, "Hey. Gate A2, boarding now."]] },
+    { id: "lupe", name: "Lupe", role: "Sky Cafe", pos: lw(12, 11.6), look: { skin: "c98f63", shirt: "4dde6f", pants: "6d5a3e", hair: 2, body: "f" }, hat: "hat_band", outfit: null,
+      greet: ["Coffee's fresh.", "Prickly pear tea, best in Cochise County.", "Breakfast burritos till eleven."],
+      talk: [{ t: "Morning. Coffee, a breakfast burrito or the prickly pear tea?", o: [["Coffee, please", 1], ["What's good around here?", 2], ["Nothing, thanks", null]] },
+             { t: "Coming up. The diner across the apron does the big plates; I do the quick ones. Tip: the saloon on Main Street pours after sundown.", o: [["Thanks", null]] },
+             { t: "The Design District gallery walk at golden hour. The lake at sunrise. And the observatory once it is properly dark, we have some of the darkest skies in the country.", o: [["Thanks", null]] }],
+      kw: [[/coffee|food|eat|hungry/i, "Coffee and burritos here, full plates at the diner across the apron."], [/hello|hi|hey/i, "Hola. Coffee?"]] },
+    { id: "dale", name: "Officer Dale", role: "Security", pos: lw(-19, 2.5), look: { skin: "e8c19a", shirt: "1c1f24", pants: "1c1f24", hair: 0, body: "m" }, hat: "hat_cap", outfit: "outfit_flight",
+      greet: ["Keep it moving, folks.", "Exit is straight ahead."],
+      talk: [{ t: "Nothing to declare? Exit is straight ahead, follow the carpet. And keep off the runway on foot, the jets do not stop.", o: [["Is the runway dangerous?", 1], ["Understood", null]] },
+             { t: "Traffic lands and departs all day. Use the crossings at either end or the taxiway by the apron. Press M if you want to see the whole field from the tower.", o: [["Understood", null]] }],
+      kw: [[/runway|cross/i, "Cross at the ends or the apron taxiway. Watch for traffic."], [/hello|hi|hey/i, "Afternoon."]] },
+    { id: "reyes", name: "Captain Reyes", role: "Pilot · JetFinders", pos: [T.exit[0] + Math.cos(T.rot) * 14, T.exit[1] - Math.sin(T.rot) * 14], look: { skin: "c98f63", shirt: "e9e2d3", pants: "1c1f24", hair: 0, body: "m" }, hat: "hat_cap", outfit: "outfit_flight",
+      greet: ["Winds calm, runway 21 in use.", "Beautiful day to fly."],
+      talk: [{ t: "Six thousand feet of runway and direct taxiway access from every hangar. JetFinders will run the private aviation side: charters in, owners' aircraft at home.", o: [["Can I take a jet up?", 1], ["Tell me about the hangars", 2], ["Clear skies", null]] },
+             { t: "Giveback One is on the apron. Press F beside it, throttle with W, climb with space past 150. Try the Sky Rings, ten rings over the site, fastest lap on the board.", o: [["Thanks", null]] },
+             { t: "The Flight Line has hangars along the north side with hangar homes behind them, so you live above your aircraft. Every hangar opens: walk up to the door.", o: [["Thanks", null]] }],
+      kw: [[/ring/i, "Sky Rings: start at the gold ring over the apron, then follow the green ones in order."], [/jet|fly/i, "Giveback One is right here on the apron. F to board."], [/hello|hi|hey/i, "Captain Reyes. Clear skies."]] },
+    { id: "hank", name: "Hank", role: "Bartender · The Saloon", pos: inRoom("saloon", 0, 0, -6), look: { skin: "e8c19a", shirt: "c94a3a", pants: "1c1f24", hair: 1, body: "m" }, hat: "hat_cowboy", outfit: "outfit_ranch",
+      greet: ["Pull up a stool.", "Sarsaparilla or something stronger?"],
+      talk: [{ t: "Evening. Main Street is the heart of the Expanse: saloons, hotels, the bank, the store. Frontier fronts, but everything behind them is new.", o: [["What can I buy here?", 1], ["How do I earn coins?", 2], ["Just passing", null]] },
+             { t: "Meals here and at the restaurant, outfits at the General Store, art at the gallery, and a lot on Founders Row if you have saved up. All paid in " + G + ".", o: [["How do I earn coins?", 2], ["Thanks", null]] },
+             { t: "Time on the site pays a little. Golf, the cart course, the drag strip, the obby, the rings, the lake lap and the treasure hunt pay more. Press L for the boards.", o: [["Thanks", null]] }],
+      kw: [[/drink|beer|whisk/i, "Sarsaparilla for you, friend. The real bar comes with the real saloon."], [/coin|money|gback|earn/i, "Play the games, they pay in " + G + ". L shows the boards."], [/hello|hi|hey|howdy/i, "Howdy."]] },
+    { id: "priya", name: "Priya", role: "Concierge · The Hotel", pos: inRoom("hotel", 0, 0, -5), look: { skin: "8d5a3b", shirt: "e9e2d3", pants: "2b3a4a", hair: 1, body: "f" }, hat: null, outfit: null,
+      greet: ["Welcome to the hotel.", "Checking in?"],
+      talk: [{ t: "Welcome. Stage Three is hospitality: hotels here on Main Street, the glamping village at the Commons, lake houses at Lakeside, and the flagship pavilion for the signature stay.", o: [["Where should I stay?", 1], ["Thanks", null]] },
+             { t: "For the view, the flagship pavilion above the Commons. For the water, a lake house. For the stars, a glamping tent. Every one of them opens, walk in through the green door mat.", o: [["Thanks", null]] }],
+      kw: [[/stay|room|sleep|hotel/i, "Glamping tents at the Commons, lake houses at Lakeside, or a room here."], [/hello|hi|hey/i, "Welcome to the hotel."]] },
+    { id: "mateo", name: "Mateo", role: "Curator · Design District", pos: at("artpav", 0, 0, 26) || [640, 520], look: { skin: "c98f63", shirt: "1c1f24", pants: "1c1f24", hair: 3, body: "m" }, hat: null, outfit: null,
+      greet: ["The corten ring is best at sunset.", "Every piece here is placed on the land itself."],
+      talk: [{ t: "The Design District is an artist district: sculpture on the land, a gallery walk, and an immersive off-world experience planned for the far edge. What do you want to know?", o: [["Can I buy art?", 1], ["Who makes the work?", 2], ["Just browsing", null]] },
+             { t: "Inside the gallery you can buy pieces for your lot with " + G + ". Once you own a lot on Founders Row, what you build and place there is visible to everyone.", o: [["Thanks", null]] },
+             { t: "Resident artists and invited names. The district is meant to be lived in: studios, a gallery, sculpture you walk between rather than look at through glass.", o: [["Thanks", null]] }],
+      kw: [[/art|sculpt|gallery/i, "Walk the boardwalk. The gallery sells pieces for your lot."], [/hello|hi|hey/i, "Welcome to the district."]] },
+    { id: "bo", name: "Coach Bo", role: "Golf pro · Desert Golf", pos: [GOLF.origin[0] + 18, GOLF.origin[1] - 30], look: { skin: "e8c19a", shirt: "4dde6f", pants: "e9e2d3", hair: 0, body: "m" }, hat: "hat_cap", outfit: null,
+      greet: ["Six holes, desert rules.", "Keep it on the fairway, the rough eats balls."],
+      talk: [{ t: "Six holes of desert golf. Driver, woods, irons, wedge and putter, and the green is fast. Fewest strokes goes on the board.", o: [["How do I play?", 1], ["Later", null]] },
+             { t: "Press E on the first tee. Mouse to aim, hold to charge, release to swing. Number keys change clubs. Sand is slow, rough is worse, out of bounds costs a stroke.", o: [["Got it", null]] }],
+      kw: [[/golf|club|tee/i, "First tee is right here. E to start, hold to charge, release to hit."], [/hello|hi|hey/i, "Hey. Grab a club."]] },
+    { id: "dee", name: "Dee", role: "Marshal · Cart Course", pos: [COURSE.origin[0] + 10, COURSE.origin[1] + 150], look: { skin: "8d5a3b", shirt: "f4cd5a", pants: "1c1f24", hair: 2, body: "f" }, hat: "hat_cap", outfit: null,
+      greet: ["Press C for a cart.", "Shift boosts, but watch the heat."],
+      talk: [{ t: "Cart course and drag strip. Press C for your own cart, cross the green gate to start the lap, every gate in order. The strip runs on the lights every thirty seconds.", o: [["Tips?", 1], ["Thanks", null]] },
+             { t: "Shift is a boost with a heat bar; let it cool. Ramps launch you, land square. And the lake loop has its own time trial through the arch at Lakeside.", o: [["Thanks", null]] }],
+      kw: [[/cart|race|drag/i, "C for a cart, green gate starts the lap. Drag strip goes on the lights."], [/hello|hi|hey/i, "Hey, racer."]] },
+    { id: "nate", name: "Nate", role: "Lakeside host", pos: [LAKE.x + 150, LAKE.z + 40], look: { skin: "e8c19a", shirt: "e9e2d3", pants: "3a6ac9", hair: 2, body: "m" }, hat: "hat_band", outfit: null,
+      greet: ["Water's warm.", "Every dock has a lake house behind it."],
+      talk: [{ t: "A lined, pumped lake with seven lake houses and docks. It is a concept for the Expanse oasis; there is no natural water on the land, so it would be engineered.", o: [["Can I swim?", 1], ["Thanks", null]] },
+             { t: "Walk in off any dock. And take the cart round the loop road through the arch for the Lake Lap time trial.", o: [["Thanks", null]] }],
+      kw: [[/swim|water|lake/i, "Walk in off a dock. Warm all year."], [/hello|hi|hey/i, "Hey. Enjoy the lake."]] },
+    { id: "wyatt", name: "Wyatt", role: "Ranch hand · The Ranch", pos: [-700 + 30, -600 + 20], look: { skin: "e8c19a", shirt: "8a2f26", pants: "6d5a3e", hair: 1, body: "m" }, hat: "hat_cowboy", outfit: "outfit_ranch",
+      greet: ["Watch for javelina after dark.", "Rattlers by the rocks. Listen for them."],
+      talk: [{ t: "Working ranch on the north edge: horses, hay, the community's own produce. Keep an eye out for the wildlife, it is all real to this desert.", o: [["What lives out here?", 1], ["Thanks", null]] },
+             { t: "Roadrunners, jackrabbits, javelina, quail and tortoises by day. Coyotes and scorpions after dark. Rattlesnakes near the boulders; you will hear them before you see them.", o: [["Thanks", null]] }],
+      kw: [[/animal|coyote|snake|wild/i, "Coyotes come out after dark. Snakes by the boulders. Give them room."], [/hello|hi|hey|howdy/i, "Howdy."]] },
+    { id: "elena", name: "Elena", role: "Founders Row · lots", pos: [33 + 10, -686 + 12], look: { skin: "c98f63", shirt: "e9e2d3", pants: "1c1f24", hair: 2, body: "f" }, hat: null, outfit: null,
+      greet: ["Twenty-four lots. A few are still open.", "Own it, name it, build on it."],
+      talk: [{ t: "Founders Row: twenty-four lots you can buy with " + G + " you earn on the site. Put your name on it and build a villa, a dome, a pavilion or a casita. Everyone sees what you built.", o: [["How does ownership work for real?", 1], ["How much?", 2], ["Thanks", null]] },
+             { t: "On the real site each lot is wrapped in its own LLC and the deed is a single token on Solana that carries the rules with it: who can hold it, the documents, and recovery if a key is lost. The token is evidence of the membership, not a security.", o: [["How much?", 2], ["Thanks", null]] },
+             { t: "Press E on any lot sign for the price and what is left. Coins come from time on the site and the games.", o: [["Thanks", null]] }],
+      kw: [[/lot|buy|own|land/i, "Press E on a lot sign. Buy, name, build."], [/token|chain|solana|blockchain/i, "One token per lot on Solana. The rules travel with the token."], [/hello|hi|hey/i, "Hi. Looking for a lot?"]] },
+    { id: "joe", name: "Pastor Joe", role: "The Chapel", pos: at("chapel", 0, 0, 14) || [420, -370], look: { skin: "8d5a3b", shirt: "1c1f24", pants: "1c1f24", hair: 3, body: "m" }, hat: null, outfit: null,
+      greet: ["Doors are open.", "Peace be with you."],
+      talk: [{ t: "An adobe chapel for the churches and faith communities in the Giveback network. Giving is the whole point of the protocol; this is where the community gathers around it.", o: [["How does the giving work?", 1], ["Thank you", null]] },
+             { t: "Every transaction on the protocol routes a share to nonprofits, automatically, recorded on a public ledger. Permanent, not a campaign.", o: [["Thank you", null]] }],
+      kw: [[/give|charity|nonprofit|church/i, "Every transaction gives back, automatically. That is the protocol."], [/hello|hi|hey/i, "Welcome, friend."]] },
+    { id: "ada", name: "Ada", role: "Host · The Commons", pos: [285 + 30, 721 + 6], look: { skin: "f3d9c0", shirt: "4dde6f", pants: "6d5a3e", hair: 2, body: "f" }, hat: "hat_band", outfit: "outfit_desert",
+      greet: ["Tents open at sundown.", "Fire pit lights at eight."],
+      talk: [{ t: "The Commons: tent cabins on timber decks around the pavilion, pool homes on the ring road, and the flagship pavilion on the rise. Pick any tent, walk in.", o: [["Which tent is best?", 1], ["Thanks", null]] },
+             { t: "The outer ring faces the desert, the inner ring faces the pavilion and the fire. For the view, walk up to the flagship at the top of the rise.", o: [["Thanks", null]] }],
+      kw: [[/tent|glamp|camp/i, "Any tent is open. Walk onto the green mat."], [/hello|hi|hey/i, "Hi. Welcome to the Commons."]] },
+    { id: "tomas", name: "Tomas", role: "General Store", pos: inRoom("store", 0, 0, -5), look: { skin: "c98f63", shirt: "d8c39a", pants: "6d5a3e", hair: 0, body: "m" }, hat: null, outfit: "outfit_desert",
+      greet: ["Hats, shirts, boots.", "New outfits in the case."],
+      talk: [{ t: "General Store. Outfits and hats for " + G + ". Press E at the counter to browse. Wear it and everyone on the site sees it.", o: [["Thanks", null]] }],
+      kw: [[/hat|shirt|outfit|cloth|buy/i, "E at the counter. Outfits and hats."], [/hello|hi|hey/i, "Welcome in."]] },
+    { id: "vega", name: "Dr. Vega", role: "Astronomer · Observatory", pos: at("observatory", 0, 0, 16) || [532, -690], look: { skin: "8d5a3b", shirt: "2b3a4a", pants: "1c1f24", hair: 3, body: "f" }, hat: null, outfit: null,
+      greet: ["Wait for full dark.", "Press N to skip to night if you cannot wait."],
+      talk: [{ t: "Douglas sits under some of the darkest skies in the country. The dome opens to residents after sundown. Look up: the Milky Way is drawn from the real band.", o: [["Thanks", null]] }],
+      kw: [[/star|sky|night|telescope/i, "Full dark is best. N skips the clock forward."], [/hello|hi|hey/i, "Good evening."]] },
+    { id: "milo", name: "Milo", role: "Obby regular", pos: [1040 + 8, 1260 + 9], look: { skin: "e8c19a", shirt: "3a6ac9", pants: "2b3a4a", hair: 2, body: "m" }, hat: "hat_cap", outfit: null,
+      greet: ["I got to level twelve once.", "The lava grid gets everyone."],
+      talk: [{ t: "Sixteen levels. Space to jump, shift to run, checkered pads are checkpoints. Level six is the lava grid: only the blue tiles hold. Level eight, jump the bars, do not walk into them.", o: [["Thanks", null]] }],
+      kw: [[/obby|level|jump/i, "Blue tiles on the lava grid. Jump the bars on eight."], [/hello|hi|hey/i, "Hey! Racing me?"]] },
+  ].filter((c) => c.pos);
+}
+let castCool = new Map(), talkNpc = null;
+function buildCast() {
+  for (const c of castDefs()) { const g = avatar("cast_" + c.id, c.name, c.look, c.hat, c.outfit); g.position.set(c.pos[0], getH(c.pos[0], c.pos[1]), c.pos[1]); g.userData.label.scale.set(1.9, 0.48, 1); scene.add(g); c.g = g; CAST.push(c);
+    hotspots.push({ x: c.pos[0], z: c.pos[1], r: 5, t: c.name, k: c.role + " · press E to talk", p: c.talk[0].t, play: "npc:" + c.id }); }
+}
+function showTalk(c, idx) { const node = c.talk[idx]; if (!node) { closeTalk(); return; } talkNpc = c; $("#talk-n").textContent = c.name; $("#talk-r").textContent = c.role; $("#talk-p").textContent = node.t; const box = $("#talk-o"); box.innerHTML = "";
+  for (const [label, next] of node.o) { const b = document.createElement("button"); b.className = "btn" + (next === null ? " ghost" : ""); b.textContent = label; b.onclick = () => { sfx("ui"); if (next === null) closeTalk(); else showTalk(c, next); }; box.append(b); }
+  $("#talk").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); sfx("ui"); }
+function closeTalk() { $("#talk").classList.remove("on"); talkNpc = null; }
+function npcSay(c, text) { const g = c.g; if (g.userData.bubble) g.remove(g.userData.bubble); g.userData.bubble = makeBubble(text); g.add(g.userData.bubble); g.userData.bubbleAt = performance.now(); logLine(c.name, text); }
+function npcHear(text) {
+  let best = null, bd = 1e9; for (const c of CAST) { const d = Math.hypot(c.g.position.x - player.position.x, c.g.position.z - player.position.z); if (d < 9 && d < bd) { bd = d; best = c; } }
+  if (!best) return; const hit = best.kw.find(([re]) => re.test(text)); const line = hit ? hit[1] : ["Not sure about that one. Ask Sky at the terminal door, she knows everything.", "Hm. Press E and I will tell you what I know.", "Could be. The tour guide would know."][Math.floor(Math.random() * 3)];
+  setTimeout(() => npcSay(best, line), 900 + Math.random() * 600);
+}
+function updateCast(dt, now) {
+  if (!player) return;
+  for (const c of CAST) { const g = c.g; const dx = player.position.x - g.position.x, dz = player.position.z - g.position.z; const d = Math.hypot(dx, dz);
+    if (d < 9) { const want = Math.atan2(dx, dz); let dr = want - g.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); g.rotation.y += dr * Math.min(1, dt * 4); }
+    if (d < 6 && (castCool.get(c.id) || 0) < now) { castCool.set(c.id, now + 40000 + Math.random() * 30000); npcSay(c, c.greet[Math.floor(Math.random() * c.greet.length)]); }
+    if (g.userData.bubble && now - g.userData.bubbleAt > 7000) { g.remove(g.userData.bubble); g.userData.bubble = null; }
+    animateWalk(g, 0, dt); }
+  if (talkNpc && Math.hypot(talkNpc.g.position.x - player.position.x, talkNpc.g.position.z - player.position.z) > 10) closeTalk();
+}
 function buildNPC() {
   const names = ["Maya", "Diego", "Harper", "Ezra", "Luna", "Theo", "Nova", "Amir", "Sage", "Cole", "Ivy", "Beau", "Wren", "Otis", "Juno", "Reid", "Elle", "Kai", "Remy", "Zia"];
   const lamps = PLACE.lamp || []; if (lamps.length < 4) return;
-  for (let i = 0; i < 20; i++) { const g = avatar("npc" + i.toString(36).padStart(4, "0"), names[i % names.length], { skin: ["e8c19a", "c98f63", "8d5a3b", "f3d9c0"][i % 4], shirt: ["4dde6f", "c94a3a", "3a6ac9", "f4cd5a", "e9e2d3"][i % 5], pants: ["2b3a4a", "6d5a3e", "1c1f24"][i % 3], hair: i % 4 }, ["hat_cap", null, "hat_cowboy", null, "hat_band"][i % 5], [null, "outfit_flight", null, "outfit_ranch", "outfit_desert"][i % 5]); g.userData.label.scale.set(1.6, 0.4, 1); const l = lamps[Math.floor(rnd() * lamps.length)]; g.position.set(l[0], l[1], l[2]); NPC.push({ g, target: null, wait: rnd() * 4, speed: 1.1 + rnd() * 0.6, kind: "walk" }); }
+  for (let i = 0; i < 36; i++) { const g = avatar("npc" + i.toString(36).padStart(4, "0"), names[i % names.length], { skin: ["e8c19a", "c98f63", "8d5a3b", "f3d9c0"][i % 4], shirt: ["4dde6f", "c94a3a", "3a6ac9", "f4cd5a", "e9e2d3"][i % 5], pants: ["2b3a4a", "6d5a3e", "1c1f24"][i % 3], hair: i % 4 }, ["hat_cap", null, "hat_cowboy", null, "hat_band"][i % 5], [null, "outfit_flight", null, "outfit_ranch", "outfit_desert"][i % 5]); g.userData.label.scale.set(1.6, 0.4, 1); const l = lamps[Math.floor(rnd() * lamps.length)]; g.position.set(l[0], l[1], l[2]); NPC.push({ g, target: null, wait: rnd() * 4, speed: 1.1 + rnd() * 0.6, kind: "walk" }); }
   // two shuttle carts that loop the Landing ring road
   const c = SITE.zones.landing.center; for (let i = 0; i < 2; i++) { const g = makeModel("cart"); scene.add(g); NPC.push({ g, kind: "loop", c, r: 120, a: i * Math.PI, speed: 0.07 }); }
+  { const c2 = [285, 721]; for (let i = 0; i < 2; i++) { const g = makeModel("cart"); scene.add(g); NPC.push({ g, kind: "loop", c: c2, r: 165, a: i * Math.PI + 1, speed: 0.06 }); } }
+  buildCast();
 }
 function updateNPC(dt, now) {
   const lamps = PLACE.lamp || [];
@@ -1750,6 +1896,8 @@ function updateNPC(dt, now) {
     const dx = n.target[0] - g.position.x, dz = n.target[1] - g.position.z, d = Math.hypot(dx, dz);
     if (d < 0.6) { n.target = null; n.wait = 2 + Math.random() * 6; continue; }
     g.position.x += dx / d * n.speed * dt; g.position.z += dz / d * n.speed * dt; g.position.y = getH(g.position.x, g.position.z); g.rotation.y = Math.atan2(dx, dz); animateWalk(g, n.speed * 1.6, dt);
+    if (player && Math.hypot(player.position.x - g.position.x, player.position.z - g.position.z) < 4 && (n.cool || 0) < now) { n.cool = now + 60000 + Math.random() * 60000; if (g.userData.bubble) g.remove(g.userData.bubble); g.userData.bubble = makeBubble(["Hey!", "Afternoon.", "Nice day for it.", "Have you seen the lake yet?", "Golf later?", "Love what they did with Main Street.", "The obby beat me again.", "Evening."][Math.floor(Math.random() * 8)]); g.add(g.userData.bubble); g.userData.bubbleAt = now; }
+    if (g.userData.bubble && now - g.userData.bubbleAt > 6000) { g.remove(g.userData.bubble); g.userData.bubble = null; }
     if (Math.random() < dt * 0.05 && player && Math.hypot(player.position.x - g.position.x, player.position.z - g.position.z) < 12) { g.userData.emote.material.map = emojiTex.wave; g.userData.emote.material.needsUpdate = true; g.userData.emote.visible = true; setTimeout(() => { g.userData.emote.visible = false; }, 2500); }
   }
 }
@@ -1792,10 +1940,16 @@ $("#voice").addEventListener("click", (e) => { e.stopPropagation(); toggleVoice(
 const AUD = {}; let soundOn = false, audioReady = false, planeTimer = 40 + Math.random() * 60;
 function mkAudio(src, vol, loop) { const a = new Audio(src); a.loop = loop; a.volume = 0; a.preload = "auto"; a.dataset.vol = vol; return a; }
 AUD.music = mkAudio("/audio/music.m4a", 0.22, true); AUD.wind = mkAudio("/audio/wind.mp3", 0.5, true); AUD.night = mkAudio("/audio/night.mp3", 0.55, true); AUD.plane = mkAudio("/audio/plane.mp3", 0.45, false); AUD.traffic = mkAudio("/audio/plane.mp3", 0.6, true);
-function startAudio() { if (audioReady) return; audioReady = true; for (const k of ["music", "wind", "night"]) AUD[k].play().catch(() => {}); soundOn = localStorage.getItem("g1:sound") !== "off"; updateSoundBtn(); }
-function toggleSound() { soundOn = !soundOn; localStorage.setItem("g1:sound", soundOn ? "on" : "off"); if (!audioReady) { audioReady = true; for (const k of ["music", "wind", "night"]) AUD[k].play().catch(() => {}); } updateSoundBtn(); }
+// GBACK FM: six stations, R to change, [ ] to step
+const STATIONS = [["Genesis Radio", "/audio/music.m4a"], ["Sunset Lo-Fi", "/audio/radio_lofi.m4a"], ["Cochise Country", "/audio/radio_country.m4a"], ["Off-World FM", "/audio/radio_synth.m4a"], ["Dark Sky Ambient", "/audio/radio_ambient.m4a"], ["Frontera", "/audio/radio_tejano.m4a"]];
+const RADIO = { i: Math.max(-1, Math.min(STATIONS.length - 1, +(localStorage.getItem("g1:radio") ?? 0))), a: new Audio(), fade: 0 }; RADIO.a.loop = true; RADIO.a.volume = 0; RADIO.a.preload = "auto";
+function setStation(i) { const n = STATIONS.length + 1; RADIO.i = (((i + 1) % n) + n) % n - 1; localStorage.setItem("g1:radio", String(RADIO.i)); if (RADIO.i < 0) { RADIO.a.pause(); } else { const src = STATIONS[RADIO.i][1]; if (!RADIO.a.src.endsWith(src)) { RADIO.a.src = src; RADIO.a.currentTime = 0; } if (audioReady) RADIO.a.play().catch(() => {}); } RADIO.fade = 0; updateRadioUI(); sfx("ui"); }
+function updateRadioUI() { const el = $("#radio-n"); if (el) el.textContent = RADIO.i < 0 ? "radio off" : STATIONS[RADIO.i][0]; const w = $("#radio"); if (w) w.classList.toggle("off", RADIO.i < 0); }
+$("#radio-prev").addEventListener("click", (e) => { e.stopPropagation(); setStation(RADIO.i - 1); }); $("#radio-next").addEventListener("click", (e) => { e.stopPropagation(); setStation(RADIO.i + 1); }); updateRadioUI();
+function startAudio() { if (audioReady) return; audioReady = true; for (const k of ["wind", "night"]) AUD[k].play().catch(() => {}); if (RADIO.i >= 0) { RADIO.a.src = STATIONS[RADIO.i][1]; RADIO.a.play().catch(() => {}); } soundOn = localStorage.getItem("g1:sound") !== "off"; updateSoundBtn(); }
+function toggleSound() { soundOn = !soundOn; localStorage.setItem("g1:sound", soundOn ? "on" : "off"); if (!audioReady) { audioReady = true; for (const k of ["wind", "night"]) AUD[k].play().catch(() => {}); if (RADIO.i >= 0) { RADIO.a.src = STATIONS[RADIO.i][1]; RADIO.a.play().catch(() => {}); } } updateSoundBtn(); }
 function updateSoundBtn() { $("#snd").textContent = soundOn ? "SOUND ON" : "SOUND OFF"; }
-function updateAudio(dt) { if (!audioReady) return; const on = soundOn ? 1 : 0, jet = riding && riding.kind === "jet" ? Math.min(1, vSpeed / 60) : 0; const target = { music: 1, wind: 0.25 + 0.75 * (1 - night) + jet * 1.2, night: night * (1 - jet) }; for (const k in target) { const a = AUD[k], want = Math.min(1, on * +a.dataset.vol * target[k]); a.volume += (want - a.volume) * Math.min(1, dt * 1.5); } }
+function updateAudio(dt) { if (!audioReady) return; const on = soundOn ? 1 : 0, jet = riding && riding.kind === "jet" ? Math.min(1, vSpeed / 60) : 0; const target = { wind: 0.25 + 0.75 * (1 - night) + jet * 1.2, night: night * (1 - jet) }; { const inCar = cartMode || (riding && riding.kind === "cart"); RADIO.fade = Math.min(1, RADIO.fade + dt * 0.5); const want = RADIO.i < 0 ? 0 : on * RADIO.fade * (inCar ? 0.5 : inside ? 0.12 : 0.26) * (jet ? 0.3 : 1); RADIO.a.volume += (want - RADIO.a.volume) * Math.min(1, dt * 2); } for (const k in target) { const a = AUD[k], want = Math.min(1, on * +a.dataset.vol * target[k]); a.volume += (want - a.volume) * Math.min(1, dt * 1.5); } }
 addEventListener("pointerdown", startAudio); addEventListener("keydown", startAudio); $("#snd").addEventListener("click", (e) => { e.stopPropagation(); toggleSound(); });
 
 // ───────────────────────────── synthesised sound effects ─────────────────────────────
