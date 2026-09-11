@@ -45,7 +45,7 @@ function logLine(name, text) { const log = $("#log"); const d = document.createE
 // ───────────────────────────── scene ─────────────────────────────
 const canvas = $("#gl");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
 const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0xe7d6bd, 0.000026);
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.5, 120000);
 const hemi = new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.62); scene.add(hemi);
@@ -920,11 +920,15 @@ function drawMinimap() {
 // ───────────────────────────── movement + net sync ─────────────────────────────
 let lastSent = { x: 0, z: 48, ry: 0, at: 0 };
 function pushMove(force) { if (!player || riding) return; const now = performance.now(); const moved = Math.hypot(player.position.x - lastSent.x, player.position.z - lastSent.z) > 0.08 || Math.abs(yaw - lastSent.ry) > 0.02; if (force || (moved && now - lastSent.at > 120) || now - lastSent.at > 3000) { act({ t: "move", x: +player.position.x.toFixed(2), z: +player.position.z.toFixed(2), ry: +yaw.toFixed(3), cart: cartMode }); lastSent = { x: player.position.x, z: player.position.z, ry: yaw, at: now }; } }
-let lastT = performance.now(), bob = 0; const camTarget = new THREE.Vector3();
+let lastT = performance.now(), bob = 0, bobY = 0; const camTarget = new THREE.Vector3(); const CAM = { dist: 9.5, look: new THREE.Vector3(), init: false, prAcc: 0, prN: 0, pr: 0 };
+const smoothK = (dt, rate) => 1 - Math.exp(-dt * rate);
+function camLook(x, y, z, dt, rate) { if (!CAM.init) { CAM.look.set(x, y, z); CAM.init = true; } else CAM.look.lerp(camTarget.set(x, y, z), smoothK(dt, rate || 22)); camera.lookAt(CAM.look); }
 function frame() {
   requestAnimationFrame(frame);
   const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   if (!player) { renderer.render(scene, camera); return; }
+  // adaptive resolution: if frames run long, drop the pixel ratio a notch; raise it again when there is headroom
+  { if (!CAM.pr) CAM.pr = renderer.getPixelRatio(); CAM.prAcc += now - lastT + dt * 1000; CAM.prN++; if (CAM.prN >= 120) { const avg = CAM.prAcc / CAM.prN; CAM.prAcc = 0; CAM.prN = 0; const cap = Math.min(devicePixelRatio, 1.5); let pr = CAM.pr; if (avg > 21 && pr > 0.75) pr = Math.max(0.75, pr - 0.25); else if (avg < 11 && pr < cap) pr = Math.min(cap, pr + 0.25); if (pr !== CAM.pr) { CAM.pr = pr; renderer.setPixelRatio(pr); resize(); } } }
   if (riding && riding.driver) driveVehicle(dt);
   else if (!riding && !golf.playing) {
     let fx = 0, fz = 0; if (!chatOpen) { if (keys.KeyW || keys.ArrowUp) fz += 1; if (keys.KeyS || keys.ArrowDown) fz -= 1; if (keys.KeyA || keys.ArrowLeft) fx -= 1; if (keys.KeyD || keys.ArrowRight) fx += 1; } if (joy.active) { fx += joy.dx; fz -= joy.dy; }
@@ -957,7 +961,7 @@ function frame() {
     if (!airborne && cartMode && surfPrev - surf > 0.35 && Math.abs(cartSpeed) > 6) { airborne = true; vy = Math.min(9, Math.abs(cartSpeed) * 0.32); }
     if (!airborne && player.position.y > surf + 0.6) { airborne = true; vy = 0; }
     if (airborne) { vy -= 17 * dt; player.position.y += vy * dt; if (player.position.y <= surf && vy <= 0) { player.position.y = surf; airborne = false; if (vy < -6) { sfx("land"); emitDust(nx, surf, nz, 16, 1.4, 1.6); } vy = 0; } }
-    else { bob += L * dt * 9; player.position.y = surf + (L && !cartMode ? Math.abs(Math.sin(bob)) * 0.08 : 0); }
+    else { bob += L * dt * 9; bobY = L && !cartMode ? Math.abs(Math.sin(bob)) * 0.05 : 0; player.position.y = surf + bobY; }
     updateObby(dt);
     pushMove(false); player.userData.air = airborne && !cartMode; const spd = cartMode ? 0 : Math.hypot(mv.x, mv.z); animateWalk(player, spd, dt);
     // footprints, tyre tracks and dust
@@ -970,20 +974,23 @@ function frame() {
   const px = player.position.x, pz = player.position.z, gh = getH(px, pz);
   { const fovT = riding ? (riding.kind === "jet" ? 70 : 64 + Math.min(10, Math.abs(vSpeed) * 0.3)) : cartMode ? 62 + Math.min(14, Math.abs(cartSpeed) * 0.32) : 62 + 7 * runK; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); } }
   if (towerView) { const tx = Math.sin(now * 0.00012) * 220, tz = Math.cos(now * 0.00012) * 220; camera.position.set(tx, getH(tx, tz) + 160, tz); camera.lookAt(px, gh + 20, pz); }
-  else if (riding) { const V = VEH[riding.id]; const isJet = riding.kind === "jet"; const dist = isJet ? 30 : 11, h = isJet ? 9 : 4; const back = new THREE.Vector3(-Math.sin(V.g.rotation.y) * dist, h, -Math.cos(V.g.rotation.y) * dist); camTarget.copy(V.g.position).add(back); camTarget.y = Math.max(camTarget.y, getH(camTarget.x, camTarget.z) + 1.5); camera.position.lerp(camTarget, isJet ? 0.12 : 0.25); camera.lookAt(V.g.position.x, V.g.position.y + (isJet ? 2 : 1.2), V.g.position.z); }
-  else if (golf.playing) { const ang = golf.aim; const b = golf.ballMesh.position; const dist = golf.moving ? 14 : (golf.club === 5 ? 4.5 : 7); camTarget.set(b.x - Math.sin(ang) * dist, Math.max(getH(b.x - Math.sin(ang) * dist, b.z - Math.cos(ang) * dist) + 1.5, b.y + (golf.moving ? 5 : 2.6)), b.z - Math.cos(ang) * dist); camera.position.lerp(camTarget, golf.moving ? 0.06 : 0.15); camera.lookAt(b.x, b.y + 0.3, b.z); }
+  else if (riding) { const V = VEH[riding.id]; const isJet = riding.kind === "jet"; const dist = isJet ? 30 : 11, h = isJet ? 9 : 4; const back = new THREE.Vector3(-Math.sin(V.g.rotation.y) * dist, h, -Math.cos(V.g.rotation.y) * dist); camTarget.copy(V.g.position).add(back); camTarget.y = Math.max(camTarget.y, getH(camTarget.x, camTarget.z) + 1.5); camera.position.lerp(camTarget, smoothK(dt, isJet ? 8 : 16)); camLook(V.g.position.x, V.g.position.y + (isJet ? 2 : 1.2), V.g.position.z, dt, 30); }
+  else if (golf.playing) { const ang = golf.aim; const b = golf.ballMesh.position; const dist = golf.moving ? 14 : (golf.club === 5 ? 4.5 : 7); camTarget.set(b.x - Math.sin(ang) * dist, Math.max(getH(b.x - Math.sin(ang) * dist, b.z - Math.cos(ang) * dist) + 1.5, b.y + (golf.moving ? 5 : 2.6)), b.z - Math.cos(ang) * dist); camera.position.lerp(camTarget, smoothK(dt, golf.moving ? 4 : 10)); camLook(b.x, b.y + 0.3, b.z, dt, 20); }
   else if (inside) {
     const fwd = [-Math.sin(yaw), -Math.cos(yaw)]; const e = inside.door.e, hf = inside.half - 0.6;
     // how far back can the camera go before it hits a wall?
     let dist = 0; for (let d = 0; d <= 3.4; d += 0.2) { const cx = px - fwd[0] * d, cz = pz - fwd[1] * d; const lx = (cx - e[0]) * Math.cos(e[3]) - (cz - e[2]) * Math.sin(e[3]), lz = (cx - e[0]) * Math.sin(e[3]) + (cz - e[2]) * Math.cos(e[3]); if (Math.abs(lx) > hf || Math.abs(lz) > hf) break; dist = d; }
     if (inside.fp === undefined) inside.fp = dist < 1.4; else if (inside.fp && dist > 2.2) inside.fp = false; else if (!inside.fp && dist < 1.2) inside.fp = true;
-    if (inside.fp) { camera.position.set(px, player.position.y + 1.62, pz); camera.lookAt(px + fwd[0] * 10, player.position.y + 1.62 - pitch * 6, pz + fwd[1] * 10); player.userData.walk.visible = false; }
-    else { camera.position.lerp(camTarget.set(px - fwd[0] * dist, player.position.y + 1.9 + pitch * 1.2, pz - fwd[1] * dist), 0.5); camera.lookAt(px, player.position.y + 1.3, pz); player.userData.walk.visible = true; }
+    CAM.dist += (dist - CAM.dist) * smoothK(dt, 10); const sd = Math.min(dist, CAM.dist);
+    if (inside.fp) { camera.position.set(px, player.position.y - bobY + 1.62, pz); CAM.init = false; camera.lookAt(px + fwd[0] * 10, player.position.y - bobY + 1.62 - pitch * 6, pz + fwd[1] * 10); player.userData.walk.visible = false; }
+    else { camera.position.lerp(camTarget.set(px - fwd[0] * sd, player.position.y - bobY + 1.9 + pitch * 1.2, pz - fwd[1] * sd), smoothK(dt, 24)); camLook(px, player.position.y - bobY + 1.3, pz, dt, 30); player.userData.walk.visible = true; }
   }
   else { let dist = cartMode ? 12 : 9.5; const h = (cartMode ? 4.2 : 3.2) + pitch * 4, fwd = [-Math.sin(yaw), -Math.cos(yaw)];
     // pull the camera in before it enters a building
     for (const c of COLLIDERS) { if (c[2] < 2.5) continue; const cr = c[2] * 0.95; const dxp = c[0] - px, dzp = c[1] - pz; if (dxp * dxp + dzp * dzp > (dist + cr) * (dist + cr)) continue; for (let d = 3.5; d < dist; d += 0.5) { const sx = px - fwd[0] * d, sz = pz - fwd[1] * d; if (Math.hypot(sx - c[0], sz - c[1]) < cr) { dist = Math.max(3.5, d - 0.5); break; } } }
-    const cx = px - fwd[0] * dist * Math.cos(pitch), cz = pz - fwd[1] * dist * Math.cos(pitch); const cy = Math.max(getH(cx, cz) + 1.2, player.position.y + h * (dist / 9.5) + 1.2); camera.position.lerp(camTarget.set(cx, cy, cz), 0.35); camera.lookAt(px, player.position.y + 1.6, pz); }
+    // the pull-in distance is smoothed so buildings never snap the camera; smoothing rates are per second, not per frame
+    CAM.dist += (dist - CAM.dist) * smoothK(dt, dist < CAM.dist ? 14 : 5); const sd = CAM.dist;
+    const cx = px - fwd[0] * sd * Math.cos(pitch), cz = pz - fwd[1] * sd * Math.cos(pitch); const baseY = player.position.y - bobY; const cy = Math.max(getH(cx, cz) + 1.2, baseY + h * (sd / 9.5) + 1.2); camera.position.lerp(camTarget.set(cx, cy, cz), smoothK(dt, cartMode ? 12 : 16)); camLook(px, baseY + 1.6, pz, dt, 26); }
   $("#coords").textContent = `${Math.round(px)} E · ${Math.round(pz)} S · ${Math.round(gh + (T.base_elev_m || 0))} m${cartMode ? ` · ${Math.round(Math.abs(cartSpeed) * 3.6)} km/h${cartHeat > 0.05 ? ` · boost ${Math.round(Math.max(0, 1 - cartHeat) * 100)}%` : ""}` : ""}`;
   if (view) {
     for (const [id, p] of Object.entries(view.players)) {
