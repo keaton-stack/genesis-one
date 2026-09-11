@@ -197,8 +197,8 @@ const MODEL_SPECS = {
   home: { size: 15 }, clubhouse: { size: 38 }, hangar: { size: 24 }, dome: { size: 13 }, pavilion: { size: 18 }, store: { size: 11 }, saloon: { size: 15 }, tower: { height: 27, solid: 6 },
   bigtent: { size: 58 }, hangarhome: { size: 34 }, diner: { size: 30 }, chapel: { size: 16 }, hotel: { size: 26 }, barn: { size: 22 }, gallery: { size: 30 }, observatory: { size: 12 },
   amphitheater: { size: 40, solid: 0 }, solar: { size: 26, solid: 0 }, fbo: { size: 36 }, terminal: { size: 92 },
-  bank: { size: 16 }, restaurant: { size: 32 }, villa: { size: 19 }, ranch: { size: 18 }, casita: { size: 9 }, bush1: { size: 2.6, solid: 0, prop: true, sway: 0.9 }, bush2: { size: 2.2, solid: 0, prop: true, sway: 0.9 }, mesquite: { height: 6, solid: 0.5, prop: true, sway: 0.5 }, ocotillo: { height: 4, solid: 0.3, prop: true, sway: 0.7 }, boulder: { size: 3.5, solid: 1.4, prop: true }, art1: { height: 9, solid: 2, prop: true }, art2: { height: 8, solid: 2, prop: true }, art3: { height: 10, solid: 2, prop: true }, art4: { height: 7, solid: 2, prop: true },
-  lakehouse: { size: 24 }, manor: { size: 44 }, dock: { size: 16, prop: true, solid: 0 }, glamp: { size: 12 }, artpav: { size: 40 }, flagship: { size: 34 }, monolith: { height: 6.5, prop: true, solid: 0.8 }, corten: { height: 7.5, prop: true, solid: 0.6 }, lantern: { height: 5.5, prop: true, solid: 1.2 }, mesa: { size: 720, prop: true, solid: 0 }, butte: { size: 420, prop: true, solid: 0 }, ironwood: { height: 8.5, solid: 0.5, prop: true, sway: 0.5 }, desertwillow: { height: 6.5, solid: 0.4, prop: true, sway: 0.8 }, fanpalm: { height: 13, solid: 0.5, prop: true, sway: 0.35 }, coyote: { size: 1.3, prop: true, solid: 0, animal: true }, roadrunner: { size: 0.55, prop: true, solid: 0, animal: true }, scorpion: { size: 0.28, prop: true, solid: 0, animal: true }, jackrabbit: { size: 0.55, prop: true, solid: 0, animal: true }, javelina: { size: 1.1, prop: true, solid: 0, animal: true }, snake: { size: 0.9, prop: true, solid: 0, animal: true }, tortoise: { size: 0.45, prop: true, solid: 0, animal: true }, quail: { size: 0.3, prop: true, solid: 0, animal: true },
+  bank: { size: 16 }, restaurant: { size: 32 }, villa: { size: 19 }, ranch: { size: 18 }, casita: { size: 9 }, bush1: { size: 2.6, solid: 0, prop: true, sway: 0.9 }, bush2: { size: 2.2, solid: 0, prop: true, sway: 0.9 }, mesquite: { height: 6, solid: 0.5, prop: true, sway: 0.5 }, ocotillo: { height: 4, solid: 0.3, prop: true, sway: 0.7 }, boulder: { size: 3.5, solid: 0, prop: true, box: 1 }, art1: { height: 9, solid: 2, prop: true }, art2: { height: 8, solid: 2, prop: true }, art3: { height: 10, solid: 2, prop: true }, art4: { height: 7, solid: 2, prop: true },
+  lakehouse: { size: 24 }, manor: { size: 44 }, dock: { size: 16, prop: true, solid: 0, box: 0.9 }, glamp: { size: 12 }, artpav: { size: 40 }, flagship: { size: 34 }, monolith: { height: 6.5, prop: true, solid: 0.8 }, corten: { height: 7.5, prop: true, solid: 0.6 }, lantern: { height: 5.5, prop: true, solid: 1.2 }, mesa: { size: 720, prop: true, solid: 0 }, butte: { size: 420, prop: true, solid: 0 }, ironwood: { height: 8.5, solid: 0.5, prop: true, sway: 0.5 }, desertwillow: { height: 6.5, solid: 0.4, prop: true, sway: 0.8 }, fanpalm: { height: 13, solid: 0.5, prop: true, sway: 0.35 }, coyote: { size: 1.3, prop: true, solid: 0, animal: true }, roadrunner: { size: 0.55, prop: true, solid: 0, animal: true }, scorpion: { size: 0.28, prop: true, solid: 0, animal: true }, jackrabbit: { size: 0.55, prop: true, solid: 0, animal: true }, javelina: { size: 1.1, prop: true, solid: 0, animal: true }, snake: { size: 0.9, prop: true, solid: 0, animal: true }, tortoise: { size: 0.45, prop: true, solid: 0, animal: true }, quail: { size: 0.3, prop: true, solid: 0, animal: true },
   saguaro: { height: 7, solid: 0.6, prop: true, sway: 0.12 }, paloverde: { height: 8, solid: 0.6, prop: true, sway: 0.55 }, sculpture: { height: 7, solid: 1.5, prop: true }, lamp: { height: 4.2, solid: 0.3, prop: true, sway: 0.08 }, windmill: { height: 14, solid: 2 },
   cart: { size: 3.2, vehicle: true, rot: Math.PI / 2 }, jet: { size: 22, vehicle: true, rot: Math.PI / 2 }, gbjet: { size: 22, vehicle: true, rot: Math.PI / 2 },
 };
@@ -223,7 +223,7 @@ async function loadModels() {
       const norm = new THREE.Matrix4().makeRotationY(spec.rot || 0).multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-c.x, -box.min.y, -c.z));
       const parts = [];
       root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); const mat = o.material.clone(); mat.side = THREE.DoubleSide; mat.transparent = false; mat.depthWrite = true; mat.roughness = 0.85; mat.metalness = 0; if (mat.map) { mat.map.encoding = THREE.sRGBEncoding; mat.map.anisotropy = 8; mat.emissiveMap = mat.map; mat.emissive = new THREE.Color(0xffb870); mat.emissiveIntensity = 0; } if (!spec.prop && !spec.vehicle) buildingMats.push(mat); if (spec.sway) addSway(mat, spec.sway); parts.push({ geometry: geo, material: mat }); });
-      MODELS[k] = { parts, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s }; setLoad(0.15 + 0.4 * (++done / kinds.length)); res();
+      MODELS[k] = { parts, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s }; setLoad(0.15 + 0.4 * (++done / kinds.length)); res();
     }, undefined, () => { setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); });
   })));
 }
@@ -236,6 +236,10 @@ function flattenPads() {
   const pads = [];
   for (const kind in PLACE) { const spec = MODEL_SPECS[kind]; if (spec.prop || spec.vehicle || !MODELS[kind]) continue; for (const e of PLACE[kind]) pads.push([e[0], e[2], MODELS[kind].radius * e[4] * 1.25 + 3, e[1]]); }
   for (const l of LOTS) pads.push([l.x, l.z, 12, getH(l.x, l.z)]); for (const q of POOLS) pads.push([q.x, q.z, Math.max(q.w, q.d) / 2 + 4, q.y]);
+  // cluster pads that overlap and give the whole cluster one height, otherwise the later pad leaves the earlier building hanging over a step
+  { const parent = pads.map((_, i) => i); const find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+    for (let i = 0; i < pads.length; i++) for (let j = i + 1; j < pads.length; j++) { const a = pads[i], b = pads[j]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < a[2] + b[2] + 4) parent[find(i)] = find(j); }
+    const sum = {}, n = {}; pads.forEach((pd, i) => { const r = find(i); sum[r] = (sum[r] || 0) + pd[3] * pd[2]; n[r] = (n[r] || 0) + pd[2]; }); pads.forEach((pd, i) => { pd[3] = sum[find(i)] / n[find(i)]; }); }
   for (const [px, pz, pr, target] of pads) { const edge = Math.max(6, pr * 0.5); const c0 = Math.max(0, Math.floor((px - pr - edge - T.xmin) / cw)), c1 = Math.min(T.cols - 1, Math.ceil((px + pr + edge - T.xmin) / cw)), r0 = Math.max(0, Math.floor((pz - pr - edge - T.zmin) / ch)), r1 = Math.min(T.rows - 1, Math.ceil((pz + pr + edge - T.zmin) / ch));
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const x = T.xmin + c * cw, z = T.zmin + r * ch; const d = Math.hypot(x - px, z - pz); if (d > pr + edge) continue; const k = d < pr ? 1 : 1 - sm((d - pr) / edge); const i = r * T.cols + c; H[i] = H[i] + (target - H[i]) * k; } }
 }
@@ -250,10 +254,11 @@ function rangeFor(kind) { const sp = MODEL_SPECS[kind], m = MODELS[kind]; if (sp
 function buildInstances() {
   const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   for (const kind in PLACE) { const m = MODELS[kind], list = PLACE[kind]; if (!m || !list.length) continue;
-    if (MODEL_SPECS[kind].prop) for (const e of list) e[1] = getH(e[0], e[2]);
+    for (const e of list) e[1] = getH(e[0], e[2]);
     // one packed matrix per placement; the instanced meshes are refilled from this as the camera moves
     const mats = new Float32Array(list.length * 16); list.forEach((e, i) => { p.set(e[0], e[1], e[2]); q.setFromAxisAngle(up, e[3]); s.setScalar(e[4]); mtx.compose(p, q, s); mtx.toArray(mats, i * 16); });
     const S = { kind, list, mats, insts: [], R: rangeFor(kind), rad: m.radius, h: m.height, idx: new Int32Array(list.length), n: 0 }; INSTSET.push(S);
+    if (MODEL_SPECS[kind].box) for (const e of list) { const top = MODEL_SPECS[kind].box === 1 ? m.height * e[4] : MODEL_SPECS[kind].box; addSolid(e[0], e[2], e[3], m.sx * e[4] * 0.9, m.sz * e[4] * 0.9, e[1] - 0.2, e[1] + top, "world"); }
     for (const part of m.parts) { const inst = new THREE.InstancedMesh(part.geometry, part.material, list.length); inst.castShadow = !MODEL_SPECS[kind].prop || m.height > 3; inst.receiveShadow = true; inst.frustumCulled = false; inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(inst); S.insts.push(inst); (INST[kind] || (INST[kind] = [])).push(inst); } }
   updateCulling(true);
 }
@@ -282,6 +287,16 @@ function along(t, s) { return [runwayMid[0] + U[0] * t + Nn[0] * s, runwayMid[1]
 function distToRunway(x, z) { const rw = SITE.runway; let best = 1e9; for (let i = 0; i < rw.length - 1; i++) { const [ax, az] = rw[i], [bx, bz] = rw[i + 1]; const vx = bx - ax, vz = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz))); best = Math.min(best, Math.hypot(x - (ax + vx * t), z - (az + vz * t))); } return best; }
 const KEEPOUT = [];   // [x,z,r] areas (golf, course) where nothing is scattered
 const HUBS = [], ROADS_MAIN = [], POOLS = [], GROUND_MATS = [], MANORS = [];
+const SOLIDS = [];   // { x, z, ry, hw, hd, y0, y1, tag }
+function addSolid(x, z, ry, w, d, y0, y1, tag) { if ((y1 - y0 < 0.18 && w < 0.4 && d < 0.4) || (w < 0.18 && d < 0.18) || y1 - y0 < 0.03) return null; const sd = { x, z, ry, hw: w / 2, hd: d / 2, y0, y1, tag }; SOLIDS.push(sd); return sd; }
+function clearSolids(tag) { for (let i = SOLIDS.length - 1; i >= 0; i--) if (SOLIDS[i].tag === tag) SOLIDS.splice(i, 1); }
+function solidLocal(sd, x, z) { const dx = x - sd.x, dz = z - sd.z; const c = Math.cos(sd.ry), sn = Math.sin(sd.ry); return [dx * c - dz * sn, dx * sn + dz * c]; }
+// push a circle of radius r at height y (feet) out of every solid it overlaps, unless it is standing on top
+function collideSolids(x, z, y, r, tall) { for (let k = 0; k < 2; k++) for (const sd of SOLIDS) { if (Math.abs(sd.x - x) > sd.hw + sd.hd + r + 1 || Math.abs(sd.z - z) > sd.hw + sd.hd + r + 1) continue; if (y >= sd.y1 - 0.45 || y + tall <= sd.y0 + 0.05) continue; const [lx, lz] = solidLocal(sd, x, z); const px = sd.hw + r - Math.abs(lx), pz = sd.hd + r - Math.abs(lz); if (px <= 0 || pz <= 0) continue; let ox = 0, oz = 0; if (px < pz) ox = Math.sign(lx || 1) * px; else oz = Math.sign(lz || 1) * pz; const c = Math.cos(sd.ry), sn = Math.sin(sd.ry); x += ox * c + oz * sn; z += -ox * sn + oz * c; } return [x, z]; }
+function solidTop(x, z, y) { let best = -Infinity; for (const sd of SOLIDS) { if (Math.abs(sd.x - x) > sd.hw + sd.hd + 1 || Math.abs(sd.z - z) > sd.hw + sd.hd + 1) continue; const [lx, lz] = solidLocal(sd, x, z); if (Math.abs(lx) <= sd.hw + 0.22 && Math.abs(lz) <= sd.hd + 0.22 && sd.y1 <= y + 0.55 && sd.y1 > best) best = sd.y1; } return best; }
+const _bb = new THREE.Box3(), _bsz = new THREE.Vector3(), _bc = new THREE.Vector3();
+// every mesh in a group becomes a solid from its world bounds (skips rugs, ceilings, lights, tiny things and flat planes)
+function solidifyGroup(g, tag) { g.updateMatrixWorld(true); const gw = new THREE.Vector3(); g.getWorldPosition(gw); const floorY = gw.y; g.traverse((o) => { if (!o.isMesh || !o.geometry || o.geometry.type === "PlaneGeometry" || o.geometry.type === "RingGeometry" || o.isSprite) return; _bb.setFromObject(o); _bb.getSize(_bsz); _bb.getCenter(_bc); const y0 = _bb.min.y - (floorY || 0), y1 = _bb.max.y - (floorY || 0); if (y1 < 0.15 || y0 > 1.95 || _bsz.x > 40 || _bsz.z > 40) return; if (_bsz.x < 0.12 && _bsz.z < 0.12 && y1 - y0 < 0.6) return; addSolid(_bc.x, _bc.z, 0, _bsz.x, _bsz.z, _bb.min.y, _bb.max.y, tag); }); }
 const VISITED = new Set((localStorage.getItem("g1:visited") || "").split(",").filter(Boolean));
 const RINGS = { list: [], next: -1, t0: 0, best: +localStorage.getItem("g1:bestrings") || 0 };
 const HUNT = { coins: [], got: new Set((localStorage.getItem("g1:hunt") || "").split(",").filter(Boolean)), t0: +localStorage.getItem("g1:huntt0") || 0, done: !!localStorage.getItem("g1:huntdone") };
@@ -339,7 +354,7 @@ function ring(cx, cz, r, kinds, spacing, lamps) {
 function sculptTerrain(site) {
   const Z = site.zones; const W = T.xmax - T.xmin, D = T.zmax - T.zmin;
   const hills = [[-170, 420, 190, 11], [560, 470, 170, 9], [-520, 920, 210, 12], [930, -330, 230, 12], [-260, -380, 140, 7], [-1000, -880, 220, 12], [-950, -150, 200, 9], [300, -820, 180, 8], [-600, 1200, 160, 8], [1080, -800, 180, 9]];
-  const pads = [[Z.landing.center[0], Z.landing.center[1], 310, 60], [Z.expanse.center[0], Z.expanse.center[1], 330, 70], [0, 0, 160, 60], [-160, 1080, 300, 60], [-360, 330, 200, 40], [1040, 1260, 110, 40], [-170, 170, 340, 60], [-700, -600, 170, 40], [-800, 300, 150, 40], [285, 721, 300, 60], [600, 480, 185, 50], [33, -686, 90, 30]];
+  const pads = [[Z.landing.center[0], Z.landing.center[1], 310, 60], [Z.expanse.center[0], Z.expanse.center[1], 330, 70], [0, 0, 160, 60], [-260, 1080, 440, 70], [-360, 330, 200, 40], [1040, 1260, 110, 40], [-170, 170, 340, 60], [-700, -600, 170, 40], [-800, 300, 150, 40], [285, 721, 300, 60], [600, 480, 185, 50], [33, -686, 90, 30]];
   const rwMid = runwayMid;
   const sm = (t) => t * t * (3 - 2 * t);
   const H2 = new Float32Array(H.length);
@@ -404,7 +419,7 @@ async function buildWorld() {
 
   const Z = site.zones;
   // keep-out zones for the two games (placed before anything is scattered)
-  GOLF.origin = [-160, 1080]; KEEPOUT.push([GOLF.origin[0], GOLF.origin[1], 330]);
+  GOLF.origin = [-260, 1080]; KEEPOUT.push([GOLF.origin[0], GOLF.origin[1], 440]);
   COURSE.origin = [-360, 330]; KEEPOUT.push([COURSE.origin[0], COURSE.origin[1], 190]);
   const dirU = Math.atan2(U[1], U[0]);
   const XNE = along(-1220, 0), XSW = along(1220, 0), LND = Z.landing.center, EXP = Z.expanse.center, DSG = [600, 480], CMN = [285, 721], LK = [LAKE.x + 190, LAKE.z], FR = along(-600, 690);
@@ -414,7 +429,7 @@ async function buildWorld() {
     [[0, 0], [150, -250], LND],
     [LND, along(-900, 400), along(-1120, 200), XNE],
     [XNE, [900, -300], EXP],
-    [EXP, DSG], [DSG, CMN], [CMN, GOLF.origin], [GOLF.origin, XSW],
+    [EXP, DSG], [DSG, CMN], [CMN, [350, 1000], [80, 1160], GOLF.origin], [GOLF.origin, XSW],
     [XSW, [LAKE.x + 260, LAKE.z + 140], LK], [LK, [-620, 460], COURSE.origin], [COURSE.origin, [-160, 160], [0, 0]],
     [along(-59, 60), along(-59, -110), [270, 300], CMN],
     [LND, [140, -600], FR], [CMN, [700, 1000], [1040, 1290]], [DSG, [1000, 620], [1040, 1290]],
@@ -626,23 +641,26 @@ function buildGolf() {
   const o = GOLF.origin; golf.base = getH(o[0], o[1]);
   // nine holes laid out north of the clubhouse, all inside the 330 m keep-out; local u = east, v = south
   const H9 = [
-    { par: 4, pts: [[-20, -30], [-40, -160], [-90, -250]], w: 24, gr: 12 },
-    { par: 3, pts: [[-120, -270], [-240, -250]], w: 20, gr: 10 },
-    { par: 4, pts: [[-270, -230], [-300, -110], [-260, -20]], w: 22, gr: 11 },
-    { par: 5, pts: [[-230, -60], [-170, -190], [-110, -320], [-40, -320]], w: 26, gr: 13 },
-    { par: 3, pts: [[0, -330], [150, -330]], w: 20, gr: 10 },
-    { par: 4, pts: [[180, -300], [260, -180], [280, -40]], w: 24, gr: 12 },
-    { par: 3, pts: [[250, -10], [130, -80]], w: 20, gr: 10 },
-    { par: 3, pts: [[120, -90], [60, -200]], w: 20, gr: 10 },
-    { par: 4, pts: [[40, -230], [10, -120], [40, -20]], w: 22, gr: 11 },
+    { par: 4, pts: [[-40, -20], [-70, -180], [-100, -300]], w: 24, gr: 12 },
+    { par: 3, pts: [[-130, -330], [-270, -340]], w: 20, gr: 10 },
+    { par: 4, pts: [[-300, -310], [-315, -170], [-290, -50]], w: 22, gr: 11 },
+    { par: 3, pts: [[-250, -60], [-130, -90]], w: 20, gr: 10 },
+    { par: 5, pts: [[20, -40], [20, -230], [20, -400]], w: 26, gr: 13 },
+    { par: 3, pts: [[60, -410], [200, -400]], w: 20, gr: 10 },
+    { par: 4, pts: [[240, -370], [300, -230], [280, -90]], w: 24, gr: 12 },
+    { par: 3, pts: [[250, -50], [130, -60]], w: 20, gr: 10 },
+    { par: 4, pts: [[100, -90], [130, -230], [100, -330]], w: 22, gr: 11 },
   ];
   const turf2 = new THREE.MeshStandardMaterial({ map: TEX.turf, color: 0xbfe2a0, roughness: 1 }), fringe = new THREE.MeshStandardMaterial({ map: TEX.turf, color: 0x8fbf6a, roughness: 1 });
   H9.forEach((d, i) => {
     const pts = d.pts.map(([u, v]) => [o[0] + u, o[1] + v]); const tee = pts[0], green = pts[pts.length - 1]; let len = 0; for (let k = 0; k < pts.length - 1; k++) len += Math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]); len = Math.round(len);
     const last = pts[pts.length - 2]; const gdir = Math.atan2(green[0] - last[0], green[1] - last[1]); const dir = Math.atan2(pts[1][0] - tee[0], pts[1][1] - tee[1]);
     const h = { i, par: d.par, len, tee, pts, w: d.w, green: [green[0], green[1], d.gr], cup: [green[0] + Math.sin(gdir + 0.6) * d.gr * 0.35, green[1] + Math.cos(gdir + 0.6) * d.gr * 0.35], bunkers: [], dir };
+    golf.holes.push(h); });
+  const onAnyFairway = (x, z, self) => { for (const q of golf.holes) { if (q === self) continue; if (Math.hypot(x - q.green[0], z - q.green[1]) < q.green[2] + 6) return true; for (let i = 0; i < q.pts.length - 1; i++) if (segDist(x, z, q.pts[i], q.pts[i + 1]) < q.w / 2 + 6) return true; if (Math.hypot(x - q.tee[0], z - q.tee[1]) < 8) return true; } return false; };
+  golf.holes.forEach((h, i) => { const d = H9[i]; const pts = h.pts, tee = h.tee, green = [h.green[0], h.green[1]], len = h.len, dir = h.dir; const last = pts[pts.length - 2]; const gdir = Math.atan2(green[0] - last[0], green[1] - last[1]);
     const nb = d.par === 3 ? 1 : d.par === 4 ? 2 : 3; for (let k = 0; k < nb; k++) { const t = 0.55 + k * 0.18; const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))); const tt = t * (pts.length - 1) - seg; const bx0 = pts[seg][0] + (pts[seg + 1][0] - pts[seg][0]) * tt, bz0 = pts[seg][1] + (pts[seg + 1][1] - pts[seg][1]) * tt; const sd = Math.atan2(pts[seg + 1][0] - pts[seg][0], pts[seg + 1][1] - pts[seg][1]) + Math.PI / 2; const side = k % 2 ? 1 : -1; h.bunkers.push([bx0 + Math.sin(sd) * side * (d.w / 2 + 3), bz0 + Math.cos(sd) * side * (d.w / 2 + 3), 5 + k * 1.5]); }
-    h.bunkers.push([green[0] + Math.sin(gdir + 2.2) * (d.gr + 5), green[1] + Math.cos(gdir + 2.2) * (d.gr + 5), 5]);
+    h.bunkers.push([green[0] + Math.sin(gdir + 2.2) * (d.gr + 5), green[1] + Math.cos(gdir + 2.2) * (d.gr + 5), 5]); h.bunkers = h.bunkers.filter((b) => !onAnyFairway(b[0], b[1], h));
     scene.add(ribbon(pts, h.w, M.turf, 0.3)); const gp = [], fp = []; for (let k = 0; k < 32; k++) { const ga = k / 32 * 6.283; const rr = d.gr * (1 + 0.12 * Math.sin(ga * 3 + i)); gp.push([green[0] + Math.cos(ga) * rr, green[1] + Math.sin(ga) * rr]); fp.push([green[0] + Math.cos(ga) * (rr + 3), green[1] + Math.sin(ga) * (rr + 3)]); } scene.add(polygon(fp, fringe, 0.32)); scene.add(polygon(gp, turf2, 0.34));
     for (const b of h.bunkers) { const bp = []; for (let k = 0; k < 20; k++) { const ga = k / 20 * 6.283; bp.push([b[0] + Math.cos(ga) * b[2] * (1 + 0.15 * Math.sin(ga * 2)), b[1] + Math.sin(ga) * b[2]]); } scene.add(polygon(bp, M.sand, 0.33)); }
     const tb = box(5, 0.3, 3.5, turf2, tee[0], getH(tee[0], tee[1]) + 0.35, tee[1], -dir); scene.add(tb); for (const sx of [-1, 1]) { const mk = box(0.12, 0.5, 0.12, new THREE.MeshStandardMaterial({ color: i < 3 ? 0x3a6ac9 : i < 6 ? 0xf5f1e6 : 0xf4cd5a }), tee[0] + Math.cos(dir) * sx * 1.6, getH(tee[0], tee[1]) + 0.75, tee[1] - Math.sin(dir) * sx * 1.6); scene.add(mk); }
@@ -651,10 +669,10 @@ function buildGolf() {
     const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.1), new THREE.MeshBasicMaterial({ map: textTexture([{ text: `HOLE ${i + 1}`, size: 90, y: 0.36 }, { text: `PAR ${d.par} · ${len} M`, size: 44, y: 0.74, color: "#4DDE6F", font: "'Space Grotesk', sans-serif", weight: 600 }], 512, 240, { bg: "#0a1610", border: "#4DDE6F" }), side: THREE.DoubleSide })); sg.position.set(tee[0] - Math.cos(dir) * 3.2, getH(tee[0], tee[1]) + 1.4, tee[1] + Math.sin(dir) * 3.2); sg.rotation.y = dir; scene.add(sg);
     // 150 m stake, trees along the fairway edges, a cart path from the previous green
     if (len > 170) { const t = 1 - 150 / len; const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))); const tt = t * (pts.length - 1) - seg; const sx = pts[seg][0] + (pts[seg + 1][0] - pts[seg][0]) * tt, sz = pts[seg][1] + (pts[seg + 1][1] - pts[seg][1]) * tt; const st = box(0.12, 1.2, 0.12, new THREE.MeshStandardMaterial({ color: 0xf5f1e6 }), sx + Math.cos(dir) * (d.w / 2 + 1), getH(sx, sz) + 0.9, sz - Math.sin(dir) * (d.w / 2 + 1)); scene.add(st); }
-    for (let k = 0; k < pts.length - 1; k++) { const L = Math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]); const nx = -(pts[k + 1][1] - pts[k][1]) / L, nz = (pts[k + 1][0] - pts[k][0]) / L; for (let t = 18; t < L - 12; t += 26) for (const sd of [-1, 1]) { if (rnd() < 0.45) continue; const x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * t / L + nx * sd * (d.w / 2 + 9 + rnd() * 6), z = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * t / L + nz * sd * (d.w / 2 + 9 + rnd() * 6); const kind = rnd() < 0.5 ? "mesquite" : rnd() < 0.5 ? "paloverde" : "ironwood"; if (MODELS[kind] && golfSurface(x, z) === "rough") put(kind, x, z, rnd() * 6.283, 0.8 + rnd() * 0.5); } }
+    for (let k = 0; k < pts.length - 1; k++) { const L = Math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]); const nx = -(pts[k + 1][1] - pts[k][1]) / L, nz = (pts[k + 1][0] - pts[k][0]) / L; for (let t = 18; t < L - 12; t += 26) for (const sd of [-1, 1]) { if (rnd() < 0.45) continue; const x = pts[k][0] + (pts[k + 1][0] - pts[k][0]) * t / L + nx * sd * (d.w / 2 + 9 + rnd() * 6), z = pts[k][1] + (pts[k + 1][1] - pts[k][1]) * t / L + nz * sd * (d.w / 2 + 9 + rnd() * 6); const kind = rnd() < 0.5 ? "mesquite" : rnd() < 0.5 ? "paloverde" : "ironwood"; if (MODELS[kind] && golfSurface(x, z) === "rough" && !onAnyFairway(x, z, null)) put(kind, x, z, rnd() * 6.283, 0.8 + rnd() * 0.5); } }
     if (i > 0) { const pg = golf.holes[i - 1].green; scene.add(ribbon([[pg[0], pg[1]], [tee[0], tee[1]]], 2.2, M.walk, 0.31)); }
-    golf.holes.push(h);
   });
+  scene.add(ribbon([[golf.holes[8].green[0], golf.holes[8].green[1]], [o[0] + 30, o[1] - 40], [o[0], o[1] - 14]], 2.2, M.walk, 0.31));
   put("clubhouse", o[0], o[1], 0.3); put("lamp", o[0] + 22, o[1] + 4, 0); put("lamp", o[0] - 22, o[1] - 4, 0); put("cart", o[0] + 26, o[1] + 12, 1.2); put("cart", o[0] + 30, o[1] + 12, 1.2); put("cart", o[0] + 34, o[1] + 12, 1.2);
   scene.add(ribbon([[o[0], o[1] - 12], [golf.holes[0].tee[0], golf.holes[0].tee[1]]], 2.2, M.walk, 0.31));
   sign(o[0], o[1] - 60, 0, "DESERT GOLF", "NINE HOLES · PAR 33 · PRESS E AT THE FIRST TEE");
@@ -765,7 +783,7 @@ async function loadCharacters() {
   const load = (url) => new Promise((res) => loader.load(url, res, undefined, () => res(null)));
   for (const body of ["m", "f"]) {
     const walk = await load(`/models/char_${body}.glb?v=${window.BUILD || 0}`); if (!walk) continue;
-    const vq = `?v=${window.BUILD || 0}`; const idle = await load(`/models/char_${body}_idle.glb` + vq); const run = await load(`/models/char_${body}_run.glb` + vq); const jump = await load(`/models/char_${body}_jump.glb` + vq); const swim = await load(`/models/char_${body}_swim.glb` + vq); const golfc = await load(`/models/char_${body}_golf.glb` + vq);
+    const vq = `?v=${window.BUILD || 0}`; const idle = await load(`/models/char_${body}_idle.glb` + vq); const run = await load(`/models/char_${body}_run.glb` + vq); const jump = await load(`/models/char_${body}_jump.glb` + vq); const swim = await load(`/models/char_${body}_swim.glb` + vq); const golfc = await load(`/models/char_${body}_golf.glb` + vq); const sitc = await load(`/models/char_${body}_sit.glb` + vq);
     const root = walk.scene; root.updateMatrixWorld(true);
     // measure the SKINNED pose (Meshy rigs keep bones in cm and geometry in m, so plain bounds are 100x off)
     const box = new THREE.Box3(); const v = new THREE.Vector3();
@@ -773,7 +791,7 @@ async function loadCharacters() {
     const sz = new THREE.Vector3(); box.getSize(sz); if (!(sz.y > 0)) continue;
     const wantH = body === "m" ? 1.78 : 1.68; const sc = wantH / sz.y;
     root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material.side = THREE.FrontSide; o.material.emissive && o.material.emissive.set(0x000000); o.material.metalness = 0; o.material.metalnessMap = null; o.material.roughness = 0.82; o.material.roughnessMap = null; o.material.needsUpdate = true; if (o.material.map) { o.material.map.encoding = THREE.sRGBEncoding; o.material.map.anisotropy = 8; } } });
-    CHAR[body] = { scene: root, scale: sc, yoff: -box.min.y * sc, clips: { walk: walk.animations && walk.animations[0], idle: idle && idle.animations && idle.animations[0], run: run && run.animations && run.animations[0], jump: jump && jump.animations && jump.animations[0], swim: swim && swim.animations && swim.animations[0], golf: golfc && golfc.animations && golfc.animations[0] } };
+    CHAR[body] = { scene: root, scale: sc, yoff: -box.min.y * sc, clips: { walk: walk.animations && walk.animations[0], idle: idle && idle.animations && idle.animations[0], run: run && run.animations && run.animations[0], jump: jump && jump.animations && jump.animations[0], swim: swim && swim.animations && swim.animations[0], golf: golfc && golfc.animations && golfc.animations[0], sit: sitc && sitc.animations && sitc.animations[0] } };
   }
 }
 // tint the plain white shirt and dark trousers of the generated body by luminance mask
@@ -822,6 +840,7 @@ function buildRigged(g, look, hat, outfit, C, gear) {
   if (C.clips.run) { acts.run = mixer.clipAction(C.clips.run); acts.run.play(); acts.run.setEffectiveWeight(0); }
   if (C.clips.jump) { acts.jump = mixer.clipAction(C.clips.jump); acts.jump.setLoop(THREE.LoopOnce, 1); acts.jump.clampWhenFinished = true; acts.jump.play(); acts.jump.setEffectiveWeight(0); }
   if (C.clips.swim) { acts.swim = mixer.clipAction(C.clips.swim); acts.swim.play(); acts.swim.setEffectiveWeight(0); }
+  if (C.clips.sit) { acts.sit = mixer.clipAction(C.clips.sit); acts.sit.play(); acts.sit.setEffectiveWeight(0); }
   if (C.clips.golf) { acts.golf = mixer.clipAction(C.clips.golf); acts.golf.setLoop(THREE.LoopOnce, 1); acts.golf.clampWhenFinished = false; acts.golf.setEffectiveWeight(0); }
   // hats ride the head bone when there is one
   let head = null; clone.traverse((n) => { if (!head && n.isBone && /head/i.test(n.name)) head = n; });
@@ -850,7 +869,7 @@ function buildRigged(g, look, hat, outfit, C, gear) {
 function animateWalk(g, speed, dt) {
   const u = g.userData;
   if (u.mixer) { u.mixer.update(dt); const A = u.acts; const air = !!u.air && !!A.jump; const k = Math.min(1, speed / 1.2); const run = A.run ? Math.max(0, Math.min(1, (speed - 5.2) / 2.5)) : 0;
-    const sw = !!u.swim && !!A.swim; const gf = !!A.golf && u.golfT && u.golfT > performance.now(); const want = { idle: air || sw || gf ? 0 : 1 - k, walk: air || sw || gf ? 0 : k * (1 - run), run: air || sw || gf ? 0 : k * run, jump: air && !sw && !gf ? 1 : 0, swim: sw ? 1 : 0, golf: gf ? 1 : 0 }; const w = u.w || (u.w = { idle: 1, walk: 0, run: 0, jump: 0, swim: 0, golf: 0 }); const rate = Math.min(1, dt * (gf ? 30 : 9));
+    const sw = !!u.swim && !!A.swim; const gf = !!A.golf && u.golfT && u.golfT > performance.now(); const st = !!u.sit && !!A.sit; const want = { idle: air || sw || gf || st ? 0 : 1 - k, walk: air || sw || gf || st ? 0 : k * (1 - run), run: air || sw || gf || st ? 0 : k * run, jump: air && !sw && !gf && !st ? 1 : 0, swim: sw ? 1 : 0, golf: gf ? 1 : 0, sit: st ? 1 : 0 }; const w = u.w || (u.w = { idle: 1, walk: 0, run: 0, jump: 0, swim: 0, golf: 0, sit: 0 }); const rate = Math.min(1, dt * (gf ? 30 : 9));
     for (const n in want) { w[n] += (want[n] - w[n]) * rate; if (A[n]) A[n].setEffectiveWeight(w[n]); }
     if (A.walk) A.walk.setEffectiveTimeScale(Math.max(0.6, Math.min(1.7, speed / 1.5))); if (A.swim) A.swim.setEffectiveTimeScale(speed > 0.3 ? 1.0 : 0.5); if (A.run) A.run.setEffectiveTimeScale(Math.max(0.8, Math.min(1.5, speed / 7.5)));
     if (air && !u.wasAir && A.jump) { A.jump.reset(); A.jump.time = 0.12; A.jump.play(); } u.wasAir = air;
@@ -975,7 +994,7 @@ $("#mm").addEventListener("click", (e) => { if (!T) return; $("#mm").classList.r
 let gbOpen = false, boardOpen = false;
 function closeCards() { closeTalk(); $("#inv").classList.remove("on"); for (const id of ["#info", "#gb", "#board", "#shop", "#lot", "#creator"]) $(id).classList.remove("on"); gbOpen = false; boardOpen = false; }
 function nearestHotspot() { let best = null, bd = 1e9; for (const h of hotspots) { const d = Math.hypot(player.position.x - h.x, player.position.z - h.z); if (d < h.r && d < bd) { bd = d; best = h; } } return best; }
-function openNearest() { if (!player) return; if (inside) { if (VENUE[inside.door.kind] && !inside.atDoor()) { openShop(inside.door.kind); return; } leaveInterior(); return; } const lot = nearestLot(); if (lot) { openLot(lot); return; } const door = nearestDoor(); if (door) { enterInterior(door); return; } const best = nearestHotspot(); if (!best) return; $("#info-h").textContent = best.t; $("#info-k").textContent = best.k; $("#info-p").textContent = best.p; $("#info-go").style.display = best.play ? "" : "none"; $("#info-go").onclick = () => { if (best.play === "golf") golfStart(); else if (best.play === "tour") startTour(); };
+function openNearest() { if (!player) return; if (SIT.on) { standUp(); return; } { const seat = nearestSeat(); if (seat && !riding && !golf.playing) { sitDown(seat); return; } } if (inside) { if (VENUE[inside.door.kind] && !inside.atDoor()) { openShop(inside.door.kind); return; } leaveInterior(); return; } const lot = nearestLot(); if (lot) { openLot(lot); return; } const door = nearestDoor(); if (door) { enterInterior(door); return; } const best = nearestHotspot(); if (!best) return; $("#info-h").textContent = best.t; $("#info-k").textContent = best.k; $("#info-p").textContent = best.p; $("#info-go").style.display = best.play ? "" : "none"; $("#info-go").onclick = () => { if (best.play === "golf") golfStart(); else if (best.play === "tour") startTour(); };
   if (best.play && best.play.startsWith("npc:")) { const c = CAST.find((k) => k.id === best.play.slice(4)); if (c) { showTalk(c, 0); return; } } $("#info-go").textContent = best.play === "tour" ? "Start the tour" : "Play"; $("#info").classList.add("on"); if (document.exitPointerLock) document.exitPointerLock(); }
 $("#info-x").addEventListener("click", closeCards);
 function toggleGuestbook() { gbOpen = !gbOpen; $("#gb").classList.toggle("on", gbOpen); if (gbOpen) { renderGuestbook(); if (document.exitPointerLock) document.exitPointerLock(); $("#gb-in").focus(); } }
@@ -1025,6 +1044,7 @@ function frame() {
   if (riding && riding.driver) driveVehicle(dt);
   else if (!riding && !golf.playing) {
     let fx = 0, fz = 0; if (!chatOpen) { if (keys.KeyW || keys.ArrowUp) fz += 1; if (keys.KeyS || keys.ArrowDown) fz -= 1; if (keys.KeyA || keys.ArrowLeft) fx -= 1; if (keys.KeyD || keys.ArrowRight) fx += 1; } if (joy.active) { fx += joy.dx; fz -= joy.dy; }
+    if (SIT.on) { if (fx || fz || keys.Space) standUp(); else { fx = 0; fz = 0; mv.x = 0; mv.z = 0; } }
     const L = Math.hypot(fx, fz); if (L > 1) { fx /= L; fz /= L; }
     let nx, nz;
     if (cartMode) {
@@ -1045,7 +1065,7 @@ function frame() {
       nx = player.position.x + (onIce || airborne && (slide.x || slide.z) ? slide.x : mv.x) * dt; nz = player.position.z + (onIce || airborne && (slide.x || slide.z) ? slide.z : mv.z) * dt;
       if (Math.hypot(mv.x, mv.z) > 0.4) { const want = Math.atan2(mv.x, mv.z); let d = want - player.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); player.rotation.y += d * Math.min(1, dt * 12); }
     }
-    if (!onLand(nx, nz)) { nx = player.position.x; nz = player.position.z; cartSpeed = 0; } [nx, nz] = collide(nx, nz, cartMode ? 1.4 : 0.6);
+    if (!onLand(nx, nz)) { nx = player.position.x; nz = player.position.z; cartSpeed = 0; } [nx, nz] = collide(nx, nz, cartMode ? 1.4 : 0.6); [nx, nz] = collideSolids(nx, nz, player.position.y, cartMode ? 1.2 : 0.32, cartMode ? 1.2 : 1.6);
     if (cartMode && waterDepthAt(nx, nz) > 0.5) { nx = player.position.x; nz = player.position.z; cartSpeed *= 0.5; }
     if (inside) { const e = inside.door.e, hf = inside.half - 0.5; let lx = (nx - e[0]) * Math.cos(e[3]) - (nz - e[2]) * Math.sin(e[3]), lz = (nx - e[0]) * Math.sin(e[3]) + (nz - e[2]) * Math.cos(e[3]); if (lz > hf + 1.5) { leaveInterior(); nx = player.position.x; nz = player.position.z; } else { lx = Math.max(-hf, Math.min(hf, lx)); lz = Math.max(-hf, Math.min(hf + 1.5, lz)); nx = e[0] + lx * Math.cos(e[3]) + lz * Math.sin(e[3]); nz = e[2] - lx * Math.sin(e[3]) + lz * Math.cos(e[3]); } }
     // vertical: ground + ramps, gravity, jumps
@@ -1060,6 +1080,7 @@ function frame() {
     else { bob += L * dt * 9; bobY = L && !cartMode ? Math.abs(Math.sin(bob)) * 0.05 : 0; player.position.y = surf + bobY; }
     if (SWIM.on && spdLast > 0.6 && SWIM.depth < 0.3 && FRAME_N % 4 === 0) emitDust(nx, LAKE.level, nz, 1, 0.8, 0.4);
     updateObby(dt);
+    if (SIT.on) { player.position.y = SIT.y; airborne = false; vy = 0; }
     pushMove(false); player.userData.air = airborne && !cartMode && !SWIM.on; player.userData.swim = SWIM.on; const spd = cartMode ? 0 : Math.hypot(mv.x, mv.z); spdLast = spd; animateWalk(player, spd, dt);
     // footprints, tyre tracks and dust
     if (FX.dust) { const ry = player.rotation.y;
@@ -1149,7 +1170,7 @@ function buildDesignDistrict(o, dir) {
 function dedupeBuildings() {
   const B = []; for (const k in PLACE) { const sp = MODEL_SPECS[k]; if (sp.prop || sp.vehicle || !MODELS[k]) continue; PLACE[k].forEach((e, i) => B.push({ k, i, e, r: MODELS[k].radius * e[4] })); }
   B.sort((a, b) => b.r - a.r); const dead = new Set(); let removed = 0;
-  for (let i = 0; i < B.length; i++) { if (dead.has(B[i])) continue; for (let j = i + 1; j < B.length; j++) { if (dead.has(B[j])) continue; const a = B[i], b = B[j]; if (Math.hypot(a.e[0] - b.e[0], a.e[2] - b.e[2]) < (a.r + b.r) * 0.88) { dead.add(b); removed++; } } }
+  for (let i = 0; i < B.length; i++) { if (dead.has(B[i])) continue; for (let j = i + 1; j < B.length; j++) { if (dead.has(B[j])) continue; const a = B[i], b = B[j]; if (Math.hypot(a.e[0] - b.e[0], a.e[2] - b.e[2]) < (a.r + b.r) * 0.96) { dead.add(b); removed++; } } }
   const gone = [...dead].map((d) => d.e); for (const d of dead) { const list = PLACE[d.k]; const idx = list.indexOf(d.e); if (idx >= 0) list.splice(idx, 1); }
   if (gone.length) { const keep = COLLIDERS.filter((c) => !gone.some((e) => Math.abs(e[0] - c[0]) < 0.01 && Math.abs(e[2] - c[1]) < 0.01)); COLLIDERS.length = 0; COLLIDERS.push(...keep); }
   console.log("dedupe removed", removed, "overlapping buildings");
@@ -1197,7 +1218,7 @@ function buildMinigames() {
     RINGS.mOff = mOff; RINGS.mNext = mNext; const s0 = RINGS.list[0];
     hotspots.push({ x: 120, z: 60, r: 40, t: "Sky Rings", k: "Minigame · fly the jet", p: "Take Giveback One (press F beside it on the apron), climb, and fly through the ten green rings in order, starting with the gold one. Fastest lap goes on the board (L)." }); }
   // Founders' Cache: twelve $GBACK tokens hidden across the site
-  { const spots = [[66, 40], [252 - 60, -497 + 130], [33, -686 - 30], [851, 219 + 120], [600 + 90, 480 - 40], [285, 721 - 100], [-160, 1080 + 60], [LAKE.x + 170, LAKE.z - 60], [-360, 330 + 140], [1040 - 40, 1260 - 30], [-700, -600 + 40], [-800, 300 - 60]];
+  { const spots = [[66, 40], [252 - 60, -497 + 130], [33, -686 - 30], [851, 219 + 120], [600 + 90, 480 - 40], [285, 721 - 100], [-260, 1150], [LAKE.x + 170, LAKE.z - 60], [-360, 330 + 140], [1040 - 40, 1260 - 30], [-700, -600 + 40], [-800, 300 - 60]];
     const geo = new THREE.CylinderGeometry(0.55, 0.55, 0.12, 24); geo.rotateX(Math.PI / 2); const mat = new THREE.MeshStandardMaterial({ color: 0xf4cd5a, emissive: 0xaa7a10, emissiveIntensity: 0.6, metalness: 0.6, roughness: 0.3 });
     spots.forEach((sp, i) => { const [x, z] = sp; const m = new THREE.Mesh(geo, mat); m.position.set(x, getH(x, z) + 1.2, z); m.castShadow = true; scene.add(m); const id = "c" + i; m.visible = !HUNT.got.has(id); HUNT.coins.push({ id, x, z, m }); });
     hotspots.push({ x: 30, z: 60, r: 26, t: "Founders' Cache", k: "Minigame · treasure hunt", p: "Twelve gold $GBACK tokens are hidden across the site, one near every landmark. Walk into a token to collect it. The compass shows the nearest one you still need. Collect all twelve for the reward and a place on the board." }); }
@@ -1307,9 +1328,15 @@ function placeBuild() { if (!BUILD.on) return; const [x, y, z] = buildTarget(); 
 function syncProps() {
   if (!view || !view.props) return; const here = roomKey(); const want = new Set();
   for (const pr of view.props) { const key = pr.id; if (pr.room && pr.room !== here) continue; want.add(key); if (PROPS.has(key)) continue; const g = makeProp(pr.kind, false); g.userData.prop = pr;
-    if (pr.room) { g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.ry; inside.g.add(g); } else { g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.ry; scene.add(g); } PROPS.set(key, g); }
-  for (const [key, g] of PROPS) if (!want.has(key)) { if (g.parent) g.parent.remove(g); PROPS.delete(key); }
+    if (pr.room) { g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.ry; inside.g.add(g); } else { g.position.set(pr.x, pr.y, pr.z); g.rotation.y = pr.ry; scene.add(g); } PROPS.set(key, g);
+    if (!["rug", "cup", "glass", "plate", "bottle", "art", "tv"].includes(pr.kind)) solidifyGroup(g, "prop:" + key, 0); }
+  for (const [key, g] of PROPS) if (!want.has(key)) { if (g.parent) g.parent.remove(g); PROPS.delete(key); clearSolids("prop:" + key); }
 }
+const SEATS = { chair: 0.47, bench: 0.5, sofa: 0.55, stool: 0.75, lounger: 0.42, picnic: 0.5 };
+const SIT = { on: false, key: null };
+function nearestSeat() { let best = null, bd = 2.2; for (const [key, g] of PROPS) { const pr = g.userData.prop; if (!(pr.kind in SEATS)) continue; const wp = new THREE.Vector3(); g.getWorldPosition(wp); const d = Math.hypot(wp.x - player.position.x, wp.z - player.position.z); if (d < bd) { bd = d; best = { key, g, pr, wp }; } } return best; }
+function sitDown(seat) { const wp = seat.wp; let ry = seat.pr.ry; if (seat.pr.room && inside) ry += inside.door.e[3]; SIT.on = true; SIT.key = seat.key; SIT.y = wp.y + SEATS[seat.pr.kind]; player.position.set(wp.x, SIT.y, wp.z); player.rotation.y = ry; mv.x = 0; mv.z = 0; airborne = false; vy = 0; player.userData.sit = true; setStatus("sitting · any move key to stand"); sfx("ui"); }
+function standUp() { if (!SIT.on) return; SIT.on = false; player.userData.sit = false; player.position.y = surfaceAt(player.position.x, player.position.z, player.position.y + 1); }
 function nearestOwnProp() { if (!view || !view.props) return null; let best = null, bd = 4; for (const [key, g] of PROPS) { const pr = g.userData.prop; if (pr.by !== ME) continue; const wp = new THREE.Vector3(); g.getWorldPosition(wp); const d = Math.hypot(wp.x - player.position.x, wp.z - player.position.z); if (d < bd) { bd = d; best = pr; } } return best; }
 function openInventory() {
   if (!view) return; closeCards(); const me = view.players[ME]; const prices = view.prices; const box = $("#inv-list"); box.innerHTML = "";
@@ -1561,8 +1588,8 @@ function buildObby() {
 }
 function platSolid(p, t) { if (!p.blink) return true; return ((t + p.blink.phase) % p.blink.period) < p.blink.on; }
 function surfaceAt(x, z, y) {
-  if (inside) return inside.door.e[1] + 0.05;
-  let s = getH(x, z) + rampHeight(x, z); const t = performance.now() / 1000;
+  if (inside) { const top = solidTop(x, z, y); return Math.max(inside.door.e[1] + 0.05, top); }
+  let s = getH(x, z) + rampHeight(x, z); const t = performance.now() / 1000; { const top = solidTop(x, z, y); if (top > s) s = top; }
   for (const p of OBBY.plats) { if (Math.abs(x - p.x) <= p.w / 2 + 0.3 && Math.abs(z - p.z) <= p.d / 2 + 0.3 && p.y <= y + 0.55 && p.y > s && platSolid(p, t)) s = p.y; }
   return s;
 }
@@ -1797,7 +1824,7 @@ function enterInterior(door) {
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), isH ? wallMat : ceilMat); ceil.rotation.x = Math.PI / 2; ceil.position.y = hgt; g.add(ceil); if (!isH && !isT) for (let k = -1; k <= 1; k++) { const beam = box(half * 2, 0.22, 0.22, trimMat, 0, hgt - 0.11, k * half * 0.6); g.add(beam); }
   g.add(box(half * 2, hgt, 0.2, wallMat, 0, hgt / 2, -half)); g.add(box(0.2, hgt, half * 2, wallMat, -half, hgt / 2, 0)); g.add(box(0.2, hgt, half * 2, wallMat, half, hgt / 2, 0));
   const dw = isT ? 8 : isM ? 4 : door.kind === "hangar" || door.kind === "hangarhome" ? half * 1.2 : 2.2; const frontMat = isT || isM ? glassMat : wallMat; g.add(box(half - dw / 2, hgt, 0.2, frontMat, -(half + dw / 2) / 2, hgt / 2, half)); g.add(box(half - dw / 2, hgt, 0.2, frontMat, (half + dw / 2) / 2, hgt / 2, half)); g.add(box(dw, hgt - (isT ? 4 : 2.4), 0.2, frontMat, 0, hgt - (hgt - (isT ? 4 : 2.4)) / 2, half)); if (isT) { for (let k = -4; k <= 4; k++) { if (k === 0) continue; g.add(box(0.5, hgt, 0.5, trimMat, k * (half / 4.5), hgt / 2, half - 0.2)); } g.add(box(half * 2, 0.6, 0.6, trimMat, 0, hgt - 0.3, half - 0.2)); } if (isM) { for (let k = -3; k <= 3; k++) { if (k === 0) continue; g.add(box(0.3, hgt, 0.3, trimMat, k * (half / 3.5), hgt / 2, half - 0.15)); } g.add(box(half * 2, 0.4, 0.4, trimMat, 0, hgt - 0.2, half - 0.15)); } if (!isH && !isT) { g.add(box(0.14, 2.4, 0.3, trimMat, -dw / 2 - 0.07, 1.2, half)); g.add(box(0.14, 2.4, 0.3, trimMat, dw / 2 + 0.07, 1.2, half)); g.add(box(dw + 0.28, 0.14, 0.3, trimMat, 0, 2.47, half)); }
-  furnish(g, door.kind, half); scene.add(g); for (const [k, pg] of PROPS) { if (pg.parent) pg.parent.remove(pg); } PROPS.clear();
+  furnish(g, door.kind, half); scene.add(g); for (const [k, pg] of PROPS) { if (pg.parent) pg.parent.remove(pg); } PROPS.clear(); solidifyGroup(g, "room", 0);
   HIDDEN.add(door.kind + ":" + door.i); updateCulling(true);
   const atDoor = () => { const lz = (player.position.x - e[0]) * Math.sin(e[3]) + (player.position.z - e[2]) * Math.cos(e[3]); return lz > half - 3.5; };
   inside = { door, g, half, atDoor, saved: COLLIDERS.filter((c) => Math.hypot(c[0] - e[0], c[1] - e[2]) < 0.01) }; for (const c of inside.saved) { const i = COLLIDERS.indexOf(c); if (i >= 0) COLLIDERS.splice(i, 1); }
@@ -1805,7 +1832,7 @@ function enterInterior(door) {
 }
 let inside_left_at = 0;
 function leaveInterior() {
-  if (!inside) return; fade(); inside_left_at = performance.now(); player.userData.walk.visible = true; const { door, g } = inside; const e = door.e; scene.remove(g); for (const [k, pg] of PROPS) { if (pg.parent) pg.parent.remove(pg); } PROPS.clear(); cancelBuild();
+  if (!inside) return; fade(); inside_left_at = performance.now(); player.userData.walk.visible = true; const { door, g } = inside; const e = door.e; scene.remove(g); for (const [k, pg] of PROPS) { if (pg.parent) pg.parent.remove(pg); } PROPS.clear(); cancelBuild(); clearSolids("room"); clearSolids("prop");
   HIDDEN.delete(door.kind + ":" + door.i); updateCulling(true);
   COLLIDERS.push(...inside.saved); const outX = e[0] + Math.sin(e[3]) * (door.r * 0.86 + 2.5), outZ = e[2] + Math.cos(e[3]) * (door.r * 0.86 + 2.5); inside = null; player.position.set(outX, getH(outX, outZ), outZ); player.rotation.y = e[3]; airborne = false; vy = 0; yaw = e[3] + Math.PI; camera.position.set(outX + Math.sin(e[3]) * 6, getH(outX, outZ) + 3, outZ + Math.cos(e[3]) * 6); lastSent.at = 0; pushMove(true); sfx("ui");
 }
@@ -2018,7 +2045,7 @@ const TOUR = [
   ["The Design District", "An artist district: monumental sculptures on the land, a gallery where you can buy pieces for your lot, and an immersive experience planned for the far edge of the site.", [600, 330]],
   ["How the blockchain works here", "Giveback Ventures builds giving infrastructure on Solana. $GBACK is a utility token: a hard-capped supply of one billion, fully circulating, with no team allocation. Every transaction is recorded on a public ledger anyone can verify. On this site the coins you earn and spend are the same idea in miniature: a permanent, automated, verifiable record.", null],
   ["Land on chain", "The real property is being brought on chain: the parcel, the lots and the memberships are recorded as tokens on Solana, so ownership is transparent and cannot be quietly changed. Membership tiers, Passenger, Pilot, Captain and Tower, are the same names as the ranks you earn here by playing.", null],
-  ["Play and earn", "Desert Golf, the Cart Course, the Drag Strip and the Sky Obby all pay $GBACK and XP, and all keep leaderboards under L. You also earn a little just for being here. Spend it in the shops, on meals, on art, or on a lot.", [-160, 1020]],
+  ["Play and earn", "Desert Golf, the Cart Course, the Drag Strip and the Sky Obby all pay $GBACK and XP, and all keep leaderboards under L. You also earn a little just for being here. Spend it in the shops, on meals, on art, or on a lot.", [-260, 1030]],
   ["That is the tour", "From here the site is yours. Press E on anything with a prompt, use the buttons on the right to jump around, Enter to talk to people near you, V for voice. I will be at the terminal door if you need me again.", [66, -2]],
 ];
 function buildGuide() {
@@ -2090,9 +2117,9 @@ function castDefs() {
              { t: "Resident artists and invited names. The district is meant to be lived in: studios, a gallery, sculpture you walk between rather than look at through glass.", o: [["Thanks", null]] }],
       kw: [[/art|sculpt|gallery/i, "Walk the boardwalk. The gallery sells pieces for your lot."], [/hello|hi|hey/i, "Welcome to the district."]] },
     { id: "bo", name: "Coach Bo", role: "Golf pro · Desert Golf", pos: [GOLF.origin[0] + 18, GOLF.origin[1] - 30], look: { skin: "e8c19a", shirt: "4dde6f", pants: "e9e2d3", hair: 0, body: "m" }, hat: "hat_cap", outfit: null,
-      greet: ["Six holes, desert rules.", "Keep it on the fairway, the rough eats balls."],
-      talk: [{ t: "Six holes of desert golf. Driver, woods, irons, wedge and putter, and the green is fast. Fewest strokes goes on the board.", o: [["How do I play?", 1], ["Later", null]] },
-             { t: "Press E on the first tee. Mouse to aim, hold to charge, release to swing. Number keys change clubs. Sand is slow, rough is worse, out of bounds costs a stroke.", o: [["Got it", null]] }],
+      greet: ["Nine holes, desert rules.", "Keep it on the fairway, the rough eats balls.", "Watch the wind on the long par five."],
+      talk: [{ t: "Nine holes of desert golf, par 33. Driver down to the sand wedge and a putter, wind that shifts, greens that run quick. Fewest strokes goes on the board.", o: [["How do I play?", 1], ["Later", null]] },
+             { t: "Press E on the first tee. A and D to aim, hold space to load the swing and release right at the top for a clean strike. 1 to 9 pick clubs. Sand is slow, rough is worse, out of bounds costs a stroke.", o: [["Got it", null]] }],
       kw: [[/golf|club|tee/i, "First tee is right here. E to start, hold to charge, release to hit."], [/hello|hi|hey/i, "Hey. Grab a club."]] },
     { id: "dee", name: "Dee", role: "Marshal · Cart Course", pos: [COURSE.origin[0] + 10, COURSE.origin[1] + 150], look: { skin: "8d5a3b", shirt: "f4cd5a", pants: "1c1f24", hair: 2, body: "f" }, hat: "hat_cap", outfit: null,
       greet: ["Press C for a cart.", "Shift boosts, but watch the heat."],
