@@ -716,6 +716,7 @@ function updateGolf(dt) {
   const dPin = Math.hypot(b.x - h.cup[0], b.z - h.cup[1]); const lie = golfSurface(b.x, b.z); const windDir = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(((Math.atan2(golf.wind.x, -golf.wind.y) + 6.283) % 6.283) / 0.785) % 8];
   $("#game-n").textContent = `DESERT GOLF · HOLE ${golf.hole + 1} · PAR ${h.par}`; $("#game-big").textContent = `${golf.strokes} ${golf.strokes === 1 ? "stroke" : "strokes"} · ${Math.round(dPin)} m to the pin`; $("#game-s").textContent = `${CLUBS[golf.club][0]} · ${lie} · wind ${golf.wind.length().toFixed(1)} ${windDir} · total ${golf.total} (${golf.total - golf.holes.slice(0, golf.hole).reduce((a, q) => a + q.par, 0) >= 0 ? "+" : ""}${golf.total - golf.holes.slice(0, golf.hole).reduce((a, q) => a + q.par, 0)})` + (golf.charging ? (golf.chargeDir > 0 ? " · release at the top" : " · TOO LATE, release now") : " · hold space");
 }
+const balls = new Map();
 function updateBalls() { if (!view) return; for (const [id, p] of Object.entries(view.players)) { if (id === ME) continue; let m = balls.get(id); if (p.ball) { if (!m) { m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL((parseInt(id.slice(0, 6), 36) % 360) / 360, 0.6, 0.55) })); scene.add(m); balls.set(id, m); } m.position.set(p.ball.x, getH(p.ball.x, p.ball.z) + 0.48, p.ball.z); m.visible = true; } else if (m) m.visible = false; } }
 
 // ───────────────────────────── day / night ─────────────────────────────
