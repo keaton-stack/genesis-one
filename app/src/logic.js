@@ -62,7 +62,7 @@ function defaultName(playerId) {
 }
 
 function freshPlayer(playerId) {
-  return { name: defaultName(playerId), x: HOME.x + 20, z: HOME.z + 40, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null, look: null, xp: 0, coins: START_COINS, owned: [], hat: null, outfit: null, energy: 100, played: 0 };
+  return { name: defaultName(playerId), x: 100, z: -34, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null, look: null, xp: 0, coins: START_COINS, owned: [], hat: null, outfit: null, energy: 100, played: 0 };
 }
 
 export function setup(players) {
