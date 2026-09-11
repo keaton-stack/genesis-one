@@ -33,7 +33,8 @@ const MAX_ACTION_BYTES = 4 * 1024;
 export type ClientMessage =
   | { type: "join"; playerId: string }
   | { type: "action"; action: unknown }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "signal"; to: string; data: unknown };
 
 export type ParseResult =
   | { ok: true; msg: ClientMessage }
@@ -91,6 +92,12 @@ export function parseClientMessage(raw: string | ArrayBuffer): ParseResult {
     }
     case "reset":
       return { ok: true, msg: { type: "reset" } };
+    case "signal": {
+      // WebRTC signalling for proximity voice: relayed to one player, never stored.
+      if (typeof parsed.to !== "string" || !parsed.to || parsed.to.length > MAX_PLAYER_ID) return { ok: false, error: "signal target required" };
+      if (!("data" in parsed)) return { ok: false, error: "signal data required" };
+      return { ok: true, msg: { type: "signal", to: parsed.to, data: parsed.data } };
+    }
     default:
       return { ok: false, error: `unknown message type: ${String(parsed.type)}` };
   }

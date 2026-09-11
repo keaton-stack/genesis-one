@@ -264,6 +264,13 @@ export class Room extends DurableObject<Env> {
     const playerId = conns[connId];
     if (!playerId) return this.error(connId, "join first");
 
+    if (msg.type === "signal") {
+      // relay to every socket of the target player; nothing is persisted
+      const targets = Object.entries(conns).filter(([, pid]) => pid === msg.to).map(([cid]) => cid);
+      if (!targets.length) return [];
+      return [{ to: targets, data: { type: "signal", from: playerId, data: msg.data } }];
+    }
+
     if (msg.type === "action") {
       if (game.status !== "playing") return this.error(connId, "game is not in progress");
       if (!game.seats.includes(playerId)) return this.error(connId, "spectators cannot act");

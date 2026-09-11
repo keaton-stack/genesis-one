@@ -9,11 +9,14 @@
  * Pure rules only: no imports, no timers, no randomness, JSON state.
  */
 
-export const meta = { game: "Genesis One", minPlayers: 1, maxPlayers: 24 };
+export const meta = { game: "Genesis One", minPlayers: 1, maxPlayers: 500 };
 
 // World bounds in metres from the apron origin (see public/site.json).
 const BOUND = 1400;
-const AIR_BOUND = 6000;
+// Home base: Bisbee-Douglas International, 16 km north-west of the site.
+const HOME = { x: -9290, z: -13820, r: 900 };
+function onLand(x, z) { return (Math.abs(x) <= BOUND && Math.abs(z) <= BOUND) || (Math.abs(x - HOME.x) <= HOME.r && Math.abs(z - HOME.z) <= HOME.r); }
+const AIR_BOUND = 20000;
 // Furthest a single position update may jump per action. Walking sends at
 // most 8 updates a second; vehicles are faster.
 const MAX_STEP = { walk: 90, cart: 160, jet: 900 };
@@ -24,7 +27,7 @@ const SIGN_MAX = 80;
 const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
-const GAMES = ["golf", "course"];
+const GAMES = ["golf", "course", "obby"];
 const SEATS = 4;                 // one driver + three riders
 const BOARD_RANGE = 14;          // metres from the vehicle to climb in
 const DRIVER_STALE_TICKS = 400;  // a silent driver loses the wheel
@@ -39,6 +42,8 @@ function defaultVehicles() {
     cart5: { kind: "cart", x: 830, z: 260, y: 0, ry: 2.4, pitch: 0, driver: null, riders: [], t: 0 },
     cart6: { kind: "cart", x: 120, z: -40, y: 0, ry: 3.0, pitch: 0, driver: null, riders: [], t: 0 },
     jet1:  { kind: "jet",  x: -40, z: 70, y: 0, ry: 2.28, pitch: 0, driver: null, riders: [], t: 0 },
+    jet2:  { kind: "jet",  x: HOME.x + 40, z: HOME.z + 60, y: 0, ry: 2.0, pitch: 0, driver: null, riders: [], t: 0 },
+    jet3:  { kind: "jet",  x: HOME.x - 10, z: HOME.z + 90, y: 0, ry: 2.0, pitch: 0, driver: null, riders: [], t: 0 },
   };
 }
 
@@ -47,13 +52,13 @@ function defaultName(playerId) {
 }
 
 function freshPlayer(playerId) {
-  return { name: defaultName(playerId), x: 0, z: 48, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null };
+  return { name: defaultName(playerId), x: HOME.x + 20, z: HOME.z + 40, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null };
 }
 
 export function setup(players) {
   const roster = {};
   for (const id of players) roster[id] = freshPlayer(id);
-  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [] } };
+  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [], obby: [] } };
 }
 
 function num(v) {
@@ -71,7 +76,7 @@ export function validateAction(state, playerId, action) {
   if (action.t === "move") {
     if (me && me.veh) return { ok: false, error: "you are riding" };
     if (!num(action.x) || !num(action.z) || !num(action.ry)) return { ok: false, error: "bad position" };
-    if (Math.abs(action.x) > BOUND || Math.abs(action.z) > BOUND) return { ok: false, error: "outside the site" };
+    if (!onLand(action.x, action.z)) return { ok: false, error: "outside the site" };
     if (me) {
       const dx = action.x - me.x, dz = action.z - me.z;
       const step = action.cart ? MAX_STEP.cart : MAX_STEP.walk;
@@ -83,7 +88,7 @@ export function validateAction(state, playerId, action) {
   if (action.t === "ball") {
     if (action.b === null) return { ok: true };
     if (!action.b || !num(action.b.x) || !num(action.b.z) || !num(action.b.h)) return { ok: false, error: "bad ball" };
-    if (Math.abs(action.b.x) > BOUND || Math.abs(action.b.z) > BOUND) return { ok: false, error: "outside the site" };
+    if (!onLand(action.b.x, action.b.z)) return { ok: false, error: "outside the site" };
     return { ok: true };
   }
   if (action.t === "score") {
@@ -94,7 +99,7 @@ export function validateAction(state, playerId, action) {
   if (action.t === "warp") {
     if (me && me.veh) return { ok: false, error: "leave the vehicle first" };
     if (!num(action.x) || !num(action.z)) return { ok: false, error: "bad position" };
-    if (Math.abs(action.x) > BOUND || Math.abs(action.z) > BOUND) return { ok: false, error: "outside the site" };
+    if (!onLand(action.x, action.z)) return { ok: false, error: "outside the site" };
     return { ok: true };
   }
   if (action.t === "board") {
@@ -121,8 +126,7 @@ export function validateAction(state, playerId, action) {
     if (veh.driver !== playerId) return { ok: false, error: "not the driver" };
     if (!num(action.x) || !num(action.z) || !num(action.ry)) return { ok: false, error: "bad position" };
     const y = num(action.y) ? action.y : 0, pitch = num(action.pitch) ? action.pitch : 0;
-    const bound = veh.kind === "jet" ? AIR_BOUND : BOUND;
-    if (Math.abs(action.x) > bound || Math.abs(action.z) > bound) return { ok: false, error: "outside the site" };
+    if (veh.kind === "jet" ? (Math.abs(action.x) > AIR_BOUND || Math.abs(action.z) > AIR_BOUND) : !onLand(action.x, action.z)) return { ok: false, error: "outside the site" };
     if (y < 0 || y > MAX_ALT) return { ok: false, error: "bad altitude" };
     if (veh.kind !== "jet" && y > 0) return { ok: false, error: "carts do not fly" };
     const dx = action.x - veh.x, dz = action.z - veh.z, dy = y - veh.y, step = MAX_STEP[veh.kind];
@@ -194,14 +198,14 @@ export function applyAction(state, playerId, action) {
     // a jet abandoned in the air or off the site flies itself back to the apron,
     // and its last occupant is dropped there too
     const home = defaultVehicles()[me.veh];
-    if (veh.kind === "jet" && !veh.driver && veh.riders.length === 0 && (veh.y > 0 || Math.abs(veh.x) > BOUND || Math.abs(veh.z) > BOUND)) {
+    if (veh.kind === "jet" && !veh.driver && veh.riders.length === 0 && (veh.y > 0 || !onLand(veh.x, veh.z))) {
       veh.x = home.x; veh.z = home.z; veh.y = 0; veh.ry = home.ry; veh.pitch = 0;
     }
     V[me.veh] = veh;
     // step out beside the vehicle
     me.x = Math.round((veh.x + Math.cos(veh.ry) * 3) * 100) / 100;
     me.z = Math.round((veh.z - Math.sin(veh.ry) * 3) * 100) / 100;
-    if (Math.abs(me.x) > BOUND || Math.abs(me.z) > BOUND) { me.x = home.x + 4; me.z = home.z + 4; }
+    if (!onLand(me.x, me.z)) { me.x = home.x + 4; me.z = home.z + 4; }
     me.veh = null;
   } else if (action.t === "drive") {
     const veh = { ...V[me.veh] };
