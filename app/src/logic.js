@@ -30,7 +30,11 @@ const BOARD_MAX = 10;
 const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap"];
 // ── economy ──
 const START_COINS = 500;
-const SHOP = { hat_cap: 120, hat_cowboy: 220, hat_band: 90, outfit_flight: 300, outfit_ranch: 260, outfit_desert: 240, meal: 25, coffee: 10, art: 400 };
+const SHOP = { hat_cap: 120, hat_cowboy: 220, hat_band: 90, hat_trucker: 150, hat_beanie: 80, outfit_flight: 300, outfit_ranch: 260, outfit_desert: 240, meal: 25, coffee: 10, art: 400,
+  gear_tee_gb: 140, gear_tee_black: 120, gear_hoodie_gb: 280, gear_vest_crew: 220, gear_jersey_gb: 260, gear_shades: 110, gear_bandana: 70, gear_backpack_gb: 240, gear_watch: 180, gear_lanyard: 50, gear_scarf: 90, gear_chain: 160 };
+const GEAR_SLOT = { gear_tee_gb: "top", gear_tee_black: "top", gear_hoodie_gb: "top", gear_vest_crew: "top", gear_jersey_gb: "top", gear_shades: "face", gear_bandana: "neck", gear_scarf: "neck", gear_chain: "neck", gear_backpack_gb: "back", gear_watch: "wrist", gear_lanyard: "neck" };
+const CATALOG = { bench: 30, picnic: 40, firepit: 50, lights: 45, cactuspot: 20, fountain: 120, flag: 60, signpost: 40, lounger: 35, umbrella: 30, mailbox: 20, boulder: 25, saguaro: 60, paloverde: 80, mesquite: 70, table: 35, chair: 15, bed: 90, sofa: 80, rug: 25, lamp: 30, shelf: 45, kitchen: 120, stool: 15, cup: 5, glass: 5, plate: 5, bottle: 8, tv: 90, plant: 20, art: 60, bar: 100, desk: 50, fridge: 70, fireplace: 140, hottub: 200, hammock: 45, grill: 55, cooler: 15, guitar: 40 };
+const PROP_MAX = 600, PROP_PER = 80;
 const LOT_PRICE = 1200;
 const BUILD_KINDS = ["home", "dome", "pavilion", "casita"];
 const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
@@ -121,13 +125,21 @@ export function validateAction(state, playerId, action) {
   if (action.t === "buy") {
     if (!(action.item in SHOP)) return { ok: false, error: "no such item" };
     if (!me || me.coins < SHOP[action.item]) return { ok: false, error: "not enough coins" };
-    if ((action.item.startsWith("hat_") || action.item.startsWith("outfit_")) && me.owned && me.owned.includes(action.item)) return { ok: false, error: "already owned" };
+    if ((action.item.startsWith("hat_") || action.item.startsWith("outfit_") || action.item.startsWith("gear_")) && me.owned && me.owned.includes(action.item)) return { ok: false, error: "already owned" };
     return { ok: true };
   }
   if (action.t === "wear") {
     if (action.hat !== null && action.hat !== undefined && (!me || !me.owned || !me.owned.includes(action.hat))) return { ok: false, error: "you do not own that" };
     if (action.outfit !== null && action.outfit !== undefined && (!me || !me.owned || !me.owned.includes(action.outfit))) return { ok: false, error: "you do not own that" };
+    if (action.gear !== undefined) { if (!action.gear || typeof action.gear !== "object") return { ok: false, error: "bad gear" }; for (const slot in action.gear) { const it = action.gear[slot]; if (it === null) continue; if (typeof it !== "string" || GEAR_SLOT[it] !== slot) return { ok: false, error: "bad gear" }; if (!me || !me.owned || !me.owned.includes(it)) return { ok: false, error: "you do not own that" }; } }
     return { ok: true };
+  }
+  if (action.t === "prop") {
+    const props = state.props || [];
+    if (action.op === "add") { if (!(action.kind in CATALOG)) return { ok: false, error: "no such item" }; if (!num(action.x) || !num(action.y) || !num(action.z) || !num(action.ry)) return { ok: false, error: "bad position" }; if (action.room !== undefined && action.room !== null && (typeof action.room !== "string" || action.room.length > 24)) return { ok: false, error: "bad room" };
+      if (!action.room && !onLand(action.x, action.z)) return { ok: false, error: "outside the site" }; if (!me || me.coins < CATALOG[action.kind]) return { ok: false, error: "not enough coins" }; if (props.length >= PROP_MAX) return { ok: false, error: "the site is full" }; if (props.filter((p) => p.by === playerId).length >= PROP_PER) return { ok: false, error: "you have placed the maximum" }; return { ok: true }; }
+    if (action.op === "remove") { const p = props.find((q) => q.id === action.id); if (!p) return { ok: false, error: "no such item" }; if (p.by !== playerId) return { ok: false, error: "not yours" }; return { ok: true }; }
+    return { ok: false, error: "bad op" };
   }
   if (action.t === "lot") {
     const lots = state.lots || defaultLots(); const lot = lots[action.id]; if (!lot) return { ok: false, error: "no such lot" };
@@ -220,10 +232,16 @@ export function applyAction(state, playerId, action) {
   } else if (action.t === "buy") {
     me.coins -= SHOP[action.item];
     if (action.item.startsWith("hat_") || action.item.startsWith("outfit_")) { me.owned = [...(me.owned || []), action.item]; if (action.item.startsWith("hat_")) me.hat = action.item; else me.outfit = action.item; }
+    else if (action.item.startsWith("gear_")) { me.owned = [...(me.owned || []), action.item]; me.gear = { ...(me.gear || {}), [GEAR_SLOT[action.item]]: action.item }; }
     else if (action.item === "meal") me.energy = 100; else if (action.item === "coffee") me.energy = Math.min(100, (me.energy || 0) + 40); else if (action.item === "art") { me.owned = [...(me.owned || []), "art" + tick]; }
     me.xp = (me.xp || 0) + 10;
   } else if (action.t === "wear") {
-    if (action.hat !== undefined) me.hat = action.hat; if (action.outfit !== undefined) me.outfit = action.outfit;
+    if (action.hat !== undefined) me.hat = action.hat; if (action.outfit !== undefined) me.outfit = action.outfit; if (action.gear !== undefined) { const g = { ...(me.gear || {}) }; for (const slot in action.gear) { if (action.gear[slot] === null) delete g[slot]; else g[slot] = action.gear[slot]; } me.gear = g; }
+  } else if (action.t === "prop") {
+    const props = [...(state.props || [])];
+    if (action.op === "add") { props.push({ id: "p" + tick.toString(36) + "_" + String(playerId).replace(/[^a-z0-9]/gi, "").slice(0, 6) + "_" + props.length.toString(36), by: playerId, kind: action.kind, x: Math.round(action.x * 100) / 100, y: Math.round(action.y * 100) / 100, z: Math.round(action.z * 100) / 100, ry: Math.round(action.ry * 100) / 100, room: action.room || null }); me.coins -= CATALOG[action.kind]; me.xp = (me.xp || 0) + 4; }
+    else if (action.op === "remove") { const i = props.findIndex((q) => q.id === action.id); if (i >= 0) props.splice(i, 1); }
+    return { ...state, players: { ...state.players, [playerId]: me }, props };
   } else if (action.t === "lot") {
     const lot = { ...lots[action.id] };
     if (action.op === "buy") { lot.owner = playerId; lot.name = me.name; me.coins -= LOT_PRICE; me.xp = (me.xp || 0) + 100; }
@@ -303,5 +321,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), prices: { shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
 }
