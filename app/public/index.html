@@ -24,6 +24,9 @@
       #tl .t { font-family:"Anton", Impact, sans-serif; font-size:22px; letter-spacing:.04em; line-height:1; text-shadow:0 2px 10px rgba(0,0,0,.6); }
       #tl .s { color:rgba(245,241,230,.75); margin-top:3px; }
       #tr { right:18px; top:18px; text-align:right; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+      #plist { margin-top:8px; pointer-events:auto; } #plist div { cursor:pointer; padding:3px 8px; margin-top:3px; border-radius:8px; background:rgba(10,22,16,.45); color:rgba(245,241,230,.85); font-size:12px; } #plist div:hover { background:rgba(77,222,111,.35); color:#fff; }
+      #compass { left:50%; top:12px; transform:translateX(-50%); width:min(560px, 58vw); height:36px; }
+      @media (max-width: 760px) { #compass { top:auto; bottom:64px; width:min(420px, 92vw); } } #compass canvas { width:100%; height:100%; display:block; }
       #tr b { color:var(--green); }
       #tr button { pointer-events:auto; margin-top:8px; padding:6px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
       #zone { left:50%; top:22px; transform:translateX(-50%); text-align:center; opacity:0; transition:opacity .5s; }
@@ -101,7 +104,8 @@
     </div></div>
 
     <div id="tl" class="hud"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
-    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><button id="snd">SOUND OFF</button> <button id="voice">VOICE OFF</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
+    <div id="compass" class="hud"><canvas id="cmp" width="900" height="56"></canvas></div>
+    <div id="tr" class="hud mono"><div><b id="online">1</b> exploring</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist" style="display:none"></div><button id="snd">SOUND OFF</button> <button id="voice">VOICE OFF</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
     <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="game" class="hud mono"><b id="game-n"></b><div class="big" id="game-big"></div><div id="game-s" style="margin-top:4px"></div><div id="power"><i></i></div></div>
@@ -111,7 +115,7 @@
     <div id="fine" class="hud">Concept walkthrough on the real terrain of Douglas Municipal Airport. Every structure is illustrative.</div>
     <div id="log" class="hud"></div>
     <div id="chat" class="hud"><input id="chat-in" maxlength="80" placeholder="Say something to everyone on the site" autocomplete="off" /></div>
-    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">The Expanse</button><button data-w="home">Home base</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button></div>
+    <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">Main Street</button><button data-w="design">Design District</button><button data-w="commons">The Commons</button><button data-w="home">Home base</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button></div>
     <div id="mm" class="hud"><canvas id="mmc" width="368" height="368"></canvas></div>
 
     <div id="joy" class="hud"><i></i></div>
@@ -162,6 +166,7 @@
       <h2>Leaderboards</h2>
       <div class="k mono">Best of the site</div>
       <div class="cols" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><h3>Desert Golf</h3><div class="blist" id="b-golf"></div></div><div><h3>Cart Course</h3><div class="blist" id="b-course"></div></div><div><h3>Sky Obby</h3><div class="blist" id="b-obby"></div></div><div><h3>Drag Strip</h3><div class="blist" id="b-drag"></div></div></div>
+      <div class="cols" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px"><div><h3>Sky Rings</h3><div class="blist" id="b-rings"></div></div><div><h3>Founders' Cache</h3><div class="blist" id="b-hunt"></div></div><div><h3>Lake Lap</h3><div class="blist" id="b-lap"></div></div></div>
       <div class="row"><button class="btn ghost" id="board-x">Close</button></div>
     </div>
 
