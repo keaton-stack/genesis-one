@@ -23,6 +23,8 @@ const NAME_RE = /^[A-Za-z0-9 _.\-]{1,18}$/;
 const SIGN_MAX = 80;
 const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
+const BOARD_MAX = 10;
+const GAMES = ["golf", "course"];
 const SEATS = 4;                 // one driver + three riders
 const BOARD_RANGE = 14;          // metres from the vehicle to climb in
 const DRIVER_STALE_TICKS = 400;  // a silent driver loses the wheel
@@ -45,13 +47,13 @@ function defaultName(playerId) {
 }
 
 function freshPlayer(playerId) {
-  return { name: defaultName(playerId), x: 0, z: 48, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0 };
+  return { name: defaultName(playerId), x: 0, z: 48, ry: 0, emote: null, emoteTick: 0, t: 0, veh: null, say: null, sayTick: 0, cart: false, ball: null };
 }
 
 export function setup(players) {
   const roster = {};
   for (const id of players) roster[id] = freshPlayer(id);
-  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [] };
+  return { tick: 0, players: roster, vehicles: defaultVehicles(), guestbook: [], boards: { golf: [], course: [] } };
 }
 
 function num(v) {
@@ -72,8 +74,21 @@ export function validateAction(state, playerId, action) {
     if (Math.abs(action.x) > BOUND || Math.abs(action.z) > BOUND) return { ok: false, error: "outside the site" };
     if (me) {
       const dx = action.x - me.x, dz = action.z - me.z;
-      if (dx * dx + dz * dz > MAX_STEP.walk * MAX_STEP.walk) return { ok: false, error: "moved too far" };
+      const step = action.cart ? MAX_STEP.cart : MAX_STEP.walk;
+      if (dx * dx + dz * dz > step * step) return { ok: false, error: "moved too far" };
     }
+    if (action.cart !== undefined && typeof action.cart !== "boolean") return { ok: false, error: "bad cart flag" };
+    return { ok: true };
+  }
+  if (action.t === "ball") {
+    if (action.b === null) return { ok: true };
+    if (!action.b || !num(action.b.x) || !num(action.b.z) || !num(action.b.h)) return { ok: false, error: "bad ball" };
+    if (Math.abs(action.b.x) > BOUND || Math.abs(action.b.z) > BOUND) return { ok: false, error: "outside the site" };
+    return { ok: true };
+  }
+  if (action.t === "score") {
+    if (!GAMES.includes(action.game)) return { ok: false, error: "unknown game" };
+    if (!num(action.v) || action.v <= 0 || action.v > 1e7) return { ok: false, error: "bad score" };
     return { ok: true };
   }
   if (action.t === "warp") {
@@ -139,10 +154,18 @@ export function applyAction(state, playerId, action) {
   const V = { ...vehicles(state) };
   let guestbook = state.guestbook;
 
+  let boards = state.boards || { golf: [], course: [] };
   if (action.t === "move") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
     me.ry = Math.round(action.ry * 1000) / 1000;
+    if (action.cart !== undefined) me.cart = action.cart;
+  } else if (action.t === "ball") {
+    me.ball = action.b ? { x: Math.round(action.b.x * 100) / 100, z: Math.round(action.b.z * 100) / 100, h: Math.round(action.b.h) } : null;
+  } else if (action.t === "score") {
+    const list = [...(boards[action.game] || []), { by: me.name, v: Math.round(action.v), tick }];
+    list.sort((a, b) => a.v - b.v);
+    boards = { ...boards, [action.game]: list.slice(0, BOARD_MAX) };
   } else if (action.t === "warp") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -207,7 +230,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook };
+  return { tick, players, vehicles: V, guestbook, boards };
 }
 
 export function isGameOver() {
@@ -216,5 +239,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [] } };
 }
