@@ -128,16 +128,56 @@ export class Room extends DurableObject<Env> {
 
   // ── persistence ────────────────────────────────────────────────────────
 
+  // Live rooms keep their state in memory between messages. Movement arrives at
+  // 10 Hz per player, so writing storage and fanning out a full broadcast on
+  // every message is O(players²) work; instead the state is written and the
+  // room broadcast at most every 100 ms. Anything that is not a movement update
+  // (a purchase, a lot, a prop) is written through immediately.
+  private mem: { game: Game; conns: Conns } | null = null;
+  private dirty = false;
+  private wantBroadcast = false;
+  private flushArmed = false;
+
   private async load(): Promise<{ game: Game; conns: Conns }> {
+    if (this.mem) return this.mem;
     const [game, conns] = await Promise.all([
       this.ctx.storage.get<Game>("game"),
       this.ctx.storage.get<Conns>("conns"),
     ]);
-    return { game: game ?? freshGame(), conns: conns ?? {} };
+    this.mem = { game: game ?? freshGame(), conns: conns ?? {} };
+    return this.mem;
   }
 
-  private async save(game: Game, conns: Conns): Promise<void> {
-    await this.ctx.storage.put({ game, conns });
+  private async save(game: Game, conns: Conns, immediate = true): Promise<void> {
+    this.mem = { game, conns };
+    if (immediate) {
+      this.dirty = false;
+      await this.ctx.storage.put({ game, conns });
+    } else {
+      this.dirty = true;
+    }
+    await this.armFlush();
+  }
+
+  private async armFlush(): Promise<void> {
+    if (this.flushArmed) return;
+    this.flushArmed = true;
+    await this.ctx.storage.setAlarm(Date.now() + 100);
+  }
+
+  private async flush(): Promise<Out[]> {
+    this.flushArmed = false;
+    const m = this.mem;
+    if (!m) return [];
+    if (this.dirty) {
+      this.dirty = false;
+      await this.ctx.storage.put({ game: m.game, conns: m.conns });
+    }
+    if (this.wantBroadcast) {
+      this.wantBroadcast = false;
+      return this.broadcast(m.game, m.conns);
+    }
+    return [];
   }
 
   // ── protocol helpers ───────────────────────────────────────────────────
@@ -230,6 +270,7 @@ export class Room extends DurableObject<Env> {
    */
   override async alarm(): Promise<void> {
     try {
+      await this.dispatch(await this.flush());
       await this.dispatch(await this.onWake());
     } catch (err) {
       console.error("room alarm failed:", err instanceof Error ? err.stack : String(err));
@@ -284,8 +325,10 @@ export class Room extends DurableObject<Env> {
         game.status = "over";
         game.result = end;
       }
-      await this.save(game, conns);
-      return this.broadcast(game, conns);
+      const kind = (msg.action as { t?: unknown }).t; const light = kind === "move" || kind === "drive" || kind === "ball" || kind === "tick";
+      await this.save(game, conns, !light);
+      this.wantBroadcast = true;
+      return [];
     }
 
     // msg.type === "reset"

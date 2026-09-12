@@ -187,6 +187,11 @@ export function validateAction(state, playerId, action) {
     if (dx * dx + dz * dz + dy * dy > step * step) return { ok: false, error: "moved too far" };
     return { ok: true };
   }
+  if (action.t === "quest") {
+    if (!Number.isInteger(action.step) || action.step < 0 || action.step > 4) return { ok: false, error: "bad step" };
+    if (((me && me.quest) || 0) !== action.step) return { ok: false, error: "step already claimed" };
+    return { ok: true };
+  }
   if (action.t === "name") {
     if (typeof action.name !== "string" || !NAME_RE.test(action.name.trim())) return { ok: false, error: "name must be 1-18 letters, numbers, spaces" };
     return { ok: true };
@@ -299,6 +304,8 @@ export function applyAction(state, playerId, action) {
     me.x = veh.x; me.z = veh.z; me.ry = veh.ry;
     // riders travel with the vehicle so zones, hotspots and the minimap follow them
     for (const id of veh.riders) if (players[id] && players[id].veh === me.veh) players[id] = { ...players[id], x: veh.x, z: veh.z, ry: veh.ry };
+  } else if (action.t === "quest") {
+    me.quest = action.step + 1; me.coins = (me.coins || 0) + 25; me.xp = (me.xp || 0) + 15;
   } else if (action.t === "name") {
     me.name = action.name.trim();
   } else if (action.t === "emote") {
