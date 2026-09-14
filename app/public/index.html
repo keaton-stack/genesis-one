@@ -166,6 +166,15 @@
       <label>Sound effects</label><input type="range" id="v-sfx" min="0" max="100" step="1" style="width:100%" />
       <div class="row"><span style="flex:1"></span><button class="btn" id="v-close">Done</button></div>
     </div>
+    <div id="av" class="card" style="width:min(480px,92vw)">
+      <h2>AV Hub</h2><div class="k mono">What plays on the Drive-In screens and the Concert Bowl wall on this screen</div>
+      <style>#av .avb.on { background:#4DDE6F; color:#0a1610; border-color:#4DDE6F; } #av label { display:block; margin-top:10px; }</style>
+      <label>Main screen</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="main:film">The Awakening</button><button class="btn ghost avb" data-av="main:trailer">Genesis One trailer</button><button class="btn ghost avb" data-av="main:off">Off</button></div>
+      <label>Second screen</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="side:trailer">Genesis One trailer</button><button class="btn ghost avb" data-av="side:off">Off</button></div>
+      <label>Concert Bowl wall</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="wall:loop">GBACK music loop</button><button class="btn ghost avb" data-av="wall:off">Light show boards</button></div>
+      <div id="av-state" class="k mono" style="margin:10px 0 4px"></div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost avb" data-av="auto">Back to automatic</button><span style="flex:1"></span><button class="btn" id="av-close">Done</button></div>
+    </div>
     <div id="emotes" class="card" style="width:min(420px,92vw)">
       <h2>Emotes</h2><div class="k mono">Keys 1 to 8, or B for this card · dances run until you move</div>
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost ebtn" data-e="wave">👋 Wave</button><button class="btn ghost ebtn" data-e="cheer">🎉 Cheer</button><button class="btn ghost ebtn" data-e="point">👉 Point</button><button class="btn ghost ebtn" data-e="sit">🪑 Sit</button></div>
@@ -201,6 +210,7 @@
       <div class="k mono">Best of the site</div>
       <div class="cols" style="grid-template-columns:1fr 1fr 1fr 1fr"><div><h3>Desert Golf</h3><div class="blist" id="b-golf"></div></div><div><h3>Cart Course</h3><div class="blist" id="b-course"></div></div><div><h3>Sky Obby</h3><div class="blist" id="b-obby"></div></div><div><h3>Drag Strip</h3><div class="blist" id="b-drag"></div></div></div>
       <div class="cols" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px"><div><h3>Sky Rings</h3><div class="blist" id="b-rings"></div></div><div><h3>Founders' Cache</h3><div class="blist" id="b-hunt"></div></div><div><h3>Lake Lap</h3><div class="blist" id="b-lap"></div></div></div>
+      <div class="cols" style="grid-template-columns:1fr 1fr;margin-top:10px"><div><h3>Bull Ride</h3><div class="blist" id="b-rodeo"></div></div><div><h3>Dance Battle</h3><div class="blist" id="b-dance"></div></div></div>
       <div class="row"><button class="btn ghost" id="board-x">Close</button></div>
     </div>
 

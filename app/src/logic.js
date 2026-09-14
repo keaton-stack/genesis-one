@@ -27,7 +27,7 @@ const SIGN_MAX = 80;
 const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
-const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo"];
+const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo", "dance"];
 // ── economy ──
 const START_COINS = 500;
 const SHOP = { hat_cap: 120, hat_cowboy: 220, hat_band: 90, hat_trucker: 150, hat_beanie: 80, outfit_flight: 300, outfit_ranch: 260, outfit_desert: 240, meal: 25, coffee: 10, art: 400,
@@ -38,7 +38,7 @@ const PROP_MAX = 600, PROP_PER = 80;
 const LOT_PRICE = 1200;
 const BUILD_KINDS = ["home", "dome", "pavilion", "casita"];
 const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
-const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100 };
+const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80 };
 const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Tower"]];
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
 function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
@@ -93,10 +93,11 @@ export function validateAction(state, playerId, action) {
     if (!onLand(action.x, action.z)) return { ok: false, error: "outside the site" };
     if (me) {
       const dx = action.x - me.x, dz = action.z - me.z;
-      const step = action.cart ? MAX_STEP.cart : MAX_STEP.walk;
+      const step = action.cart || (action.pose && action.pose !== "sit" && action.pose !== "dance") ? MAX_STEP.cart : MAX_STEP.walk;
       if (dx * dx + dz * dz > step * step) return { ok: false, error: "moved too far" };
     }
     if (action.cart !== undefined && typeof action.cart !== "boolean") return { ok: false, error: "bad cart flag" };
+    if (action.pose !== undefined && action.pose !== null && (typeof action.pose !== "string" || !/^[a-z]{1,12}(:[A-Za-z0-9_.:-]{1,48})?$/.test(action.pose))) return { ok: false, error: "bad pose" };
     return { ok: true };
   }
   if (action.t === "ball") {
@@ -225,6 +226,7 @@ export function applyAction(state, playerId, action) {
     me.z = Math.round(action.z * 100) / 100;
     me.ry = Math.round(action.ry * 1000) / 1000;
     if (action.cart !== undefined) me.cart = action.cart;
+    if (action.pose !== undefined) me.pose = action.pose || null;
     if (typeof action.y === "number" && isFinite(action.y)) me.y = Math.round(action.y * 100) / 100;
   } else if (action.t === "ball") {
     me.ball = action.b ? { x: Math.round(action.b.x * 100) / 100, z: Math.round(action.b.z * 100) / 100, h: Math.round(action.b.h) } : null;
