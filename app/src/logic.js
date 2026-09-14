@@ -27,7 +27,9 @@ const SIGN_MAX = 80;
 const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
-const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo", "dance"];
+const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo", "dance", "brace"];
+const AV_OPTS = { main: [null, "film", "trailer", "off"], side: [null, "trailer", "off"], wall: [null, "loop", "off"] };
+const DUEL_WINDOW_TICKS = 1500, DUEL_STAKE = 40;
 // ── economy ──
 const START_COINS = 500;
 const SHOP = { hat_cap: 120, hat_cowboy: 220, hat_band: 90, hat_trucker: 150, hat_beanie: 80, outfit_flight: 300, outfit_ranch: 260, outfit_desert: 240, meal: 25, coffee: 10, art: 400,
@@ -38,7 +40,7 @@ const PROP_MAX = 600, PROP_PER = 80;
 const LOT_PRICE = 1200;
 const BUILD_KINDS = ["home", "dome", "pavilion", "casita"];
 const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
-const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80 };
+const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80, brace: 120 };
 const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Tower"]];
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
 function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
@@ -201,6 +203,10 @@ export function validateAction(state, playerId, action) {
     if (!EMOTES.includes(action.e)) return { ok: false, error: "unknown emote" };
     return { ok: true };
   }
+  if (action.t === "av") {
+    for (const k in AV_OPTS) if (!AV_OPTS[k].includes(action[k] === undefined ? null : action[k])) return { ok: false, error: "bad " + k };
+    return { ok: true };
+  }
   if (action.t === "say" || action.t === "sign") {
     if (typeof action.text !== "string") return { ok: false, error: "bad text" };
     const text = action.text.trim(), max = action.t === "say" ? SAY_MAX : SIGN_MAX;
@@ -221,6 +227,7 @@ export function applyAction(state, playerId, action) {
   let boards = state.boards || { golf: [], course: [], obby: [], drag: [] };
   let lots = state.lots || defaultLots();
   let props = state.props || [];
+  let av = state.av || null, duel = state.duel || null;
   if (action.t === "move") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -235,6 +242,13 @@ export function applyAction(state, playerId, action) {
     list.sort((a, b) => a.v - b.v);
     boards = { ...boards, [action.game]: list.slice(0, BOARD_MAX) };
     me.coins = (me.coins || 0) + REWARD[action.game]; me.xp = (me.xp || 0) + REWARD[action.game];
+    // dance battles are duels: whoever finished on the floor within the last 1500 ticks (a couple of minutes of play) is your rival; the higher score takes the stake from the other
+    if (action.game === "dance") {
+      const now = tick; const mine = 100000 - Math.round(action.v); let rival = null;
+      for (const [pid, q] of Object.entries(players)) { if (pid === playerId || !q.danceAt || now - q.danceAt > DUEL_WINDOW_TICKS) continue; if (!rival || q.danceAt > rival.q.danceAt) rival = { pid, q }; }
+      if (rival) { const rq = { ...rival.q }; const theirs = rq.danceScore || 0; const iWin = mine >= theirs; const winner = iWin ? me : rq, loser = iWin ? rq : me; const amount = Math.min(DUEL_STAKE, Math.max(0, loser.coins || 0)); loser.coins = (loser.coins || 0) - amount; winner.coins = (winner.coins || 0) + amount; duel = { id: tick, a: me.name, ai: playerId, as: mine, b: rq.name, bi: rival.pid, bs: theirs, winner: winner.name, wi: iWin ? playerId : rival.pid, amount, at: now }; rq.danceAt = 0; me.danceAt = 0; players[rival.pid] = rq; }
+      else { me.danceAt = now; me.danceScore = mine; }
+    }
   } else if (action.t === "look") {
     me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m", shoes: action.look.shoes || "f5f1e6", hairc: action.look.hairc || "1c1512", height: action.look.height || 1 };
   } else if (action.t === "tick") {
@@ -310,6 +324,8 @@ export function applyAction(state, playerId, action) {
     me.quest = action.step + 1; me.coins = (me.coins || 0) + 25; me.xp = (me.xp || 0) + 15;
   } else if (action.t === "name") {
     me.name = action.name.trim();
+  } else if (action.t === "av") {
+    av = { main: action.main || null, side: action.side || null, wall: action.wall || null, by: me.name, tick };
   } else if (action.t === "emote") {
     me.emote = action.e;
     me.emoteTick = tick;
@@ -323,7 +339,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook, boards, lots, props };
+  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel };
 }
 
 export function isGameOver() {
@@ -332,5 +348,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
 }
