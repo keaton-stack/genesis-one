@@ -13,7 +13,7 @@ function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   socket = new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}`);
   socket.addEventListener("open", () => { retry = 0; setStatus("connected"); send({ type: "join", playerId: ME }); });
-  socket.addEventListener("message", (ev) => { if (ev.data === PONG) return; let msg; try { msg = JSON.parse(ev.data); } catch { return; } if (msg.type === "state") onState(msg); else if (msg.type === "signal") onSignal(msg); else if (msg.type === "error") setStatus(msg.error, true); });
+  socket.addEventListener("message", (ev) => { if (ev.data === PONG) return; let msg; try { msg = JSON.parse(ev.data); } catch { return; } if (msg.type === "state") onState(msg); else if (msg.type === "signal") onSignal(msg); else if (msg.type === "error") { if (!(FLY.on && /outside the site|moved too far/.test(msg.error || ""))) setStatus(msg.error, true); } });
   socket.addEventListener("close", () => { retry = Math.min(retry + 1, 6); const wait = 500 * 2 ** (retry - 1); setStatus(`reconnecting in ${Math.round(wait / 1000)}s`, true); setTimeout(connect, wait); });
 }
 function send(msg) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg)); }
