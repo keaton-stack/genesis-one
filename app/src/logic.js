@@ -28,7 +28,7 @@ const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
 const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo", "dance", "brace"];
-const AV_OPTS = { main: [null, "film", "trailer", "off"], side: [null, "trailer", "off"], wall: [null, "loop", "off"] };
+const AV_OPTS = { main: [null, "film", "trailer", "off"], side: [null, "trailer", "film", "off"], wall: [null, "loop", "off"] };
 const DUEL_WINDOW_TICKS = 1500, DUEL_STAKE = 40;
 // ── economy ──
 const START_COINS = 500;
@@ -120,6 +120,7 @@ export function validateAction(state, playerId, action) {
     if (l.body !== undefined && l.body !== "m" && l.body !== "f") return { ok: false, error: "bad body" };
     for (const k of ["shoes", "hairc"]) if (l[k] !== undefined && (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k]))) return { ok: false, error: "bad colour" };
     if (l.height !== undefined && (!num(l.height) || l.height < 0.88 || l.height > 1.12)) return { ok: false, error: "bad height" };
+    if (l.cartc !== undefined && (!Number.isInteger(l.cartc) || l.cartc < 0 || l.cartc > 15)) return { ok: false, error: "bad cart colour" };
     return { ok: true };
   }
   if (action.t === "tick") {
@@ -250,7 +251,7 @@ export function applyAction(state, playerId, action) {
       else { me.danceAt = now; me.danceScore = mine; }
     }
   } else if (action.t === "look") {
-    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m", shoes: action.look.shoes || "f5f1e6", hairc: action.look.hairc || "1c1512", height: action.look.height || 1 };
+    me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m", shoes: action.look.shoes || "f5f1e6", hairc: action.look.hairc || "1c1512", height: action.look.height || 1, cartc: Number.isInteger(action.look.cartc) ? action.look.cartc : 0 };
   } else if (action.t === "tick") {
     me.lastTick = tick; me.played = (me.played || 0) + 1; me.xp = (me.xp || 0) + 5; me.coins = (me.coins || 0) + 3; me.energy = Math.max(0, (me.energy === undefined ? 100 : me.energy) - 2);
   } else if (action.t === "buy") {

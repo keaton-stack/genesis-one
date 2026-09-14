@@ -184,7 +184,11 @@ export class Room extends DurableObject<Env> {
 
   /** Everyone's view of the room. Each player sees only `viewFor(state, them)`. */
   private broadcast(game: Game, conns: Conns): Out[] {
-    const connected = Object.keys(conns).length;
+    // only sockets that are actually open count (and get sent to); stale entries from dropped sockets are pruned here
+    const live = new Set<string>();
+    for (const s of this.ctx.getWebSockets()) { const id = this.connIdOf(s); if (id) live.add(id); }
+    for (const id of Object.keys(conns)) if (!live.has(id)) delete conns[id];
+    const connected = new Set(Object.values(conns)).size || 1;
     return Object.entries(conns).map(([connId, playerId]) => ({
       to: connId,
       data: {
