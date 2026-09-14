@@ -19,7 +19,7 @@ function onLand(x, z) { return (Math.abs(x) <= BOUND && Math.abs(z) <= BOUND) ||
 const AIR_BOUND = 20000;
 // Furthest a single position update may jump per action. Walking sends at
 // most 8 updates a second; vehicles are faster.
-const MAX_STEP = { walk: 90, cart: 160, jet: 900 };
+const MAX_STEP = { walk: 90, cart: 160, jet: 900, flight: 3000 };
 const MAX_ALT = 2500;
 const EMOTES = ["wave", "cheer", "point", "sit", "dance1", "dance2", "dance3", "dance4"];
 const NAME_RE = /^[A-Za-z0-9 _.\-]{1,18}$/;
@@ -95,7 +95,7 @@ export function validateAction(state, playerId, action) {
     if (!onLand(action.x, action.z)) return { ok: false, error: "outside the site" };
     if (me) {
       const dx = action.x - me.x, dz = action.z - me.z;
-      const step = action.cart || (action.pose && action.pose !== "sit" && action.pose !== "dance") ? MAX_STEP.cart : MAX_STEP.walk;
+      const step = action.pose === "flight" ? MAX_STEP.flight : action.cart || (action.pose && action.pose !== "sit" && action.pose !== "dance") ? MAX_STEP.cart : MAX_STEP.walk;
       if (dx * dx + dz * dz > step * step) return { ok: false, error: "moved too far" };
     }
     if (action.cart !== undefined && typeof action.cart !== "boolean") return { ok: false, error: "bad cart flag" };
