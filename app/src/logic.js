@@ -21,7 +21,7 @@ const AIR_BOUND = 20000;
 // most 8 updates a second; vehicles are faster.
 const MAX_STEP = { walk: 90, cart: 160, jet: 900, flight: 3000 };
 const MAX_ALT = 2500;
-const EMOTES = ["wave", "cheer", "point", "sit", "dance1", "dance2", "dance3", "dance4"];
+const EMOTES = ["wave", "cheer", "point", "sit", "dance1", "dance2", "dance3", "dance4", "horn", "bell"];
 const NAME_RE = /^[A-Za-z0-9 _.\-]{1,18}$/;
 const SIGN_MAX = 80;
 const SAY_MAX = 80;
