@@ -40,6 +40,6 @@ if (!result.success) {
 
 await cp(resolve(app, "public"), resolve(dist, "client"), { recursive: true });
 // stamp the build so browsers never serve a stale client or stale models after a deploy
-{ const stamp = Date.now().toString(36); const idx = resolve(dist, "client/index.html"); let html = await Bun.file(idx).text(); html = html.replace('window.BUILD = "dev";', `window.BUILD = "${stamp}";`).replace("/client.js?v=dev", `/client.js?v=${stamp}`); await Bun.write(idx, html); console.log("build stamp", stamp); }
+{ const stamp = Date.now().toString(36); const idx = resolve(dist, "client/index.html"); let html = await Bun.file(idx).text(); html = html.replace('window.BUILD = "dev";', `window.BUILD = "${stamp}";`).replace("/client.js?v=dev", `/client.js?v=${stamp}`).replace("/arcade_games.js?v=dev", `/arcade_games.js?v=${stamp}`); await Bun.write(idx, html); console.log("build stamp", stamp); }
 
 console.log("built dist/worker/index.js + dist/client/");

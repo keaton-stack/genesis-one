@@ -41,6 +41,8 @@ const LOT_PRICE = 1200;
 const BUILD_KINDS = ["home", "dome", "pavilion", "casita"];
 const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
 const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80, brace: 120 };
+// the arcade: a credit costs ARCADE_PLAY, a prize is whatever the cabinet paid out, capped; high scores keep the top eight per game
+const ARCADE_PLAY = 20, ARCADE_CAP = 60, ARCADE_BOARD = 8; const ARCADE_RE = /^[a-z]{2,12}$/;
 const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Tower"]];
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
 function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
@@ -191,6 +193,12 @@ export function validateAction(state, playerId, action) {
     if (dx * dx + dz * dz + dy * dy > step * step) return { ok: false, error: "moved too far" };
     return { ok: true };
   }
+  if (action.t === "arcade") {
+    if (typeof action.game !== "string" || !ARCADE_RE.test(action.game)) return { ok: false, error: "unknown game" };
+    if (action.op === "coin") { if (!me || (me.coins || 0) < ARCADE_PLAY) return { ok: false, error: "not enough $GBACK" }; return { ok: true }; }
+    if (action.op === "prize") { if (!me || !me.arcade || me.arcade.game !== action.game) return { ok: false, error: "insert a coin first" }; if (!num(action.v) || action.v < 0 || action.v > 1e7 || !num(action.p) || action.p < 0) return { ok: false, error: "bad score" }; return { ok: true }; }
+    return { ok: false, error: "bad arcade op" };
+  }
   if (action.t === "quest") {
     if (!Number.isInteger(action.step) || action.step < 0 || action.step > 4) return { ok: false, error: "bad step" };
     if (((me && me.quest) || 0) !== action.step) return { ok: false, error: "step already claimed" };
@@ -225,7 +233,7 @@ export function applyAction(state, playerId, action) {
   const V = { ...vehicles(state) };
   let guestbook = state.guestbook;
 
-  let boards = state.boards || { golf: [], course: [], obby: [], drag: [] };
+  let boards = state.boards || { golf: [], course: [], obby: [], drag: [] }; let arcade = state.arcade || {};
   let lots = state.lots || defaultLots();
   let props = state.props || [];
   let av = state.av || null, duel = state.duel || null;
@@ -321,6 +329,10 @@ export function applyAction(state, playerId, action) {
     me.x = veh.x; me.z = veh.z; me.ry = veh.ry;
     // riders travel with the vehicle so zones, hotspots and the minimap follow them
     for (const id of veh.riders) if (players[id] && players[id].veh === me.veh) players[id] = { ...players[id], x: veh.x, z: veh.z, ry: veh.ry };
+  } else if (action.t === "arcade") {
+    if (action.op === "coin") { me.coins = (me.coins || 0) - ARCADE_PLAY; me.arcade = { game: action.game, tick }; me.xp = (me.xp || 0) + 2; }
+    else { const prize = Math.min(ARCADE_CAP, Math.round(action.p)); me.coins = (me.coins || 0) + prize; me.xp = (me.xp || 0) + 5 + Math.round(prize / 4); me.arcade = null; me.plays = (me.plays || 0) + 1;
+      const list = [...((state.arcade || {})[action.game] || []), { by: me.name, v: Math.round(action.v), tick }]; list.sort((a, b) => b.v - a.v); arcade = { ...(state.arcade || {}), [action.game]: list.slice(0, ARCADE_BOARD) }; }
   } else if (action.t === "quest") {
     me.quest = action.step + 1; me.coins = (me.coins || 0) + 25; me.xp = (me.xp || 0) + 15;
   } else if (action.t === "name") {
@@ -340,7 +352,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel };
+  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel, arcade };
 }
 
 export function isGameOver() {
@@ -349,5 +361,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
 }
