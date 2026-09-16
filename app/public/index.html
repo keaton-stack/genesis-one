@@ -52,6 +52,25 @@
       #warp { right:18px; bottom:210px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; pointer-events:auto; }
       #warp button { padding:5px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.3); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
       #warp button:hover { border-color:var(--green); }
+      #nav { left:50%; top:74px; transform:translateX(-50%); display:none; align-items:center; gap:10px; padding:7px 12px 7px 10px; border-radius:999px; background:rgba(10,22,16,.72); border:1px solid rgba(244,205,90,.55); pointer-events:auto; backdrop-filter:blur(6px); }
+      #nav.on { display:flex; }
+      #nav-arrow { display:inline-block; font-size:15px; line-height:1; color:#f4cd5a; transition:transform .12s linear; }
+      #nav b { font-family:"Space Grotesk", system-ui, sans-serif; font-size:13px; }
+      #nav-d { color:rgba(245,241,230,.75); }
+      #nav-x { background:none; border:0; color:rgba(245,241,230,.6); cursor:pointer; font-size:13px; padding:0 2px; }
+      #nav-x:hover { color:var(--cream); }
+      #places { display:none; left:18px; top:50%; transform:translateY(-50%); width:236px; max-height:82vh; overflow:auto; background:rgba(10,22,16,.86); border:1px solid rgba(77,222,111,.45); border-radius:12px; padding:10px 8px; pointer-events:auto; z-index:31; backdrop-filter:blur(8px); }
+      body.mapopen #places { display:block; }
+      #places .ph { font-family:"Anton", Impact, sans-serif; font-size:16px; letter-spacing:.08em; color:var(--green); padding:4px 8px 8px; }
+      #places .pc { font-family: ui-monospace, "JetBrains Mono", monospace; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:rgba(245,241,230,.6); padding:8px 8px 3px; display:flex; align-items:center; gap:7px; }
+      #places .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+      #places .pr { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:7px; cursor:pointer; font-family:"Space Grotesk", system-ui, sans-serif; font-size:13px; }
+      #places .pr:hover { background:rgba(77,222,111,.14); }
+      #places .pn { flex:1; }
+      #places .pd { font-family: ui-monospace, "JetBrains Mono", monospace; font-size:10px; color:rgba(245,241,230,.55); }
+      #places .pw { background:rgba(245,241,230,.08); border:1px solid rgba(245,241,230,.25); color:var(--cream); border-radius:6px; padding:1px 7px; cursor:pointer; font-size:12px; }
+      #places .pw:hover { border-color:var(--green); color:var(--green); }
+      #places .pf { font-size:10.5px; color:rgba(245,241,230,.5); padding:10px 8px 4px; line-height:1.4; }
       #fine { left:18px; bottom:18px; color:rgba(245,241,230,.5); max-width:260px; font-size:11px; }
       #status { left:18px; bottom:52px; color:rgba(245,241,230,.6); }
       #status.err { color:#ff9180; }
@@ -110,6 +129,8 @@
     <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="game" class="hud mono"><b id="game-n"></b><div class="big" id="game-big"></div><div id="game-s" style="margin-top:4px"></div><div id="power"><i></i></div></div>
     <div id="prompt" class="hud"><span id="prompt-t"></span></div>
+    <div id="nav" class="hud"><span id="nav-arrow">▲</span><b id="nav-n"></b><span id="nav-d" class="mono"></span><button id="nav-x" title="Stop guiding" onclick="navClear()">✕</button></div>
+    <div id="places" class="hud"></div>
     <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>space</kbd> jump &middot; <kbd>C</kbd> cart &middot; <kbd>F</kbd> ride / join a friend's cart &middot; <kbd>K</kbd> character &middot; <kbd>E</kbd> info / play &middot; <kbd>enter</kbd> chat &middot; <kbd>L</kbd> scores &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-8</kbd> emote · <kbd>B</kbd> dances &middot; <kbd>M</kbd> tower &middot; <kbd>N</kbd> time &middot; <kbd>V</kbd> voice &middot; <kbd>X</kbd> sound &middot; <kbd>H</kbd> photo</div>
     <div id="status" class="hud mono">connecting&hellip;</div>
     <button id="skipfly" class="hud mono" style="display:none;position:absolute;right:18px;bottom:110px;pointer-events:auto;background:rgba(10,22,16,.7);border:1px solid rgba(77,222,111,.4);color:#f5f1e6;border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer">SKIP FLIGHT</button>
@@ -132,7 +153,7 @@
       <h2 id="info-h"></h2>
       <div class="k mono" id="info-k"></div>
       <p id="info-p"></p>
-      <div class="row"><button class="btn" id="info-go" style="display:none">Play</button><button class="btn ghost" id="info-x">Close</button></div>
+      <div class="row"><button class="btn" id="info-go" style="display:none">Play</button><button class="btn ghost" id="info-nav" style="display:none">Guide me there</button><button class="btn ghost" id="info-x">Close</button></div>
     </div>
     <div id="gb" class="card">
       <h2>Guestbook</h2>
