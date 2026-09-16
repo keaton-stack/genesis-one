@@ -984,8 +984,8 @@ function updateSky(dt) {
     { const above = camera.position.y - getH(camera.position.x, camera.position.z); const want = Math.max(92, Math.min(720, 92 + Math.max(0, above - 14) * 5.5)); const sc = sun.shadow.camera; if (Math.abs(sc.right - want) > 6) { sc.left = sc.bottom = -want; sc.right = sc.top = want; sc.updateProjectionMatrix(); renderer.shadowMap.needsUpdate = true; } } } else { sun.position.copy(sdir).multiplyScalar(900); sun.position.y = Math.max(sun.position.y, 30); }
   sun.castShadow = day > 0.05;
   sun.intensity = 1.72 * day; sun.color.setHSL(0.09 - 0.03 * dusk, 0.55 + 0.35 * dusk, 0.55 + 0.35 * Math.min(1, Math.max(0, el)));
-  moon.intensity = 0.85 * night; hemi.intensity = 0.33 * day + 0.3; hemi.color.setHSL(0.6, 0.5, 0.52 + 0.36 * day);
-  renderer.toneMappingExposure = 0.9 - 0.1 * night; POST.exposure = 0.9 - 0.1 * night; stars.material.opacity = Math.max(0, night - 0.35) * 1.4 * (0.85 + 0.15 * Math.sin(performance.now() * 0.006)); stars.material.size = 64 + 14 * Math.sin(performance.now() * 0.0041); if (NEAR.pebbles) { NEAR.pebbles.material.emissive.setRGB(0.05, 0.045, 0.036).multiplyScalar(night); NEAR.rocks.material.emissive.setRGB(0.035, 0.03, 0.025).multiplyScalar(night); } stars2.material.opacity = Math.max(0, night - 0.4) * 1.2;
+  moon.intensity = 0.62 * night; hemi.intensity = 0.33 * day + 0.2; hemi.color.setHSL(0.6, 0.5, 0.52 + 0.36 * day);
+  renderer.toneMappingExposure = 0.9 - 0.2 * night; POST.exposure = 0.9 - 0.2 * night; stars.material.opacity = Math.max(0, night - 0.35) * 1.4 * (0.85 + 0.15 * Math.sin(performance.now() * 0.006)); stars.material.size = 64 + 14 * Math.sin(performance.now() * 0.0041); if (NEAR.pebbles) { NEAR.pebbles.material.emissive.setRGB(0.05, 0.045, 0.036).multiplyScalar(night); NEAR.rocks.material.emissive.setRGB(0.035, 0.03, 0.025).multiplyScalar(night); } stars2.material.opacity = Math.max(0, night - 0.4) * 1.2;
   const cl = 0.25 + 0.75 * day; cloudA.material.color.setRGB(cl, cl, cl + 0.03 * day).lerp(hor, 0.35 * (1 - Math.min(1, Math.max(0, el)))); cloudB.material.color.copy(cloudA.material.color);
   cloudA.material.opacity = 0.55 * day; cloudB.material.opacity = 0.35 * day; cloudA.material.map.offset.x += dt * 0.004; cloudA.material.map.offset.y += dt * 0.0012; cloudB.material.map.offset.x += dt * 0.0022; cloudB.material.map.offset.y -= dt * 0.0008; skyMat.uniforms.uShift.value += dt * 0.0016; for (const c of DETAILS.cumulus || []) { c.position.x += dt * 2.4; if (c.position.x > 30000) c.position.x = -30000; c.material.opacity = 0.8 * day; }
   const glow = Math.max(0, night - 0.2) / 0.8; for (const m of buildingMats) m.emissiveIntensity = 0.62 * glow;
@@ -2634,7 +2634,7 @@ const QUAL_DEF = {
 };
 const QUAL = { level: localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) ? "medium" : "high"), q: null, slowAcc: 0, slowN: 0, suggested: false }; QUAL.q = QUAL_DEF[QUAL.level] || QUAL_DEF.high;
 function applyQuality(level, silent) {
-  const q = QUAL_DEF[level] || QUAL_DEF.high; QUAL.level = level; QUAL.q = q; localStorage.setItem("g1:quality", level);
+  const q = QUAL_DEF[level] || QUAL_DEF.high; QUAL.level = level; QUAL.q = q; if (!silent) localStorage.setItem("g1:quality", level);
   if (typeof renderer !== "undefined") { renderer.setPixelRatio(Math.min(devicePixelRatio, q.pr)); CAM.pr = renderer.getPixelRatio(); if (POST.resize) POST.resize(); const wantShadow = q.shadow > 0; if (renderer.shadowMap.enabled !== wantShadow) { renderer.shadowMap.enabled = wantShadow; sun.castShadow = wantShadow; scene.traverse((o) => { if (o.material) { for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.needsUpdate = true; } }); } if (wantShadow && sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } renderer.shadowMap.needsUpdate = true; }
   if (typeof INSTSET !== "undefined") { for (const S of INSTSET) S.R = rangeFor(S.kind) * q.range; cullAt = 0; } if (typeof NEAR !== "undefined" && NEAR.grass) NEAR.grass.visible = q.grass;
   document.querySelectorAll("#settings .qbtn").forEach((b) => b.classList.toggle("on", b.dataset.q === level)); const lab = $("#q-label"); if (lab) lab.textContent = q.label; if (!silent) setStatus("quality: " + level);
@@ -2675,8 +2675,8 @@ function initPost() {
       vec2 fd = sd * vec2(1.0, 0.62); c += uSunCol * exp(-dot(fd, fd) * 700.0) * 0.55 * uSunVis * clamp(rays.r * 3.0, 0.0, 1.0);
       if (uUnder > 0.0) { float wob = sin(vUv.y * 40.0 + uTime * 2.0) * 0.004 * uUnder; c = mix(c, texture2D(tCol, vUv + vec2(wob, 0.0)).rgb, 0.5 * uUnder); c = mix(c, c * vec3(0.35, 0.7, 0.8) + vec3(0.0, 0.05, 0.08), uUnder); c = mix(c, vec3(0.05, 0.25, 0.3), uUnder * (1.0 - exp(-lin * 0.02))); }
       c = aces(c * uExposure * 1.27);
-      float l = luma(c); c = mix(vec3(l), c, 1.18); c = (c - 0.5) * mix(1.1, 0.97, uNight) + 0.5 + 0.022 * uNight; c = mix(c * vec3(0.9, 0.96, 1.12), c * vec3(1.08, 1.0, 0.9), smoothstep(0.12, 0.82, l));
-      c *= mix(mix(0.8, 0.92, uNight), 1.0, smoothstep(1.3, 0.4, length((vUv - 0.5) * vec2(1.25, 1.0)))); c += (hash(vUv + fract(uTime)) - 0.5) * (0.016 + uNight * 0.02); c = max(c, 0.0);
+      float l = luma(c); c = mix(vec3(l), c, 1.18); c = (c - 0.5) * 1.1 + 0.5; c = mix(c * vec3(0.9, 0.96, 1.12), c * vec3(1.08, 1.0, 0.9), smoothstep(0.12, 0.82, l));
+      c *= mix(0.8, 1.0, smoothstep(1.3, 0.4, length((vUv - 0.5) * vec2(1.25, 1.0)))); c += (hash(vUv + fract(uTime)) - 0.5) * (0.016 + uNight * 0.02); c = max(c, 0.0);
       vec3 s = mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); gl_FragColor = vec4(s, 1.0); }` });
   POST.resize();
 }
