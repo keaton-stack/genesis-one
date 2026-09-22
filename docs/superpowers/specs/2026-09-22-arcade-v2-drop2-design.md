@@ -58,3 +58,16 @@ keeps a top-eight board per game id), so `src/logic.js` does not change. Game id
 
 Drop 3: multiplayer lobbies (Lava Room rounds shared through the room state, air hockey).
 Drop 4: more games.
+
+## Status (22 Sep 2026)
+
+Shipped in `e3e9366` and `1ae21de` (live build after the 22:54 deploy). Verified on a private local
+copy: jackpot (three stops, prize and board), claw (catch, chute, prize), lava (countdown, waves,
+burn, prize, automatic exit). Implementation notes that differ from the plan above:
+
+- The generated `claw2` cabinet already contains a modelled plush pile and a static claw behind an
+  open window. `R.build` cuts the static claw out of the model (`cutPlayfield`, y 1.28 to 1.85) and
+  the catchable plush sit on top of the pile (bin floor at 57.5 percent of the cabinet height).
+- Machines set `M.hint`; `updateArcade` shows it in place of the key legend during ready and play.
+- A free-roam machine (`ARC_FREE`) ends the arcade session on its own once it returns to attract,
+  so E at the gate prompts a fresh round instead of replaying from wherever the player stands.
