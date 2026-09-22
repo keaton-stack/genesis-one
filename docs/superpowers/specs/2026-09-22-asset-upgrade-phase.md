@@ -59,6 +59,10 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
 - [x] beyond the meshes, part 1: 20 new 2K/1K seamless PBR texture sets (sand, sand2, dirt, rock, detail, detail2, turf,
       apron, adobe, corrugated, wood, tile, travertine, terrazzo, wicker, jet_*), normals and roughness derived
       (scripts/pbr_tex.py), installed to tex/ and tex_m/; wind sway already covers every tree and bush via MODEL_SPECS.sway
-- [ ] install all packs, local smoke test, deploy
+- [x] install all packs (desktop models/ 290 MB incl. 37 MB lod, mobile models_m/ 82 MB from the LOD1 meshes with 512 px
+      textures, tex/ 52 MB), local smoke test on both tiers (95 kinds load, AO + normal maps present, no new console
+      errors), commit 3a260fd, deployed 22 Sep 2026
+- [ ] follow-ups if wanted: pavilion canopy came out torn (regenerate, 44 cr), bush1 has a floating twig, tree foliage is
+      chunky at arm's length on the 10k budget (raise to 20k for the four trees if the instance count allows)
 - [ ] not done (needs hand modelling, out of automated reach): hair cards and per-region eye/skin materials on the
       single-atlas bodies, window parallax interiors and night emissive masks on the generated buildings, alpha leaf cards
