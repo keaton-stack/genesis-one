@@ -62,7 +62,15 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
 - [x] install all packs (desktop models/ 290 MB incl. 37 MB lod, mobile models_m/ 82 MB from the LOD1 meshes with 512 px
       textures, tex/ 52 MB), local smoke test on both tiers (95 kinds load, AO + normal maps present, no new console
       errors), commit 3a260fd, deployed 22 Sep 2026
-- [ ] follow-ups if wanted: pavilion canopy came out torn (regenerate, 44 cr), bush1 has a floating twig, tree foliage is
-      chunky at arm's length on the 10k budget (raise to 20k for the four trees if the instance count allows)
-- [ ] not done (needs hand modelling, out of automated reach): hair cards and per-region eye/skin materials on the
-      single-atlas bodies, window parallax interiors and night emissive masks on the generated buildings, alpha leaf cards
+- [x] pass 2 (22 Sep 2026): pavilion regenerated (Meshy 7 again dropped the fabric, so scripts/pavilion_canopy.py adds a
+      tensioned saddle canopy spanning the four corner islands), bush1 regenerated from a cropped concept, the five trees
+      re-decimated at 20k, then mesquite / ironwood / desertwillow / paloverde / bush1 / bush2 converted to alpha leaf
+      cards (scripts/leafcards.py: foliage faces found by albedo, deleted, replaced by crossed cards on a keyed leaf
+      cluster texture; ~6k tris per tree instead of 20k, sway applies to the cards)
+- [x] characters: bodies split into body / skin / hair / eyes material slots (scripts/char_slots.py: albedo classifier
+      plus sclera-located eye spheres); the client gives skin a sheen, hair an anisotropic highlight, eyes a clearcoat,
+      and measures fits on a hidden merged mesh (patch_client_v2b.py)
+- [x] buildings: window masks painted by GPT Image on two orthographic views per building, projected onto the atlas in
+      Cycles (scripts/project_mask.py) and stored in the ORM B channel; the client hook renders a parallax room
+      interior with per-window random warm lights at night and glassy roughness by day (26 kinds)
+- [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
