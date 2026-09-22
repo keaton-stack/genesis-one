@@ -45,7 +45,12 @@ new canvas games, server logic changes.
   signage), `arcadeZones` (per-zone placement), `arcadeMachines` (cabinets, claws,
   pinball tables, jackpot towers) and `arcadePinball` (the 3D table). `SCREEN`,
   `CAB_KIND`, `placeCab` keep their contracts so the 21 games still mount on cabinets.
-- `public/arcade_games.js`: unchanged except the pinball entry is removed.
+- `public/arcade_games.js`: unchanged. The 2D pinball entry stays as the definition (name,
+  prize curve, board id `pinball`) that the 3D tables use, so old high scores carry over; no
+  cabinet mounts its canvas game any more.
+- `public/arcade_room.js`: new. `ARCADE_ROOM.build(g, half, hgt)` (room, zones, machines),
+  `ARCADE_ROOM.placeCab` (screen cabinets), `Pinball3D` (Machine-compatible 3D table),
+  `ARCADE_ROOM.update(dt)` (LED floor, sign blink, attract chatter).
 - Models: `public/models/{cab2,claw2,pinball2,jackpot,prizecounter,arcade}.glb` with
   `MODEL_SPECS` entries (props: height-normalised, front = +z, rot 0). The old
   `claw`/`pinball` models stay for the mid-hall rows until Drop 2 replaces claws.
