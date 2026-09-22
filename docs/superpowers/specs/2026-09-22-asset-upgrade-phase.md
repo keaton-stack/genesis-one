@@ -84,6 +84,22 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
       branches. Window masks re-baked with a walls-only gate (|world normal z| < 0.55) so roofs, decks and pools painted
       by the mask model drop out; dome, glamp and observatory left the window set (23 kinds). PBR statics: metalness cap
       0.45 and a roughness floor of 0.3 (addRoughFloor) so Meshy metallic parts stop mirroring the sky probe.
+- [x] pass 4 (22 Sep 2026, after the user reported walls and windows still fragmented and unreadable signs): the
+      generators ship "confetti" atlases (saloon: 10,800 micro charts for 40k triangles), so mip levels bleed between
+      charts, text is chopped and window masks can never be clean. Every single-primitive static (63 kinds; leaf-card
+      trees, pavilion, plain-texture vehicles and characters left alone) was re-atlased: scripts/xatlas_uv.py writes an
+      xatlas layout as TEXCOORD_1 (avg 2,200 charts, 50 % fill; Blender's Smart UV gave 16,000 islands and was dropped),
+      scripts/reatlas.py re-projects albedo and ORM from the old layout with EMIT bakes (16 px margin), re-bakes the
+      tangent normal from the dense mesh in the process.py frame, and exports LOD0 (+tangents) and LOD1; buildings,
+      vehicles, mesa and butte at 4096, the rest at 2048 (install still caps desktop at 2048). run_reatlas.py keeps the
+      previous outputs in proc/final_v3bak, proc/<k>/*_v3bak and proc/final/lod_v3bak. Window masks were re-projected on
+      the new atlases and grown across each pane with a colour-gated dilation limited to mesh-covered texels
+      (scripts/grow_mask.py); window-kind ORM textures are packed as UASTC so the mask edges stay crisp. Day glass now
+      carries metalness 0.55 with a blue-grey base so it reflects the sky instead of reading as a black hole.
+      Signage: the generator never had crisp lettering, so signs get a view-based touch-up: scripts/render_face.py
+      renders the sign face straight on (camera JSON saved), GPT Image 2.5 redraws only the lettering from that render
+      (3 credits), scripts/apply_sign.py finds the changed region, project_color.py bakes it through the same camera into
+      the atlas and every file carrying the albedo is refreshed. Done for the saloon; other buildings carry no readable text.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first

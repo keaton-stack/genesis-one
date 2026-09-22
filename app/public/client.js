@@ -299,7 +299,7 @@ const WIN_GLSL = {
   vpars: "varying vec3 vWPos;",
   vmain: "{ vec4 wp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp = instanceMatrix * wp;\n#endif\n vWPos = (modelMatrix * wp).xyz; }",
   fpars: "uniform float uNight; uniform float uTime; uniform sampler2D uRoom; varying vec3 vWPos;\nfloat winHash(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }",
-  metal: "float metalnessFactor = 0.0; float vWin = 0.0; float winRnd = 0.0; float winLit = 0.0; vec3 winCol = vec3(0.0); vec3 winLamp = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif\n roughnessFactor = mix(max(roughnessFactor, 0.3), 0.08, vWin);",
+  metal: "float metalnessFactor = 0.0; float vWin = 0.0; float winRnd = 0.0; float winLit = 0.0; vec3 winCol = vec3(0.0); vec3 winLamp = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif\n roughnessFactor = mix(max(roughnessFactor, 0.3), 0.1, vWin); metalnessFactor = mix(0.55, 0.25, uNight) * vWin;",
   room: [
     "{",
     " vec3 N = normalize(floor(normalize(cross(dFdx(vWPos), dFdy(vWPos))) * 2.0 + 0.5)); vec3 up = abs(N.y) < 0.85 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);",
@@ -324,7 +324,7 @@ const WIN_GLSL = {
     "}"].join("\n"),
   emis: [
     "{",
-    " vec3 dayGlass = winCol * 0.16 * vec3(0.85, 0.92, 1.0) + vec3(0.02, 0.03, 0.045);",
+    " vec3 dayGlass = mix(winCol * 0.45, vec3(0.40, 0.47, 0.56), 0.5);",
     " vec3 nightGlass = mix(winCol * 0.04, winCol * 0.9, winLit);",
     " diffuseColor.rgb = mix(diffuseColor.rgb, mix(dayGlass, nightGlass, uNight), vWin);",
     " totalEmissiveRadiance = mix(totalEmissiveRadiance, winLamp * 0.65 * uNight, vWin);",
@@ -1098,7 +1098,7 @@ function updateSky(dt) {
   renderer.toneMappingExposure = 0.9 - 0.2 * night; POST.exposure = 0.9 - 0.2 * night; stars.material.opacity = Math.max(0, night - 0.35) * 1.4 * (0.85 + 0.15 * Math.sin(performance.now() * 0.006)); stars.material.size = 64 + 14 * Math.sin(performance.now() * 0.0041); if (NEAR.pebbles) { NEAR.pebbles.material.emissive.setRGB(0.05, 0.045, 0.036).multiplyScalar(night); NEAR.rocks.material.emissive.setRGB(0.035, 0.03, 0.025).multiplyScalar(night); } stars2.material.opacity = Math.max(0, night - 0.4) * 1.2;
   const cl = 0.25 + 0.75 * day; cloudA.material.color.setRGB(cl, cl, cl + 0.03 * day).lerp(hor, 0.35 * (1 - Math.min(1, Math.max(0, el)))); cloudB.material.color.copy(cloudA.material.color);
   cloudA.material.opacity = 0.55 * day; cloudB.material.opacity = 0.35 * day; cloudA.material.map.offset.x += dt * 0.004; cloudA.material.map.offset.y += dt * 0.0012; cloudB.material.map.offset.x += dt * 0.0022; cloudB.material.map.offset.y -= dt * 0.0008; skyMat.uniforms.uShift.value += dt * 0.0016; for (const c of DETAILS.cumulus || []) { c.position.x += dt * 2.4; if (c.position.x > 30000) c.position.x = -30000; c.material.opacity = 0.8 * day; }
-  const glow = Math.max(0, night - 0.2) / 0.8; for (const m of buildingMats) m.emissiveIntensity = (m.userData.win ? 0.18 : 0.62) * glow; WIN.u.uNight.value = night;
+  const glow = Math.max(0, night - 0.2) / 0.8; for (const m of buildingMats) m.emissiveIntensity = (m.userData.win ? 0.07 : 0.62) * glow; WIN.u.uNight.value = night;
   if (DETAILS.portals) DETAILS.portals.material === M.green || 0;
   M.lampGlow.emissiveIntensity = 2.5 * glow; if (DETAILS.coursePools) DETAILS.coursePools.opacity = 0.45 * glow; if (DETAILS.bulbs) DETAILS.bulbs.emissiveIntensity = 2.2 * glow; if (DETAILS.halo) DETAILS.halo.material.opacity = 0.7 * glow; M.rwLight.emissiveIntensity = 3 * glow; M.rwLightB.emissiveIntensity = 3 * glow; M.green.emissiveIntensity = 0.4 + 1.6 * night;
   { const sp = new THREE.Vector3().copy(sdir).multiplyScalar(5000).add(camera.position); const v = sp.clone().project(camera); const front = v.z < 1 && sdir.dot(new THREE.Vector3().copy(camera.getWorldDirection(new THREE.Vector3()))) > 0; POST.sunUV.set(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5); const inView = front && Math.abs(v.x) < 1.6 && Math.abs(v.y) < 1.6; const target = inView && el > -0.08 ? Math.min(1, (el + 0.08) / 0.2) * (1 - Math.max(0, Math.abs(v.x) - 1) / 0.6) * (1 - Math.max(0, Math.abs(v.y) - 1) / 0.6) : 0; POST.sunVis += (target - POST.sunVis) * Math.min(1, dt * 6);
