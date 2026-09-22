@@ -2599,10 +2599,10 @@ function updateFX(dt, now) {
 
 // ───────────────────────────── post-processing: god rays, bloom, aerial haze, grading, FXAA ─────────────────────────────
 const QUAL_DEF = {
-  low: { pr: 0.75, shadow: 0, shadowEvery: 3, ao: false, bloom: false, rays: false, refl: 0, range: 0.55, grass: false, pebbles: false, label: "Low · no shadows or ambient occlusion, short view range" },
-  medium: { pr: 1.0, shadow: 2048, shadowEvery: 2, ao: true, bloom: true, rays: false, refl: 4, range: 0.8, grass: true, pebbles: true, label: "Medium · 2K shadows, bloom, no god rays" },
-  high: { pr: 1.25, shadow: 2048, shadowEvery: 2, ao: true, bloom: true, rays: true, refl: 3, range: 1.0, grass: true, pebbles: true, label: "High · the default look" },
-  ultra: { pr: 1.5, shadow: 4096, shadowEvery: 1, ao: true, bloom: true, rays: true, refl: 1, range: 1.3, grass: true, pebbles: true, label: "Ultra · shadows every frame, longest view range" },
+  low: { pr: 0.75, shadow: 0, shadowEvery: 3, ao: false, bloom: false, rays: false, refl: 0, range: 0.55, grass: false, pebbles: false, label: "Low · no shadows, short view range" },
+  medium: { pr: 1.0, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, rays: false, refl: 4, range: 0.8, grass: true, pebbles: true, label: "Medium · 2K shadows, bloom, no god rays" },
+  high: { pr: 1.25, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, rays: true, refl: 3, range: 1.0, grass: true, pebbles: true, label: "High · the default look" },
+  ultra: { pr: 1.5, shadow: 4096, shadowEvery: 1, ao: false, bloom: true, rays: true, refl: 1, range: 1.3, grass: true, pebbles: true, label: "Ultra · shadows every frame, longest view range" },
 };
 const QUAL = { level: localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) ? "medium" : "high"), q: null, slowAcc: 0, slowN: 0, suggested: false }; QUAL.q = QUAL_DEF[QUAL.level] || QUAL_DEF.high;
 function applyQuality(level, silent) {
