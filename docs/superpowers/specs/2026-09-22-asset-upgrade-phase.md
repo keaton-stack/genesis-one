@@ -100,6 +100,15 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
       renders the sign face straight on (camera JSON saved), GPT Image 2.5 redraws only the lettering from that render
       (3 credits), scripts/apply_sign.py finds the changed region, project_color.py bakes it through the same camera into
       the atlas and every file carrying the albedo is refreshed. Done for the saloon; other buildings carry no readable text.
+- [x] pass 5 (22 Sep 2026): window masks now fill each pane (grown components that cover most of their box are boxed,
+      growth confined to a zone around each seed so light interiors cannot run across a wall chart); black squares on
+      bushes, trees and walls were NaN tangent frames (Blender exports zero tangents on degenerate uv corners and three
+      normalises them to NaN, blacking out whole faces with a normal map): client.js sanitizeTangents() rebuilds them at
+      load; black window panes seen from below were the environment probe's black lower hemisphere: envScene now has a
+      sand-coloured ground hemisphere tinted by daylight; the walk cycle comes from its own clip file
+      (char_<b>_walk.glb: Meshy 3d_rigging on the original character mesh with library clips walking_2 / Walking_Woman,
+      8 credits each, scripts/extract_clip.py keeps skeleton + animation and detrends the hips so the cycle stays in
+      place) because the embedded generator clip only carried two keys; lower whole-building night glow on window kinds.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first
