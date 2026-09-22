@@ -9,8 +9,8 @@ light when its near the ground."
 
 - **Pinball flippers.** The flipper bars extended from the pivot toward the side walls, so the
   ball fell through the centre untouched. They now extend inward from the pivots at the end of
-  the inlanes (rest 41 degrees down, flipped 24 degrees up), in both the mesh and the physics
-  segment.
+  the inlanes (46 percent of the half width, rest 29 degrees down, flipped 26 degrees up), in
+  both the mesh and the physics segment.
 - **Jumpin' Jackpot** is now the real thing: a ring of 36 floor lights around each tower, one
   light chasing around the ring, and you stand on the ring and jump as it passes under you.
   Every clean jump lights one more lamp on the tower column and speeds the chase up; getting
