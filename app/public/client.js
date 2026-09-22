@@ -303,7 +303,7 @@ const WIN_GLSL = {
   vpars: "varying vec3 vWPos;",
   vmain: "{ vec4 wp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp = instanceMatrix * wp;\n#endif\n vWPos = (modelMatrix * wp).xyz; }",
   fpars: "uniform float uNight; uniform float uTime; uniform sampler2D uRoom; varying vec3 vWPos;\nfloat winHash(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }",
-  metal: "float metalnessFactor = 0.0; float vWin = 0.0; float winRnd = 0.0; float winLit = 0.0; vec3 winCol = vec3(0.0); vec3 winLamp = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif\n roughnessFactor = mix(max(roughnessFactor, 0.3), 0.1, vWin); metalnessFactor = mix(0.55, 0.25, uNight) * vWin;",
+  metal: "float metalnessFactor = 0.0; float vWin = 0.0; float winRnd = 0.0; float winLit = 0.0; vec3 winCol = vec3(0.0); vec3 winLamp = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif\n roughnessFactor = mix(max(roughnessFactor, 0.3), 0.12, vWin); metalnessFactor = 0.2 * vWin;",
   room: [
     "{",
     " vec3 N = normalize(floor(normalize(cross(dFdx(vWPos), dFdy(vWPos))) * 2.0 + 0.5)); vec3 up = abs(N.y) < 0.85 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);",
@@ -328,7 +328,7 @@ const WIN_GLSL = {
     "}"].join("\n"),
   emis: [
     "{",
-    " vec3 dayGlass = mix(winCol * 0.45, vec3(0.40, 0.47, 0.56), 0.5);",
+    " vec3 dayGlass = diffuseColor.rgb;",
     " vec3 nightGlass = mix(winCol * 0.04, winCol * 0.9, winLit);",
     " diffuseColor.rgb = mix(diffuseColor.rgb, mix(dayGlass, nightGlass, uNight), vWin);",
     " totalEmissiveRadiance = mix(totalEmissiveRadiance, winLamp * 0.65 * uNight, vWin);",

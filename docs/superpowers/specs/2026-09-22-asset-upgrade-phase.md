@@ -109,6 +109,14 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
       (char_<b>_walk.glb: Meshy 3d_rigging on the original character mesh with library clips walking_2 / Walking_Woman,
       8 credits each, scripts/extract_clip.py keeps skeleton + animation and detrends the hips so the cycle stays in
       place) because the embedded generator clip only carried two keys; lower whole-building night glow on window kinds.
+- [x] pass 6 (22 Sep 2026, "game looks worse than the renders"): two real quality leaks between the Blender renders and
+      the game. (1) Colour maps were ETC1S-compressed (gltfpack default): wood grain, frames and lettering smear into
+      blocks. Buildings now pack colour as UASTC on desktop (about +4 MB per building, mobile unchanged). (2) The day
+      look replaced every masked glass texel with a synthetic glass material, so any mask imperfection showed as a
+      triangular patchwork; the day look now keeps the generator's painted glass (only a glossy sheen and a little
+      metalness on masked texels) and the mask drives lit rooms at night only.
+- [ ] optional quality levers still unused: 80k triangle budget for buildings (silhouettes are still the 40k decimation),
+      2048 ORM/normal maps on desktop, UASTC colour for props and animals.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first
