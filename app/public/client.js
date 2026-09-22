@@ -5,6 +5,12 @@
 
 // ───────────────────────────── net ─────────────────────────────
 const room = new URLSearchParams(location.search).get("room") || "main";
+// asset tier: phones and weak machines load the half-resolution texture set and the models_m pack (same models, textures capped at 512)
+const ASSET = (() => { const stored = localStorage.getItem("g1:quality"); const weak = (navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4); const tier = stored === "low" || (weak && stored !== "high" && stored !== "ultra") ? "m" : "d"; const texm = new Set(["adobe.jpg", "adobe_n.jpg", "adobe_r.jpg", "apron.jpg", "apron_n.jpg", "apron_r.jpg", "corrugated.jpg", "corrugated_n.jpg", "corrugated_r.jpg", "detail.jpg", "detail2.jpg", "detail2_n.jpg", "detail_n.jpg", "dirt.jpg", "dirt_n.jpg", "dirt_r.jpg", "ground.jpg", "jet_carpet.jpg", "jet_gold.jpg", "jet_leather.jpg", "jet_wall.jpg", "jet_walnut.jpg", "region_ground.jpg", "rock.jpg", "rock_n.jpg", "sand.jpg", "sand2.jpg", "sand2_n.jpg", "sand_n.jpg", "sign_course.jpg", "sign_expanse.jpg", "sign_flightline.jpg", "sign_genesis.jpg", "sign_golf.jpg", "sign_homebase.jpg", "sign_landing.jpg", "sign_obby.jpg", "sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "terrazzo.jpg", "tile.jpg", "tile_n.jpg", "tile_r.jpg", "travertine.jpg", "turf.jpg", "turf_n.jpg", "turf_r.jpg", "wicker.jpg", "wood.jpg", "wood_n.jpg", "wood_r.jpg"]);
+  return { tier, models: tier === "m" ? "/models_m" : "/models", tex: (url) => { if (tier !== "m" || typeof url !== "string") return url; const m = url.match(/^\/(?:tex\/)?([a-z0-9_]+\.(?:jpg|png))(\?.*)?$/); return m && texm.has(m[1]) ? "/tex_m/" + m[1] + (m[2] || "") : url; } }; })();
+{ const _load = THREE.TextureLoader.prototype.load; THREE.TextureLoader.prototype.load = function (url, ...rest) { return _load.call(this, ASSET.tex(url), ...rest); }; }
+// every glTF loader gets the meshopt decoder: the model packs are meshopt-compressed
+function gltfLoader() { const l = new THREE.GLTFLoader(); if (typeof MeshoptDecoder !== "undefined" && l.setMeshoptDecoder) l.setMeshoptDecoder(MeshoptDecoder); return l; }
 function playerId() { const key = "hf:game:playerId"; let id = localStorage.getItem(key); if (!id) { id = Math.random().toString(36).slice(2, 10); localStorage.setItem(key, id); } return id; }
 const ME = playerId();
 const PING = "__ping", PONG = "__pong";
@@ -79,6 +85,26 @@ const hemi = new THREE.HemisphereLight(0xfff1dc, 0x7d6b4c, 0.42); scene.add(hemi
 const sun = new THREE.DirectionalLight(0xffe6c4, 1.25); sun.position.set(-600, 500, 300); scene.add(sun); scene.add(sun.target);
 sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.camera.near = 20; sun.shadow.camera.far = 1600; sun.shadow.camera.left = sun.shadow.camera.bottom = -92; sun.shadow.camera.right = sun.shadow.camera.top = 92; sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.4;
 const moon = new THREE.DirectionalLight(0x9fb4ff, 0); moon.position.set(400, 500, -300); scene.add(moon);
+// cascaded shadow maps (high and ultra): three or four 2K maps that follow the camera, crisp at the player's feet and still there 400 m out.
+// Every MeshStandardMaterial (and the physical variant the loader may build) is created through a subclass that registers it with the
+// CSM, chains any custom onBeforeCompile the game adds later, and keys the program cache on that custom hook so shaders never cross over.
+const CSMX = { on: false, csm: null, fov: 0, aspect: 0, far: 0, lastFar: 0 };
+function initCSM() {
+  const level = localStorage.getItem("g1:quality") || (((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent)) ? "medium" : "high");
+  const want = { high: 3, ultra: 4 }[level] || 0; const far = { high: 420, ultra: 700 }[level] || 420; if (!want || !THREE.CSM || /nocsm/.test(location.search)) return;
+  try {
+    const csm = new THREE.CSM({ camera, parent: scene, cascades: want, maxFar: far, mode: "custom", customSplitsCallback: (n, near, far, target) => { const t = n >= 4 ? [0.03, 0.09, 0.3, 1] : [0.045, 0.18, 1]; for (const v of t) target.push(v); }, shadowMapSize: 2048, shadowBias: -0.00018, lightDirection: new THREE.Vector3(0.6, -0.7, -0.3).normalize(), lightIntensity: 1.25, lightNear: 1, lightFar: 2600, lightMargin: 320 });
+    csm.fade = true; for (const l of csm.lights) { l.shadow.normalBias = 0.32; l.shadow.radius = 1.5; l.color.copy(sun.color); }
+    CSMX.csm = csm; CSMX.on = true; CSMX.far = far; CSMX.lastFar = far; sun.castShadow = false; sun.intensity = 0;
+    const wrap = (Orig) => { const C = class extends Orig { constructor(p) { super(p); csm.setupMaterial(this); this._csmObc = this.onBeforeCompile; } get onBeforeCompile() { const c = this._csmObc, u = this._userObc; if (!u) return c || THREE.Material.prototype.onBeforeCompile; if (!this._bothObc || this._bothObc.u !== u) { const f = (sh, r) => { if (c) c(sh, r); u(sh, r); }; f.u = u; this._bothObc = f; } return this._bothObc; } set onBeforeCompile(fn) { if (!this._csmObc && fn && fn !== THREE.Material.prototype.onBeforeCompile) { this._csmObc = fn; return; } this._userObc = fn && fn !== THREE.Material.prototype.onBeforeCompile ? fn : null; } customProgramCacheKey() { return "csm" + (this._userObc ? "|" + this._userObc.toString() : ""); } copy(src) { super.copy(src); this.defines = Object.assign({}, this.defines || {}, { USE_CSM: 1, CSM_CASCADES: csm.cascades }, csm.fade ? { CSM_FADE: "" } : {}); return this; } }; return C; };
+    for (const l of csm.lights) l.shadow.camera.layers.enable(1);
+    THREE.MeshStandardMaterial = wrap(THREE.MeshStandardMaterial); if (THREE.MeshPhysicalMaterial) THREE.MeshPhysicalMaterial = wrap(THREE.MeshPhysicalMaterial);
+  } catch (e) { console.warn("cascaded shadows unavailable", e); CSMX.on = false; CSMX.csm = null; }
+}
+initCSM();
+function updateCSM() { const c = CSMX.csm; if (!c) return; if (camera.fov !== CSMX.fov || camera.aspect !== CSMX.aspect || camera.near !== CSMX.near) { CSMX.fov = camera.fov; CSMX.aspect = camera.aspect; CSMX.near = camera.near; c.updateFrustums(); }
+  const above = camera.position.y - (typeof getH === "function" ? getH(camera.position.x, camera.position.z) : 0); const wantFar = Math.max(CSMX.far, Math.min(2400, CSMX.far + Math.max(0, above - 14) * 6)); if (Math.abs(wantFar - CSMX.lastFar) > CSMX.lastFar * 0.15) { CSMX.lastFar = wantFar; c.maxFar = wantFar; c.updateFrustums(); }
+  c.update(); }
 function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (typeof POST !== "undefined" && POST.rt) POST.resize(); }
 addEventListener("resize", resize); resize();
 
@@ -266,9 +292,9 @@ function attachLod(kind) {
   cullAt = 0; S.n = -1;
 }
 async function loadModels() {
-  if (!THREE.GLTFLoader) return; const loader = new THREE.GLTFLoader(); const kinds = Object.keys(MODEL_SPECS); let done = 0;
+  if (!THREE.GLTFLoader) return; const loader = gltfLoader(); const kinds = Object.keys(MODEL_SPECS); let done = 0;
   await Promise.all(kinds.map((k) => new Promise((res) => {
-    loader.load(`/models/${k}.glb?v=${window.BUILD || 0}`, (g) => {
+    loader.load(`${ASSET.models}/${k}.glb?v=${window.BUILD || 0}`, (g) => {
       const root = g.scene; root.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(root); const sz = new THREE.Vector3(); box.getSize(sz); const c = new THREE.Vector3(); box.getCenter(c);
       const spec = MODEL_SPECS[k]; const s = spec.raw ? 1 : spec.height ? spec.height / sz.y : spec.size / Math.max(sz.x, sz.z);
@@ -982,8 +1008,9 @@ function updateSky(dt) {
   if (player) { sun.target.position.copy(player.position); sun.position.copy(player.position).addScaledVector(sdir, 700); if (sun.position.y < player.position.y + 40) sun.position.y = player.position.y + 40;
     // shadow frustum: tight (sharp) at street level, widening as the camera climbs so the world keeps its shadows from a balloon, the jet or the tower
     { const above = camera.position.y - getH(camera.position.x, camera.position.z); const want = Math.max(92, Math.min(720, 92 + Math.max(0, above - 14) * 5.5)); const sc = sun.shadow.camera; if (Math.abs(sc.right - want) > 6) { sc.left = sc.bottom = -want; sc.right = sc.top = want; sc.updateProjectionMatrix(); renderer.shadowMap.needsUpdate = true; } } } else { sun.position.copy(sdir).multiplyScalar(900); sun.position.y = Math.max(sun.position.y, 30); }
-  sun.castShadow = day > 0.05;
+  sun.castShadow = day > 0.05 && !CSMX.on;
   sun.intensity = 1.72 * day; sun.color.setHSL(0.09 - 0.03 * dusk, 0.55 + 0.35 * dusk, 0.55 + 0.35 * Math.min(1, Math.max(0, el)));
+  if (CSMX.on) { const c = CSMX.csm; c.lightDirection.copy(sdir).multiplyScalar(-1); for (const l of c.lights) { l.intensity = sun.intensity; l.color.copy(sun.color); l.castShadow = true; } sun.intensity = 0; }
   moon.intensity = 0.62 * night; hemi.intensity = 0.33 * day + 0.2; hemi.color.setHSL(0.6, 0.5, 0.52 + 0.36 * day);
   renderer.toneMappingExposure = 0.9 - 0.2 * night; POST.exposure = 0.9 - 0.2 * night; stars.material.opacity = Math.max(0, night - 0.35) * 1.4 * (0.85 + 0.15 * Math.sin(performance.now() * 0.006)); stars.material.size = 64 + 14 * Math.sin(performance.now() * 0.0041); if (NEAR.pebbles) { NEAR.pebbles.material.emissive.setRGB(0.05, 0.045, 0.036).multiplyScalar(night); NEAR.rocks.material.emissive.setRGB(0.035, 0.03, 0.025).multiplyScalar(night); } stars2.material.opacity = Math.max(0, night - 0.4) * 1.2;
   const cl = 0.25 + 0.75 * day; cloudA.material.color.setRGB(cl, cl, cl + 0.03 * day).lerp(hor, 0.35 * (1 - Math.min(1, Math.max(0, el)))); cloudB.material.color.copy(cloudA.material.color);
@@ -1009,10 +1036,10 @@ const HAIR_COLORS = [0x2a1b12, 0x6b3f22, 0xd9b26a, 0x1a1a1a];
 const OUTFITS = { outfit_flight: { shirt: 0x1f3b2c, pants: 0x1c1f24, trim: 0x4dde6f }, outfit_ranch: { shirt: 0x8a2f26, pants: 0x2f4a7a, trim: 0xe9e2d3 }, outfit_desert: { shirt: 0xd8c39a, pants: 0x6d5a3e, trim: 0x2a7a3e } };
 const CHAR = {};   // body -> { scene, clips: { walk, idle }, height }
 async function loadCharacters() {
-  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return; const loader = new THREE.GLTFLoader();
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return; const loader = gltfLoader();
   const load = (url) => new Promise((res) => loader.load(url, res, undefined, () => res(null)));
   for (const body of ["m", "f"]) {
-    const walk = await load(`/models/char_${body}.glb?v=${window.BUILD || 0}`); if (!walk) continue; const lodg = await load(`/models/char_${body}_lod.glb?v=${window.BUILD || 0}`); let lodGeo = null; if (lodg) lodg.scene.traverse((o) => { if (o.isSkinnedMesh && !lodGeo) lodGeo = o.geometry; });
+    const walk = await load(`${ASSET.models}/char_${body}.glb?v=${window.BUILD || 0}`); if (!walk) continue; const lodg = await load(`${ASSET.models}/char_${body}_lod.glb?v=${window.BUILD || 0}`); let lodGeo = null; if (lodg) lodg.scene.traverse((o) => { if (o.isSkinnedMesh && !lodGeo) lodGeo = o.geometry; });
     const vq = `?v=${window.BUILD || 0}`; const idle = await load(`/models/char_${body}_idle.glb` + vq); const run = await load(`/models/char_${body}_run.glb` + vq); const jump = await load(`/models/char_${body}_jump.glb` + vq); const swim = await load(`/models/char_${body}_swim.glb` + vq); const golfc = await load(`/models/char_${body}_golf.glb` + vq); const sitc = await load(`/models/char_${body}_sit.glb` + vq); const dances = {}; for (const d of ["dance1", "dance2", "dance3", "dance4"]) { const dg = await load(`/models/char_${body}_${d}.glb` + vq); dances[d] = dg && dg.animations && dg.animations[0]; }
     const root = walk.scene; root.updateMatrixWorld(true);
     // measure the SKINNED pose (Meshy rigs keep bones in cm and geometry in m, so plain bounds are 100x off)
@@ -1218,7 +1245,12 @@ function animateWalk(g, speed, dt) {
   u.legs[0].rotation.x = a; u.legs[1].rotation.x = -a; u.arms[0].rotation.x = -a * 0.8; u.arms[1].rotation.x = a * 0.8;
   if (speed <= 0.2) { u.arms[0].rotation.x = u.arms[1].rotation.x = Math.sin(performance.now() / 900) * 0.04; }
 }
-function avatar(id, name, look, hat, outfit) {
+// a soft contact blob under every character: it is what grounds people on the tiers that run without shadow maps
+const BLOB = { tex: null, mat: null };
+function blobTexture() { if (BLOB.tex) return BLOB.tex; const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d"); const g = x.createRadialGradient(64, 64, 4, 64, 64, 60); g.addColorStop(0, "rgba(0,0,0,0.62)"); g.addColorStop(0.55, "rgba(0,0,0,0.3)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(0, 0, 128, 128); BLOB.tex = new THREE.CanvasTexture(c); return BLOB.tex; }
+function addBlob(g) { if (!g || g.userData.blob) return g; if (!BLOB.mat) BLOB.mat = new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); const b = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.15), BLOB.mat); b.rotation.x = -Math.PI / 2; b.position.y = 0.03; b.renderOrder = 2; b.frustumCulled = false; b.userData.noSolid = true; b.visible = !(typeof QUAL !== "undefined" && QUAL.q && QUAL.q.shadow); g.add(b); g.userData.blob = b; return g; }
+function avatar(id, name, look, hat, outfit) { const g = avatarBase(id, name, look, hat, outfit); return addBlob(g); }
+function avatarBase(id, name, look, hat, outfit) {
   const g = new THREE.Group(); g.userData = { id };
   buildBody(g, look, hat, outfit); g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   const walk = g.userData.walk;
@@ -1612,8 +1644,8 @@ function frame() {
   const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; FRAME_N++;
   if (!player) { renderer.render(scene, camera); return; }
   if (now - cullAt > 250 || Math.abs(Math.atan2(Math.sin(yaw - cullYaw), Math.cos(yaw - cullYaw))) > 0.3) { cullAt = now; updateCulling(false); }
-  renderer.shadowMap.needsUpdate = FLY.on || SITES.ride || SITES.bride ? true : QUAL.q.shadowEvery <= 1 ? true : (FRAME_N % QUAL.q.shadowEvery) === 0;
-  { const ms = now - lastT; if (ms < 250) { QUAL.slowAcc += ms; QUAL.slowN++; } if (QUAL.slowN >= 600) { const avg = QUAL.slowAcc / QUAL.slowN; QUAL.slowAcc = 0; QUAL.slowN = 0; if (avg > 36 && !QUAL.suggested && (QUAL.level === "high" || QUAL.level === "ultra") && !FLY.on) { QUAL.suggested = true; applyQuality("medium", true); setStatus("Switched to Medium quality for a smoother frame rate · change it under SETTINGS"); } } }
+  renderer.shadowMap.needsUpdate = CSMX.on && night > 0.97 ? false : FLY.on || SITES.ride || SITES.bride ? true : QUAL.q.shadowEvery <= 1 ? true : (FRAME_N % QUAL.q.shadowEvery) === 0;
+  { const ms = now - lastT; if (ms < 250) { QUAL.dynAcc = (QUAL.dynAcc || 0) + ms; QUAL.dynN = (QUAL.dynN || 0) + 1; if (QUAL.dynN >= 90) { const avg = QUAL.dynAcc / QUAL.dynN; QUAL.dynAcc = 0; QUAL.dynN = 0; const d0 = QUAL.dyn === undefined ? 1 : QUAL.dyn; let d = d0; if (avg > 30 && !FLY.on) d = Math.max(0.6, d - 0.12); else if (avg < 13 && d < 1) d = Math.min(1, d + 0.06); if (d !== d0) { QUAL.dyn = d; renderer.setPixelRatio(Math.min(devicePixelRatio, QUAL.q.pr * d)); CAM.pr = renderer.getPixelRatio(); if (POST.resize) POST.resize(); } } } if (ms < 250) { QUAL.slowAcc += ms; QUAL.slowN++; } if (QUAL.slowN >= 600) { const avg = QUAL.slowAcc / QUAL.slowN; QUAL.slowAcc = 0; QUAL.slowN = 0; if (avg > 36 && !QUAL.suggested && (QUAL.level === "high" || QUAL.level === "ultra") && !FLY.on) { QUAL.suggested = true; applyQuality("medium", true); setStatus("Switched to Medium quality for a smoother frame rate · change it under SETTINGS"); } } }
   // adaptive resolution: if frames run long, drop the pixel ratio a notch; raise it again when there is headroom
   if (!FLY.on) { if (!CAM.pr) CAM.pr = renderer.getPixelRatio(); CAM.prAcc += now - lastT + dt * 1000; CAM.prN++; if (CAM.prN >= 120) { const avg = CAM.prAcc / CAM.prN; CAM.prAcc = 0; CAM.prN = 0; const cap = Math.min(devicePixelRatio, 1.5); let pr = CAM.pr; if (avg > 21 && pr > 0.85) pr = Math.max(0.85, pr - 0.25); else if (avg < 11 && pr < cap) pr = Math.min(cap, pr + 0.25); if (pr !== CAM.pr) { CAM.pr = pr; renderer.setPixelRatio(pr); resize(); } } }
   if (FLY.on) updateFlyIn(dt);
@@ -1717,7 +1749,7 @@ function frame() {
     }
     for (const [id, a] of avatars) if (!view.players[id]) { scene.remove(a.g); avatars.delete(id); }
   }
-  SWAY.t.value = now / 1000; updateLots(); updateTutorial(now); updateSfx(dt); updateFauna(dt, now); updateGuide(dt, now); updateZone(dt); if ((FRAME_N & 1) === 0 || $("#mm").classList.contains("big")) drawMinimap(); updateSky(dt); updateAudio(dt); updateDetails(dt, now); updateVoice(now); updateNPC(dt, now); updateDrag(now); updateLightPool();
+  SWAY.t.value = now / 1000; updateLots(); updateTutorial(now); updateSfx(dt); updateFauna(dt, now); updateGuide(dt, now); updateZone(dt); if ((FRAME_N & 1) === 0 || $("#mm").classList.contains("big")) drawMinimap(); updateSky(dt); updateCSM(); updateAudio(dt); updateDetails(dt, now); updateVoice(now); updateNPC(dt, now); updateDrag(now); updateLightPool();
   renderFrame();
 }
 
@@ -2603,15 +2635,15 @@ function updateFX(dt, now) {
 const QUAL_DEF = {
   low: { pr: 0.75, shadow: 0, shadowEvery: 3, ao: false, bloom: false, rays: false, refl: 0, range: 0.55, grass: false, pebbles: false, label: "Low · no shadows, short view range" },
   medium: { pr: 1.0, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, rays: false, refl: 4, range: 0.8, grass: true, pebbles: true, label: "Medium · 2K shadows, bloom, no god rays" },
-  high: { pr: 1.25, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, rays: true, refl: 3, range: 1.0, grass: true, pebbles: true, label: "High · the default look" },
-  ultra: { pr: 1.5, shadow: 4096, shadowEvery: 1, ao: false, bloom: true, rays: true, refl: 1, range: 1.3, grass: true, pebbles: true, label: "Ultra · shadows every frame, longest view range" },
+  high: { pr: 1.25, shadow: 2048, shadowEvery: 2, ao: false, bloom: true, rays: true, refl: 3, range: 1.0, grass: true, pebbles: true, csm: 3, csmFar: 420, label: "High · cascaded shadows, the default look" },
+  ultra: { pr: 1.5, shadow: 2048, shadowEvery: 1, ao: false, bloom: true, rays: true, refl: 1, range: 1.3, grass: true, pebbles: true, csm: 4, csmFar: 700, label: "Ultra · four shadow cascades every frame, longest view range" },
 };
 const QUAL = { level: localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) ? "medium" : "high"), q: null, slowAcc: 0, slowN: 0, suggested: false }; QUAL.q = QUAL_DEF[QUAL.level] || QUAL_DEF.high;
 function applyQuality(level, silent) {
   const q = QUAL_DEF[level] || QUAL_DEF.high; QUAL.level = level; QUAL.q = q; if (!silent) localStorage.setItem("g1:quality", level);
-  if (typeof renderer !== "undefined") { renderer.setPixelRatio(Math.min(devicePixelRatio, q.pr)); CAM.pr = renderer.getPixelRatio(); if (POST.resize) POST.resize(); const wantShadow = q.shadow > 0; if (renderer.shadowMap.enabled !== wantShadow) { renderer.shadowMap.enabled = wantShadow; sun.castShadow = wantShadow; scene.traverse((o) => { if (o.material) { for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.needsUpdate = true; } }); } if (wantShadow && sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } renderer.shadowMap.needsUpdate = true; }
+  QUAL.dyn = 1; if (typeof renderer !== "undefined") { renderer.setPixelRatio(Math.min(devicePixelRatio, q.pr)); CAM.pr = renderer.getPixelRatio(); if (POST.resize) POST.resize(); const wantShadow = q.shadow > 0; if (renderer.shadowMap.enabled !== wantShadow) { renderer.shadowMap.enabled = wantShadow; sun.castShadow = wantShadow; scene.traverse((o) => { if (o.material) { for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.needsUpdate = true; } }); } if (wantShadow && sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } renderer.shadowMap.needsUpdate = true; }
   if (typeof INSTSET !== "undefined") { for (const S of INSTSET) S.R = rangeFor(S.kind) * q.range; cullAt = 0; } if (typeof NEAR !== "undefined" && NEAR.grass) NEAR.grass.visible = q.grass;
-  document.querySelectorAll("#settings .qbtn").forEach((b) => b.classList.toggle("on", b.dataset.q === level)); const lab = $("#q-label"); if (lab) lab.textContent = q.label; if (!silent) setStatus("quality: " + level);
+  scene.traverse((o) => { if (o.userData && o.userData.blob) o.userData.blob.visible = !q.shadow; }); if (typeof CSMX !== "undefined" && CSMX.csm && (!!q.csm) !== CSMX.on && !silent) setStatus("quality saved · reload the page to switch the shadow mode"); document.querySelectorAll("#settings .qbtn").forEach((b) => b.classList.toggle("on", b.dataset.q === level)); const lab = $("#q-label"); if (lab) lab.textContent = q.label; if (!silent) setStatus("quality: " + level);
 }
 var POST = { on: !/nopost/.test(location.search), sunUV: new THREE.Vector2(0.5, 0.5), sunVis: 0, hazeCol: new THREE.Color(0xe7d6bd), sunCol: new THREE.Color(1, 0.8, 0.6) };
 function initPost() {
