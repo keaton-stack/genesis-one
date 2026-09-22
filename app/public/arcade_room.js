@@ -96,7 +96,7 @@
     if (typeof SCREEN !== "undefined") {
       SCREEN.lava = SCREEN.lava || { x: 0, y: 1.2, z: 0, w: 1, h: 1, tilt: 0, eyeAt: [0, 1.6, 1.0] };
       SCREEN.jackpot = SCREEN.jackpot || { x: 0, y: 1.5, z: 0, w: 1, h: 1, tilt: 0, eyeAt: [0, 1.55, 2.4] };
-      SCREEN.grab = SCREEN.grab || { x: 0, y: 1.35, z: 0.35, w: 0.7, h: 0.8, tilt: 0, eyeAt: [0, 1.5, 1.35] };
+      SCREEN.grab = SCREEN.grab || { x: 0, y: 1.5, z: 0, w: 0.7, h: 0.8, tilt: 0, eyeAt: [0, 1.62, 1.55] };
     }
   }
   // machines set M.hint; updateArcade shows it in place of the default key legend while it is set
@@ -154,7 +154,7 @@
     return M;
   }
 
-  // The real claw: a gantry, carriage and three-finger claw inside the open cabinet, nine plush balls in the bin
+  // The real claw: a gantry, carriage and three-finger claw inside the open cabinet; the catchable plush sit on top of the model's own plush pile (dims.y0 is the pile top)
   function ClawMachine(def, opts, cg, dims) {
     const bw = dims.w, bd = dims.d, y0 = dims.y0, y1 = dims.y1; const mech = new THREE.Group(); cg.add(mech);
     const steel = chrome(); const railM = matte(0x1a1a22, 0.5);
@@ -229,8 +229,9 @@
     if (MODELS.prizecounter) { const pc = makeModel("prizecounter"); pc.position.set(half - 12, 0.05, -half + 1.5); g.add(pc); } else { H.B(9, 1.05, 0.9, dark, half - 12, 0.52, -half + 3.2); H.B(9, 0.06, 1.0, steel, half - 12, 1.07, -half + 3.2); H.B(9, 2.2, 0.35, dark, half - 12, 1.1, -half + 0.4); for (let k = 0; k < 3; k++) H.B(8.6, 0.05, 0.5, steel, half - 12, 1.4 + k * 0.6, -half + 0.6); const cols = [0xff9180, 0xf4cd5a, 0x4dde6f, 0x8fd8ff, 0xc7b6ff, 0xff9e4a]; for (let k = 0; k < 3; k++) for (let i = 0; i < 12; i++) { const m = new THREE.MeshStandardMaterial({ color: cols[(i + k) % cols.length], roughness: 0.95 }); H.add(new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), m), half - 16 + i * 0.7, 1.58 + k * 0.6, -half + 0.6); } }
     // the two screen claws flank the prize counter; the two open-cabinet claws by the door are the real ones (Drop 2)
     const clawDef = ARCADE.byId("claw"); if (clawDef) { R.placeCab(g, "claw", clawDef, 9, -half + 2.4, 0, you); R.placeCab(g, "claw", clawDef, 12.5, -half + 2.4, 0, you); }
+    if (MODELS.claw2) cutPlayfield("claw2", { hw: 0.45, z0: 0.5, z1: -0.5, y0: 1.28, y1: 1.85 });
     if (MODELS.claw2) for (const sx of [-1, 1]) { const c = makeModel("claw2"); c.position.set(sx * 7.5, 0.05, half - 4.2); const ry = sx < 0 ? Math.PI / 2 : -Math.PI / 2; c.rotation.y = ry; g.add(c); sign(g, "REAL CLAW", NEON.mag, 1.6, sx * 7.5, 2.55, half - 4.2, ry, { px: 8, blink: 1.3 });
-      const md = MODELS.claw2; const dims = { w: Math.max(0.2, md.sx * 0.36), d: Math.max(0.16, md.sz * 0.32), y0: md.height * 0.42, y1: md.height * 0.8 }; const M = ClawMachine(DEFS2.grab, { you, best: bestFor("grab"), onOver: arcadeOver, onStart: () => sfx("arc_start") }, c, dims); D2.claws.push(M); ARC.cabs.push({ kind: "grab", def: DEFS2.grab, M, tex: null, g: c, scr: null, lx: sx * 7.5, lz: half - 4.2, ry, i: ARC.cabs.length }); }
+      const md = MODELS.claw2; const dims = { w: Math.max(0.2, md.sx * 0.34), d: Math.max(0.16, md.sz * 0.30), y0: md.height * 0.575, y1: md.height * 0.8 }; const M = ClawMachine(DEFS2.grab, { you, best: bestFor("grab"), onOver: arcadeOver, onStart: () => sfx("arc_start") }, c, dims); D2.claws.push(M); ARC.cabs.push({ kind: "grab", def: DEFS2.grab, M, tex: null, g: c, scr: null, lx: sx * 7.5, lz: half - 4.2, ry, i: ARC.cabs.length }); }
     // ── Jump Zone on the right wall: three Jumpin' Jackpot towers (light column on the face, pad toward the aisle), rubber floor
     { const fl = new THREE.Mesh(new THREE.PlaneGeometry(10, 16), rubber); fl.rotation.x = -Math.PI / 2; fl.position.set(half - 5.2, 0.055, -3); g.add(fl); for (let i = 0; i < 3; i++) { const z = -9 + i * 6; const tg = new THREE.Group(); tg.position.set(half - 3.2, 0.05, z); tg.rotation.y = -Math.PI / 2; g.add(tg); let faceZ = 0.3; if (MODELS.jackpot) { const t = makeModel("jackpot"); tg.add(t); R.towers.push(t); faceZ = Math.max(0.12, MODELS.jackpot.sz * 0.5 + 0.02); } else { const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.6, 0.5), dark); b.position.set(0, 1.3, -1.8); tg.add(b); faceZ = -1.53; } const pad = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 1.4), neonMat(NEON.gold, 1.2)); pad.position.set(0, 0.03, 2.4); pad.userData.noSolid = true; tg.add(pad);
         const M = JackpotMachine(DEFS2.jackpot, { you, best: bestFor("jackpot"), onOver: arcadeOver, onStart: () => sfx("arc_start") }, tg, faceZ); D2.jacks.push(M); ARC.cabs.push({ kind: "jackpot", def: DEFS2.jackpot, M, tex: null, g: tg, scr: null, lx: half - 3.2, lz: z, ry: -Math.PI / 2, i: ARC.cabs.length }); } sign(g, "JUMPIN' JACKPOT", NEON.red, 4.5, half - 0.22, 3.0, -3, -Math.PI / 2, { px: 8, blink: 0.9 }); }
