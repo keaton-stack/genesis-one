@@ -73,4 +73,17 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
 - [x] buildings: window masks painted by GPT Image on two orthographic views per building, projected onto the atlas in
       Cycles (scripts/project_mask.py) and stored in the ORM B channel; the client hook renders a parallax room
       interior with per-window random warm lights at night and glassy roughness by day (26 kinds)
+- [x] pass 3 (22 Sep 2026, after the user reported shattered, chrome-looking buildings in game): root cause was the
+      Blender export dropping tangents (export_tangents=False), so three.js rebuilt per-triangle tangent frames from
+      screen derivatives and the baked normal maps (large corrections across the smoothed hard edges of decimated
+      buildings) read as facets. Every processed GLB (LOD0, LOD1, far LOD, characters, accessories) was re-exported with
+      MikkTSpace tangents (scripts/retangent.py); gltfpack keeps TANGENT for primitives with a normal map. Packs grew
+      about 20 % (float tangents, -noq kept). The window hook was rewritten (patch_client_v2c.py): world-space room grid
+      from the derivative face normal (vertex normals are bent on decimated walls) and a small interior-mapping box, dark
+      tinted glass with a sky reflection by day, warm random-lit rooms at night; texture fetch kept out of divergent
+      branches. Window masks re-baked with a walls-only gate (|world normal z| < 0.55) so roofs, decks and pools painted
+      by the mask model drop out; dome, glamp and observatory left the window set (23 kinds). PBR statics: metalness cap
+      0.45 and a roughness floor of 0.3 (addRoughFloor) so Meshy metallic parts stop mirroring the sky probe.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
+- [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
+      tangent growth; needs a collider and fit smoke test first

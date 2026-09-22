@@ -293,17 +293,59 @@ const MODEL_SPECS = {
 const MODELS = {}, PLACE = {}, COLLIDERS = [], INST = {};
 // windows: kinds whose ORM texture carries a window mask in the B channel (baked in Blender from painted view masks).
 // The hook turns masked texels into a parallax room interior, glassy roughness by day and warm lit windows at night.
-const WIN = { kinds: new Set(["artpav", "bank", "barn", "casita", "chapel", "clubhouse", "diner", "dome", "fbo", "flagship", "gallery", "glamp", "hangar", "hangarhome", "home", "hotel", "lakehouse", "manor", "observatory", "ranch", "restaurant", "saloon", "store", "terminal", "tower", "villa"]), u: { uNight: { value: 0 }, uTime: { value: 0 }, uRoom: { value: null } } };
+const WIN = { kinds: new Set(["artpav", "bank", "barn", "casita", "chapel", "clubhouse", "diner", "fbo", "flagship", "gallery", "hangar", "hangarhome", "home", "hotel", "lakehouse", "manor", "ranch", "restaurant", "saloon", "store", "terminal", "tower", "villa"]), u: { uNight: { value: 0 }, uTime: { value: 0 }, uRoom: { value: null } } };
+// GLSL for the window hook. World-space room grid + interior box so the interiors stay put on the wall whatever the atlas layout.
+const WIN_GLSL = {
+  vpars: "varying vec3 vWPos;",
+  vmain: "{ vec4 wp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp = instanceMatrix * wp;\n#endif\n vWPos = (modelMatrix * wp).xyz; }",
+  fpars: "uniform float uNight; uniform float uTime; uniform sampler2D uRoom; varying vec3 vWPos;\nfloat winHash(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }",
+  metal: "float metalnessFactor = 0.0; float vWin = 0.0; float winRnd = 0.0; float winLit = 0.0; vec3 winCol = vec3(0.0); vec3 winLamp = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif\n roughnessFactor = mix(max(roughnessFactor, 0.3), 0.08, vWin);",
+  room: [
+    "{",
+    " vec3 N = normalize(floor(normalize(cross(dFdx(vWPos), dFdy(vWPos))) * 2.0 + 0.5)); vec3 up = abs(N.y) < 0.85 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);",
+    " vec3 T = normalize(cross(up, N)); vec3 B = cross(N, T);",
+    " vec3 V = normalize(vWPos - cameraPosition); vec3 d = vec3(dot(V, T), dot(V, B), dot(V, N)); d.z = min(d.z, -0.06);",
+    " float cs = 3.0; vec2 pw = vec2(dot(vWPos, T), dot(vWPos, B) + 0.4) / cs; vec2 cell = floor(pw); vec2 p = fract(pw);",
+    " winRnd = winHash(cell + floor(N.xz * 5.0));",
+    " float depth = 0.42; float tz = depth / -d.z; float tx = (d.x > 0.0 ? 1.0 - p.x : p.x) / max(abs(d.x), 1e-4); float ty = (d.y > 0.0 ? 1.0 - p.y : p.y) / max(abs(d.y), 1e-4);",
+    " float t = min(tz, min(tx, ty)); vec3 hit = vec3(p, 0.0) + d * t; float z = clamp(-hit.z / depth, 0.0, 1.0);",
+    " vec2 ruv = vec2(0.5); float shade = 1.0; float wall = 0.0;",
+    " if (t == tz) { ruv = hit.xy; shade = 1.0; }",
+    " else if (t == tx) { wall = 1.0; shade = 0.55 + 0.35 * (1.0 - z); }",
+    " else if (d.y > 0.0) { wall = 1.0; shade = 0.4 + 0.2 * (1.0 - z); }",
+    " else { wall = 1.0; shade = 0.5 + 0.3 * (1.0 - z); }",
+    " if (winRnd > 0.5) ruv.x = 1.0 - ruv.x;",
+    " vec3 room = mix(texture2D(uRoom, clamp(ruv, 0.002, 0.998)).rgb, vec3(0.62, 0.47, 0.32), wall) * shade;",
+    " winLit = step(0.45, winHash(cell * 1.7 + 3.1 + floor(N.xz * 5.0)));",
+    " float flick = 0.92 + 0.08 * sin(uTime * 2.3 + winRnd * 40.0);",
+    " vec3 tint = mix(vec3(1.0, 0.9, 0.78), vec3(0.95, 0.97, 1.0), fract(winRnd * 3.0) * 0.6);",
+    " winCol = room * tint; winLamp = winCol * flick * winLit;",
+    " normal = normalize(mix(normal, normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition))), vWin));",
+    "}"].join("\n"),
+  emis: [
+    "{",
+    " vec3 dayGlass = winCol * 0.16 * vec3(0.85, 0.92, 1.0) + vec3(0.02, 0.03, 0.045);",
+    " vec3 nightGlass = mix(winCol * 0.04, winCol * 0.9, winLit);",
+    " diffuseColor.rgb = mix(diffuseColor.rgb, mix(dayGlass, nightGlass, uNight), vWin);",
+    " totalEmissiveRadiance = mix(totalEmissiveRadiance, winLamp * 0.65 * uNight, vWin);",
+    "}"].join("\n")
+};
 function addWindows(mat) {
-  mat.defines = Object.assign(mat.defines || {}, { USE_UV: "" }); mat.metalness = 1; mat.userData.win = true;
+  mat.metalness = 1; mat.userData.win = true;
   mat.onBeforeCompile = (sh) => { sh.uniforms.uNight = WIN.u.uNight; sh.uniforms.uTime = WIN.u.uTime; sh.uniforms.uRoom = WIN.u.uRoom;
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\n" + WIN_GLSL.vpars)
+      .replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n" + WIN_GLSL.vmain);
     sh.fragmentShader = sh.fragmentShader
-      .replace("uniform vec3 diffuse;", "uniform vec3 diffuse; uniform float uNight; uniform float uTime; uniform sampler2D uRoom;")
-      .replace("#include <metalnessmap_fragment>", "float metalnessFactor = 0.0; float vWin = 0.0; float winLit = 0.0; float winRnd = 0.0; vec3 winCol = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif")
-      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n")
-      .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n if (vWin > 0.01) {\n#ifdef USE_NORMALMAP_TANGENTSPACE\n vec3 vt = normalize(transpose(tbn) * normalize(vViewPosition));\n#else\n vec3 vt = vec3(0.0, 0.0, 1.0);\n#endif\n vec2 cell = floor(vMapUv * 20.0); winRnd = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453); winLit = step(0.3, winRnd); vec2 p = fract(vMapUv * 20.0); vec3 d = -vt; d.z = min(d.z, -0.2); vec2 back = p + d.xy * (0.45 / -d.z); vec3 room = texture2D(uRoom, fract(back * 0.9 + winRnd)).rgb; float lamp = mix(0.2, 1.0, winLit); winCol = room * mix(vec3(0.55, 0.6, 0.7), vec3(1.0, 0.86, 0.66) * lamp, uNight); roughnessFactor = mix(roughnessFactor, 0.15, vWin); }")
-      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n if (vWin > 0.01) { diffuseColor.rgb = mix(diffuseColor.rgb, winCol * (1.0 - 0.75 * uNight), vWin); totalEmissiveRadiance = mix(totalEmissiveRadiance, winCol * (1.9 + 0.12 * sin(uTime * 2.7 + winRnd * 40.0)) * uNight * winLit, vWin); }");
+      .replace("uniform vec3 diffuse;", "uniform vec3 diffuse;\n" + WIN_GLSL.fpars)
+      .replace("#include <metalnessmap_fragment>", WIN_GLSL.metal)
+      .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + WIN_GLSL.room)
+      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n" + WIN_GLSL.emis);
   };
+}
+// generated PBR statics without windows: keep Meshy's metallic parts from turning into mirrors under the sky probe
+function addRoughFloor(mat) {
+  mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n roughnessFactor = max(roughnessFactor, 0.3);"); };
 }
 WIN.u.uRoom.value = tiled("/tex/room.jpg", 1, 1);
 const DOOR_KINDS = ["arcade", "manor", "terminal", "lakehouse", "glamp", "flagship", "artpav", "hangar", "clubhouse", "saloon", "hotel", "diner", "fbo", "store", "barn", "chapel", "gallery", "hangarhome", "bank", "restaurant", "villa", "ranch"];
@@ -333,7 +375,7 @@ async function loadModels() {
       const spec = MODEL_SPECS[k]; const s = spec.raw ? 1 : spec.height ? spec.height / sz.y : spec.size / Math.max(sz.x, sz.z);
       const norm = spec.raw ? new THREE.Matrix4() : new THREE.Matrix4().makeRotationY(spec.rot || 0).multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-c.x, -box.min.y, -c.z));
       const parts = [];
-      root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); const mat = wrapMat(o.material); mat.side = THREE.DoubleSide; mat.transparent = false; mat.depthWrite = true; const hasPbr = !!(mat.roughnessMap || mat.metalnessMap); if (spec.vehicle) { mat.roughness = 0.42; mat.metalness = 0.45; mat.envMapIntensity = 1.0; } else if (hasPbr) { mat.roughness = 1.0; mat.metalness = 0.55; if (mat.normalMap) mat.normalScale.set(1, 1); } else { mat.roughness = 0.8; mat.metalness = 0; } if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 8; mat.emissiveMap = mat.map; mat.emissive = new THREE.Color(0xffb870); mat.emissiveIntensity = 0; } if (!spec.prop && !spec.vehicle) buildingMats.push(mat); if (spec.sway) addSway(mat, spec.sway); if (WIN.kinds.has(k) && mat.metalnessMap) addWindows(mat); parts.push({ geometry: geo, material: mat }); });
+      root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); const mat = wrapMat(o.material); mat.side = THREE.DoubleSide; mat.transparent = false; mat.depthWrite = true; const hasPbr = !!(mat.roughnessMap || mat.metalnessMap); if (spec.vehicle) { mat.roughness = 0.42; mat.metalness = 0.45; mat.envMapIntensity = 1.0; } else if (hasPbr) { mat.roughness = 1.0; mat.metalness = 0.45; if (mat.normalMap) mat.normalScale.set(1, 1); } else { mat.roughness = 0.8; mat.metalness = 0; } if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 8; mat.emissiveMap = mat.map; mat.emissive = new THREE.Color(0xffb870); mat.emissiveIntensity = 0; } if (!spec.prop && !spec.vehicle) buildingMats.push(mat); if (spec.sway) addSway(mat, spec.sway); else if (WIN.kinds.has(k) && mat.metalnessMap) addWindows(mat); else if (hasPbr && !spec.vehicle) addRoughFloor(mat); parts.push({ geometry: geo, material: mat }); });
       MODELS[k] = { parts, norm, bottom: box.min.y, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: spec.prop || spec.vehicle ? 0 : baseLift(parts, Math.max(sz.x, sz.z) * s) }; setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); if (!spec.vehicle) loadLod(loader, k);
     }, undefined, () => { setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); });
   })));
