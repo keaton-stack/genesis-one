@@ -43,6 +43,11 @@ const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
 const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80, brace: 120 };
 // the arcade: a credit costs ARCADE_PLAY, a prize is whatever the cabinet paid out, capped; high scores keep the top eight per game
 const ARCADE_PLAY = 20, ARCADE_CAP = 60, ARCADE_BOARD = 8; const ARCADE_RE = /^[a-z]{2,12}$/;
+// shared attractions: one Lava Room round at a time (phases pushed by the starter's client), and two air-hockey tables with a host and a challenger
+const LAVA_STALE = 300, LAVA_PHASES = ["count", "warn", "lava", "rest", "over"], LAVA_HOT_RE = /^[0-9a-f]{0,40}$/;
+const HOCKEY_TABLES = 2, HOCKEY_STALE = 300;
+function lavaLive(state) { const L = state.lava; return !!(L && L.phase !== "over" && state.tick - (L.tick || 0) <= LAVA_STALE); }
+function hockeyLive(state, table) { const H = (state.hockey || {})[table]; return H && H.host && state.tick - (H.tick || 0) <= HOCKEY_STALE ? H : null; }
 const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Tower"]];
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
 function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
@@ -199,6 +204,23 @@ export function validateAction(state, playerId, action) {
     if (action.op === "prize") { if (!me || !me.arcade || me.arcade.game !== action.game) return { ok: false, error: "insert a coin first" }; if (!num(action.v) || action.v < 0 || action.v > 1e7 || !num(action.p) || action.p < 0) return { ok: false, error: "bad score" }; return { ok: true }; }
     return { ok: false, error: "bad arcade op" };
   }
+  if (action.t === "lava") {
+    const L = state.lava || null; const coin = me && me.arcade && me.arcade.game === "lava";
+    if (action.op === "start") { if (lavaLive(state)) return { ok: false, error: "a round is already running" }; if (!coin) return { ok: false, error: "insert a coin first" }; return { ok: true }; }
+    if (action.op === "phase") { if (!L || L.by !== playerId || L.phase === "over") return { ok: false, error: "not your round" }; if (!LAVA_PHASES.includes(action.phase) || action.phase === "count") return { ok: false, error: "bad phase" }; if (!Number.isInteger(action.wave) || action.wave < 0 || action.wave > 99) return { ok: false, error: "bad wave" }; if (action.hot !== undefined && (typeof action.hot !== "string" || !LAVA_HOT_RE.test(action.hot))) return { ok: false, error: "bad tiles" }; return { ok: true }; }
+    if (action.op === "join") { if (!lavaLive(state) || L.phase !== "count") return { ok: false, error: "no round to join" }; if (L.players && L.players[playerId]) return { ok: false, error: "already in" }; if (!coin) return { ok: false, error: "insert a coin first" }; return { ok: true }; }
+    if (action.op === "out") { if (!L || !L.players || !L.players[playerId] || !L.players[playerId].alive) return { ok: false, error: "not in the round" }; return { ok: true }; }
+    return { ok: false, error: "bad lava op" };
+  }
+  if (action.t === "hockey") {
+    if (!Number.isInteger(action.table) || action.table < 0 || action.table >= HOCKEY_TABLES) return { ok: false, error: "no such table" };
+    const H = hockeyLive(state, action.table); const coin = me && me.arcade && me.arcade.game === "airhockey";
+    if (action.op === "host") { if (H && H.host !== playerId && state.players[H.host]) return { ok: false, error: "that table is taken" }; if (action.end !== 0 && action.end !== 1) return { ok: false, error: "bad end" }; if (!coin) return { ok: false, error: "insert a coin first" }; return { ok: true }; }
+    if (action.op === "join") { if (!H || H.host === playerId) return { ok: false, error: "nobody is hosting that table" }; if (H.guest && H.guest !== playerId && state.players[H.guest]) return { ok: false, error: "that table is full" }; if (action.end !== 0 && action.end !== 1) return { ok: false, error: "bad end" }; if (action.end === H.hostEnd) return { ok: false, error: "take the other end" }; if (!coin) return { ok: false, error: "insert a coin first" }; return { ok: true }; }
+    if (action.op === "leave") { const T = (state.hockey || {})[action.table]; if (!T || (T.host !== playerId && T.guest !== playerId)) return { ok: false, error: "not at that table" }; return { ok: true }; }
+    if (action.op === "ping") { const T = (state.hockey || {})[action.table]; if (!T || T.host !== playerId) return { ok: false, error: "not your table" }; return { ok: true }; }
+    return { ok: false, error: "bad hockey op" };
+  }
   if (action.t === "quest") {
     if (!Number.isInteger(action.step) || action.step < 0 || action.step > 4) return { ok: false, error: "bad step" };
     if (((me && me.quest) || 0) !== action.step) return { ok: false, error: "step already claimed" };
@@ -236,7 +258,7 @@ export function applyAction(state, playerId, action) {
   let boards = state.boards || { golf: [], course: [], obby: [], drag: [] }; let arcade = state.arcade || {};
   let lots = state.lots || defaultLots();
   let props = state.props || [];
-  let av = state.av || null, duel = state.duel || null;
+  let av = state.av || null, duel = state.duel || null; let lava = state.lava || null, hockey = state.hockey || {};
   if (action.t === "move") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -333,6 +355,17 @@ export function applyAction(state, playerId, action) {
     if (action.op === "coin") { me.coins = (me.coins || 0) - ARCADE_PLAY; me.arcade = { game: action.game, tick }; me.xp = (me.xp || 0) + 2; }
     else { const prize = Math.min(ARCADE_CAP, Math.round(action.p)); me.coins = (me.coins || 0) + prize; me.xp = (me.xp || 0) + 5 + Math.round(prize / 4); me.arcade = null; me.plays = (me.plays || 0) + 1;
       const list = [...((state.arcade || {})[action.game] || []), { by: me.name, v: Math.round(action.v), tick }]; list.sort((a, b) => b.v - a.v); arcade = { ...(state.arcade || {}), [action.game]: list.slice(0, ARCADE_BOARD) }; }
+  } else if (action.t === "lava") {
+    if (action.op === "start") lava = { by: playerId, phase: "count", wave: 0, hot: "", tick, players: { [playerId]: { alive: true, waves: 0, name: me.name } } };
+    else if (action.op === "phase") { const ps = { ...(lava.players || {}) }; if (action.phase === "over") for (const id in ps) if (ps[id].alive) ps[id] = { ...ps[id], alive: false, waves: action.wave }; lava = { ...lava, phase: action.phase, wave: action.wave, hot: action.hot === undefined ? lava.hot : action.hot, tick, players: ps }; }
+    else if (action.op === "join") lava = { ...lava, tick, players: { ...(lava.players || {}), [playerId]: { alive: true, waves: 0, name: me.name } } };
+    else if (action.op === "out") lava = { ...lava, tick, players: { ...lava.players, [playerId]: { ...lava.players[playerId], alive: false, waves: lava.wave } } };
+  } else if (action.t === "hockey") {
+    const T = hockey[action.table] || null;
+    if (action.op === "host") hockey = { ...hockey, [action.table]: { host: playerId, hostEnd: action.end, guest: null, tick } };
+    else if (action.op === "join") hockey = { ...hockey, [action.table]: { ...T, guest: playerId, tick } };
+    else if (action.op === "leave") { if (T && T.host === playerId) { hockey = { ...hockey }; delete hockey[action.table]; } else if (T) hockey = { ...hockey, [action.table]: { ...T, guest: null, tick } }; }
+    else if (action.op === "ping") hockey = { ...hockey, [action.table]: { ...T, tick } };
   } else if (action.t === "quest") {
     me.quest = action.step + 1; me.coins = (me.coins || 0) + 25; me.xp = (me.xp || 0) + 15;
   } else if (action.t === "name") {
@@ -352,7 +385,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel, arcade };
+  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel, arcade, lava, hockey };
 }
 
 export function isGameOver() {
@@ -361,5 +394,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, lava: state.lava || null, hockey: state.hockey || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
 }

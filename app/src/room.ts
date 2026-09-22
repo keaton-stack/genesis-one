@@ -329,7 +329,7 @@ export class Room extends DurableObject<Env> {
         game.status = "over";
         game.result = end;
       }
-      const kind = (msg.action as { t?: unknown }).t; const light = kind === "move" || kind === "drive" || kind === "ball" || kind === "tick";
+      const kind = (msg.action as { t?: unknown }).t; const light = kind === "move" || kind === "drive" || kind === "ball" || kind === "tick" || kind === "lava" || kind === "hockey";
       await this.save(game, conns, !light);
       this.wantBroadcast = true;
       return [];
