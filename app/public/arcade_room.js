@@ -25,7 +25,7 @@
   // ───────── LED tile floor (the Lava Room), instanced boxes with HDR per-tile colour ─────────
   const LED_PAL = [[0.2, 0.55, 2.4], [2.4, 0.35, 1.9], [0.25, 2.2, 0.9], [2.4, 1.2, 0.2], [0.2, 1.8, 2.4]];
   function ledFloor(g, cx, cz, n, tile) { const gap = 0.05; const geo = new THREE.BoxGeometry(tile - gap, 0.06, tile - gap); const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }); const im = new THREE.InstancedMesh(geo, mat, n * n); im.userData.noSolid = true; const M4 = new THREE.Matrix4(); const C = new THREE.Color(); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { M4.makeTranslation(cx + (i - (n - 1) / 2) * tile, 0.08, cz + (j - (n - 1) / 2) * tile); im.setMatrixAt(i * n + j, M4); C.setRGB(0.2, 0.2, 0.3); im.setColorAt(i * n + j, C); } g.add(im); const base = new THREE.Mesh(new THREE.PlaneGeometry(n * tile + 0.6, n * tile + 0.6), matte(0x07070c, 0.7)); base.rotation.x = -Math.PI / 2; base.position.set(cx, 0.052, cz); g.add(base); R.led = { im, n, tile, cx, cz, t: 0, lava: -1, lavaT: 0, seed: 7 }; return im; }
-  function ledUpdate(dt) { const L = R.led; if (!L) return; L.t += dt; const n = L.n, C = new THREE.Color(); L.lavaT -= dt; if (L.lavaT <= 0) { L.lavaT = 5 + Math.random() * 4; L.lava = Math.floor(Math.random() * 4); L.seed = Math.floor(Math.random() * 1e6); L.lavaOn = 1.6; } if (L.lavaOn > 0) L.lavaOn -= dt; const wave = L.t * 0.8; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const k = i * n + j; const h = ((i * 73856093) ^ (j * 19349663) ^ L.seed) >>> 0; const ph = (h % 1000) / 1000; const idx = (Math.floor(wave + (i + j) * 0.18 + ph * 2) + (h % 5)) % LED_PAL.length; const p = LED_PAL[idx]; const pulse = 0.55 + 0.45 * Math.sin(wave * 3 + (i - j) * 0.5 + ph * 6.28); let r = p[0] * pulse, gg = p[1] * pulse, b = p[2] * pulse; if (L.lavaOn > 0 && (h % 4) === L.lava) { const q = Math.min(1, L.lavaOn / 0.4) * (0.6 + 0.4 * Math.sin(L.t * 18)); r = 2.6 * q + r * (1 - q); gg = 0.15 * q + gg * (1 - q); b = 0.05 * q + b * (1 - q); } C.setRGB(r, gg, b); L.im.setColorAt(k, C); } L.im.instanceColor.needsUpdate = true; }
+  function ledUpdate(dt) { const L = R.led; if (!L) return; if (L.mode === "round" || L.mode === "over") return ledRound(L, dt); L.t += dt; const n = L.n, C = new THREE.Color(); L.lavaT -= dt; if (L.lavaT <= 0) { L.lavaT = 5 + Math.random() * 4; L.lava = Math.floor(Math.random() * 4); L.seed = Math.floor(Math.random() * 1e6); L.lavaOn = 1.6; } if (L.lavaOn > 0) L.lavaOn -= dt; const wave = L.t * 0.8; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const k = i * n + j; const h = ((i * 73856093) ^ (j * 19349663) ^ L.seed) >>> 0; const ph = (h % 1000) / 1000; const idx = (Math.floor(wave + (i + j) * 0.18 + ph * 2) + (h % 5)) % LED_PAL.length; const p = LED_PAL[idx]; const pulse = 0.55 + 0.45 * Math.sin(wave * 3 + (i - j) * 0.5 + ph * 6.28); let r = p[0] * pulse, gg = p[1] * pulse, b = p[2] * pulse; if (L.lavaOn > 0 && (h % 4) === L.lava) { const q = Math.min(1, L.lavaOn / 0.4) * (0.6 + 0.4 * Math.sin(L.t * 18)); r = 2.6 * q + r * (1 - q); gg = 0.15 * q + gg * (1 - q); b = 0.05 * q + b * (1 - q); } C.setRGB(r, gg, b); L.im.setColorAt(k, C); } L.im.instanceColor.needsUpdate = true; }
 
   // ───────── 3D pinball: real table geometry, 2D physics on the incline, Machine-compatible ─────────
   const PF = { w: 0.50, len: 1.10, tilt: 0.115, r: 0.0135 };
@@ -80,6 +80,117 @@
     M.step(0, {}); return M;
   }
 
+  // ───────── Drop 2: Floor Is Lava rounds, Jumpin' Jackpot, the real claw ─────────
+  // Three Machine-compatible attractions (state / game / insertCoin / abort / step / onOver) that
+  // settle through the normal arcade coin + prize actions. Kind `lava` is free-roam: client.js keeps
+  // the avatar walking and passes its room-local position in inp.pos and whether it is airborne in inp.air.
+  const D2 = (R.d2 = { lava: null, jacks: [], claws: [] });
+  const DEFS2 = {
+    lava: { id: "lava", name: "FLOOR IS LAVA", tag: "Rounds", color: "#ff2d2d", blurb: "Stay off the red tiles. The waves get faster.", keys: "W A S D to move · SPACE to jump · watch the floor", prize: (s) => Math.min(60, Math.floor(s / 90)) },
+    jackpot: { id: "jackpot", name: "JUMPIN' JACKPOT", tag: "Timing", color: "#f4cd5a", blurb: "Stop the light at the top. Three shots.", keys: "SPACE to stop the light", prize: (s) => Math.min(60, Math.floor(s / 40)) },
+    grab: { id: "grab", name: "REAL CLAW", tag: "Skill", color: "#ff3ad6", blurb: "Line the claw up, drop it, hope it holds. Three drops.", keys: "W A S D move the claw · SPACE drop", prize: (s) => Math.min(60, Math.floor(s / 25)) },
+  };
+  function registerDefs() {
+    for (const k in DEFS2) if (!ARCADE.byId(DEFS2[k].id)) ARCADE.GAMES.push(DEFS2[k]);
+    if (typeof CAB_KIND !== "undefined") { CAB_KIND.lava = "lava"; CAB_KIND.jackpot = "jackpot"; CAB_KIND.grab = "grab"; }
+    if (typeof SCREEN !== "undefined") {
+      SCREEN.lava = SCREEN.lava || { x: 0, y: 1.2, z: 0, w: 1, h: 1, tilt: 0, eyeAt: [0, 1.6, 1.0] };
+      SCREEN.jackpot = SCREEN.jackpot || { x: 0, y: 1.5, z: 0, w: 1, h: 1, tilt: 0, eyeAt: [0, 1.55, 2.4] };
+      SCREEN.grab = SCREEN.grab || { x: 0, y: 1.35, z: 0.35, w: 0.7, h: 0.8, tilt: 0, eyeAt: [0, 1.5, 1.35] };
+    }
+  }
+  // machines set M.hint; updateArcade shows it in place of the default key legend while it is set
+  const hdr = (r, g, b) => new THREE.Color(r, g, b);
+  const LAVA_COL = { safe: hdr(0.12, 0.28, 0.6), warn: hdr(2.4, 0.95, 0.1), lava: hdr(2.8, 0.14, 0.05) };
+  const bestUp = (M, you, score) => { if (!M.best || score > M.best.v) M.best = { by: you || "you", v: score }; };
+
+  // Floor Is Lava: the LED grid runs rounds while a player is in; everyone else sees attract mode
+  function LavaMachine(def, opts) {
+    const g = new THREE.Group(); const M = { def, kind: "lava", g, state: "attract", t: 0, game: null, best: (opts && opts.best) || null, canvas: null, hint: null, onOver: opts && opts.onOver, onStart: opts && opts.onStart };
+    const L = () => R.led;
+    const tileOf = (pos) => { const l = L(); if (!pos || !l) return -1; const i = Math.round((pos.x - l.cx) / l.tile + (l.n - 1) / 2), j = Math.round((pos.z - l.cz) / l.tile + (l.n - 1) / 2); return i < 0 || j < 0 || i >= l.n || j >= l.n ? -1 : i * l.n + j; };
+    const reset = () => { const l = L(); if (l) { l.mode = "attract"; l.hot = null; l.lavaSet = null; } };
+    const nextWave = (G) => { const l = L(); const frac = Math.min(0.65, 0.35 + G.wave * 0.03); const set = new Uint8Array(l.n * l.n); for (let k = 0; k < set.length; k++) set[k] = Math.random() < frac ? 1 : 0; l.hot = set; l.lavaSet = null; G.phase = "warn"; G.pt = Math.max(0.6, 1.1 - G.wave * 0.05); };
+    const die = (G, why) => { G.over = true; M.state = "over"; M.t = 0; const l = L(); if (l) { l.mode = "over"; l.overT = 0; l.hot = null; l.lavaSet = null; } const score = Math.round(G.score); bestUp(M, opts && opts.you, score); M.hint = `${why} · ${G.wave} wave${G.wave === 1 ? "" : "s"} survived`; if (M.onOver) M.onOver(M, score, def.prize(score)); };
+    M.insertCoin = () => { M.game = { score: 0, over: false, wave: 0, alive: 0, phase: "count", pt: 3.2 }; M.state = "ready"; M.t = 0; const l = L(); if (l) { l.mode = "round"; l.hot = null; l.lavaSet = null; } if (M.onStart) M.onStart(M); };
+    M.abort = () => { M.game = null; M.state = "attract"; M.t = 0; M.hint = null; reset(); };
+    M.step = (dt, inp) => { M.t += dt; const G = M.game; if (!G) return; const l = L(); if (!l) return;
+      if (M.state === "ready") { G.pt -= dt; M.hint = `walk onto the tiles · first wave in ${Math.max(1, Math.ceil(G.pt))}`; if (G.pt <= 0) { M.state = "play"; M.t = 0; G.alive = 0; nextWave(G); sfx("arc_start"); } return; }
+      if (M.state === "over") { if (M.t > 4) { M.state = "attract"; M.t = 0; M.game = null; M.hint = null; reset(); } return; }
+      G.alive += dt; G.score += dt * 10; G.pt -= dt; const tile = tileOf(inp && inp.pos);
+      if (G.alive > 5 && tile < 0) return die(G, "you left the floor");
+      M.hint = tile < 0 ? "get back on the tiles!" : G.phase === "warn" ? "orange is about to burn · move!" : G.phase === "lava" ? "LAVA · stay off the red" : `wave ${G.wave} clear`;
+      if (G.phase === "warn") { if (G.pt <= 0) { G.phase = "lava"; G.pt = 1.0; l.lavaSet = l.hot; l.hot = null; sfx("bump"); } }
+      else if (G.phase === "lava") { if (tile >= 0 && l.lavaSet && l.lavaSet[tile] && !(inp && inp.air)) return die(G, "burned"); if (G.pt <= 0) { G.wave++; G.score += 100; l.lavaSet = null; G.phase = "rest"; G.pt = 0.7; sfx("blip"); } }
+      else if (G.pt <= 0) nextWave(G);
+    };
+    return M;
+  }
+  // round-mode colours for the LED floor; ledUpdate hands off here while a round is running or just ended
+  function ledRound(L, dt) { const im = L.im, n = L.n, C = new THREE.Color(); L.t += dt; const blink = 0.55 + 0.45 * Math.sin(L.t * 22); const over = L.mode === "over";
+    if (over) L.overT = (L.overT || 0) + dt;
+    for (let k = 0; k < n * n; k++) { if (over) { const f = 0.5 + 0.5 * Math.sin(L.overT * 6 + k * 0.3); C.copy(LAVA_COL.lava).multiplyScalar(0.25 + 0.5 * f); } else if (L.lavaSet && L.lavaSet[k]) C.copy(LAVA_COL.lava).multiplyScalar(0.8 + 0.3 * blink); else if (L.hot && L.hot[k]) C.copy(LAVA_COL.warn).multiplyScalar(blink); else C.copy(LAVA_COL.safe); im.setColorAt(k, C); }
+    im.instanceColor.needsUpdate = true; if (over && L.overT > 3) { L.mode = "attract"; L.overT = 0; } }
+
+  // Jumpin' Jackpot: a 24-light column on the tower face; SPACE stops the bouncing light
+  const JC = { top: hdr(3.0, 2.4, 0.4), lit: hdr(0.4, 2.6, 0.9), topDim: hdr(0.55, 0.42, 0.08), nearDim: hdr(0.32, 0.2, 0.05), dim: hdr(0.12, 0.12, 0.18) };
+  function JackpotMachine(def, opts, tg, faceZ) {
+    const N = 24, geo = new THREE.BoxGeometry(0.44, 0.06, 0.03), mat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }); const im = new THREE.InstancedMesh(geo, mat, N); im.userData.noSolid = true; const M4 = new THREE.Matrix4(), C = new THREE.Color(); for (let i = 0; i < N; i++) { M4.makeTranslation(0, 0.32 + i * 0.088, faceZ); im.setMatrixAt(i, M4); im.setColorAt(i, JC.dim); } tg.add(im);
+    const M = { def, kind: "jackpot", g: tg, state: "attract", t: 0, game: null, best: (opts && opts.best) || null, canvas: null, hint: null, onOver: opts && opts.onOver, onStart: opts && opts.onStart };
+    const paint = (lit, hold, flash) => { for (let i = 0; i < N; i++) { const top = i === N - 1; if (i === lit) C.copy(top ? JC.top : JC.lit); else if (flash) C.copy(JC.top).multiplyScalar(0.3 + 0.7 * flash); else C.copy(top ? JC.topDim : i >= N - 3 ? JC.nearDim : JC.dim); if (hold && i === lit) C.multiplyScalar(0.55 + 0.45 * Math.sin(M.t * 30)); im.setColorAt(i, C); } im.instanceColor.needsUpdate = true; };
+    const points = (i) => i === N - 1 ? 1000 : i === N - 2 ? 400 : i === N - 3 ? 200 : i * 25;
+    const shotHint = (G) => `shot ${4 - G.shots} of 3 · SPACE to stop the light`;
+    M.insertCoin = () => { M.game = { score: 0, over: false, shots: 3, pos: 0, dir: 1, speed: 13, moving: true, hold: 0, lit: -1, flash: 0 }; M.state = "ready"; M.t = 0; M.hint = shotHint(M.game); if (M.onStart) M.onStart(M); };
+    M.abort = () => { M.game = null; M.state = "attract"; M.t = 0; M.hint = null; };
+    M.step = (dt, inp) => { M.t += dt; const G = M.game;
+      if (!G) { const k = Math.floor(M.t * 10) % (N + 6); paint(k < N ? k : -1, false, 0); return; }
+      if (M.state === "ready") { if (M.t > 1.4) { M.state = "play"; M.t = 0; } paint(-1, false, 0); return; }
+      if (M.state === "over") { G.flash = Math.max(0, G.flash - dt); paint(-1, false, G.flash > 0 ? Math.sin(M.t * 12) * 0.5 + 0.5 : 0); if (M.t > 4) { M.state = "attract"; M.t = 0; M.game = null; M.hint = null; } return; }
+      if (G.moving) { G.pos += G.dir * G.speed * dt; if (G.pos >= N - 1) { G.pos = N - 1; G.dir = -1; } if (G.pos <= 0) { G.pos = 0; G.dir = 1; }
+        if (inp && inp.ja) { G.moving = false; G.hold = 1.3; const idx = Math.round(G.pos); const pts = points(idx); G.score += pts; G.lit = idx; if (idx === N - 1) { G.flash = 1.5; sfx("arc_prize"); } else sfx(pts >= 200 ? "rank" : "blip"); M.hint = `${pts} · ${idx === N - 1 ? "JACKPOT!" : idx >= N - 3 ? "so close" : "keep going"}`; }
+        paint(Math.round(G.pos), false, 0); }
+      else { G.hold -= dt; G.flash = Math.max(0, G.flash - dt); paint(G.lit, true, G.flash); if (G.hold <= 0) { G.shots--; if (G.shots <= 0) { G.over = true; M.state = "over"; M.t = 0; const score = Math.round(G.score); bestUp(M, opts && opts.you, score); M.hint = `${score} points`; if (M.onOver) M.onOver(M, score, def.prize(score)); } else { G.moving = true; G.speed *= 1.28; G.pos = 0; G.dir = 1; G.lit = -1; M.hint = shotHint(G); } } }
+    };
+    return M;
+  }
+
+  // The real claw: a gantry, carriage and three-finger claw inside the open cabinet, nine plush balls in the bin
+  function ClawMachine(def, opts, cg, dims) {
+    const bw = dims.w, bd = dims.d, y0 = dims.y0, y1 = dims.y1; const mech = new THREE.Group(); cg.add(mech);
+    const steel = chrome(); const railM = matte(0x1a1a22, 0.5);
+    for (const z of [-bd, bd]) { const r = new THREE.Mesh(new THREE.BoxGeometry(bw * 2 + 0.1, 0.03, 0.03), railM); r.position.set(0, y1, z); mech.add(r); }
+    const car = new THREE.Group(); mech.add(car); const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, bd * 2 + 0.06), railM); bridge.position.y = y1; car.add(bridge);
+    const head = new THREE.Group(); car.add(head); head.position.y = y1 - 0.02; const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 1, 6), steel); head.add(cable);
+    const claw = new THREE.Group(); head.add(claw); const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.05, 12), steel); hub.position.y = -0.02; claw.add(hub);
+    const fingers = []; for (let i = 0; i < 3; i++) { const piv = new THREE.Group(); piv.rotation.y = i * 2.094; claw.add(piv); const f = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, 0.012), steel); f.position.set(0.028, -0.075, 0); f.rotation.z = 0.5; piv.add(f); fingers.push(f); }
+    const PSZ = [0.05, 0.065, 0.085], PPTS = [150, 250, 450], PODD = [0.85, 0.72, 0.55], COLS = [0xff9180, 0xf4cd5a, 0x4dde6f, 0x8fd8ff, 0xc7b6ff, 0xff9e4a, 0xff3ad6];
+    const plush = []; const spawn = (p) => { let tries = 20; do { p.x = (Math.random() * 2 - 1) * (bw - p.r - 0.02); p.z = (Math.random() * 2 - 1) * (bd - p.r - 0.02); tries--; } while (tries > 0 && (Math.hypot(p.x + bw - 0.06, p.z - bd + 0.06) < 0.13 || plush.some((q) => q !== p && q.m.visible && Math.hypot(q.x - p.x, q.z - p.z) < q.r + p.r))); p.m.position.set(p.x, y0 + p.r, p.z); p.m.visible = true; p.held = false; };
+    for (let i = 0; i < 9; i++) { const s = i % 3; const m = new THREE.Mesh(new THREE.SphereGeometry(PSZ[s], 12, 10), new THREE.MeshStandardMaterial({ color: COLS[i % COLS.length], roughness: 0.95 })); mech.add(m); const p = { m, r: PSZ[s], s, x: 0, z: 0, held: false }; plush.push(p); spawn(p); }
+    const chute = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.12), neonMat(NEON.mag, 1.6)); chute.position.set(-bw + 0.06, y0 + 0.004, bd - 0.06); mech.add(chute);
+    const M = { def, kind: "grab", g: cg, state: "attract", t: 0, game: null, best: (opts && opts.best) || null, canvas: null, hint: null, onOver: opts && opts.onOver, onStart: opts && opts.onStart };
+    const S = { x: 0, z: 0, y: y1 - 0.1, open: 1, phase: "idle", pt: 0, held: null }; const setOpen = (k) => { for (const f of fingers) f.rotation.z = 0.15 + 0.45 * k; };
+    const place = () => { car.position.x = S.x; head.position.z = S.z; claw.position.y = S.y - (y1 - 0.02); cable.scale.y = Math.max(0.01, (y1 - 0.02) - S.y); cable.position.y = -cable.scale.y / 2; setOpen(S.open); if (S.held) S.held.m.position.set(S.x, S.y - 0.09 - S.held.r * 0.4, S.z); };
+    const dropHint = (G) => `drop ${4 - G.drops} of 3 · W A S D to move · SPACE to drop`;
+    const finish = (G) => { G.over = true; M.state = "over"; M.t = 0; const score = Math.round(G.score); bestUp(M, opts && opts.you, score); M.hint = `${G.caught} of 3 caught · ${score} points`; if (M.onOver) M.onOver(M, score, def.prize(score)); };
+    M.insertCoin = () => { M.game = { score: 0, over: false, drops: 3, caught: 0 }; M.state = "ready"; M.t = 0; S.phase = "idle"; S.x = 0; S.z = 0; S.y = y1 - 0.1; S.open = 1; S.held = null; M.hint = dropHint(M.game); place(); if (M.onStart) M.onStart(M); };
+    M.abort = () => { M.game = null; M.state = "attract"; M.t = 0; M.hint = null; if (S.held) { S.held.held = false; spawn(S.held); S.held = null; } S.phase = "idle"; S.y = y1 - 0.1; S.open = 1; place(); };
+    M.step = (dt, inp) => { M.t += dt; const G = M.game;
+      if (!G) { S.x = Math.sin(M.t * 0.6) * (bw - 0.08); S.z = Math.cos(M.t * 0.45) * (bd - 0.08); S.open = 0.6 + 0.4 * Math.sin(M.t * 2); place(); return; }
+      if (M.state === "ready") { if (M.t > 1.2) { M.state = "play"; M.t = 0; } place(); return; }
+      if (M.state === "over") { if (M.t > 4) { M.state = "attract"; M.t = 0; M.game = null; M.hint = null; } return; }
+      const sp = 0.26 * dt;
+      if (S.phase === "idle") { if (inp) { if (inp.l) S.x -= sp; if (inp.r) S.x += sp; if (inp.u) S.z -= sp; if (inp.d) S.z += sp; } S.x = Math.max(-bw + 0.06, Math.min(bw - 0.06, S.x)); S.z = Math.max(-bd + 0.06, Math.min(bd - 0.06, S.z)); if (inp && inp.ja) { S.phase = "drop"; M.hint = "dropping"; sfx("arc_start"); } }
+      else if (S.phase === "drop") { S.y -= 0.5 * dt; if (S.y <= y0 + 0.075) { S.y = y0 + 0.075; S.phase = "close"; S.pt = 0.4; } }
+      else if (S.phase === "close") { S.pt -= dt; S.open = Math.max(0, S.pt / 0.4); if (S.pt <= 0) { let best = null, bd2 = 0.09; for (const p of plush) if (p.m.visible && !p.held) { const d = Math.hypot(p.x - S.x, p.z - S.z); if (d < bd2) { bd2 = d; best = p; } } if (best && Math.random() < PODD[best.s]) { best.held = true; S.held = best; sfx("rank"); M.hint = "got one · carrying it to the chute"; } else { sfx("arc_over"); M.hint = best ? "slipped out" : "missed"; } S.phase = "lift"; } }
+      else if (S.phase === "lift") { S.y += 0.5 * dt; if (S.y >= y1 - 0.1) { S.y = y1 - 0.1; S.phase = S.held ? "carry" : "done"; S.pt = 0.5; } }
+      else if (S.phase === "carry") { const tx = -bw + 0.06, tz = bd - 0.06; const dx = tx - S.x, dz = tz - S.z, d = Math.hypot(dx, dz); const stp = 0.42 * dt; if (d <= stp) { S.x = tx; S.z = tz; S.phase = "release"; S.pt = 0.5; } else { S.x += dx / d * stp; S.z += dz / d * stp; } }
+      else if (S.phase === "release") { S.pt -= dt; S.open = Math.min(1, 1 - S.pt / 0.5); if (S.pt <= 0) { const p = S.held; S.held = null; p.held = false; p.m.visible = false; G.score += PPTS[p.s]; G.caught++; sfx("arc_prize"); M.hint = `+${PPTS[p.s]}`; setTimeout(() => spawn(p), 2500); S.phase = "done"; S.pt = 0.4; } }
+      else if (S.phase === "done") { S.open = Math.min(1, S.open + dt * 3); S.pt -= dt; if (S.pt <= 0) { G.drops--; if (G.drops <= 0) finish(G); else { S.phase = "idle"; M.hint = dropHint(G); } } }
+      place();
+    };
+    place(); return M;
+  }
+
   // ───────── the room ─────────
   R.AISLES = [];
   R.build = function (g, half, hgt) {
@@ -102,6 +213,7 @@
     H.B(0.8, 1.9, 0.6, dark, -half + 2.4, 0.95, half - 3); H.label([{ text: "$GBACK", size: 90, y: 0.35, color: "#4DDE6F" }, { text: "TOKENS", size: 70, y: 0.7, color: "#f4cd5a" }], 0.7, 0.7, -half + 2.4, 1.35, half - 2.68, 0, "#0a1610", "#4DDE6F"); H.B(0.9, 2.0, 0.7, steel, -half + 3.6, 1.0, half - 3); H.B(0.8, 1.5, 0.05, glassMat(), -half + 3.6, 1.15, half - 2.64);
     for (const bx of [-9, 9]) { H.B(3, 0.1, 0.5, dark, bx, 0.48, half - 2.2); H.B(3, 0.5, 0.06, dark, bx, 0.72, half - 1.96); for (const lx of [-1.3, 1.3]) H.B(0.08, 0.45, 0.45, steel, bx + lx, 0.24, half - 2.2); }
     // ── Cabinet Row: three back-to-back islands down the centre
+    registerDefs(); D2.lava = null; D2.jacks = []; D2.claws = [];
     const uprights = ARCADE.GAMES.filter((d) => !CAB_KIND[d.id]); let ui = 0; const next = () => uprights[(ui++) % uprights.length]; const cabKind = MODELS.cab2 ? "cab2" : "cab";
     const island = (z0, n, sp) => { for (let i = 0; i < n; i++) { const lx = (i - (n - 1) / 2) * sp; R.placeCab(g, cabKind, next(), lx, z0 + 0.42, 0, you); R.placeCab(g, cabKind, next(), lx, z0 - 0.42, Math.PI, you); } R.AISLES.push(z0 + 4.5); };
     island(15, 9, 1.5); island(5, 9, 1.5); island(-5, 9, 1.5); R.AISLES.push(-9.5);
@@ -111,14 +223,17 @@
     T.seg([-half + 0.2, 2.6, 19.6], [-half + 0.2, 2.6, -1.4], NEON.mag, 0.05);
     // ── the Lava Room: LED grid fenced by a low neon rail with the gate at the front
     const LCX = -18, LCZ = -20, LN = 12, LT = 1.45; ledFloor(g, LCX, LCZ, LN, LT); const L2 = LN * LT / 2 + 0.6; const postM = matte(0x202028, 0.5); const rail = (x1, z1, x2, z2) => { T.seg([x1, 0.92, z1], [x2, 0.92, z2], NEON.red, 0.05); H.B(0.06, 0.9, 0.06, postM, x1, 0.45, z1); }; rail(LCX - L2, LCZ - L2, LCX + L2, LCZ - L2); rail(LCX + L2, LCZ - L2, LCX + L2, LCZ + L2); rail(LCX - L2, LCZ + L2, LCX - L2, LCZ - L2); rail(LCX - L2, LCZ + L2, LCX - 2, LCZ + L2); rail(LCX + 2, LCZ + L2, LCX + L2, LCZ + L2); H.B(0.06, 0.9, 0.06, postM, LCX + L2, 0.45, LCZ + L2);
-    sign(g, "ROUNDS OPEN SOON", NEON.red, 4, LCX, 1.6, LCZ + L2 + 0.05, 0, { px: 8, blink: 1.1 });
+    sign(g, "FLOOR IS LAVA · 20 $GBACK", NEON.red, 4, LCX, 1.6, LCZ + L2 + 0.05, 0, { px: 8, blink: 1.1 });
+    { const gate = new THREE.Group(); gate.position.set(LCX, 0.05, LCZ + L2 + 1.6); g.add(gate); const pad = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.9), neonMat(NEON.red, 1.4)); pad.position.set(0, 0.03, 1.0); pad.userData.noSolid = true; gate.add(pad); const M = LavaMachine(DEFS2.lava, { you, best: bestFor("lava"), onOver: arcadeOver, onStart: () => sfx("arc_start") }); D2.lava = M; ARC.cabs.push({ kind: "lava", def: DEFS2.lava, M, tex: null, g: gate, scr: null, lx: LCX, lz: LCZ + L2 + 1.6, ry: 0, i: ARC.cabs.length }); }
     // ── Prize Lane at the back right: the counter model (or the old procedural one), plush shelves
     if (MODELS.prizecounter) { const pc = makeModel("prizecounter"); pc.position.set(half - 12, 0.05, -half + 1.5); g.add(pc); } else { H.B(9, 1.05, 0.9, dark, half - 12, 0.52, -half + 3.2); H.B(9, 0.06, 1.0, steel, half - 12, 1.07, -half + 3.2); H.B(9, 2.2, 0.35, dark, half - 12, 1.1, -half + 0.4); for (let k = 0; k < 3; k++) H.B(8.6, 0.05, 0.5, steel, half - 12, 1.4 + k * 0.6, -half + 0.6); const cols = [0xff9180, 0xf4cd5a, 0x4dde6f, 0x8fd8ff, 0xc7b6ff, 0xff9e4a]; for (let k = 0; k < 3; k++) for (let i = 0; i < 12; i++) { const m = new THREE.MeshStandardMaterial({ color: cols[(i + k) % cols.length], roughness: 0.95 }); H.add(new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), m), half - 16 + i * 0.7, 1.58 + k * 0.6, -half + 0.6); } }
-    // the two playable claws flank the prize counter; the new open-cabinet claws stand by the door (real grab arrives in Drop 2)
+    // the two screen claws flank the prize counter; the two open-cabinet claws by the door are the real ones (Drop 2)
     const clawDef = ARCADE.byId("claw"); if (clawDef) { R.placeCab(g, "claw", clawDef, 9, -half + 2.4, 0, you); R.placeCab(g, "claw", clawDef, 12.5, -half + 2.4, 0, you); }
-    if (MODELS.claw2) for (const sx of [-1, 1]) { const c = makeModel("claw2"); c.position.set(sx * 7.5, 0.05, half - 4.2); c.rotation.y = sx < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(c); sign(g, "REAL CLAW · SOON", NEON.mag, 1.6, sx * 7.5, 2.55, half - 4.2, sx < 0 ? Math.PI / 2 : -Math.PI / 2, { px: 8 }); }
-    // ── Jump Zone on the right wall: three towers with their pads toward the aisle, rubber floor
-    { const fl = new THREE.Mesh(new THREE.PlaneGeometry(10, 16), rubber); fl.rotation.x = -Math.PI / 2; fl.position.set(half - 5.2, 0.055, -3); g.add(fl); for (let i = 0; i < 3; i++) { const z = -9 + i * 6; if (MODELS.jackpot) { const t = makeModel("jackpot"); t.position.set(half - 3.2, 0.05, z); t.rotation.y = -Math.PI / 2; g.add(t); R.towers.push(t); } else { H.B(0.5, 2.6, 1.6, dark, half - 1.4, 1.3, z); H.B(1.6, 0.25, 1.6, dark, half - 3.6, 0.13, z); } } sign(g, "JUMPIN' JACKPOT", NEON.red, 4.5, half - 0.22, 3.0, -3, -Math.PI / 2, { px: 8, blink: 0.9 }); }
+    if (MODELS.claw2) for (const sx of [-1, 1]) { const c = makeModel("claw2"); c.position.set(sx * 7.5, 0.05, half - 4.2); const ry = sx < 0 ? Math.PI / 2 : -Math.PI / 2; c.rotation.y = ry; g.add(c); sign(g, "REAL CLAW", NEON.mag, 1.6, sx * 7.5, 2.55, half - 4.2, ry, { px: 8, blink: 1.3 });
+      const md = MODELS.claw2; const dims = { w: Math.max(0.2, md.sx * 0.36), d: Math.max(0.16, md.sz * 0.32), y0: md.height * 0.42, y1: md.height * 0.8 }; const M = ClawMachine(DEFS2.grab, { you, best: bestFor("grab"), onOver: arcadeOver, onStart: () => sfx("arc_start") }, c, dims); D2.claws.push(M); ARC.cabs.push({ kind: "grab", def: DEFS2.grab, M, tex: null, g: c, scr: null, lx: sx * 7.5, lz: half - 4.2, ry, i: ARC.cabs.length }); }
+    // ── Jump Zone on the right wall: three Jumpin' Jackpot towers (light column on the face, pad toward the aisle), rubber floor
+    { const fl = new THREE.Mesh(new THREE.PlaneGeometry(10, 16), rubber); fl.rotation.x = -Math.PI / 2; fl.position.set(half - 5.2, 0.055, -3); g.add(fl); for (let i = 0; i < 3; i++) { const z = -9 + i * 6; const tg = new THREE.Group(); tg.position.set(half - 3.2, 0.05, z); tg.rotation.y = -Math.PI / 2; g.add(tg); let faceZ = 0.3; if (MODELS.jackpot) { const t = makeModel("jackpot"); tg.add(t); R.towers.push(t); faceZ = Math.max(0.12, MODELS.jackpot.sz * 0.5 + 0.02); } else { const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.6, 0.5), dark); b.position.set(0, 1.3, -1.8); tg.add(b); faceZ = -1.53; } const pad = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 1.4), neonMat(NEON.gold, 1.2)); pad.position.set(0, 0.03, 2.4); pad.userData.noSolid = true; tg.add(pad);
+        const M = JackpotMachine(DEFS2.jackpot, { you, best: bestFor("jackpot"), onOver: arcadeOver, onStart: () => sfx("arc_start") }, tg, faceZ); D2.jacks.push(M); ARC.cabs.push({ kind: "jackpot", def: DEFS2.jackpot, M, tex: null, g: tg, scr: null, lx: half - 3.2, lz: z, ry: -Math.PI / 2, i: ARC.cabs.length }); } sign(g, "JUMPIN' JACKPOT", NEON.red, 4.5, half - 0.22, 3.0, -3, -Math.PI / 2, { px: 8, blink: 0.9 }); }
     // ── Multiplayer Corner: racers and two air-hockey table shells
     const dash = ARCADE.byId("dash"); if (dash) for (let i = 0; i < 3; i++) R.placeCab(g, "racer", dash, half - 3.4, 8 + i * 2.7, -Math.PI / 2, you);
     for (const z of [17, 21]) { const cx = half - 8; H.B(2.3, 0.12, 1.25, matte(0x0d0d14, 0.35), cx, 0.78, z); H.B(2.4, 0.06, 1.35, neonMat(NEON.cyan, 1.6), cx, 0.84, z); H.B(2.0, 0.7, 1.0, dark, cx, 0.36, z); H.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.012, 16), neonMat(NEON.red, 2)), cx, 0.85, z); for (const sx of [-0.8, 0.8]) H.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 16), neonMat(sx < 0 ? NEON.green : NEON.mag, 1.6)), cx + sx, 0.87, z); }
