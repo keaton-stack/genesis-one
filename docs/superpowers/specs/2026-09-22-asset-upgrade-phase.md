@@ -123,6 +123,21 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
       part draws only the glass, so you see through the hall). Locomotion: the 4.6 m/s move speed is a running pace, so
       a Run_02 jog clip (in place, 0.73 s cycle, JOG_SPEED 3.0) covers it and Casual_Walk_inplace covers slow motion;
       RunFast stays for sprint.
+- [x] pass 8 (23 Sep 2026, "windows still fragmented, walk is a jog, hands broken"): windows are geometry now.
+      Per building: scripts/win_elev.py renders four straight-on elevations plus the projected window mask from the
+      same cameras; win_rects.py closes the mask, splits merged runs at profile valleys, keeps boxes whose masked pixels
+      are mostly cool (glass) and tightens each box to those pixels (doors and shutters drop out); win_quads.py casts
+      rays from each camera to find pane depth and wall normal, builds a quad per rectangle, dedupes across views;
+      glb_addglass.py appends a "glass" mesh (pane uv, COLOR_0 random shared by touching panes) to LOD0, LOD1 and the
+      nowin copies; run_windows.py chains it (22 kinds, the terminal keeps its see-through mask). The client gives the
+      glass mesh a reflective tinted material: sky-biased reflection normal, fresnel alpha, per-window warm room glow at
+      night, no shadows; walls of window kinds render plain (no hook). The mask hook and room photo are gone.
+      Environment probe: PMREMGenerator.fromScene clips at far=100 by default and the sky sphere sits at 1000, so the
+      probe had always been black (a chrome test sphere rendered as a black ball); now far=5000, environmentIntensity
+      0.7, generated statics metalness cap 0.3. Characters: the re-rig for the walk/jog clips put the left hand bone
+      142 deg off the body's rig, so those tracks landed in the wrong frame; scripts/retarget_clip.py transfers local
+      rotations through per-bone frame deltas (R_A = C_parent * R_B * inv(C_i)); walk covers normal move speed at a
+      calm cadence (timescale <= 1.3), the jog only bridges walk and sprint.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first
