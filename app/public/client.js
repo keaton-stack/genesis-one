@@ -298,60 +298,53 @@ const MODELS = {}, PLACE = {}, COLLIDERS = [], INST = {};
 // windows: kinds whose ORM texture carries a window mask in the B channel (baked in Blender from painted view masks).
 // The hook turns masked texels into a parallax room interior, glassy roughness by day and warm lit windows at night.
 const WIN = { kinds: new Set(["artpav", "bank", "barn", "casita", "chapel", "clubhouse", "diner", "fbo", "flagship", "gallery", "hangar", "hangarhome", "home", "hotel", "lakehouse", "manor", "ranch", "restaurant", "saloon", "store", "terminal", "tower", "villa"]), u: { uNight: { value: 0 }, uTime: { value: 0 }, uRoom: { value: null } } };
-// GLSL for the window hook. World-space room grid + interior box so the interiors stay put on the wall whatever the atlas layout.
+// GLSL for the window hook. World-space pane grid from the face normal; the mask (ORM blue) marks glass texels.
 const WIN_GLSL = {
   vpars: "varying vec3 vWPos;",
   vmain: "{ vec4 wp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp = instanceMatrix * wp;\n#endif\n vWPos = (modelMatrix * wp).xyz; }",
-  fpars: "uniform float uNight; uniform float uTime; uniform sampler2D uRoom; varying vec3 vWPos;\nfloat winHash(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }",
+  fpars: "uniform float uNight; uniform float uTime; varying vec3 vWPos;\nfloat winHash(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }",
   metal: "float metalnessFactor = 0.0; float vWin = 0.0; float winRnd = 0.0; float winLit = 0.0; vec3 winCol = vec3(0.0); vec3 winLamp = vec3(0.0);\n#ifdef USE_METALNESSMAP\n vWin = smoothstep(0.35, 0.65, texture2D( metalnessMap, vMetalnessMapUv ).b);\n#endif\n roughnessFactor = mix(max(roughnessFactor, 0.3), 0.12, vWin); metalnessFactor = 0.2 * vWin;",
   room: [
     "{",
     " vec3 N = normalize(floor(normalize(cross(dFdx(vWPos), dFdy(vWPos))) * 2.0 + 0.5)); vec3 up = abs(N.y) < 0.85 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);",
     " vec3 T = normalize(cross(up, N)); vec3 B = cross(N, T);",
-    " vec3 V = normalize(vWPos - cameraPosition); vec3 d = vec3(dot(V, T), dot(V, B), dot(V, N)); d.z = min(d.z, -0.06);",
     " float cs = 3.0; vec2 pw = vec2(dot(vWPos, T), dot(vWPos, B) + 0.4) / cs; vec2 cell = floor(pw); vec2 p = fract(pw);",
-    " winRnd = winHash(cell + floor(N.xz * 5.0));",
-    " float depth = 0.42; float tz = depth / -d.z; float tx = (d.x > 0.0 ? 1.0 - p.x : p.x) / max(abs(d.x), 1e-4); float ty = (d.y > 0.0 ? 1.0 - p.y : p.y) / max(abs(d.y), 1e-4);",
-    " float t = min(tz, min(tx, ty)); vec3 hit = vec3(p, 0.0) + d * t; float z = clamp(-hit.z / depth, 0.0, 1.0);",
-    " vec2 ruv = vec2(0.5); float shade = 1.0; float wall = 0.0;",
-    " if (t == tz) { ruv = hit.xy; shade = 1.0; }",
-    " else if (t == tx) { wall = 1.0; shade = 0.55 + 0.35 * (1.0 - z); }",
-    " else if (d.y > 0.0) { wall = 1.0; shade = 0.4 + 0.2 * (1.0 - z); }",
-    " else { wall = 1.0; shade = 0.5 + 0.3 * (1.0 - z); }",
-    " if (winRnd > 0.5) ruv.x = 1.0 - ruv.x;",
-    " vec3 room = mix(texture2D(uRoom, clamp(ruv, 0.002, 0.998)).rgb, vec3(0.62, 0.47, 0.32), wall) * shade;",
-    " winLit = step(0.45, winHash(cell * 1.7 + 3.1 + floor(N.xz * 5.0)));",
-    " float flick = 0.92 + 0.08 * sin(uTime * 2.3 + winRnd * 40.0);",
-    " vec3 tint = mix(vec3(1.0, 0.9, 0.78), vec3(0.95, 0.97, 1.0), fract(winRnd * 3.0) * 0.6);",
-    " winCol = room * tint; winLamp = winCol * flick * winLit;",
+    " winRnd = winHash(cell + floor(N.xz * 5.0)); winLit = step(0.42, winHash(cell * 1.7 + 3.1 + floor(N.xz * 5.0)));",
+    " float flick = 0.94 + 0.06 * sin(uTime * 2.3 + winRnd * 40.0);",
+    " vec3 tint = mix(vec3(1.0, 0.60, 0.30), vec3(1.0, 0.76, 0.48), fract(winRnd * 3.0));",
+    " float grad = 0.65 + 0.35 * (1.0 - p.y) + 0.12 * sin(p.x * 6.2832 + winRnd * 6.0);   // lamp low in the room, soft side falloff",
+    " winCol = tint * grad; winLamp = winCol * flick * winLit;",
     " normal = normalize(mix(normal, normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition))), vWin));",
     "}"].join("\n"),
   emis: [
     "{",
-    " vec3 dayGlass = diffuseColor.rgb;",
-    " vec3 nightGlass = mix(winCol * 0.04, winCol * 0.9, winLit);",
-    " diffuseColor.rgb = mix(diffuseColor.rgb, mix(dayGlass, nightGlass, uNight), vWin);",
-    " totalEmissiveRadiance = mix(totalEmissiveRadiance, winLamp * 0.65 * uNight, vWin);",
+    " vec3 nightGlass = mix(diffuseColor.rgb * 0.25, winCol * 0.10, winLit);",
+    " diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, nightGlass, uNight), vWin);",
+    " totalEmissiveRadiance = mix(totalEmissiveRadiance, winLamp * 0.16 * uNight, vWin);",
     "}"].join("\n")
 };
-function addWindows(mat) {
-  mat.metalness = 1; mat.userData.win = true;
-  mat.onBeforeCompile = (sh) => { sh.uniforms.uNight = WIN.u.uNight; sh.uniforms.uTime = WIN.u.uTime; sh.uniforms.uRoom = WIN.u.uRoom;
-    sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", "#include <common>\n" + WIN_GLSL.vpars)
-      .replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n" + WIN_GLSL.vmain);
-    sh.fragmentShader = sh.fragmentShader
-      .replace("uniform vec3 diffuse;", "uniform vec3 diffuse;\n" + WIN_GLSL.fpars)
-      .replace("#include <metalnessmap_fragment>", WIN_GLSL.metal)
-      .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + WIN_GLSL.room)
-      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n" + WIN_GLSL.emis);
-  };
+function winHookBody(sh, extraFrag) {
+  sh.uniforms.uNight = WIN.u.uNight; sh.uniforms.uTime = WIN.u.uTime;
+  sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\n" + WIN_GLSL.vpars).replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n" + WIN_GLSL.vmain);
+  sh.fragmentShader = sh.fragmentShader
+    .replace("uniform vec3 diffuse;", "uniform vec3 diffuse;\n" + WIN_GLSL.fpars)
+    .replace("#include <metalnessmap_fragment>", WIN_GLSL.metal + (extraFrag || ""))
+    .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + WIN_GLSL.room)
+    .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n" + WIN_GLSL.emis);
+}
+function addWindows(mat) { mat.metalness = 1; mat.userData.win = true; mat.onBeforeCompile = (sh) => { winHookBody(sh, ""); }; }
+// the terminal is a glass hall: the opaque pass drops the glass texels, the glass pass draws only them, see-through
+function addWindowsCut(mat) { mat.metalness = 1; mat.userData.win = true; mat.onBeforeCompile = (sh) => { winHookBody(sh, "\n if (vWin > 0.5) discard;"); }; }
+function addWindowsGlass(mat) {
+  mat.metalness = 1; mat.userData.win = true; mat.transparent = true; mat.depthWrite = false; mat.side = THREE.DoubleSide;
+  mat.onBeforeCompile = (sh) => { winHookBody(sh, "\n if (vWin <= 0.5) discard; metalnessFactor = 0.35; roughnessFactor = 0.06;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <emissivemap_fragment>\n" + WIN_GLSL.emis, "#include <emissivemap_fragment>\n{ diffuseColor.a = 0.3; diffuseColor.rgb = mix(diffuseColor.rgb * 0.7, vec3(0.5, 0.6, 0.7), 0.5); totalEmissiveRadiance = vec3(1.0, 0.85, 0.62) * 0.10 * uNight; }"); };
 }
 // generated PBR statics without windows: keep Meshy's metallic parts from turning into mirrors under the sky probe
 function addRoughFloor(mat) {
   mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n roughnessFactor = max(roughnessFactor, 0.3);"); };
 }
-WIN.u.uRoom.value = tiled("/tex/room.jpg", 1, 1);
+
 const DOOR_KINDS = ["arcade", "manor", "terminal", "lakehouse", "glamp", "flagship", "artpav", "hangar", "clubhouse", "saloon", "hotel", "diner", "fbo", "store", "barn", "chapel", "gallery", "hangarhome", "bank", "restaurant", "villa", "ranch"];
 // wind: a vertex-shader sway keyed to world position, strongest at the top of the object
 const SWAY = { t: { value: 0 } }; const swayMats = [];
@@ -379,7 +372,7 @@ async function loadModels() {
       const spec = MODEL_SPECS[k]; const s = spec.raw ? 1 : spec.height ? spec.height / sz.y : spec.size / Math.max(sz.x, sz.z);
       const norm = spec.raw ? new THREE.Matrix4() : new THREE.Matrix4().makeRotationY(spec.rot || 0).multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-c.x, -box.min.y, -c.z));
       const parts = [];
-      root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); sanitizeTangents(geo); const mat = wrapMat(o.material); mat.side = THREE.DoubleSide; mat.transparent = false; mat.depthWrite = true; const hasPbr = !!(mat.roughnessMap || mat.metalnessMap); if (spec.vehicle) { mat.roughness = 0.42; mat.metalness = 0.45; mat.envMapIntensity = 1.0; } else if (hasPbr) { mat.roughness = 1.0; mat.metalness = 0.45; if (mat.normalMap) mat.normalScale.set(1, 1); } else { mat.roughness = 0.8; mat.metalness = 0; } if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 8; mat.emissiveMap = mat.map; mat.emissive = new THREE.Color(0xffb870); mat.emissiveIntensity = 0; } if (!spec.prop && !spec.vehicle) buildingMats.push(mat); if (spec.sway) addSway(mat, spec.sway); else if (WIN.kinds.has(k) && mat.metalnessMap) addWindows(mat); else if (hasPbr && !spec.vehicle) addRoughFloor(mat); parts.push({ geometry: geo, material: mat }); });
+      root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); sanitizeTangents(geo); const mat = wrapMat(o.material); mat.side = THREE.DoubleSide; mat.transparent = false; mat.depthWrite = true; const hasPbr = !!(mat.roughnessMap || mat.metalnessMap); if (spec.vehicle) { mat.roughness = 0.42; mat.metalness = 0.45; mat.envMapIntensity = 1.0; } else if (hasPbr) { mat.roughness = 1.0; mat.metalness = 0.45; if (mat.normalMap) mat.normalScale.set(1, 1); } else { mat.roughness = 0.8; mat.metalness = 0; } if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 8; mat.emissiveMap = mat.map; mat.emissive = new THREE.Color(0xffb870); mat.emissiveIntensity = 0; } if (!spec.prop && !spec.vehicle) buildingMats.push(mat); if (spec.sway) addSway(mat, spec.sway); else if (k === "terminal" && mat.metalnessMap) { addWindowsCut(mat); const gm = mat.clone(); addWindowsGlass(gm); parts.push({ geometry: geo, material: mat }); parts.push({ geometry: geo, material: gm, noShadow: true }); return; } else if (WIN.kinds.has(k) && mat.metalnessMap) addWindows(mat); else if (hasPbr && !spec.vehicle) addRoughFloor(mat); parts.push({ geometry: geo, material: mat }); });
       MODELS[k] = { parts, norm, bottom: box.min.y, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: spec.prop || spec.vehicle ? 0 : baseLift(parts, Math.max(sz.x, sz.z) * s) }; setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); if (!spec.vehicle) loadLod(loader, k);
     }, undefined, () => { setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); });
   })));
@@ -426,7 +419,7 @@ function buildInstances() {
     const S = { kind, list, mats, insts: [], R: rangeFor(kind), rad: m.radius, h: m.height, idx: new Int32Array(list.length), n: 0 }; INSTSET.push(S);
     if (!MODEL_SPECS[kind].prop && !MODEL_SPECS[kind].vehicle) for (const e of list) AO_LIST.push([e, m]);
     if (MODEL_SPECS[kind].box) for (const e of list) { const top = MODEL_SPECS[kind].box === 1 ? m.height * e[4] : MODEL_SPECS[kind].box; addSolid(e[0], e[2], e[3], m.sx * e[4] * 0.9, m.sz * e[4] * 0.9, e[1] - 0.2, e[1] + top, "world"); }
-    for (const part of m.parts) { const inst = new THREE.InstancedMesh(part.geometry, part.material, list.length); inst.castShadow = shadowAll() || !MODEL_SPECS[kind].prop || m.height > 3; inst.receiveShadow = true; inst.frustumCulled = false; inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(inst); S.insts.push(inst); (INST[kind] || (INST[kind] = [])).push(inst); } }
+    for (const part of m.parts) { const inst = new THREE.InstancedMesh(part.geometry, part.material, list.length); inst.castShadow = !part.noShadow && (shadowAll() || !MODEL_SPECS[kind].prop || m.height > 3); inst.receiveShadow = true; inst.frustumCulled = false; inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(inst); S.insts.push(inst); (INST[kind] || (INST[kind] = [])).push(inst); } }
   for (const kind in MODELS) if (MODELS[kind].lodGeos) attachLod(kind);
   for (const S of INSTSET) S.R = rangeFor(S.kind) * QUAL.q.range;
   updateCulling(true);
@@ -1121,12 +1114,13 @@ const HORN = { at: 0 };
 function playAt(name, x, z) { if (!soundOn || !audioReady) return; const src = AUD[name]; if (!src) return; const d = player ? Math.hypot(x - player.position.x, z - player.position.z) : 0; if (d > 140) return; const a = src.cloneNode(); a.volume = Math.max(0, 1 - d / 140) * (name === "horn" ? 0.8 : 0.6) * VOL.sfx * 2.2 * VOL.master; a.play().catch(() => {}); }
 const HAIR_COLORS = [0x2a1b12, 0x6b3f22, 0xd9b26a, 0x1a1a1a];
 const OUTFITS = { outfit_flight: { shirt: 0x1f3b2c, pants: 0x1c1f24, trim: 0x4dde6f }, outfit_ranch: { shirt: 0x8a2f26, pants: 0x2f4a7a, trim: 0xe9e2d3 }, outfit_desert: { shirt: 0xd8c39a, pants: 0x6d5a3e, trim: 0x2a7a3e } };
-const CHAR = {};   // body -> { scene, clips: { walk, idle }, height }
+const CHAR = {};   // body -> { scene, clips: { walk, jog, idle, run, ... }, height }
+const JOG_SPEED = 3.0;   // metres per second the jog clip covers at timeScale 1 (measured from its root motion)
 async function loadCharacters() {
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return; const loader = gltfLoader();
   const load = (url) => new Promise((res) => loader.load(url, res, undefined, () => res(null)));
   for (const body of ["m", "f"]) {
-    const walk = await load(`${ASSET.models}/char_${body}.glb?v=${window.BUILD || 0}`); const walkc = await load(`${ASSET.models}/char_${body}_walk.glb?v=${window.BUILD || 0}`); /* walk cycle in its own clip file: the embedded generator clip only kept two keys */; if (!walk) continue; const lodg = await load(`${ASSET.models}/char_${body}_lod.glb?v=${window.BUILD || 0}`); let lodGeo = null; if (lodg) lodg.scene.traverse((o) => { if (o.isSkinnedMesh && !lodGeo) lodGeo = o.geometry; });
+    const walk = await load(`${ASSET.models}/char_${body}.glb?v=${window.BUILD || 0}`); const walkc = await load(`${ASSET.models}/char_${body}_walk.glb?v=${window.BUILD || 0}`); const jogc = await load(`${ASSET.models}/char_${body}_jog.glb?v=${window.BUILD || 0}`); /* walk cycle in its own clip file: the embedded generator clip only kept two keys */; if (!walk) continue; const lodg = await load(`${ASSET.models}/char_${body}_lod.glb?v=${window.BUILD || 0}`); let lodGeo = null; if (lodg) lodg.scene.traverse((o) => { if (o.isSkinnedMesh && !lodGeo) lodGeo = o.geometry; });
     const vq = `?v=${window.BUILD || 0}`; const idle = await load(`/models/char_${body}_idle.glb` + vq); const run = await load(`/models/char_${body}_run.glb` + vq); const jump = await load(`/models/char_${body}_jump.glb` + vq); const swim = await load(`/models/char_${body}_swim.glb` + vq); const golfc = await load(`/models/char_${body}_golf.glb` + vq); const sitc = await load(`/models/char_${body}_sit.glb` + vq); const dances = {}; for (const d of ["dance1", "dance2", "dance3", "dance4"]) { const dg = await load(`/models/char_${body}_${d}.glb` + vq); dances[d] = dg && dg.animations && dg.animations[0]; }
     const root = walk.scene; root.updateMatrixWorld(true);
     // measure the SKINNED pose (Meshy rigs keep bones in cm and geometry in m, so plain bounds are 100x off)
@@ -1146,7 +1140,7 @@ async function loadCharacters() {
         const mg = new THREE.BufferGeometry(); for (const a of attrs) { const list = lists[a]; if (!list || list.length !== skinned.length) continue; const size = list[0].itemSize; const out = new Float32Array(vcount * size); let off = 0; for (const at of list) { for (let i = 0; i < at.count; i++) for (let c = 0; c < size; c++) out[off + i * size + c] = at.getComponent(i, c); off += at.count * size; } mg.setAttribute(a, new THREE.BufferAttribute(out, size)); } mg.setIndex(idx);
         measure = new THREE.SkinnedMesh(mg, first.material); measure.bind(first.skeleton, first.bindMatrix); measure.userData.ref = first; measure.matrixWorld.copy(first.matrixWorld); }
       else if (skinned.length === 1) measure = skinned[0]; }
-    CHAR[body] = { measure, scene: root, scale: sc, yoff: -box.min.y * sc, lodGeo, clips: { walk: (walkc && walkc.animations && walkc.animations[0]) || (walk.animations && walk.animations[0]), idle: idle && idle.animations && idle.animations[0], run: run && run.animations && run.animations[0], jump: jump && jump.animations && jump.animations[0], swim: swim && swim.animations && swim.animations[0], golf: golfc && golfc.animations && golfc.animations[0], sit: sitc && sitc.animations && sitc.animations[0], dance1: dances.dance1, dance2: dances.dance2, dance3: dances.dance3, dance4: dances.dance4 } };
+    CHAR[body] = { measure, scene: root, scale: sc, yoff: -box.min.y * sc, lodGeo, clips: { jog: jogc && jogc.animations && jogc.animations[0], walk: (walkc && walkc.animations && walkc.animations[0]) || (walk.animations && walk.animations[0]), idle: idle && idle.animations && idle.animations[0], run: run && run.animations && run.animations[0], jump: jump && jump.animations && jump.animations[0], swim: swim && swim.animations && swim.animations[0], golf: golfc && golfc.animations && golfc.animations[0], sit: sitc && sitc.animations && sitc.animations[0], dance1: dances.dance1, dance2: dances.dance2, dance3: dances.dance3, dance4: dances.dance4 } };
   }
 }
 // tint the plain white shirt and dark trousers of the generated body by luminance mask
@@ -1270,6 +1264,7 @@ function buildRigged(g, look, hat, outfit, C, gear) {
   if (C.clips.walk) { acts.walk = mixer.clipAction(C.clips.walk); acts.walk.play(); acts.walk.setEffectiveWeight(0); }
   if (C.clips.idle) { acts.idle = mixer.clipAction(C.clips.idle); acts.idle.play(); acts.idle.setEffectiveWeight(1); }
   if (C.clips.run) { acts.run = mixer.clipAction(C.clips.run); acts.run.play(); acts.run.setEffectiveWeight(0); }
+  if (C.clips.jog) { acts.jog = mixer.clipAction(C.clips.jog); acts.jog.play(); acts.jog.setEffectiveWeight(0); }
   if (C.clips.jump) { acts.jump = mixer.clipAction(C.clips.jump); acts.jump.setLoop(THREE.LoopOnce, 1); acts.jump.clampWhenFinished = true; acts.jump.play(); acts.jump.setEffectiveWeight(0); }
   if (C.clips.swim) { acts.swim = mixer.clipAction(C.clips.swim); acts.swim.play(); acts.swim.setEffectiveWeight(0); }
   for (const d of ["dance1", "dance2", "dance3", "dance4"]) if (C.clips[d]) { acts[d] = mixer.clipAction(C.clips[d]); acts[d].play(); acts[d].setEffectiveWeight(0); }
@@ -1334,9 +1329,9 @@ function animateWalk(g, speed, dt) {
     if (npc) { if (!u.npcSet) { u.npcSet = true; g.traverse((o) => { if (o.isSkinnedMesh) { o.castShadow = false; u.fullGeo = o.geometry; } }); } const C = CHAR[u.body || "m"]; const wantLod = d > 22; if (C && C.lodGeo && u.fullGeo && u.lodOn !== wantLod) { u.lodOn = wantLod; g.traverse((o) => { if (o.isSkinnedMesh) o.geometry = wantLod ? C.lodGeo : u.fullGeo; }); } }
     const k = npc ? (d > 120 ? 8 : d > 60 ? 4 : d > 20 ? 2 : 1) : (d > 110 ? 4 : d > 45 ? 2 : 1); if (k > 1 && (FRAME_N % k) !== 0) return; dt *= k; }
   if (u.mixer) { u.mixer.update(dt); if (u.pedal && u.legBones) pedalPose(g, speed, dt); const A = u.acts; const air = !!u.air && !!A.jump; const k = Math.min(1, speed / 1.2); const run = A.run ? Math.max(0, Math.min(1, (speed - 5.2) / 2.5)) : 0;
-    const sw = !!u.swim && !!A.swim; const gf = !!A.golf && u.golfT && u.golfT > performance.now(); const st = !!u.sit && !!A.sit; const pd = !!u.pedal; const want = { idle: air || sw || gf || st ? 0 : pd ? 1 : 1 - k, walk: air || sw || gf || st || pd ? 0 : k * (1 - run), run: air || sw || gf || st || pd ? 0 : k * run, jump: air && !sw && !gf && !st ? 1 : 0, swim: sw ? 1 : 0, golf: gf ? 1 : 0, sit: st ? 1 : 0 }; const dn = u.dance && u.dance.until > performance.now() && A[u.dance.clip] ? u.dance.clip : null; if (dn) { for (const n in want) want[n] = 0; } for (const d of ["dance1", "dance2", "dance3", "dance4"]) if (A[d]) want[d] = dn === d ? 1 : 0; const w = u.w || (u.w = { idle: 1, walk: 0, run: 0, jump: 0, swim: 0, golf: 0, sit: 0, dance1: 0, dance2: 0, dance3: 0, dance4: 0 }); const rate = Math.min(1, dt * (gf ? 30 : 9));
+    const sw = !!u.swim && !!A.swim; const gf = !!A.golf && u.golfT && u.golfT > performance.now(); const st = !!u.sit && !!A.sit; const pd = !!u.pedal; const jog = A.jog ? Math.max(0, Math.min(1, (speed - 2.0) / 1.4)) : 0; const want = { idle: air || sw || gf || st ? 0 : pd ? 1 : 1 - k, walk: air || sw || gf || st || pd ? 0 : k * (1 - run) * (1 - jog), jog: air || sw || gf || st || pd ? 0 : k * (1 - run) * jog, run: air || sw || gf || st || pd ? 0 : k * run, jump: air && !sw && !gf && !st ? 1 : 0, swim: sw ? 1 : 0, golf: gf ? 1 : 0, sit: st ? 1 : 0 }; const dn = u.dance && u.dance.until > performance.now() && A[u.dance.clip] ? u.dance.clip : null; if (dn) { for (const n in want) want[n] = 0; } for (const d of ["dance1", "dance2", "dance3", "dance4"]) if (A[d]) want[d] = dn === d ? 1 : 0; const w = u.w || (u.w = { idle: 1, walk: 0, jog: 0, run: 0, jump: 0, swim: 0, golf: 0, sit: 0, dance1: 0, dance2: 0, dance3: 0, dance4: 0 }); const rate = Math.min(1, dt * (gf ? 30 : 9));
     for (const n in want) { w[n] += (want[n] - w[n]) * rate; if (A[n]) A[n].setEffectiveWeight(w[n]); }
-    if (A.walk) A.walk.setEffectiveTimeScale(Math.max(0.6, Math.min(1.7, speed / 1.5))); if (A.swim) A.swim.setEffectiveTimeScale(speed > 0.3 ? 1.0 : 0.5); if (A.run) A.run.setEffectiveTimeScale(Math.max(0.8, Math.min(1.5, speed / 7.5)));
+    if (A.walk) A.walk.setEffectiveTimeScale(Math.max(0.6, Math.min(1.6, speed / 1.3))); if (A.jog) A.jog.setEffectiveTimeScale(Math.max(0.7, Math.min(1.5, speed / JOG_SPEED))); if (A.swim) A.swim.setEffectiveTimeScale(speed > 0.3 ? 1.0 : 0.5); if (A.run) A.run.setEffectiveTimeScale(Math.max(0.8, Math.min(1.5, speed / 7.5)));
     if (air && !u.wasAir && A.jump) { A.jump.reset(); A.jump.time = 0.12; A.jump.play(); } u.wasAir = air;
     if (!A.idle && A.walk) A.walk.setEffectiveTimeScale(speed > 0.2 ? Math.max(0.6, speed / 1.5) : 0); return; }
   if (!u.legs) return; u.phase += dt * Math.min(12, speed * 2.4); const a = speed > 0.2 ? Math.sin(u.phase) * 0.6 : 0;

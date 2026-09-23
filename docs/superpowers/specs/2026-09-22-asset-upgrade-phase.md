@@ -115,8 +115,14 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
       look replaced every masked glass texel with a synthetic glass material, so any mask imperfection showed as a
       triangular patchwork; the day look now keeps the generator's painted glass (only a glossy sheen and a little
       metalness on masked texels) and the mask drives lit rooms at night only.
-- [ ] optional quality levers still unused: 80k triangle budget for buildings (silhouettes are still the 40k decimation),
-      2048 ORM/normal maps on desktop, UASTC colour for props and animals.
+- [x] pass 7 (23 Sep 2026): every building except the pavilion rebuilt at 80k triangles (hotel 100k, terminal 110k;
+      scripts/run_rebuild80.py drives process.py with the recorded yaw, then the re-atlas chain, masks, the saloon sign
+      and a full reinstall); desktop packs carry UASTC colour for every kind and 2048 ORM + normal maps for buildings
+      (mobile unchanged). Windows: the room photo is gone, masked glass keeps the painted albedo by day and glows as a
+      soft warm interior at night; the terminal gets real glass (the opaque pass discards the mask, a second transparent
+      part draws only the glass, so you see through the hall). Locomotion: the 4.6 m/s move speed is a running pace, so
+      a Run_02 jog clip (in place, 0.73 s cycle, JOG_SPEED 3.0) covers it and Casual_Walk_inplace covers slow motion;
+      RunFast stays for sprint.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first
