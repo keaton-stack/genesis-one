@@ -138,6 +138,17 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
       142 deg off the body's rig, so those tracks landed in the wrong frame; scripts/retarget_clip.py transfers local
       rotations through per-bone frame deltas (R_A = C_parent * R_B * inv(C_i)); walk covers normal move speed at a
       calm cadence (timescale <= 1.3), the jog only bridges walk and sprint.
+- [x] pass 9 (23 Sep 2026, "panes mesh into the walls, add first person"): every window now has geometry depth. The
+      pane sits 1.2 cm proud of the wall (the earlier 0.012 model-unit offset was 16 cm on the hotel), a "winframe"
+      mesh adds four protruding frame bars (6.5 cm wide, 4.5 cm deep, dark painted wood in the client) and a sill under
+      ordinary windows (glb_addglass.py takes metres-per-unit from win_scale.json, derived from MODEL_SPECS). Rectangle
+      fitting works in metres: panes under 35 cm and facades that are just many small patches (slat screens, mullion
+      grids) are dropped, so the gallery's slat wall is no longer covered in blue stickers. First person: O key or the
+      VIEW button (index.html #fpvbtn); fpvCamera() sits at the Head bone with the existing yaw/pitch mouse look and
+      hides the own body and label; third person resumes for riding, cart, interiors, golf and tower view.
+      Rectangle fitting also completes sparse mask components from the render's own glass pixels (cool, not bright,
+      inside the silhouette, within 35 cm) so mullioned panes with a thin projected mask still form one window, and
+      merges panes within 10 cm of each other into one rectangle before the size and noise rules.
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first
