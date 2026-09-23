@@ -152,3 +152,27 @@ Running total is kept in `genesis_data/v2/manifest.json` and checked against `ba
 - [ ] still hand work: true hair strand cards (the hair slot uses an anisotropic material instead)
 - [ ] optional: repack statics with -vpf -vtf -vn 8 (int8 normals and tangents, KHR_mesh_quantization) to claw back the
       tangent growth; needs a collider and fit smoke test first
+- [x] pass 10 (23 Sep 2026, "characters wayyy better"): four things.
+      Cart seat: the regenerated cart was 3.2 m long (real carts are 2.4), so its bench sat 1.11 m up over a 0.46 m floor
+      and a seated body was buried in the cushion with its feet through the floor; the cart is now 2.5 m (decals scaled),
+      the seated pose is measured at runtime from each body's sit clip (measureSit: butt, back plane, knees, feet, head)
+      and every cart seat (personal, shuttle driver and passenger, parked, friend's cart, shared vehicles) comes from one
+      helper (cartSeatLocal) against the measured bench (CARTG); the driver's hands reach the wheel rim by two-bone IK
+      (cartPose). Benches use the same runtime fit (the old SITFIT constants came from a clip with root drift).
+      Photoreal re-texture: the rigged bodies are kept; scripts/char_views.py renders ten straight-on ortho views (four
+      body, six head, with float depth EXRs), GPT Image 2.5 re-renders each as a photoreal photo (identity from the concept
+      sheet), scripts/char_edits_prep.py aligns each edit to its render by silhouette cross-correlation and makes the
+      weight masks, scripts/char_project.py bakes them back through each view's camera (depth-tested visibility, camera
+      facing to the third power, head views weigh four times body views, skin-slot texels that came back white or very
+      dark keep the old texture) into a 4K atlas; scripts/char_retex_install.py installs it (desktop 4096 JPEG, mobile 1024).
+      The tint shader is slot-aware now (body: shirt/pants/shoes; skin: skin; hair: hair; eyes: none).
+      Note: Cycles' camera space points +Z forward, so depth is abs(Z) in both the Eevee depth render and the bake.
+      Hairstyles: ten generated wigs (GPT Image wig photos -> Meshy 7 image-to-3D, scripts/hair_proc.py drops skin
+      faces, decimates to 6k, normalises by the outer surface: ear-level band centre at the origin, crown apex at y 0,
+      outer half-width 0.1 m, grey auto-levelled albedo) mounted in the head's upright frame from measured skull constants
+      (HAIRFIT) plus a per-style thickness and crown inset (HAIR table); loaded lazily per style; the female tail is
+      dropped under any wig; a hat hides the wig. Server accepts hair 0-11.
+      Studio + HUD: tabbed character studio (Body / Hair / Outfit, thumbnail grid, swatches with an active ring, drag to
+      turn, head framing on the hair tab) and a glass HUD (bracket corners, mono readouts, framed compass and map, key
+      chips, places rail). Test server note: the wrangler dev bundle in the scratchpad (g1dev/worker/worker.js) is a
+      one-off esbuild of app/src/worker.ts and must be rebuilt after server changes.

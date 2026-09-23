@@ -9,101 +9,172 @@
     <meta property="og:image" content="https://genesis-one.higgsfield.app/cover.png" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
     <style>
-      :root { --ink:#0a1610; --green:#4DDE6F; --deep:#2a7a3e; --cream:#f5f1e6; }
+      :root { --ink:#0a1610; --green:#4DDE6F; --deep:#2a7a3e; --cream:#f5f1e6; --gold:#f4cd5a; --glass:rgba(7,17,12,.62); --glass2:rgba(7,17,12,.8); --line:rgba(77,222,111,.3); --line2:rgba(245,241,230,.14); --dim:rgba(245,241,230,.62); }
       * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-      html,body { margin:0; height:100%; overflow:hidden; background:#0a1610; color:var(--cream);
-        font:14px/1.45 "Space Grotesk", system-ui, -apple-system, sans-serif; }
+      html,body { margin:0; height:100%; overflow:hidden; background:#0a1610; color:var(--cream); font:14px/1.45 "Space Grotesk", system-ui, -apple-system, sans-serif; }
       canvas#gl { display:block; width:100vw; height:100vh; touch-action:none; }
       .hud { position:fixed; pointer-events:none; }
       body.photo .hud, body.photo .card { display:none !important; }
-      .mono { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; letter-spacing:.18em; text-transform:uppercase; font-size:10px; }
-      #tl { left:18px; top:16px; display:flex; align-items:center; gap:12px; }
+      .mono { font-family:"JetBrains Mono", ui-monospace, Menlo, monospace; letter-spacing:.16em; text-transform:uppercase; font-size:10px; }
+      .pane { background:var(--glass); border:1px solid var(--line2); border-radius:12px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(245,241,230,.06); }
+      .brk { position:fixed; }
+      .brk::before, .brk::after { content:""; position:absolute; width:12px; height:12px; pointer-events:none; }
+      .brk::before { left:-1px; top:-1px; border-top:2px solid var(--green); border-left:2px solid var(--green); border-top-left-radius:3px; }
+      .brk::after { right:-1px; bottom:-1px; border-bottom:2px solid var(--green); border-right:2px solid var(--green); border-bottom-right-radius:3px; }
+      /* top left: identity + balance */
+      #tl { left:18px; top:16px; display:flex; align-items:center; gap:12px; padding:10px 14px 10px 12px; background:var(--glass); border:1px solid var(--line2); border-radius:12px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
       #tl img { height:34px; width:auto; filter:drop-shadow(0 2px 8px rgba(0,0,0,.6)); }
-      #tl .t { font-family:"Anton", Impact, sans-serif; font-size:22px; letter-spacing:.04em; line-height:1; text-shadow:0 2px 10px rgba(0,0,0,.6); }
-      #tl .s { color:rgba(245,241,230,.75); margin-top:3px; }
-      #tr { right:18px; top:18px; text-align:right; text-shadow:0 2px 8px rgba(0,0,0,.6); }
-      #plist { margin-top:8px; pointer-events:auto; } #plist div { cursor:pointer; padding:3px 8px; margin-top:3px; border-radius:8px; background:rgba(10,22,16,.45); color:rgba(245,241,230,.85); font-size:12px; } #plist div:hover { background:rgba(77,222,111,.35); color:#fff; }
-      #compass { left:50%; top:12px; transform:translateX(-50%); width:min(560px, 58vw); height:36px; }
+      #tl .t { font-family:"Anton", Impact, sans-serif; font-size:21px; letter-spacing:.06em; line-height:1; }
+      #tl .s { color:var(--dim); margin-top:4px; font-size:9px; }
+      #gback { font-family:"JetBrains Mono", ui-monospace, monospace !important; font-size:12px !important; letter-spacing:.08em; margin-top:7px !important; color:var(--green) !important; text-shadow:none !important; }
+      #gback::before { content:"BAL "; color:var(--dim); font-size:9px; letter-spacing:.16em; }
+      /* compass */
+      #compass { left:50%; top:12px; transform:translateX(-50%); width:min(560px, 58vw); height:38px; padding:3px 16px; background:var(--glass); border:1px solid var(--line2); border-radius:999px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+      #compass::before { content:""; position:absolute; left:50%; top:-4px; width:0; height:0; border:5px solid transparent; border-top:6px solid var(--green); transform:translateX(-50%); }
       @media (max-width: 760px) { #compass { top:auto; bottom:64px; width:min(420px, 92vw); } } #compass canvas { width:100%; height:100%; display:block; }
-      #tr b { color:var(--green); }
-      #tr button { pointer-events:auto; margin-top:8px; padding:6px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
-      #zone { left:50%; top:22px; transform:translateX(-50%); text-align:center; opacity:0; transition:opacity .5s; }
-      #zone .n { font-family:"Anton", Impact, sans-serif; font-size:34px; letter-spacing:.03em; text-shadow:0 3px 14px rgba(0,0,0,.7); }
+      /* top right: presence, readouts, controls, wallet */
+      #tr { right:18px; top:18px; text-align:right; padding:10px 12px 12px; width:min(392px, 92vw); background:var(--glass); border:1px solid var(--line2); border-radius:12px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); letter-spacing:.14em; }
+      #tr b { color:var(--green); font-size:13px; }
+      #tr > div:first-child { color:var(--dim); }
+      #coords, #clock { font-size:9.5px; }
+      #plist { margin-top:8px; pointer-events:auto; } #plist div { cursor:pointer; padding:3px 8px; margin-top:3px; border-radius:6px; background:rgba(245,241,230,.05); color:var(--cream); font-size:11px; letter-spacing:.04em; text-transform:none; } #plist div:hover { background:rgba(77,222,111,.25); color:#fff; }
+      #tr button { pointer-events:auto; margin:8px 0 0 4px; padding:6px 9px; border-radius:6px; border:1px solid var(--line2); background:rgba(245,241,230,.04); color:var(--cream); cursor:pointer; font:600 9.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.12em; text-transform:uppercase; transition:border-color .15s, color .15s, background .15s; }
+      #tr button:hover { border-color:var(--green); color:var(--green); background:rgba(77,222,111,.1); }
+      #wallet { margin-top:12px !important; padding-top:10px; border-top:1px solid var(--line2); }
+      #coins { font-family:"Anton", Impact, sans-serif; font-size:24px; letter-spacing:.04em; }
+      #wallet > div:first-child { color:var(--dim); } #wallet > div:first-child b { font-size:24px; }
+      #rank { color:var(--gold) !important; font-size:9.5px; }
+      #wallet > div:last-child { background:rgba(245,241,230,.1) !important; height:5px !important; border-radius:3px !important; position:relative; }
+      #energy { background:linear-gradient(90deg, var(--green), var(--gold)) !important; border-radius:3px; }
+      /* zone title */
+      #zone { left:50%; top:60px; transform:translateX(-50%); text-align:center; opacity:0; transition:opacity .5s; }
+      #zone .n { font-family:"Anton", Impact, sans-serif; font-size:36px; letter-spacing:.06em; text-shadow:0 3px 18px rgba(0,0,0,.75); }
+      #zone .n::after { content:""; display:block; height:2px; width:0; margin:6px auto 4px; background:linear-gradient(90deg, transparent, var(--green), transparent); transition:width .7s ease; }
+      #zone.on { opacity:1; } #zone.on .n::after { width:100%; }
       #zone .k { color:var(--green); }
-      #zone.on { opacity:1; }
-      #veh, #game { left:50%; top:78px; transform:translateX(-50%); text-align:center; display:none; text-shadow:0 2px 8px rgba(0,0,0,.7); }
+      /* vehicle + game readouts */
+      #veh, #game { left:50%; top:78px; transform:translateX(-50%); text-align:center; display:none; padding:8px 18px; background:var(--glass); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); min-width:180px; }
       #veh.on, #game.on { display:block; }
-      #veh b, #game b { font-family:"Anton", Impact, sans-serif; font-size:20px; letter-spacing:.04em; color:var(--green); }
-      #game .big { font-family:"Anton", Impact, sans-serif; font-size:30px; letter-spacing:.04em; }
-      #power { width:220px; height:8px; margin:8px auto 0; border:1px solid rgba(245,241,230,.4); border-radius:4px; overflow:hidden; display:none; }
+      #veh b, #game b { font-family:"Anton", Impact, sans-serif; font-size:22px; letter-spacing:.06em; color:var(--green); }
+      #veh div, #game div { color:var(--dim); }
+      #game .big { font-family:"Anton", Impact, sans-serif; font-size:32px; letter-spacing:.05em; color:var(--cream); }
+      #power { width:220px; height:7px; margin:8px auto 0; border:1px solid rgba(245,241,230,.35); border-radius:4px; overflow:hidden; display:none; background:rgba(0,0,0,.35); }
       #power i { display:block; height:100%; width:0; background:linear-gradient(90deg,#4DDE6F,#f4cd5a,#ff9180); }
-      #hint { left:50%; bottom:18px; transform:translateX(-50%); color:rgba(245,241,230,.78); text-shadow:0 2px 8px rgba(0,0,0,.7); white-space:nowrap; }
-      #hint kbd { display:inline-block; padding:1px 6px; border:1px solid rgba(245,241,230,.35); border-radius:5px; font:11px ui-monospace, monospace; margin:0 2px; }
-      #prompt { left:50%; bottom:64px; transform:translateX(-50%); padding:8px 14px; border-radius:999px;
-        background:rgba(10,22,16,.72); border:1px solid rgba(77,222,111,.5); color:var(--cream); opacity:0; transition:opacity .2s; }
+      /* prompt + hint */
+      #prompt { left:50%; bottom:66px; transform:translateX(-50%); padding:8px 16px 8px 10px; border-radius:999px; background:var(--glass2); border:1px solid var(--line); color:var(--cream); opacity:0; transition:opacity .2s, transform .2s; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); font-weight:600; letter-spacing:.01em; }
       #prompt.on { opacity:1; }
-      #prompt b { color:var(--green); }
-      #mm { right:18px; bottom:18px; width:184px; height:184px; border-radius:14px; overflow:hidden; pointer-events:auto; cursor:crosshair;
-        border:1px solid rgba(77,222,111,.45); box-shadow:0 10px 30px rgba(0,0,0,.5); background:#0a1610; }
+      #prompt b { display:inline-block; min-width:22px; text-align:center; padding:2px 7px; margin-right:8px; border-radius:6px; border:1px solid var(--green); background:rgba(77,222,111,.14); color:var(--green); font:700 11px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; }
+      #hint { left:50%; bottom:16px; transform:translateX(-50%); color:var(--dim); white-space:nowrap; padding:6px 12px; background:var(--glass); border:1px solid var(--line2); border-radius:999px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); font-size:9px; letter-spacing:.12em; max-width:96vw; overflow:hidden; text-overflow:ellipsis; }
+      #hint kbd { display:inline-block; padding:1px 6px; border:1px solid rgba(77,222,111,.4); background:rgba(77,222,111,.1); color:var(--green); border-radius:4px; font:600 10px "JetBrains Mono", ui-monospace, monospace; margin:0 2px; letter-spacing:.04em; }
+      /* map */
+      #mm { right:18px; bottom:18px; width:184px; height:184px; border-radius:12px; overflow:hidden; pointer-events:auto; cursor:crosshair; border:1px solid var(--line); box-shadow:0 10px 30px rgba(0,0,0,.5); background:#0a1610; }
       #mm canvas { width:100%; height:100%; display:block; }
       #mm.big { width:min(82vh,92vw); height:min(82vh,92vw); right:50%; bottom:50%; transform:translate(50%,50%); border:2px solid rgba(77,222,111,.7); box-shadow:0 20px 80px rgba(0,0,0,.6); z-index:30; }
-      #warp { right:18px; bottom:210px; display:flex; flex-direction:column; gap:6px; align-items:flex-end; pointer-events:auto; }
-      #warp button { padding:5px 10px; border-radius:8px; border:1px solid rgba(245,241,230,.3); background:rgba(10,22,16,.6); color:var(--cream); cursor:pointer; }
-      #warp button:hover { border-color:var(--green); }
-      #nav { left:50%; top:74px; transform:translateX(-50%); display:none; align-items:center; gap:10px; padding:7px 12px 7px 10px; border-radius:999px; background:rgba(10,22,16,.72); border:1px solid rgba(244,205,90,.55); pointer-events:auto; backdrop-filter:blur(6px); }
+      /* places rail */
+      #warp { right:18px; bottom:214px; display:flex; flex-direction:column; gap:4px; align-items:flex-end; pointer-events:auto; }
+      #warp::before { content:"Places"; color:var(--dim); font-size:9px; letter-spacing:.2em; margin-bottom:2px; padding-right:4px; }
+      #warp button { padding:4px 10px; border-radius:6px; border:1px solid var(--line2); background:var(--glass); color:var(--cream); cursor:pointer; font:600 9.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.1em; text-transform:uppercase; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); transition:border-color .15s, color .15s; }
+      #warp button:hover { border-color:var(--green); color:var(--green); }
+      /* guide */
+      #nav { left:50%; top:74px; transform:translateX(-50%); display:none; align-items:center; gap:10px; padding:7px 12px 7px 10px; border-radius:999px; background:var(--glass2); border:1px solid rgba(244,205,90,.55); pointer-events:auto; backdrop-filter:blur(8px); }
       #nav.on { display:flex; }
       #nav-arrow { display:inline-block; font-size:15px; line-height:1; color:#f4cd5a; transition:transform .12s linear; }
       #nav b { font-family:"Space Grotesk", system-ui, sans-serif; font-size:13px; }
-      #nav-d { color:rgba(245,241,230,.75); }
-      #nav-x { background:none; border:0; color:rgba(245,241,230,.6); cursor:pointer; font-size:13px; padding:0 2px; }
+      #nav-d { color:var(--dim); }
+      #nav-x { background:none; border:0; color:var(--dim); cursor:pointer; font-size:13px; padding:0 2px; }
       #nav-x:hover { color:var(--cream); }
-      #places { display:none; left:18px; top:50%; transform:translateY(-50%); width:236px; max-height:82vh; overflow:auto; background:rgba(10,22,16,.86); border:1px solid rgba(77,222,111,.45); border-radius:12px; padding:10px 8px; pointer-events:auto; z-index:31; backdrop-filter:blur(8px); }
+      #places { display:none; left:18px; top:50%; transform:translateY(-50%); width:236px; max-height:82vh; overflow:auto; background:var(--glass2); border:1px solid var(--line); border-radius:12px; padding:10px 8px; pointer-events:auto; z-index:31; backdrop-filter:blur(10px); }
       body.mapopen #places { display:block; }
       #places .ph { font-family:"Anton", Impact, sans-serif; font-size:16px; letter-spacing:.08em; color:var(--green); padding:4px 8px 8px; }
-      #places .pc { font-family: ui-monospace, "JetBrains Mono", monospace; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:rgba(245,241,230,.6); padding:8px 8px 3px; display:flex; align-items:center; gap:7px; }
+      #places .pc { font-family:"JetBrains Mono", ui-monospace, monospace; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); padding:8px 8px 3px; display:flex; align-items:center; gap:7px; }
       #places .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
       #places .pr { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:7px; cursor:pointer; font-family:"Space Grotesk", system-ui, sans-serif; font-size:13px; }
       #places .pr:hover { background:rgba(77,222,111,.14); }
       #places .pn { flex:1; }
-      #places .pd { font-family: ui-monospace, "JetBrains Mono", monospace; font-size:10px; color:rgba(245,241,230,.55); }
+      #places .pd { font-family:"JetBrains Mono", ui-monospace, monospace; font-size:10px; color:var(--dim); }
       #places .pw { background:rgba(245,241,230,.08); border:1px solid rgba(245,241,230,.25); color:var(--cream); border-radius:6px; padding:1px 7px; cursor:pointer; font-size:12px; }
       #places .pw:hover { border-color:var(--green); color:var(--green); }
-      #places .pf { font-size:10.5px; color:rgba(245,241,230,.5); padding:10px 8px 4px; line-height:1.4; }
-      #fine { left:18px; bottom:18px; color:rgba(245,241,230,.5); max-width:260px; font-size:11px; }
-      #status { left:18px; bottom:52px; color:rgba(245,241,230,.6); }
-      #status.err { color:#ff9180; }
+      #places .pf { font-size:10.5px; color:var(--dim); padding:10px 8px 4px; line-height:1.4; }
+      /* bottom left */
+      #fine { left:18px; bottom:18px; color:rgba(245,241,230,.42); max-width:260px; font-size:10px; }
+      #status { left:18px; bottom:48px; color:var(--dim); padding:4px 10px; background:var(--glass); border:1px solid var(--line2); border-radius:6px; backdrop-filter:blur(8px); font-size:9.5px; }
+      #status.err { color:#ff9180; border-color:rgba(255,145,128,.4); }
+      #status::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:8px; vertical-align:middle; box-shadow:0 0 8px var(--green); }
+      #status.err::before { background:#ff9180; box-shadow:0 0 8px #ff9180; }
       #chat { left:18px; bottom:80px; width:min(360px, 60vw); pointer-events:auto; display:none; }
       #chat.on { display:block; }
-      #chat input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(77,222,111,.5); background:rgba(10,22,16,.85); color:var(--cream); font:inherit; outline:none; }
+      #chat input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--glass2); color:var(--cream); font:inherit; outline:none; backdrop-filter:blur(8px); }
       #log { left:18px; bottom:120px; width:min(360px, 60vw); font-size:13px; text-shadow:0 1px 4px rgba(0,0,0,.8); }
       #log div { margin-top:3px; opacity:.9; }
       #log b { color:var(--green); }
-      .card { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(520px, 92vw);
-        background:rgba(10,22,16,.94); border:1px solid rgba(77,222,111,.4); border-radius:18px; padding:22px 24px;
-        box-shadow:0 30px 80px rgba(0,0,0,.6); display:none; z-index:20; }
+      #radio { background:var(--glass) !important; border:1px solid var(--line2) !important; backdrop-filter:blur(8px); border-radius:8px !important; font-size:10px !important; letter-spacing:.12em; }
+      /* cards */
+      .card { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(520px, 92vw); background:rgba(7,17,12,.9); border:1px solid var(--line); border-radius:16px; padding:22px 24px; box-shadow:0 30px 80px rgba(0,0,0,.6); display:none; z-index:20; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+      .card::before, .card::after { content:""; position:absolute; width:14px; height:14px; pointer-events:none; }
+      .card::before { left:-1px; top:-1px; border-top:2px solid var(--green); border-left:2px solid var(--green); border-top-left-radius:4px; }
+      .card::after { right:-1px; bottom:-1px; border-bottom:2px solid var(--green); border-right:2px solid var(--green); border-bottom-right-radius:4px; }
       .card.on { display:block; }
       #board { width:min(760px, 94vw); }
-      .card h2 { margin:0 0 6px; font-family:"Anton", Impact, sans-serif; font-weight:400; font-size:28px; letter-spacing:.03em; }
+      .card h2 { margin:0 0 6px; font-family:"Anton", Impact, sans-serif; font-weight:400; font-size:28px; letter-spacing:.04em; }
       .card .k { color:var(--green); margin-bottom:10px; }
       .card p { margin:0 0 10px; color:rgba(245,241,230,.85); }
       .card .row { display:flex; gap:8px; margin-top:12px; }
-      .card input { flex:1; padding:11px 12px; border-radius:10px; border:1px solid rgba(245,241,230,.25); background:rgba(255,255,255,.06); color:var(--cream); font:inherit; outline:none; }
+      .card input { flex:1; padding:11px 12px; border-radius:10px; border:1px solid var(--line2); background:rgba(255,255,255,.06); color:var(--cream); font:inherit; outline:none; }
       .card input:focus { border-color:var(--green); }
-      .btn { padding:11px 16px; border-radius:10px; border:0; background:var(--green); color:var(--ink); font:600 14px inherit; cursor:pointer; }
-      .btn.ghost { background:transparent; color:var(--cream); border:1px solid rgba(245,241,230,.3); }
+      .btn { padding:11px 16px; border-radius:10px; border:0; background:var(--green); color:var(--ink); font:600 14px "Space Grotesk", system-ui, sans-serif; cursor:pointer; letter-spacing:.01em; }
+      .btn:hover { filter:brightness(1.08); }
+      .btn.ghost { background:transparent; color:var(--cream); border:1px solid var(--line2); }
+      .btn.ghost:hover { border-color:var(--green); color:var(--green); filter:none; }
       #gb-list, .blist { max-height:40vh; overflow:auto; margin:8px 0; padding-right:6px; }
       #gb-list div, .blist div { padding:8px 0; border-bottom:1px solid rgba(245,241,230,.1); display:flex; justify-content:space-between; }
       #gb-list b, .blist b { color:var(--green); }
       .cols { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
       .cols h3 { margin:0; font-family:"Anton", Impact, sans-serif; font-weight:400; letter-spacing:.04em; font-size:18px; color:var(--green); }
+      /* character studio */
+      #creator.cre { left:auto; right:24px; top:50%; transform:translateY(-50%); width:min(440px, 92vw); max-height:94vh; overflow-x:hidden; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(77,222,111,.4) transparent; padding:18px 20px 16px; }
+      #creator.cre .swrow input[type=color] { flex:none; width:30px; }
+      #creator.cre.on { display:block; }
+      .cre-head { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; }
+      .cre-head h2 { margin:2px 0 0; font-size:26px; }
+      .cre-head .k { margin:0; }
+      .cre-sub { color:var(--dim); font-size:9px; text-align:right; max-width:150px; line-height:1.5; }
+      .ctabs { display:flex; gap:6px; margin:14px 0 10px; padding:4px; background:rgba(245,241,230,.05); border-radius:10px; }
+      .ctab { flex:1; padding:8px 6px; background:transparent; border:1px solid transparent; color:var(--dim); border-radius:8px; font:600 10px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; transition:all .15s; }
+      .ctab:hover { color:var(--cream); }
+      .ctab.on { background:rgba(77,222,111,.14); border-color:var(--green); color:var(--green); }
+      .cpane { display:none; } .cpane.on { display:block; }
+      #creator label { display:block; margin:12px 0 6px; color:var(--dim); font:600 9.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.16em; text-transform:uppercase; }
+      #creator label .val { color:var(--green); margin-left:8px; }
+      .seg { display:flex; gap:6px; }
+      .cb { flex:1; padding:10px; background:rgba(245,241,230,.04); border:1px solid var(--line2); color:var(--cream); border-radius:10px; cursor:pointer; font:600 13px "Space Grotesk", system-ui, sans-serif; transition:all .15s; }
+      .cb.on { background:rgba(77,222,111,.14); border-color:var(--green); color:var(--green); }
+      .rng { width:100%; accent-color:var(--green); margin:2px 0 4px; }
+      .swrow { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+      .swrow input[type=color] { width:30px; height:30px; padding:0; border:1px solid var(--line2); border-radius:50%; background:none; cursor:pointer; flex:none; margin-right:2px; }
+      .swrow input[type=color]::-webkit-color-swatch-wrapper { padding:2px; } .swrow input[type=color]::-webkit-color-swatch { border:0; border-radius:50%; }
+      .sw { width:28px; height:28px; border-radius:50%; border:2px solid rgba(255,255,255,.18); cursor:pointer; padding:0; transition:transform .12s, box-shadow .12s; }
+      .sw:hover { transform:scale(1.1); }
+      .sw.on { border-color:var(--green); box-shadow:0 0 0 2px rgba(77,222,111,.35), 0 0 12px rgba(77,222,111,.35); }
+      .hgrid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+      .hs { padding:0; background:rgba(245,241,230,.04); border:1px solid var(--line2); border-radius:10px; overflow:hidden; cursor:pointer; color:var(--cream); text-align:center; transition:border-color .15s; }
+      .hs i { display:block; height:62px; background:#15241c center 28% / cover no-repeat; }
+      .hs i.none { display:flex; align-items:center; justify-content:center; color:var(--dim); font:400 22px "Space Grotesk", sans-serif; font-style:normal; }
+      .hs span { display:block; font:600 9px/1.2 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; padding:5px 2px 6px; color:var(--dim); }
+      .hs:hover { border-color:rgba(77,222,111,.5); }
+      .hs.on { border-color:var(--green); box-shadow:inset 0 0 0 1px var(--green); } .hs.on span { color:var(--green); }
+      .note { font-size:12px; color:var(--dim); margin:14px 0 0 !important; line-height:1.5; }
+      .cre-foot { margin-top:16px; padding-top:14px; border-top:1px solid var(--line2); }
+      .cre-foot .btn.ghost { padding:9px 12px; font-size:12px; }
+      /* touch */
       #joy { left:26px; bottom:150px; width:118px; height:118px; border-radius:50%; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.35); display:none; pointer-events:auto; }
       #joy i { position:absolute; left:50%; top:50%; width:48px; height:48px; margin:-24px 0 0 -24px; border-radius:50%; background:rgba(77,222,111,.85); }
       #tbtns { right:18px; bottom:330px; display:none; flex-wrap:wrap; width:118px; justify-content:flex-end; gap:6px; pointer-events:auto; }
       #tbtns button { width:54px; height:40px; border-radius:10px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); font:600 11px inherit; }
       body.touch #joy, body.touch #tbtns { display:flex; }
       body.touch #hint, body.touch #warp { display:none; }
+      /* loading */
       #load { position:fixed; inset:0; display:grid; place-items:center; background:#0a1610; z-index:30; transition:opacity .6s; }
       #load .in { text-align:center; }
       #load .bar { width:220px; height:3px; background:rgba(245,241,230,.15); border-radius:2px; margin:14px auto 0; overflow:hidden; }
@@ -122,9 +193,9 @@
       <div class="bar"><i id="loadbar"></i></div>
     </div></div>
 
-    <div id="tl" class="hud"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
+    <div id="tl" class="hud brk"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
     <div id="compass" class="hud"><canvas id="cmp" width="900" height="56"></canvas></div>
-    <div id="tr" class="hud mono"><div><b id="online">1</b> online now</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist"></div><button id="snd">SOUND OFF</button> <button id="aud">SETTINGS</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button> <button id="emo">EMOTES</button> <button id="bikebtn">BIKE</button> <button id="cartbtn">CART</button> <button id="fpvbtn" title="First person (O)">VIEW 3RD</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
+    <div id="tr" class="hud mono brk"><div><b id="online">1</b> online now</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist"></div><button id="snd">SOUND OFF</button> <button id="aud">SETTINGS</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button> <button id="emo">EMOTES</button> <button id="bikebtn">BIKE</button> <button id="cartbtn">CART</button> <button id="fpvbtn" title="First person (O)">VIEW 3RD</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
     <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="game" class="hud mono"><b id="game-n"></b><div class="big" id="game-big"></div><div id="game-s" style="margin-top:4px"></div><div id="power"><i></i></div></div>
@@ -138,7 +209,7 @@
     <div id="log" class="hud"></div>
     <div id="chat" class="hud"><input id="chat-in" maxlength="80" placeholder="Say something to everyone on the site" autocomplete="off" /></div>
     <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">Main Street</button><button data-w="design">Design District</button><button data-w="commons">The Commons</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button><button data-w="fireside">Fireside</button><button data-w="arcade">Arcade</button></div>
-    <div id="mm" class="hud"><canvas id="mmc" width="368" height="368"></canvas></div>
+    <div id="mm" class="hud brk"><canvas id="mmc" width="368" height="368"></canvas></div>
 
     <div id="joy" class="hud"><i></i></div>
     <div id="tbtns" class="hud"><button data-k="Space">JUMP</button><button data-k="KeyC">CART</button><button data-k="KeyF">RIDE</button><button data-k="KeyE">INFO</button><button data-k="Enter">CHAT</button><button data-k="KeyL">SCORES</button><button data-k="KeyM">TOWER</button><button data-k="KeyN">TIME</button><button data-k="Digit1">WAVE</button><button data-k="KeyQ">DOWN</button></div>
@@ -164,7 +235,7 @@
     <div id="tut" class="hud" style="left:50%;top:150px;transform:translateX(-50%);width:min(520px,92vw);padding:16px 20px;border-radius:16px;background:rgba(10,22,16,.86);border:1px solid rgba(77,222,111,.5);pointer-events:auto">
       <div style="font-family:Anton,Impact,sans-serif;font-size:22px;letter-spacing:.03em" id="tut-h"></div><p id="tut-p" style="margin:6px 0 8px;color:rgba(245,241,230,.85)"></p><button class="btn ghost" id="tut-skip" style="padding:6px 12px">Skip the tutorial</button>
     </div>
-    <style>#tut { display:none; } #tut.on { display:block; } #shop-list div, #lot-list div { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(245,241,230,.1); } #creator label { display:block; margin:8px 0 4px; color:rgba(245,241,230,.75); font-size:12px; } #creator input[type=color] { width:100%; height:38px; border:0; background:none; padding:0; } #creator select { width:100%; padding:9px; border-radius:10px; background:rgba(255,255,255,.06); color:var(--cream); border:1px solid rgba(245,241,230,.25); }</style>
+    <style>#tut { display:none; } #tut.on { display:block; } #shop-list div, #lot-list div { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(245,241,230,.1); }</style>
     <div id="shop" class="card">
       <h2 id="shop-h"></h2><div class="k mono" id="shop-k"></div><div id="shop-list" class="blist"></div>
       <div class="row"><span class="mono" style="align-self:center" id="shop-coins"></span><span style="flex:1"></span><button class="btn ghost" id="shop-x">Close</button></div>
@@ -212,21 +283,25 @@
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost ebtn" data-e="wave">👋 Wave</button><button class="btn ghost ebtn" data-e="cheer">🎉 Cheer</button><button class="btn ghost ebtn" data-e="point">👉 Point</button><button class="btn ghost ebtn" data-e="sit">🪑 Sit</button></div>
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn ghost ebtn" data-e="dance1">🕺 Hip hop</button><button class="btn ghost ebtn" data-e="dance2">🙌 YMCA</button><button class="btn ghost ebtn" data-e="dance3">🐎 Gangnam</button><button class="btn ghost ebtn" data-e="dance4">💃 Shake it off</button></div>
     </div>
-    <div id="creator" class="card">
-      <h2>Your character</h2><div class="k mono">Everyone on the site sees this · changes preview live</div>
-      <style>#creator.on { left: auto !important; right: 24px !important; transform: translateY(-50%) !important; top: 50% !important; } #creator .sw { width:22px; height:22px; border-radius:6px; border:2px solid rgba(255,255,255,.25); margin:2px; cursor:pointer; padding:0; } #creator .sw:hover { border-color:#4DDE6F; } #creator .swrow { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:2px 0 8px; } #creator input[type=color] { width:34px; height:26px; border:none; background:none; padding:0; margin-right:6px; } #creator label { display:block; margin-top:6px; }</style>
-      <div class="cols" style="grid-template-columns:1fr 1fr;gap:12px">
-        <div><label>Body</label><select id="c-body"><option value="m">Man</option><option value="f">Woman</option></select>
-          <label>Height <span id="c-hv" class="mono" style="opacity:.7"></span></label><input type="range" id="c-height" min="0.88" max="1.12" step="0.01" value="1" style="width:100%" />
-          <label>Skin</label><div class="swrow"><input type="color" id="c-skin" value="#e8c19a" /><button class="sw" data-for="c-skin" data-c="#f3d9c0" style="background:#f3d9c0"></button><button class="sw" data-for="c-skin" data-c="#e8c19a" style="background:#e8c19a"></button><button class="sw" data-for="c-skin" data-c="#d9a877" style="background:#d9a877"></button><button class="sw" data-for="c-skin" data-c="#c98f63" style="background:#c98f63"></button><button class="sw" data-for="c-skin" data-c="#a86f46" style="background:#a86f46"></button><button class="sw" data-for="c-skin" data-c="#8d5a3b" style="background:#8d5a3b"></button><button class="sw" data-for="c-skin" data-c="#6b4226" style="background:#6b4226"></button><button class="sw" data-for="c-skin" data-c="#4a2c1a" style="background:#4a2c1a"></button></div>
-          <label>Hair colour</label><div class="swrow"><input type="color" id="c-hairc" value="#1c1512" /><button class="sw" data-for="c-hairc" data-c="#1c1512" style="background:#1c1512"></button><button class="sw" data-for="c-hairc" data-c="#3a2416" style="background:#3a2416"></button><button class="sw" data-for="c-hairc" data-c="#6b3f22" style="background:#6b3f22"></button><button class="sw" data-for="c-hairc" data-c="#a0522d" style="background:#a0522d"></button><button class="sw" data-for="c-hairc" data-c="#d9b26a" style="background:#d9b26a"></button><button class="sw" data-for="c-hairc" data-c="#e8e0d0" style="background:#e8e0d0"></button><button class="sw" data-for="c-hairc" data-c="#9a9a9a" style="background:#9a9a9a"></button><button class="sw" data-for="c-hairc" data-c="#b03030" style="background:#b03030"></button><button class="sw" data-for="c-hairc" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-hairc" data-c="#4dde6f" style="background:#4dde6f"></button></div>
-          <label>Hair</label><select id="c-hair"><option value="0">Natural</option><option value="1">Crop</option><option value="2">Tied back</option><option value="3">Buzz</option><option value="4">Bob</option></select></div>
-        <div><label>Shirt</label><div class="swrow"><input type="color" id="c-shirt" value="#4dde6f" /><button class="sw" data-for="c-shirt" data-c="#4dde6f" style="background:#4dde6f"></button><button class="sw" data-for="c-shirt" data-c="#f5f1e6" style="background:#f5f1e6"></button><button class="sw" data-for="c-shirt" data-c="#141414" style="background:#141414"></button><button class="sw" data-for="c-shirt" data-c="#c94a3a" style="background:#c94a3a"></button><button class="sw" data-for="c-shirt" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-shirt" data-c="#f4cd5a" style="background:#f4cd5a"></button><button class="sw" data-for="c-shirt" data-c="#d8c39a" style="background:#d8c39a"></button><button class="sw" data-for="c-shirt" data-c="#7a4a2e" style="background:#7a4a2e"></button><button class="sw" data-for="c-shirt" data-c="#8fd8ff" style="background:#8fd8ff"></button><button class="sw" data-for="c-shirt" data-c="#b46ad8" style="background:#b46ad8"></button></div>
-          <label>Pants</label><div class="swrow"><input type="color" id="c-pants" value="#2b3a4a" /><button class="sw" data-for="c-pants" data-c="#2b3a4a" style="background:#2b3a4a"></button><button class="sw" data-for="c-pants" data-c="#1c1f24" style="background:#1c1f24"></button><button class="sw" data-for="c-pants" data-c="#6d5a3e" style="background:#6d5a3e"></button><button class="sw" data-for="c-pants" data-c="#2f4a7a" style="background:#2f4a7a"></button><button class="sw" data-for="c-pants" data-c="#8a8f94" style="background:#8a8f94"></button><button class="sw" data-for="c-pants" data-c="#d8c39a" style="background:#d8c39a"></button><button class="sw" data-for="c-pants" data-c="#3a2a1c" style="background:#3a2a1c"></button><button class="sw" data-for="c-pants" data-c="#e9e2d3" style="background:#e9e2d3"></button></div>
-          <label>Shoes</label><div class="swrow"><input type="color" id="c-shoes" value="#f5f1e6" /><button class="sw" data-for="c-shoes" data-c="#f5f1e6" style="background:#f5f1e6"></button><button class="sw" data-for="c-shoes" data-c="#141414" style="background:#141414"></button><button class="sw" data-for="c-shoes" data-c="#4dde6f" style="background:#4dde6f"></button><button class="sw" data-for="c-shoes" data-c="#c94a3a" style="background:#c94a3a"></button><button class="sw" data-for="c-shoes" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-shoes" data-c="#7a4a2e" style="background:#7a4a2e"></button><button class="sw" data-for="c-shoes" data-c="#f4cd5a" style="background:#f4cd5a"></button><button class="sw" data-for="c-shoes" data-c="#8a8f94" style="background:#8a8f94"></button></div>
-          <p style="margin-top:10px;font-size:13px;opacity:.8">Hats, outfits and Giveback merch are sold at the General Store on Main Street. Press I any time for your inventory.</p></div>
+    <div id="creator" class="card cre">
+      <div class="cre-head"><div><div class="k mono">Character studio</div><h2>Your character</h2></div><div class="cre-sub mono">Everyone on the site sees this<br>Drag the view to turn around</div></div>
+      <div class="ctabs"><button class="ctab on" data-t="body">Body</button><button class="ctab" data-t="hair">Hair</button><button class="ctab" data-t="outfit">Outfit</button></div>
+      <div class="cpane on" data-t="body">
+        <label>Body</label><div class="seg"><button class="cb on" data-b="m">Man</button><button class="cb" data-b="f">Woman</button></div>
+        <label>Height <span id="c-hv" class="val"></span></label><input type="range" id="c-height" class="rng" min="0.88" max="1.12" step="0.01" value="1" />
+        <label>Skin</label><div class="swrow"><input type="color" id="c-skin" value="#e8c19a" title="Any colour" /><button class="sw" data-for="c-skin" data-c="#f3d9c0" style="background:#f3d9c0"></button><button class="sw" data-for="c-skin" data-c="#e8c19a" style="background:#e8c19a"></button><button class="sw" data-for="c-skin" data-c="#d9a877" style="background:#d9a877"></button><button class="sw" data-for="c-skin" data-c="#c98f63" style="background:#c98f63"></button><button class="sw" data-for="c-skin" data-c="#a86f46" style="background:#a86f46"></button><button class="sw" data-for="c-skin" data-c="#8d5a3b" style="background:#8d5a3b"></button><button class="sw" data-for="c-skin" data-c="#6b4226" style="background:#6b4226"></button><button class="sw" data-for="c-skin" data-c="#4a2c1a" style="background:#4a2c1a"></button></div>
       </div>
-      <div class="row"><button class="btn ghost rnd">Surprise me</button><button class="btn ghost" id="replayfly" title="Fly into the site again aboard Giveback One">Replay the fly-in</button><span style="flex:1"></span><button class="btn" id="c-go">Looks good</button></div>
+      <div class="cpane" data-t="hair">
+        <label>Style</label><div class="hgrid" id="c-hgrid"></div>
+        <label>Colour</label><div class="swrow"><input type="color" id="c-hairc" value="#1c1512" title="Any colour" /><button class="sw" data-for="c-hairc" data-c="#1c1512" style="background:#1c1512"></button><button class="sw" data-for="c-hairc" data-c="#3a2416" style="background:#3a2416"></button><button class="sw" data-for="c-hairc" data-c="#6b3f22" style="background:#6b3f22"></button><button class="sw" data-for="c-hairc" data-c="#a0522d" style="background:#a0522d"></button><button class="sw" data-for="c-hairc" data-c="#d9b26a" style="background:#d9b26a"></button><button class="sw" data-for="c-hairc" data-c="#e8e0d0" style="background:#e8e0d0"></button><button class="sw" data-for="c-hairc" data-c="#9a9a9a" style="background:#9a9a9a"></button><button class="sw" data-for="c-hairc" data-c="#b03030" style="background:#b03030"></button><button class="sw" data-for="c-hairc" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-hairc" data-c="#4dde6f" style="background:#4dde6f"></button></div>
+      </div>
+      <div class="cpane" data-t="outfit">
+        <label>Shirt</label><div class="swrow"><input type="color" id="c-shirt" value="#4dde6f" title="Any colour" /><button class="sw" data-for="c-shirt" data-c="#4dde6f" style="background:#4dde6f"></button><button class="sw" data-for="c-shirt" data-c="#f5f1e6" style="background:#f5f1e6"></button><button class="sw" data-for="c-shirt" data-c="#141414" style="background:#141414"></button><button class="sw" data-for="c-shirt" data-c="#c94a3a" style="background:#c94a3a"></button><button class="sw" data-for="c-shirt" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-shirt" data-c="#f4cd5a" style="background:#f4cd5a"></button><button class="sw" data-for="c-shirt" data-c="#d8c39a" style="background:#d8c39a"></button><button class="sw" data-for="c-shirt" data-c="#7a4a2e" style="background:#7a4a2e"></button><button class="sw" data-for="c-shirt" data-c="#8fd8ff" style="background:#8fd8ff"></button><button class="sw" data-for="c-shirt" data-c="#b46ad8" style="background:#b46ad8"></button></div>
+        <label>Pants</label><div class="swrow"><input type="color" id="c-pants" value="#2b3a4a" title="Any colour" /><button class="sw" data-for="c-pants" data-c="#2b3a4a" style="background:#2b3a4a"></button><button class="sw" data-for="c-pants" data-c="#1c1f24" style="background:#1c1f24"></button><button class="sw" data-for="c-pants" data-c="#6d5a3e" style="background:#6d5a3e"></button><button class="sw" data-for="c-pants" data-c="#2f4a7a" style="background:#2f4a7a"></button><button class="sw" data-for="c-pants" data-c="#8a8f94" style="background:#8a8f94"></button><button class="sw" data-for="c-pants" data-c="#d8c39a" style="background:#d8c39a"></button><button class="sw" data-for="c-pants" data-c="#3a2a1c" style="background:#3a2a1c"></button><button class="sw" data-for="c-pants" data-c="#e9e2d3" style="background:#e9e2d3"></button></div>
+        <label>Shoes</label><div class="swrow"><input type="color" id="c-shoes" value="#f5f1e6" title="Any colour" /><button class="sw" data-for="c-shoes" data-c="#f5f1e6" style="background:#f5f1e6"></button><button class="sw" data-for="c-shoes" data-c="#141414" style="background:#141414"></button><button class="sw" data-for="c-shoes" data-c="#4dde6f" style="background:#4dde6f"></button><button class="sw" data-for="c-shoes" data-c="#c94a3a" style="background:#c94a3a"></button><button class="sw" data-for="c-shoes" data-c="#3a6ac9" style="background:#3a6ac9"></button><button class="sw" data-for="c-shoes" data-c="#7a4a2e" style="background:#7a4a2e"></button><button class="sw" data-for="c-shoes" data-c="#f4cd5a" style="background:#f4cd5a"></button><button class="sw" data-for="c-shoes" data-c="#8a8f94" style="background:#8a8f94"></button></div>
+        <p class="note">Hats, outfits and Giveback merch are sold at the General Store on Main Street. Press I any time for your inventory.</p>
+      </div>
+      <div class="row cre-foot"><button class="btn ghost rnd">Surprise me</button><button class="btn ghost" id="replayfly" title="Fly into the site again aboard Giveback One">Replay the fly-in</button><span style="flex:1"></span><button class="btn" id="c-go">Looks good</button></div>
     </div>
     </div>
     <div id="radio" class="hud mono" style="left:18px;bottom:64px;pointer-events:auto;display:flex;gap:6px;align-items:center;background:rgba(10,22,16,.55);border:1px solid rgba(77,222,111,.35);border-radius:12px;padding:6px 10px;font-size:12px"><span style="color:#4DDE6F;font-weight:700">GBACK FM</span><button id="radio-prev" class="btn ghost" style="padding:2px 8px">&lsaquo;</button><span id="radio-n" style="min-width:110px;text-align:center;color:#f5f1e6">Genesis Radio</span><button id="radio-next" class="btn ghost" style="padding:2px 8px">&rsaquo;</button><span style="color:rgba(245,241,230,.5)">R</span></div>

@@ -123,7 +123,7 @@ export function validateAction(state, playerId, action) {
   if (action.t === "look") {
     const l = action.look; if (!l || typeof l !== "object") return { ok: false, error: "bad look" };
     for (const k of ["skin", "shirt", "pants"]) if (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k])) return { ok: false, error: "bad colour" };
-    if (l.hair !== undefined && (!num(l.hair) || l.hair < 0 || l.hair > 4)) return { ok: false, error: "bad hair" };
+    if (l.hair !== undefined && (!num(l.hair) || l.hair < 0 || l.hair > 11)) return { ok: false, error: "bad hair" };
     if (l.body !== undefined && l.body !== "m" && l.body !== "f") return { ok: false, error: "bad body" };
     for (const k of ["shoes", "hairc"]) if (l[k] !== undefined && (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k]))) return { ok: false, error: "bad colour" };
     if (l.height !== undefined && (!num(l.height) || l.height < 0.88 || l.height > 1.12)) return { ok: false, error: "bad height" };
