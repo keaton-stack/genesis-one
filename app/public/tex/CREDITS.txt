@@ -1,0 +1,10 @@
+Ground, road, concrete, rock, plaster, terrazzo, corrugated iron and plank textures: Poly Haven (polyhaven.com), CC0.
+sand2: dry_ground_rocks
+sand: gravelly_sand
+dirt: dirt
+apron: concrete_pavement
+rock: rock_face
+adobe: patterned_clay_plaster
+terrazzo: terrazzo_tiles
+corrugated: corrugated_iron_02
+wood: weathered_brown_planks

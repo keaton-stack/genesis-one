@@ -60,6 +60,31 @@ lost between the generators and the game, fixed what could be fixed in one pass,
   36 dB (UASTC 4096 scores 41 dB, visually identical) at about a fifth of the bytes, so an HD building file is
   smaller than the old 2048 UASTC one (saloon 14.8 MB against 18.2 MB).
 
+## Pass 12: fixes from the user's screenshots
+
+- **Windows where they make sense.** `win_quads2.py` replaces the window placer: a pane needs one dominant flat
+  plane (or a flat wall ring around an open hole), a near-vertical wall, must not be a door (bottom at the floor and
+  taller than 1.6 m) and, on buildings with a photo facade, must read as glass in the photo. This removed the frames
+  floating over the hangar roof, the glass on hangar doors and the panes on the saloon's plain side walls.
+  Runner `run_windows2.py`.
+- **No more pale patches.** Rejected blobs in a re-render are repaired in the photo itself with a sideways copy of the
+  same wall before projection, the rejection margin is wider, and holes left inside painted walls are filled from
+  the surrounding new texture.
+- **Standing on what is drawn.** Terrain sampling follows the terrain mesh's triangles, and every road, path, plaza
+  and carpet ribbon is rasterised into a 0.5 m walk grid that the road-lift lookup reads, so players, carts and NPCs
+  no longer sink up to 34 cm into paving.
+- **Terminal exterior.** The generated shell is hidden and a procedural building stands on its footprint: podium,
+  curtain wall with bronze mullions and an entrance portal, travertine end blocks, a timber-soffit canopy on steel
+  tree columns, and glass that traces a fake hall behind it.
+- **Fountains.** Lathe-turned travertine basins and bowls, reflective water with ripples and impact rings, falling
+  sheets, GPU spray and foam. The monolith that stood in the main fountain's centre is gone.
+- **Hair cards.** Every wig style now carries 400 to 2,000 alpha-tested strand cards grown along its shell
+  (`hair_cards_gen.py`, `hair_cards_glb.py`), with anisotropic highlights; the shell stays as the darker base layer.
+- **Character studio.** Every change autosaves.
+- **Signs.** Text planes flip on back faces, so no sign reads mirrored (the terminal EXIT sign did).
+- **Poly Haven.** CC0 photoscans replace the ground, sand, dirt road, concrete paving, rock, plaster, terrazzo,
+  corrugated iron and plank sets, matched to the old average colour and gloss (`tex/CREDITS.txt`).
+
 ## Roadmap, in order of visual payoff
 
 1. **Buildings: raw-mesh rebuild.** Checked in this pass: the raw generator buildings are confetti atlases too, so a
