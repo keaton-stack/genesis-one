@@ -38,7 +38,7 @@ window.PLAN_MODEL_SPECS = window.PLAN_MODEL_SPECS || {};
   add("bandshell",     { size: 24.0,  rot: 0, box: 1, solid: 7.0 });    // 24.0 x 12.3 x 15.5 m, stage opening +Z (south at rot 0)
   add("storefront_sl", { size: 12.0,  rot: 0, box: 1, solid: 3.5 });    // 7.8 x 5.9 x 12.0 m
   add("portal_arch",   { size: 26.0,  rot: 0, prop: true, solid: 0 });  // 26 x 9 x 10 m, passage along Z
-  add("hangarhome2",   { size: 30.8,  rot: 0, box: 1, solid: 13.5 });   // 30.8 x 10.4 x 30.0 m
+  add("hangarhome2",   { size: 30.8,  rot: 0, box: 1, solid: 13.5, door: true });   // 30.8 x 10.4 x 30.0 m; D3: enterable (the hangar home room), used for the plan hangarhome buildings via PLAN_ALIAS
   add("pilothouse",    { size: 20.32, rot: 0, box: 1, solid: 7.2 });    // 20.3 x 11.7 x 16.0 m (pylon at the back)
   add("habitat",       { size: 13.39, rot: 0, box: 1, solid: 1.5 });    // 3.35 x 4.6 x 13.4 m, hatch +Z, dome collar -Z
   add("flightdeck",    { size: 19.97, rot: 0, box: 1, solid: 5.4 });    // 20.0 x 7.2 x 12.0 m

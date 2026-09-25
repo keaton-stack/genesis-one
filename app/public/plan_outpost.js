@@ -13,7 +13,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var SK = window.PLAN_SKIP = window.PLAN_SKIP || new Set();
   function skipId(id) { if (SK && typeof SK.add === "function") SK.add(id); else if (Array.isArray(SK) && SK.indexOf(id) < 0) SK.push(id); }
   // fountains and buildings this module builds itself (A1 would otherwise put a lathe fountain or a stand-in there)
-  ["halo_mist", "launch_mist", "compass_f", "cascade", "water_table", "planet_mercury", "planet_venus", "planet_earth", "planet_mars", "planet_jupiter", "planet_saturn", "planet_uranus", "planet_neptune", "b0291", "hs:genesis_dome"].forEach(skipId);
+  ["halo_mist", "launch_mist", "compass_f", "cascade", "water_table", "planet_mercury", "planet_venus", "planet_earth", "planet_mars", "planet_jupiter", "planet_saturn", "planet_uranus", "planet_neptune", "b0291", "hs:genesis_dome", "night_f", "starfall"].forEach(skipId);
 
   // the new model kinds this module places (loadModels may load a PLAN_MODEL_SPECS kind only when something declares it)
   var NEEDS = window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || []; ["lander", "rover", "stratos", "habitat", "mission", "agave_cluster"].forEach(function (k) { if (NEEDS.indexOf(k) < 0) NEEDS.push(k); });
@@ -160,7 +160,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     safe("worldRing", worldRing); safe("worldCountdown", worldCountdown); safe("worldLaunch", worldLaunch); safe("worldDome", worldDome); safe("worldHabitats", worldHabitats);
     safe("worldObservatory", worldObservatory); safe("worldStratos", worldStratos); safe("worldLowG", worldLowG); safe("worldLaunchComplex", worldLaunchComplex);
     safe("worldCompass", worldCompass); safe("worldGates", worldGates); safe("worldFieldOfLight", worldFieldOfLight); safe("worldSunTunnels", worldSunTunnels); safe("worldSpiral", worldSpiral);
-    safe("worldGeoglyph", worldGeoglyph); safe("worldCascade", worldCascade); safe("worldPlanets", worldPlanets);
+    safe("worldGeoglyph", worldGeoglyph); safe("worldCascade", worldCascade); safe("worldPlanets", worldPlanets); safe("worldNightF", worldNightF); safe("worldStarfall", worldStarfall);
     try { PGRID.colN = 1e9; } catch (e) {}
   }
   function worldRing() { var c = OP.pos.ring; KEEPOUT.push([c[0], c[1], 27]); clearProps(c[0], c[1], 10); }
@@ -315,7 +315,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function defer() {
     if (!window.PLAN) return; var Mm = mats();
     [["ring", buildRing], ["countdown", buildCountdown], ["xeno", buildXeno], ["launch", buildLaunch], ["dome", buildDome], ["observatory", buildObservatory], ["stratos", buildStratos], ["lowg", buildLowG], ["launchComplex", buildLaunchComplex],
-      ["compass", buildCompass], ["beacon", buildBeacon], ["gates", buildGates], ["fieldOfLight", buildFieldOfLight], ["sunTunnels", buildSunTunnels], ["spiral", buildSpiral], ["geoglyph", buildGeoglyph], ["cascade", buildCascade], ["planets", buildPlanets], ["brass", buildBrass], ["dishes", buildDishes]].forEach(function (b) { safe(b[0], function () { b[1](Mm); }); });
+      ["compass", buildCompass], ["beacon", buildBeacon], ["gates", buildGates], ["fieldOfLight", buildFieldOfLight], ["sunTunnels", buildSunTunnels], ["spiral", buildSpiral], ["geoglyph", buildGeoglyph], ["cascade", buildCascade], ["planets", buildPlanets], ["brass", buildBrass], ["dishes", buildDishes], ["nightF", buildNightF], ["starfall", buildStarfall]].forEach(function (b) { safe(b[0], function () { b[1](Mm); }); });
     OP.built = true; console.log("plan_outpost: built " + Object.keys(OP.n).length + " parts, " + OP.items.length + " gated, " + OP.lights.length + " lights" + (OP.err.length ? ", " + OP.err.length + " problems" : ""));
   }
 
@@ -685,22 +685,167 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var m = b.mesh(Mm.whiteDS); if (m) { var g = new THREE.Group(); g.add(m); addGroup(g, true); gate(g, spots[0][0], spots[0][1], 900); } OP.n.dishes = spots.length;
   }
 
+  // ── D3: the Launch Complex Fountain (night_f): a flush dancing light fountain synced to the Crater Bowl show ──
+  // 25 floor jets on a dark granite pad (16 round the rim, 8 inside, one at the centre) whose heights and colours follow
+  // the act on stage (its tempo, programme and palette, from concertSet) while a set is live, breathe slowly between sets
+  // and by day, and dim with the stage for the Landing Light Pause. One Points draw for the water, one for the nozzle lights.
+  var NF = { n: 25, H: null, C: null, cur: null };
+  function worldNightF() { var f = fount("night_f"); if (!f) return; OP.pos.nightF = [f.x, f.z]; clearProps(f.x, f.z, 7.4); KEEPOUT.push([f.x, f.z, 7.6]);
+    hotspot(f.x, f.z, 9, "Launch Complex Fountain", "The Launch Complex · the dancing light fountain", "Twenty-five floor jets that dance with the Crater Bowl: while a set is on stage the water keeps the band's tempo and takes its colours, between sets it breathes slowly, and it dims with the stage whenever a jet is on approach. Walk right in: the water drains through the grating, there is no pool."); }
+  function nfJets() { var out = []; for (var i = 0; i < 16; i++) out.push({ ring: 0, i: i, a: i / 16 * TAU, r: 5.0 }); for (var k = 0; k < 8; k++) out.push({ ring: 1, i: k, a: (k + 0.5) / 8 * TAU, r: 2.8 }); out.push({ ring: 2, i: 0, a: 0, r: 0 }); return out; }
+  function buildNightF(Mm) {
+    var c = OP.pos.nightF; if (!c) return; var g = new THREE.Group(), y = surf(c[0], c[1]); var J = nfJets(); NF.J = J;
+    // the pad: dark granite, a stainless grating ring over the drain, LED rings (their own emissive map)
+    var draw = function (x, w, lit) { var k = w / 13.2, cx = w / 2; if (!lit) { x.fillStyle = "#23252a"; x.beginPath(); x.arc(cx, cx, 6.55 * k, 0, TAU); x.fill(); speckle(x, w, w, 5000, "150,150,160", 0.18); x.strokeStyle = "#8d949b"; x.lineWidth = 0.9 * k; x.beginPath(); x.arc(cx, cx, 6.1 * k, 0, TAU); x.stroke(); x.strokeStyle = "#3b3f45"; x.lineWidth = 2; for (var j = 0; j < 220; j++) { var b = j / 220 * TAU; x.beginPath(); x.moveTo(cx + Math.cos(b) * 5.7 * k, cx + Math.sin(b) * 5.7 * k); x.lineTo(cx + Math.cos(b) * 6.5 * k, cx + Math.sin(b) * 6.5 * k); x.stroke(); } }
+      else { x.fillStyle = "#000"; x.fillRect(0, 0, w, w); }
+      x.strokeStyle = lit ? "#ffffff" : "#6d7a80"; x.lineWidth = 0.09 * k; [5.0, 2.8, 1.2].forEach(function (r) { x.beginPath(); x.arc(cx, cx, (r + 0.45) * k, 0, TAU); x.stroke(); x.beginPath(); x.arc(cx, cx, (r - 0.45) * k, 0, TAU); x.stroke(); });
+      J.forEach(function (j) { var px = cx + Math.cos(j.a) * j.r * k, pz = cx + Math.sin(j.a) * j.r * k; x.fillStyle = lit ? "#ffffff" : "#15171a"; x.beginPath(); x.arc(px, pz, 0.16 * k, 0, TAU); x.fill(); if (!lit) { x.strokeStyle = "#9aa3aa"; x.lineWidth = 0.05 * k; x.beginPath(); x.arc(px, pz, 0.24 * k, 0, TAU); x.stroke(); } }); };
+    var tex = canvasTex(1024, 1024, function (x, w) { draw(x, w, false); }), etex = canvasTex(512, 512, function (x, w) { draw(x, w, true); });
+    var pm = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: etex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.28, metalness: 0.35, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }); NF.padMat = pm;
+    var pg = drape(c[0], c[1], 6.6, 0.55, function (lx, lz) { return [(lx + 6.6) / 13.2, (6.6 - lz) / 13.2]; }, function (lx, lz) { return lx * lx + lz * lz < 6.6 * 6.6; }, function (x, z) { return surf(x, z) + 0.05; }); if (pg) { var pmh = new THREE.Mesh(pg, pm); pmh.receiveShadow = true; g.add(pmh); }
+    // the water: one Points draw, per-particle jet index, heights and colours from uniform arrays
+    NF.H = new Float32Array(NF.n); NF.cur = new Float32Array(NF.n); var cols = []; for (var q = 0; q < NF.n; q++) cols.push(new THREE.Vector3(1, 1, 1)); NF.C = cols;
+    var mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { uT: OP.u.t, uPx: OP.u.px, uNight: OP.u.night, uDim: { value: 1 }, uH: { value: NF.cur }, uC: { value: cols } },
+      vertexShader: "attribute vec4 aSeed; attribute float aJ; uniform float uT; uniform float uPx; uniform float uNight; uniform float uH[25]; uniform vec3 uC[25]; varying float vA; varying vec3 vC;\n" +
+        "void main() { int j = int(aJ + 0.5); float h = uH[j]; float L = 2.3; float t = fract(uT / L + aSeed.x) * L; float v0 = sqrt(19.6 * max(h, 0.02)) * (0.92 + 0.16 * aSeed.z); float tf = 2.0 * v0 / 9.8; float ang = aSeed.y * 6.2832; float spr = 0.035 + 0.05 * aSeed.w;\n" +
+        " vec3 p = position + normalize(vec3(cos(ang) * spr, 1.0, sin(ang) * spr)) * v0 * t + vec3(0.0, -4.9 * t * t, 0.0); float alive = step(t, tf) * step(0.06, h);\n" +
+        " vA = alive * (0.35 + 0.65 * (1.0 - t / max(tf, 0.01))) * smoothstep(0.0, 0.04, t); vC = mix(vec3(0.9, 0.96, 1.0), uC[j] * 1.9, uNight * 0.9);\n" +
+        " vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp((0.055 + 0.075 * aSeed.w) * uPx / max(0.5, -mv.z), 1.5, 64.0); }",
+      fragmentShader: "varying float vA; varying vec3 vC; uniform float uDim; void main() { vec2 c = gl_PointCoord - 0.5; float d = dot(c, c); if (d > 0.25) discard; gl_FragColor = vec4(vC * uDim, vA * (1.0 - d * 4.0) * 0.9); }" });
+    var per = [70, 90, 170], tot = 0; J.forEach(function (j) { tot += per[j.ring]; }); var pos = new Float32Array(tot * 3), sd = new Float32Array(tot * 4), aj = new Float32Array(tot), n = 0, jy = y + 0.06;
+    J.forEach(function (j, ji) { var jx = c[0] + Math.cos(j.a) * j.r, jz = c[1] + Math.sin(j.a) * j.r; j.x = jx; j.z = jz; for (var m = 0; m < per[j.ring]; m++, n++) { pos[n * 3] = jx; pos[n * 3 + 1] = jy; pos[n * 3 + 2] = jz; sd[n * 4] = rr(); sd[n * 4 + 1] = rr(); sd[n * 4 + 2] = rr(); sd[n * 4 + 3] = rr(); aj[n] = ji; } });
+    var geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setAttribute("aSeed", new THREE.BufferAttribute(sd, 4)); geo.setAttribute("aJ", new THREE.BufferAttribute(aj, 1)); geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(c[0], y + 3, c[1]), 12);
+    var pts = new THREE.Points(geo, mat); pts.renderOrder = 4; pts.userData.noInst = true; g.add(pts); NF.mat = mat;
+    // the nozzle lights: one additive point per jet in its jet's colour
+    var gm = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uPx: OP.u.px, uK: { value: 0 }, uH: { value: NF.cur }, uC: { value: cols } },
+      vertexShader: "attribute float aJ; uniform float uPx; uniform float uH[25]; uniform vec3 uC[25]; uniform float uK; varying vec3 vC; varying float vA; void main() { int j = int(aJ + 0.5); vC = uC[j]; vA = uK * (0.45 + 0.55 * clamp(uH[j] / 4.0, 0.0, 1.0)); vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(1.1 * uPx / max(0.5, -mv.z), 2.0, 110.0); }",
+      fragmentShader: "varying vec3 vC; varying float vA; void main() { vec2 c = gl_PointCoord - 0.5; float d = dot(c, c) * 4.0; if (d > 1.0) discard; gl_FragColor = vec4(vC, pow(1.0 - d, 2.2) * vA); }" });
+    var gp = new Float32Array(NF.n * 3), gj = new Float32Array(NF.n); J.forEach(function (j, ji) { gp[ji * 3] = j.x; gp[ji * 3 + 1] = jy + 0.12; gp[ji * 3 + 2] = j.z; gj[ji] = ji; }); var gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.BufferAttribute(gp, 3)); gg.setAttribute("aJ", new THREE.BufferAttribute(gj, 1)); gg.computeBoundingSphere();
+    var gpts = new THREE.Points(gg, gm); gpts.renderOrder = 5; gpts.userData.noInst = true; g.add(gpts); NF.glow = gm;
+    // a soft pool of the show's light on the pad and the plaza round it
+    var pool = new THREE.MeshBasicMaterial({ map: canvasTex(128, 128, function (x, w) { var gr = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, "rgba(255,255,255,0.9)"); gr.addColorStop(0.55, "rgba(255,255,255,0.35)"); gr.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = gr; x.fillRect(0, 0, w, w); }), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+    var lg = drape(c[0], c[1], 11, 1.1, function (lx, lz) { return [(lx + 11) / 22, (11 - lz) / 22]; }, function (lx, lz) { return lx * lx + lz * lz < 121; }, function (x, z) { return surf(x, z) + 0.07; }); if (lg) { var lm = new THREE.Mesh(lg, pool); lm.renderOrder = 3; g.add(lm); NF.pool = pool; }
+    addGroup(g, true); gate(g, c[0], c[1], 420); NF.g = g; OP.n.nightF = J.length;
+  }
+  function nfCol(hex, v) { v.set(((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255); return v; }
+  function nightFTick(dt, now, glow) {
+    if (!NF.g || !NF.g.visible) return; var t = now / 1000, J = NF.J, set = null; try { set = concertSet(); } catch (e) {} var act = set && set.act; if (!act) { try { act = ACTS[0]; } catch (e) {} }
+    var nt = typeof night === "number" ? night : 0, live = !!(set && set.live && act && nt > 0.3), llp = OP.llp || 0; var prog = live ? act.prog : "idle", cols = live ? act.cols : [0xffe0b0, 0xfff4e0, 0xbfe0ff], bps = (live ? act.bpm : 60) / 60;
+    var phase = (t * bps) % 1, bar = Math.floor(t * bps / 2), step = Math.floor(t * bps * 2), base = [2.3, 3.4, 5.6];
+    for (var i = 0; i < J.length; i++) { var j = J[i], n = j.ring === 0 ? 16 : j.ring === 1 ? 8 : 1, k;
+      if (prog === "chase") k = j.ring === 2 ? 0.55 + 0.45 * (step % 2) : ((j.i + step) % 4 === 0 ? 1 : 0.32);
+      else if (prog === "strobe") k = j.ring === 1 ? (phase < 0.18 ? 1 : 0.25) : j.ring === 0 ? (phase > 0.5 && phase < 0.68 ? 1 : 0.3) : (phase < 0.3 ? 1 : 0.45);
+      else if (prog === "sweep") k = 0.35 + 0.65 * Math.max(0, Math.cos(j.a - t * bps * Math.PI * (j.ring === 1 ? -1 : 1)));
+      else if (prog === "wash") k = 0.55 + 0.45 * Math.sin(t * 0.8 + j.a * 2 + j.ring);
+      else k = 0.62 + 0.38 * Math.sin(t * 0.55 + j.a * 2 - j.ring * 1.3);
+      var want = base[j.ring] * k * (1 - 0.55 * llp); var rate = live && prog !== "wash" ? 9 : 2.5; NF.cur[i] += (want - NF.cur[i]) * Math.min(1, dt * rate);
+      nfCol(cols[(j.i + (j.ring === 0 ? bar : j.ring === 1 ? bar + 1 : bar + 2)) % cols.length], NF.C[i]); }
+    var show = glow * (live ? 1 : 0.45) * (1 - 0.75 * llp); NF.glow.uniforms.uK.value = 1.3 * show; NF.mat.uniforms.uDim.value = 1; setK(NF.padMat, "e", 1.6 * show);
+    if (NF.pool) { NF.pool.opacity = 0.32 * show; var a = NF.C[(bar) % 16], b2 = NF.C[16]; NF.pool.color.setRGB((a.x + b2.x) / 2, (a.y + b2.y) / 2, (a.z + b2.z) / 2); } if (NF.padMat) { var e = NF.C[bar % 16]; NF.padMat.emissive.setRGB(e.x, e.y, e.z); }
+  }
+
+  // ── D3: Starfall (the middle of the Southern Promenade): floor jets under a canopy of fibre-optic falling stars ──
+  // A steel ring on four slim posts (off the walk) carries a dark domed net; 200 fibre strands hang from it and a star of
+  // light falls down one of them every moment or so, brightest after dark. Twelve floor jets play on a star-chart pad
+  // beneath; two meteor-glass benches face each other across the walk. Walkable pad, posts and benches are solid.
+  var SF = {};
+  function worldStarfall() { var f = fount("starfall"); if (!f) return; var p = prom("southern_prom"), ux = 1, uz = 0;
+    if (p && p.pts && p.pts.length > 1) { var bi = 0, bd = 1e9; for (var i = 0; i < p.pts.length; i++) { var d = Math.hypot(p.pts[i][0] - f.x, p.pts[i][1] - f.z); if (d < bd) { bd = d; bi = i; } } var a = p.pts[Math.max(0, bi - 1)], b = p.pts[Math.min(p.pts.length - 1, bi + 1)]; var L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; ux = (b[0] - a[0]) / L; uz = (b[1] - a[1]) / L; }
+    var rx = -uz, rz = ux, W = p && p.width ? p.width / 2 : 6; var own = new Set(["southern_prom"]); clearProps(f.x, f.z, 9.6);
+    var posts = []; [[-4.6, -1], [4.6, -1], [-4.6, 1], [4.6, 1]].forEach(function (q) { var lat = W + 1.2; while (lat < W + 4 && planNearRoad(f.x + ux * q[0] + rx * q[1] * lat, f.z + uz * q[0] + rz * q[1] * lat, 0.6, own)) lat += 0.4; var x = f.x + ux * q[0] + rx * q[1] * lat, z = f.z + uz * q[0] + rz * q[1] * lat; posts.push([x, z]); COLLIDERS.push([x, z, 0.22]); });
+    var benches = []; [-1, 1].forEach(function (s) { var lat = W + 2.2; var x = f.x + rx * s * lat, z = f.z + rz * s * lat; if (!planNearRoad(x, z, 0.8, own)) { benches.push([x, z, s]); COLLIDERS.push([x, z, 0.4]); } });
+    var R = 0; posts.forEach(function (q) { R = Math.max(R, Math.hypot(q[0] - f.x, q[1] - f.z)); });
+    SF.pos = { x: f.x, z: f.z, ux: ux, uz: uz, rx: rx, rz: rz, W: W, R: R, posts: posts, benches: benches }; OP.pos.starfall = SF.pos; KEEPOUT.push([f.x, f.z, R + 1.5]);
+    hotspot(f.x, f.z, 10, "Starfall", "The Southern Promenade · floor jets under falling stars", "Two hundred fibre-optic strands hang from the canopy and a star of light slides down one of them every moment, brightest after dark, over floor jets on a star-chart pad. Sit on the meteor-glass benches: the balloons of Stratos Field launch just to the east."); }
+  function buildStarfall(Mm) {
+    var P = SF.pos; if (!P) return; var g = new THREE.Group(), c = [P.x, P.z], y0 = surf(P.x, P.z), R = P.R, top = 5.6, dome = 0.8;
+    var yTop = function (r) { return y0 + top + dome * (1 - Math.min(1, (r / R) * (r / R))); };
+    // frame: four posts, the ring, eight spokes to a hub
+    var fb = new Batch(); P.posts.forEach(function (q) { var y = getH(q[0], q[1]); fb.add(new THREE.CylinderGeometry(0.09, 0.13, (y0 + top) - y + 0.3, 10), mtx(q[0], (y + y0 + top + 0.3) / 2, q[1])); fb.add(new THREE.CylinderGeometry(0.22, 0.26, 0.12, 12), mtx(q[0], y + 0.04, q[1])); });
+    var ring = new THREE.TorusGeometry(R, 0.075, 6, 96); ring.rotateX(Math.PI / 2); fb.add(ring, mtx(c[0], y0 + top, c[1]));
+    for (var s = 0; s < 8; s++) { var a = s / 8 * TAU, L = R; var sp = new THREE.CylinderGeometry(0.035, 0.035, Math.hypot(L, dome), 5); sp.rotateZ(Math.PI / 2); var tilt = Math.atan2(dome, L); fb.add(sp, mtx(c[0] + Math.cos(a) * L / 2, y0 + top + dome / 2, c[1] + Math.sin(a) * L / 2, -a, 0, -tilt)); }
+    fb.add(new THREE.CylinderGeometry(0.25, 0.25, 0.18, 12), mtx(c[0], y0 + top + dome, c[1])); var fm = fb.mesh(Mm.steel); if (fm) g.add(fm);
+    // the net: a dark domed disc with pin stars on its underside (emissive at night)
+    var ntex = canvasTex(512, 512, function (x, w) { x.fillStyle = "#10141d"; x.fillRect(0, 0, w, w); x.strokeStyle = "rgba(120,130,150,0.22)"; x.lineWidth = 1; for (var i = 0; i < w; i += 8) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, w); x.stroke(); x.beginPath(); x.moveTo(0, i); x.lineTo(w, i); x.stroke(); } for (var k = 0; k < 420; k++) { var r = Math.random(); x.fillStyle = "rgba(230,240,255," + (0.35 + 0.65 * r).toFixed(2) + ")"; var sz = r > 0.93 ? 2.2 : 1.1; x.fillRect(Math.random() * w, Math.random() * w, sz, sz); } });
+    var etex = canvasTex(512, 512, function (x, w) { x.fillStyle = "#000"; x.fillRect(0, 0, w, w); for (var k = 0; k < 420; k++) { var r = Math.random(); x.fillStyle = "rgba(210,228,255," + (0.3 + 0.7 * r).toFixed(2) + ")"; var sz = r > 0.93 ? 2.2 : 1.1; x.fillRect(Math.random() * w, Math.random() * w, sz, sz); } });
+    SF.netMat = new THREE.MeshStandardMaterial({ map: ntex, emissiveMap: etex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.9, metalness: 0.1, side: THREE.DoubleSide, transparent: true, opacity: 0.93 });
+    var np = [], nu = [], ni = [], NR = 10, NA = 48; for (var ir = 0; ir <= NR; ir++) for (var ia = 0; ia <= NA; ia++) { var rr0 = R * ir / NR, aa = ia / NA * TAU; np.push(c[0] + Math.cos(aa) * rr0, yTop(rr0) + 0.02, c[1] + Math.sin(aa) * rr0); nu.push(0.5 + Math.cos(aa) * rr0 / (2 * R), 0.5 + Math.sin(aa) * rr0 / (2 * R)); }
+    for (var ir2 = 0; ir2 < NR; ir2++) for (var ia2 = 0; ia2 < NA; ia2++) { var p0 = ir2 * (NA + 1) + ia2, p1 = p0 + 1, p2 = p0 + NA + 1, p3 = p2 + 1; ni.push(p0, p2, p1, p1, p2, p3); }
+    var ng = new THREE.BufferGeometry(); ng.setAttribute("position", new THREE.Float32BufferAttribute(np, 3)); ng.setAttribute("uv", new THREE.Float32BufferAttribute(nu, 2)); ng.setIndex(ni); ng.computeVertexNormals(); var net = new THREE.Mesh(ng, SF.netMat); net.castShadow = true; net.receiveShadow = true; g.add(net);
+    // the fibres: 200 strands from the net, ending at least 2.7 m above the walk; a light pulse falls down each in turn
+    var N = 200, lp = [], lk = [], ls = [], hp = [], hs = [], ht = [];
+    for (var f = 0; f < N; f++) { var r1 = Math.sqrt(rr()) * (R - 0.6), a1 = rr() * TAU, fx = c[0] + Math.cos(a1) * r1, fz = c[1] + Math.sin(a1) * r1, ty = yTop(r1), len = Math.min(0.9 + 2.2 * rr(), ty - (surf(fx, fz) + 2.7)); if (len < 0.4) len = 0.4; var sd4 = [rr(), 0.18 + 0.22 * rr(), rr(), rr()];
+      lp.push(fx, ty, fz, fx, ty - len, fz); lk.push(0, 1); ls.push(sd4[0], sd4[1], sd4[2], sd4[3], sd4[0], sd4[1], sd4[2], sd4[3]); hp.push(fx, ty, fz); hs.push(sd4[0], sd4[1], sd4[2], sd4[3]); ht.push(len); }
+    var fg = new THREE.BufferGeometry(); fg.setAttribute("position", new THREE.Float32BufferAttribute(lp, 3)); fg.setAttribute("aK", new THREE.Float32BufferAttribute(lk, 1)); fg.setAttribute("aSeed", new THREE.Float32BufferAttribute(ls, 4)); fg.computeBoundingSphere();
+    SF.fibreMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { uT: OP.u.t, uNight: OP.u.night, uDim: { value: 1 } },
+      vertexShader: "attribute float aK; attribute vec4 aSeed; varying float vK; varying vec4 vS; void main() { vK = aK; vS = aSeed; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: "uniform float uT; uniform float uNight; uniform float uDim; varying float vK; varying vec4 vS; void main() { float ph = fract(uT * vS.y * 0.55 + vS.x) * 6.0 - 0.3; float tail = vK < ph ? exp(-(ph - vK) * 5.0) : exp(-(vK - ph) * 40.0); tail *= step(-0.25, ph) * step(ph, 1.3); float base = mix(0.16, 0.22, uNight); vec3 fibre = mix(vec3(0.62, 0.66, 0.72), vec3(0.55, 0.7, 1.0), uNight); vec3 col = fibre * base + vec3(0.8, 0.9, 1.0) * tail * mix(0.35, 1.6, uNight); gl_FragColor = vec4(col * uDim, clamp(base + tail, 0.0, 1.0) * mix(0.55, 0.95, uNight)); }" });
+    var fibres = new THREE.LineSegments(fg, SF.fibreMat); fibres.renderOrder = 4; fibres.userData.noInst = true; g.add(fibres);
+    var hg = new THREE.BufferGeometry(); hg.setAttribute("position", new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute("aSeed", new THREE.Float32BufferAttribute(hs, 4)); hg.setAttribute("aLen", new THREE.Float32BufferAttribute(ht, 1)); hg.boundingSphere = new THREE.Sphere(new THREE.Vector3(c[0], y0 + 4.5, c[1]), R + 2);
+    SF.headMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: OP.u.t, uPx: OP.u.px, uNight: OP.u.night, uDim: { value: 1 } },
+      vertexShader: "attribute vec4 aSeed; attribute float aLen; uniform float uT; uniform float uPx; uniform float uNight; varying float vA; void main() { float ph = fract(uT * aSeed.y * 0.55 + aSeed.x) * 6.0 - 0.3; float on = step(0.0, ph) * step(ph, 1.0); vec3 p = position - vec3(0.0, aLen * clamp(ph, 0.0, 1.0), 0.0); vA = on * mix(0.25, 1.0, uNight) * (1.0 - 0.5 * smoothstep(0.85, 1.0, ph)); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(0.16 * uPx / max(0.5, -mv.z), 2.0, 40.0); }",
+      fragmentShader: "varying float vA; uniform float uDim; void main() { vec2 c = gl_PointCoord - 0.5; float d = dot(c, c) * 4.0; if (d > 1.0) discard; gl_FragColor = vec4(vec3(0.85, 0.93, 1.0) * uDim, pow(1.0 - d, 1.8) * vA); }" });
+    var heads = new THREE.Points(hg, SF.headMat); heads.renderOrder = 5; heads.userData.noInst = true; g.add(heads);
+    // the pad: a star chart in polished dark stone, flush with the walk; twelve jets on a ring and one at the centre
+    var chart = function (x, w, lit) { var k = w / 10.4, cx = w / 2; if (!lit) { x.fillStyle = "#1b2029"; x.beginPath(); x.arc(cx, cx, 5.15 * k, 0, TAU); x.fill(); speckle(x, w, w, 3000, "160,170,190", 0.14); x.strokeStyle = "#8a93a2"; x.lineWidth = 0.08 * k; x.beginPath(); x.arc(cx, cx, 4.95 * k, 0, TAU); x.stroke(); } else { x.fillStyle = "#000"; x.fillRect(0, 0, w, w); }
+      var rs = [0.13, 0.71, 0.38, 0.92, 0.55, 0.27, 0.84, 0.46, 0.63, 0.19, 0.77, 0.34], st = []; for (var i = 0; i < 90; i++) { var r = Math.sqrt(hsh(i * 3.1)) * 4.6, a = hsh(i * 7.7) * TAU; st.push([cx + Math.cos(a) * r * k, cx + Math.sin(a) * r * k, hsh(i * 1.3)]); }
+      x.strokeStyle = lit ? "rgba(150,190,255,0.5)" : "rgba(170,180,200,0.45)"; x.lineWidth = 0.025 * k; for (var q = 0; q < 24; q++) { var s1 = st[q], s2 = st[q + 1]; if (q % 5 === 4) continue; x.beginPath(); x.moveTo(s1[0], s1[1]); x.lineTo(s2[0], s2[1]); x.stroke(); }
+      st.forEach(function (s) { x.fillStyle = lit ? "rgba(220,235,255," + (0.4 + 0.6 * s[2]).toFixed(2) + ")" : "#dfe6f2"; x.beginPath(); x.arc(s[0], s[1], (0.03 + 0.06 * s[2]) * k, 0, TAU); x.fill(); }); rs.length = 0; };
+    var ptex = canvasTex(1024, 1024, function (x, w) { chart(x, w, false); }), pe = canvasTex(512, 512, function (x, w) { chart(x, w, true); });
+    SF.padMat = new THREE.MeshStandardMaterial({ map: ptex, emissiveMap: pe, emissive: 0xbfd8ff, emissiveIntensity: 0, roughness: 0.22, metalness: 0.4, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    var pgeo = drape(c[0], c[1], 5.2, 0.5, function (lx, lz) { return [(lx + 5.2) / 10.4, (5.2 - lz) / 10.4]; }, function (lx, lz) { return lx * lx + lz * lz < 5.2 * 5.2; }, function (x, z) { return surf(x, z) + 0.05; }); if (pgeo) { var pmesh = new THREE.Mesh(pgeo, SF.padMat); pmesh.receiveShadow = true; g.add(pmesh); }
+    var jy = y0 + 0.06, jets = [], jc = new THREE.Color(0xcfe6ff); for (var n = 0; n < 12; n++) { var ja = n / 12 * TAU; jets.push({ p: [c[0] + Math.cos(ja) * 3.3, jy, c[1] + Math.sin(ja) * 3.3], h: n % 2 ? 1.3 : 2.1, spread: 0.05, n: 110, col: jc }); } jets.push({ p: [c[0], jy, c[1]], h: 2.9, spread: 0.06, n: 200, col: jc });
+    var jp = jetPoints(jets); g.add(jp);
+    // the meteor-glass benches
+    SF.glassMat = new THREE.MeshStandardMaterial({ color: 0x1d2433, roughness: 0.07, metalness: 0.35, emissive: 0x3a6aa8, emissiveIntensity: 0 }); var bb = new Batch(), gb = new Batch();
+    P.benches.forEach(function (b) { var y = surf(b[0], b[1]), yaw = yawOf(P.ux, P.uz); bb.add(boxUV(2.2, 0.16, 0.5, 1), mtx(b[0], y + 0.08, b[1], yaw)); gb.add(boxUV(2.4, 0.3, 0.62, 1), mtx(b[0], y + 0.31, b[1], yaw)); addSolid(b[0], b[1], yaw, 0.62, 2.4, y - 0.1, y + 0.46, "world"); });
+    var bm = bb.mesh(Mm.basalt), gm2 = gb.mesh(SF.glassMat); if (bm) g.add(bm); if (gm2) g.add(gm2);
+    P.posts.forEach(function (q) { var y = getH(q[0], q[1]); addSolid(q[0], q[1], 0, 0.3, 0.3, y - 0.2, y0 + top, "world"); });
+    addGroup(g, true); gate(g, c[0], c[1], 520); SF.g = g; OP.n.starfall = N;
+  }
+  function starfallTick(glow, ds) { if (!SF.g || !SF.g.visible) return; var dim = 1 - 0.85 * ds; setK(SF.netMat, "e", 1.4 * glow * dim); setK(SF.padMat, "e", 0.9 * glow * dim); setK(SF.glassMat, "e", 0.5 * glow); if (SF.fibreMat) SF.fibreMat.uniforms.uDim.value = 0.4 + 0.6 * dim; if (SF.headMat) SF.headMat.uniforms.uDim.value = dim; }
+
   // ── the Outpost host: the surface-suit guide walking a slow loop round Launch Plaza (loaded the first time anyone comes near) ──
-  var HOST = { state: 0, g: null, mixer: null, a: 0, hs: null };
+  var HOST = { state: 0, g: null, mixer: null, a: 0, hs: null, wW: 1 };
   // the host's talk card (the client's castById reads window.PLAN_TALK; g is the walking model, or a marker until it loads)
   var TALK = window.PLAN_TALK = window.PLAN_TALK || {};
   TALK.host = { id: "host", name: "The Outpost host", role: "Launch Plaza · The Outpost", get g() { return HOST.g || HOST.stub; },
-    talk: [{ t: "Welcome to The Outpost, the off-world end of the Horizon Line. I walk Launch Plaza in a surface suit so you know you have arrived. What would you like to see?", o: [["The Countdown", 1], ["The Genesis Ring", 2], ["Mission Control and the Dome", 3], ["Thanks", null]] },
+    talk: [{ t: "Welcome to The Outpost, the off-world end of the Horizon Line. I walk Launch Plaza in a surface suit so you know you have arrived. What would you like to see?", o: [["The Countdown", 1], ["The Genesis Ring", 2], ["Mission Control and the Dome", 3], ["What can I do out here?", 4], ["Thanks", null]] },
       { t: "Ten numbered light rings count down along the Launch Walk, one every 25 metres, from ring 10 at the Outpost Gate to ring 1 under the Genesis Ring. After dark the xeno-garden between them glows blue.", o: [["The Genesis Ring", 2], ["Something else", 0], ["Thanks", null]] },
       { t: "The Genesis Ring stands 24 metres tall on its edge at the end of the line, lit a steady cyan at night. The Orbit Walk circles it past the eight planet fountains. From midnight to one it dims for the Dark Sky Observatory.", o: [["Mission Control and the Dome", 3], ["Something else", 0], ["Thanks", null]] },
-      { t: "Mission Control faces Launch Plaza, the lander stands on its blast pad beside the walk, and the Genesis Dome keeps a desert garden under glass. Stratos Field and the Low-G Course are at the south end of The Outpost.", o: [["The Countdown", 1], ["Something else", 0], ["Thanks", null]] }] };
-  function hostLoaded(gl) { var g = gl.scene; g.userData.b4 = true; g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } }); g.userData.noInst = true; g.userData.noCull = true; scene.add(g); HOST.g = g;
-    var clip = gl.animations && gl.animations[0]; if (clip) { clip.tracks.forEach(function (t) { if (/hips\.position$/i.test(t.name) && t.values.length >= 3) { var x0 = t.values[0], z0 = t.values[2]; for (var i = 0; i < t.values.length; i += 3) { t.values[i] = x0; t.values[i + 2] = z0; } } }); HOST.mixer = new THREE.AnimationMixer(g); HOST.mixer.clipAction(clip).play(); } HOST.state = 2; OP.n.host = clip ? 2 : 1; }
+      { t: "Mission Control faces Launch Plaza, the lander stands on its blast pad beside the walk, and the Genesis Dome keeps a desert garden under glass. Stratos Field and the Low-G Course are at the south end of The Outpost.", o: [["What can I do out here?", 4], ["The Countdown", 1], ["Thanks", null]] },
+      { t: "Take a balloon up from Stratos Field and race the rings, try the Low-G Course where you jump higher, find the eight planet fountains on the Orbit Walk, and stay for the Launch Mist: the pad at the centre of this plaza fires every half minute.", o: [["The Genesis Ring", 2], ["Something else", 0], ["Thanks", null]] }] };
+  // D3: she walks with the char_f walk and stands with the char_f idle, both retargeted onto the host rig with
+  // genesis_data\v2\scripts\retarget_clip.py (same 24 joint names, rest frames mapped bone by bone; the idle's hips
+  // scale key is dropped). The walk clip covers 0.76 m/s at time scale 1 and carries the feet about 9 cm higher than the
+  // idle, so she is lowered by that much while walking.
+  var HOST_SPEED = 1.05, HOST_CLIP_SPEED = 0.76, HOST_DROP = 0.09;
+  function hostLoaded(gl) { var g = gl.scene; g.userData.b4 = true; g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } }); g.userData.noInst = true; g.userData.noCull = true; scene.add(g); HOST.g = g; HOST.mixer = new THREE.AnimationMixer(g);
+    // until the idle and walk clips arrive: the embedded two-key clip, hips locked
+    var clip = gl.animations && gl.animations[0]; if (clip) { clip.tracks.forEach(function (t) { if (/hips\.position$/i.test(t.name) && t.values.length >= 3) { var x0 = t.values[0], z0 = t.values[2]; for (var i = 0; i < t.values.length; i += 3) { t.values[i] = x0; t.values[i + 2] = z0; } } }); HOST.old = HOST.mixer.clipAction(clip); HOST.old.play(); } HOST.state = 2; OP.n.host = clip ? 2 : 1;
+    var ld = gltfLoader(), q = "?v=" + (window.BUILD || "dev"), got = {};
+    ["idle", "walk"].forEach(function (nm) { ld.load("/models/host_" + nm + ".glb" + q, function (c) { try { var cl = c.animations && c.animations[0]; if (!cl) return; cl.tracks = cl.tracks.filter(function (t) { return !/\.scale$/.test(t.name); }); got[nm] = cl; if (got.idle && got.walk) hostClips(got); } catch (e) { note("host clip", e); } }, undefined, function (e) { note("host clip " + nm, e); }); }); }
+  function hostClips(got) { var M = HOST.mixer; if (!M) return; if (HOST.old) { HOST.old.stop(); HOST.old = null; } HOST.idle = M.clipAction(got.idle); HOST.walk = M.clipAction(got.walk); HOST.idle.play(); HOST.walk.play(); HOST.walk.time = rr() * got.walk.duration; HOST.walk.setEffectiveTimeScale(HOST_SPEED / HOST_CLIP_SPEED); HOST.idle.setEffectiveWeight(1 - HOST.wW); HOST.walk.setEffectiveWeight(HOST.wW); OP.n.host = 3; }
+  function angDiff(a, b) { var d = b - a; return Math.atan2(Math.sin(d), Math.cos(d)); }
   function hostTick(dt) { var c = OP.pos.launch; if (!c) return; var d = Math.hypot(c[0] - camera.position.x, c[1] - camera.position.z);
     if (HOST.state === 0) { if (d > 450) return; HOST.state = 1; try { gltfLoader().load(ASSET.models + "/host.glb?v=" + (window.BUILD || "dev"), function (gl) { try { hostLoaded(gl); } catch (e) { HOST.state = 3; note("host", e); } }, undefined, function (e) { HOST.state = 3; note("host load", e); }); } catch (e) { HOST.state = 3; note("host", e); } return; }
     if (HOST.state !== 2) return; var vis = d < 260; if (HOST.g.visible !== vis) HOST.g.visible = vis; if (!vis) return;
     if (!HOST.R) { HOST.R = 13; var tries = [13, 14.5, 11.5, 16, 10.5, 17.5]; for (var ti = 0; ti < tries.length; ti++) { var ok = true; for (var k = 0; k < 36 && ok; k++) { var aa = k / 36 * TAU, px = c[0] + Math.cos(aa) * tries[ti], pz = c[1] + Math.sin(aa) * tries[ti]; if (planNearCollider(px, pz, 0.9)) ok = false; for (var f = 0; f < SOLIDS.length && ok; f++) { var sd = SOLIDS[f]; if (Math.abs(sd.x - px) < sd.hw + sd.hd + 1.2 && Math.abs(sd.z - pz) < sd.hw + sd.hd + 1.2) { var lc = solidLocal(sd, px, pz); if (Math.abs(lc[0]) < sd.hw + 0.6 && Math.abs(lc[1]) < sd.hd + 0.6) ok = false; } } } if (ok) { HOST.R = tries[ti]; break; } } }
-    var R = HOST.R; var talking = typeof talkNpc !== "undefined" && talkNpc === TALK.host; if (talking && player) { HOST.g.rotation.y = Math.atan2(player.position.x - HOST.g.position.x, player.position.z - HOST.g.position.z); return; } HOST.a += Math.min(dt, 0.1) * 1.1 / R; var x = c[0] + Math.cos(HOST.a) * R, z = c[1] + Math.sin(HOST.a) * R; HOST.g.position.set(x, surf(x, z), z); HOST.g.rotation.y = yawOf(-Math.sin(HOST.a), Math.cos(HOST.a)); if (HOST.mixer) HOST.mixer.update(Math.min(dt, 0.1)); if (HOST.hs) { HOST.hs.x = x; HOST.hs.z = z; } }
+    // a slow loop round Launch Plaza with a pause at every quarter (facing the Launch Mist); she stops and turns to a
+    // visitor who walks up to her or talks to her, and walks on when they leave
+    dt = Math.min(dt, 0.1); var R = HOST.R, g = HOST.g; if (HOST.yaw === undefined) { HOST.yaw = yawOf(-Math.sin(HOST.a), Math.cos(HOST.a)); HOST.mode = "walk"; HOST.wW = 1; HOST.next = HOST.a + TAU / 4 * (0.5 + 0.5 * rr()); }
+    var talking = typeof talkNpc !== "undefined" && talkNpc === TALK.host; var pd = player ? Math.hypot(player.position.x - g.position.x, player.position.z - g.position.z) : 99;
+    var greet = !!player && (talking || pd < 3.2 || (HOST.greet && pd < 6)); HOST.greet = greet; var want;
+    if (greet) { HOST.mode = "pause"; HOST.pauseT = Math.max(HOST.pauseT || 0, 2.5); want = Math.atan2(player.position.x - g.position.x, player.position.z - g.position.z); HOST.face = want; }
+    else if (HOST.mode === "pause") { HOST.pauseT -= dt; want = HOST.face; if (HOST.pauseT <= 0) { HOST.mode = "walk"; HOST.next = HOST.a + TAU / 4 * (0.8 + 0.4 * rr()); } }
+    else want = yawOf(-Math.sin(HOST.a), Math.cos(HOST.a));
+    var err = angDiff(HOST.yaw, want), turn = 2.2 * dt; HOST.yaw += err > turn ? turn : err < -turn ? -turn : err;
+    var wantW = HOST.walk ? (HOST.mode === "walk" && Math.abs(err) < 0.5 ? 1 : 0) : (HOST.mode === "walk" ? 1 : 0); HOST.wW += (wantW - HOST.wW) * Math.min(1, dt * 3.5);
+    HOST.a += HOST_SPEED * HOST.wW * dt / R; var x = c[0] + Math.cos(HOST.a) * R, z = c[1] + Math.sin(HOST.a) * R;
+    if (HOST.mode === "walk" && HOST.a >= HOST.next) { HOST.mode = "pause"; HOST.pauseT = 6 + 4 * rr(); HOST.face = yawOf(c[0] - x, c[1] - z); }
+    g.position.set(x, surf(x, z) - (HOST.walk ? HOST_DROP * HOST.wW : 0), z); g.rotation.y = HOST.yaw;
+    if (HOST.walk) { HOST.walk.setEffectiveWeight(HOST.wW); HOST.idle.setEffectiveWeight(1 - HOST.wW); }
+    if (HOST.mixer) HOST.mixer.update(dt); if (HOST.hs) { HOST.hs.x = x; HOST.hs.z = z; } }
   OP.host = HOST;
 
   // ═════════════════════════════════ FRAME ═════════════════════════════════
@@ -728,6 +873,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (OP.launchRing) setK(OP.launchRing, "e", (0.3 + 2.4 * burst) * (0.25 + glow));
     for (var i = 0; i < OP.lights.length; i++) { var L = OP.lights[i], k = glow; if (L.kind === "ring") k = glow * (1 - 0.9 * ds); else if (L.kind === "orbit") k = glow * dim; else if (L.kind === "launch") k = glow * (0.25 + 0.75 * burst); else if (L.kind === "clock") k = (0.3 + 0.7 * glow) * (OP.llp > 0.5 ? 0.6 : 1); else if (L.kind === "beacon") k = glow * (0.7 + 0.3 * Math.sin(now / 1000 * 0.8)); var want = L.base * k; if (Math.abs(L.l.intensity / 1.7 - want) > 0.01) L.l.intensity = want; }
     try { hostTick(dt); } catch (e) { HOST.state = 3; note("hostTick", e); }
+    try { nightFTick(dt, now, glow); } catch (e) { if (!OP.nfErr) { OP.nfErr = 1; note("nightFTick", e); } } try { starfallTick(glow, ds); } catch (e) { if (!OP.sfErr) { OP.sfErr = 1; note("starfallTick", e); } }
     if (OP.sock) OP.sock.rotation.y = 0.6 + Math.sin(now / 1000 * 0.21) * 0.35 + Math.sin(now / 1000 * 0.9) * 0.06;
     // distance gating every few frames
     if (FRAME_N !== lastGate && FRAME_N % 6 === 0) { lastGate = FRAME_N; var cx = camera.position.x, cz = camera.position.z; for (var j = 0; j < OP.items.length; j++) { var it = OP.items[j]; var d = Math.hypot(it.x - cx, it.z - cz), vis = d < it.R; if (vis !== it.vis) { it.vis = vis; it.o.visible = vis; } } }
