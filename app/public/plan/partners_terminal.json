@@ -11,66 +11,468 @@
       "badge": "FBO PARTNER",
       "blurb": "A proven FBO operator, bringing fueling, hangar, and ground services to the field, along with local jobs.",
       "tagline": "Soaring Beyond Expectations",
-      "services": ["Fuel", "Hangar", "Ground services", "Concierge", "Crew lounge", "Flight planning"],
-      "locations": ["Reno  KRNO", "Carson-Tahoe  KCXP", "South Palm Beach  KLNA", "Springfield  KSPI"],
-      "npc": { "id": "pt_stellar", "name": "Stellar Aviation", "role": "FBO partner · guest services" },
-      "contact": ["Brad Kost", "Founding Partner and COO", "Bkost@stellaraviationgroup.com", "stellaraviationgroup.com"],
-      "greet": ["Welcome to Douglas Municipal. Stellar Aviation, your FBO partner.", "Fuel, hangar and ground services, all at one desk.", "Flying in? We look after the aircraft, the crew and you."],
+      "services": [
+        "Fuel",
+        "Hangar",
+        "Ground services",
+        "Concierge",
+        "Crew lounge",
+        "Flight planning"
+      ],
+      "locations": [
+        "Reno  KRNO",
+        "Carson-Tahoe  KCXP",
+        "South Palm Beach  KLNA",
+        "Springfield  KSPI"
+      ],
+      "npc": {
+        "id": "pt_stellar",
+        "name": "Brad Kost",
+        "role": "Founding Partner and COO · Stellar Aviation"
+      },
+      "contact": [
+        "Brad Kost",
+        "Founding Partner and COO",
+        "Bkost@stellaraviationgroup.com",
+        "stellaraviationgroup.com"
+      ],
+      "greet": [
+        "Welcome to Douglas Municipal. Stellar Aviation, your FBO partner.",
+        "Fuel, hangar and ground services, all at one desk.",
+        "Flying in? We look after the aircraft, the crew and you."
+      ],
       "talk": [
-        { "t": "Welcome to Stellar Aviation, the FBO partner at Douglas Municipal. We are a proven FBO operator, bringing fueling, hangar and ground services to the field, along with local jobs. What would you like to know?", "o": [["What does an FBO do?", 1], ["Where do jets refuel?", 2], ["Where else do you operate?", 3], ["How do I reach Stellar?", 4], ["Thanks", null]] },
-        { "t": "An FBO, a fixed base operator, is the front door of an airfield for private aviation: fuel, ramp and overnight parking, hangar space, a crew lounge and flight planning room, concierge, rental cars and ground transport. When a jet lands here, we look after the aircraft, the crew and the passengers.", "o": [["Where do jets refuel?", 2], ["Where else do you operate?", 3], ["Thanks", null]] },
-        { "t": "Fuel is sold through the City of Douglas FBO on the airport itself, and Stellar is the operator bringing those FBO services to the field. Genesis One's own parcels never sell fuel: aircraft taxi to the City ramp to refuel, and the hangar homes and the Flight Line stay fuel free.", "o": [["What does an FBO do?", 1], ["How do I reach Stellar?", 4], ["Thanks", null]] },
-        { "t": "Stellar runs FBOs at Reno (KRNO), Carson-Tahoe (KCXP), South Palm Beach (KLNA) and Springfield (KSPI), and recently refreshed its Reno-Tahoe FBO. Douglas Municipal would bring the same standard to southern Arizona.", "o": [["How do I reach Stellar?", 4], ["Thanks", null]] },
-        { "t": "Brad Kost, our Founding Partner and COO, is the contact for Douglas. His details are on this card; you can select and copy them.", "o": [["Thanks", null]] }
+        {
+          "t": "I'm Brad Kost, Founding Partner and COO of Stellar Aviation, the FBO partner at Douglas Municipal. We are a proven FBO operator, bringing fueling, hangar and ground services to the field, along with local jobs. What would you like to know?",
+          "o": [
+            [
+              "What does an FBO do?",
+              1
+            ],
+            [
+              "Where do jets refuel?",
+              2
+            ],
+            [
+              "Where else do you operate?",
+              3
+            ],
+            [
+              "How do I reach Stellar?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "An FBO, a fixed base operator, is the front door of an airfield for private aviation: fuel, ramp and overnight parking, hangar space, a crew lounge and flight planning room, concierge, rental cars and ground transport. When a jet lands here, we look after the aircraft, the crew and the passengers.",
+          "o": [
+            [
+              "Where do jets refuel?",
+              2
+            ],
+            [
+              "Where else do you operate?",
+              3
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Fuel is sold through the City of Douglas FBO on the airport itself, and Stellar is the operator bringing those FBO services to the field. Genesis One's own parcels never sell fuel: aircraft taxi to the City ramp to refuel, and the hangar homes and the Flight Line stay fuel free.",
+          "o": [
+            [
+              "What does an FBO do?",
+              1
+            ],
+            [
+              "How do I reach Stellar?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Stellar runs FBOs at Reno (KRNO), Carson-Tahoe (KCXP), South Palm Beach (KLNA) and Springfield (KSPI), and recently refreshed its Reno-Tahoe FBO. Douglas Municipal would bring the same standard to southern Arizona.",
+          "o": [
+            [
+              "How do I reach Stellar?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "I'm the contact for Douglas. My details are on this card; you can select and copy them.",
+          "o": [
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        }
       ]
     },
     "financeadvisors": {
       "name": "FinanceAdvisors.com",
       "blurb": "A fintech corporation that matches high-net-worth retirees with wealth managers. Servicing Fisher Investments, Edelman Financial Engines, Empower, and more.",
       "notice": "FinanceAdvisors.com does not provide investment advice. It introduces people to licensed, independent wealth managers.",
-      "npc": { "id": "pt_paul", "name": "Paul Mazzapica", "role": "Co-Founder and President · FinanceAdvisors.com" },
-      "contact": ["Paul Mazzapica", "Co-Founder and President", "paul@financeadvisors.com", "financeadvisors.com"],
+      "npc": {
+        "id": "pt_paul",
+        "name": "Paul Mazzapica",
+        "role": "Co-Founder and President · FinanceAdvisors.com"
+      },
+      "contact": [
+        "Paul Mazzapica",
+        "Co-Founder and President",
+        "paul@financeadvisors.com",
+        "financeadvisors.com"
+      ],
       "footer": "Nothing here is an offer to sell securities or investment advice.",
-      "greet": ["Hi, I'm Paul. Come on in.", "Matching retirees with the right wealth manager.", "Questions about how capital moves in Genesis One? Ask away."],
+      "greet": [
+        "Hi, I'm Paul. Come on in.",
+        "Matching retirees with the right wealth manager.",
+        "Questions about how capital moves in Genesis One? Ask away."
+      ],
       "talk": [
-        { "t": "Hi, I'm Paul Mazzapica, Co-Founder and President of FinanceAdvisors.com. We are a fintech company that matches high-net-worth retirees with wealth managers, servicing Fisher Investments, Edelman Financial Engines, Empower and more. What can I help you with?", "o": [["How does the matching work?", 1], ["How does capital move in Genesis One?", 2], ["What does tokenizing land mean?", 3], ["I'm interested in investing", 4], ["Are you part of Giveback Ventures?", 5], ["Thanks", 6]] },
-        { "t": "You answer a short questionnaire about your situation, your goals and the state you live in, and we introduce you to licensed, independent wealth managers who fit. FinanceAdvisors.com does not give investment advice itself: the advisor you choose does, under their own licence and duties to you.", "o": [["How does capital move in Genesis One?", 2], ["I'm interested in investing", 4], ["Thanks", 6]] },
-        { "t": "Here is the path money takes in the Giveback ecosystem: a corporate bank account, then the Altitude bridge onto the blockchain, then a Squads multisig treasury that needs several signers to move anything, then the Giveback protocol, and finally nonprofits verified by Giveback Ventures' own compliance team. Every step is recorded on chain, so anyone can follow it. $GBACK is the utility token that runs on those rails; Giveback Ventures is its largest holder, not its issuer, and it is never an investment.", "o": [["What does tokenizing land mean?", 3], ["I'm interested in investing", 4], ["Thanks", 6]] },
-        { "t": "Tokenizing a real-world asset means recording ownership or rights in it as tokens on a blockchain, with the legal documents behind them. For land like Genesis One that can make records transparent and transfers simpler. Any investment in a project like this is a securities matter, handled by licensed professionals, never by a token in a game.", "o": [["I'm interested in investing", 4], ["How does capital move in Genesis One?", 2], ["Thanks", 6]] },
-        { "t": "Then speak with Riverside Management Group directly. Giveback Ventures and RMG have signed an agreement to work together, and RMG brings decades of merchant banking and capital markets experience; its affiliated broker-dealer, BCW Securities, is a FINRA member. Will Deitrick of RMG is at GBANK, on the east side of Compass Plaza. I can't take investments or give investment advice here.", "o": [["How does the matching work?", 1], ["Thanks", 6]] },
-        { "t": "Yes, I founded Giveback Ventures, the company building the Giveback protocol and the on-chain rails behind Genesis One. Today I'm here for FinanceAdvisors.com.", "o": [["How does capital move in Genesis One?", 2], ["Thanks", 6]] },
-        { "t": "Thanks for stopping by. My details are on this card if you want to talk about finding the right wealth manager. Nothing here is an offer to sell securities or investment advice.", "o": [["Goodbye", null]] }
+        {
+          "t": "Hi, I'm Paul Mazzapica, Co-Founder and President of FinanceAdvisors.com. We are a fintech company that matches high-net-worth retirees with wealth managers, servicing Fisher Investments, Edelman Financial Engines, Empower and more. What can I help you with?",
+          "o": [
+            [
+              "How does the matching work?",
+              1
+            ],
+            [
+              "How does capital move in Genesis One?",
+              2
+            ],
+            [
+              "What does tokenizing land mean?",
+              3
+            ],
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "Are you part of Giveback Ventures?",
+              5
+            ],
+            [
+              "Thanks",
+              6
+            ]
+          ]
+        },
+        {
+          "t": "You answer a short questionnaire about your situation, your goals and the state you live in, and we introduce you to licensed, independent wealth managers who fit. FinanceAdvisors.com does not give investment advice itself: the advisor you choose does, under their own licence and duties to you.",
+          "o": [
+            [
+              "How does capital move in Genesis One?",
+              2
+            ],
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "Thanks",
+              6
+            ]
+          ]
+        },
+        {
+          "t": "Here is the path money takes in the Giveback ecosystem: a corporate bank account, then the Altitude bridge onto the blockchain, then a Squads multisig treasury that needs several signers to move anything, then the Giveback protocol, and finally nonprofits verified by Giveback Ventures' own compliance team. Every step is recorded on chain, so anyone can follow it. $GBACK is the utility token that runs on those rails; Giveback Ventures is its largest holder, not its issuer, and it is never an investment.",
+          "o": [
+            [
+              "What does tokenizing land mean?",
+              3
+            ],
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "Thanks",
+              6
+            ]
+          ]
+        },
+        {
+          "t": "Tokenizing a real-world asset means recording ownership or rights in it as tokens on a blockchain, with the legal documents behind them. For land like Genesis One that can make records transparent and transfers simpler. Any investment in a project like this is a securities matter, handled by licensed professionals, never by a token in a game.",
+          "o": [
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "How does capital move in Genesis One?",
+              2
+            ],
+            [
+              "Thanks",
+              6
+            ]
+          ]
+        },
+        {
+          "t": "Then speak with Riverside Management Group directly. Giveback Ventures and RMG have signed an agreement to work together, and RMG brings decades of merchant banking and capital markets experience; its affiliated broker-dealer, BCW Securities, is a FINRA member. Will Deitrick of RMG is at GBANK, on the east side of Compass Plaza. I can't take investments or give investment advice here.",
+          "o": [
+            [
+              "How does the matching work?",
+              1
+            ],
+            [
+              "Thanks",
+              6
+            ]
+          ]
+        },
+        {
+          "t": "Yes, I founded Giveback Ventures, the company building the Giveback protocol and the on-chain rails behind Genesis One. Today I'm here for FinanceAdvisors.com.",
+          "o": [
+            [
+              "How does capital move in Genesis One?",
+              2
+            ],
+            [
+              "Thanks",
+              6
+            ]
+          ]
+        },
+        {
+          "t": "Thanks for stopping by. My details are on this card if you want to talk about finding the right wealth manager. Nothing here is an offer to sell securities or investment advice.",
+          "o": [
+            [
+              "Goodbye",
+              null
+            ]
+          ]
+        }
       ]
     },
     "jetfinders": {
       "name": "JetFinders",
       "tagline": "The only jet contact you'll ever need.",
       "blurb": "One advisor for all your flying: on-demand charter, jet cards, fractional ownership, aircraft sales and management, hangars, aircraft tax and business solutions, and asset tokenization.",
-      "services": ["On-demand charter", "Jet cards", "Fractional ownership", "Aircraft sales and management", "Business and specialty flights", "Real estate and hangars", "Aircraft tax and business solutions", "Asset tokenization"],
-      "npc": { "id": "pt_jetfinders", "name": "JetFinders", "role": "Aviation partner · private aviation advisor" },
-      "contact": ["JetFinders", "Private aviation advisors", "jetfinders.com", "Request a quote at jetfinders.com"],
-      "greet": ["The only jet contact you'll ever need.", "Charter, jet cards, hangars. Ask me anything.", "Thinking about a hangar home? Start here."],
+      "services": [
+        "On-demand charter",
+        "Jet cards",
+        "Fractional ownership",
+        "Aircraft sales and management",
+        "Business and specialty flights",
+        "Real estate and hangars",
+        "Aircraft tax and business solutions",
+        "Asset tokenization"
+      ],
+      "npc": {
+        "id": "pt_jetfinders",
+        "name": "Jake",
+        "role": "JetFinders · private aviation advisor"
+      },
+      "contact": [
+        "JetFinders",
+        "Private aviation advisors",
+        "jetfinders.com",
+        "Request a quote at jetfinders.com"
+      ],
+      "greet": [
+        "The only jet contact you'll ever need.",
+        "Charter, jet cards, hangars. Ask me anything.",
+        "Thinking about a hangar home? Start here."
+      ],
       "talk": [
-        { "t": "Welcome to JetFinders, the only jet contact you'll ever need: one advisor for all your flying, with access to around 3,500 aircraft in more than 170 countries. What can I help with?", "o": [["What do you offer?", 1], ["JetFinders at Genesis One?", 2], ["Asset tokenization?", 3], ["How do I reach JetFinders?", 4], ["Thanks", null]] },
-        { "t": "On-demand charter, jet cards, fractional ownership, aircraft sales and management, business and specialty flights such as helicopter and medical, real estate and hangars, aircraft tax and business solutions, and asset tokenization.", "o": [["JetFinders at Genesis One?", 2], ["How do I reach JetFinders?", 4], ["Thanks", null]] },
-        { "t": "JetFinders is the aviation partner for Genesis One: charters in and out of Douglas Municipal, owners' aircraft at home on the Flight Line, and hangars and hangar homes with their own taxiway access. Captain Reyes flies with us; you'll find him out on the apron by Gate A2.", "o": [["What do you offer?", 1], ["How do I reach JetFinders?", 4], ["Thanks", null]] },
-        { "t": "Asset tokenization records ownership of an aircraft, or rights in one, on a blockchain with the legal paperwork behind it. An advisor can walk you through how it works for a specific aircraft; anything that involves investing is handled by licensed professionals.", "o": [["What do you offer?", 1], ["How do I reach JetFinders?", 4], ["Thanks", null]] },
-        { "t": "Start at jetfinders.com and request a quote, and an advisor will come back to you. The details are on this card.", "o": [["Thanks", null]] }
+        {
+          "t": "I'm Jake with JetFinders. Welcome to JetFinders, the only jet contact you'll ever need: one advisor for all your flying, with access to around 3,500 aircraft in more than 170 countries. What can I help with?",
+          "o": [
+            [
+              "What do you offer?",
+              1
+            ],
+            [
+              "JetFinders at Genesis One?",
+              2
+            ],
+            [
+              "Asset tokenization?",
+              3
+            ],
+            [
+              "How do I reach JetFinders?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "On-demand charter, jet cards, fractional ownership, aircraft sales and management, business and specialty flights such as helicopter and medical, real estate and hangars, aircraft tax and business solutions, and asset tokenization.",
+          "o": [
+            [
+              "JetFinders at Genesis One?",
+              2
+            ],
+            [
+              "How do I reach JetFinders?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "JetFinders is the aviation partner for Genesis One: charters in and out of Douglas Municipal, owners' aircraft at home on the Flight Line, and hangars and hangar homes with their own taxiway access. Captain Reyes flies with us; you'll find him out on the apron by Gate A2.",
+          "o": [
+            [
+              "What do you offer?",
+              1
+            ],
+            [
+              "How do I reach JetFinders?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Asset tokenization records ownership of an aircraft, or rights in one, on a blockchain with the legal paperwork behind it. An advisor can walk you through how it works for a specific aircraft; anything that involves investing is handled by licensed professionals.",
+          "o": [
+            [
+              "What do you offer?",
+              1
+            ],
+            [
+              "How do I reach JetFinders?",
+              4
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Start at jetfinders.com and request a quote, and an advisor will come back to you. The details are on this card.",
+          "o": [
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        }
       ]
     },
     "freedomair": {
       "name": "Freedom Air",
       "tagline": "Finding freedom",
       "blurb": "Private jet charter and aircraft management from Reno, Nevada, positioning aircraft right here on the runway.",
-      "fleet": ["Challenger 300", "Citation X", "Citation XLS", "CJ3+", "Epic E1000", "Pilatus PC-12", "Airbus EC130 helicopter"],
-      "npc": { "id": "freedomair", "name": "Dana", "role": "Freedom Air charter desk" },
-      "contact": ["Freedom Air charter desk", "Reno, Nevada", "+1 775 447 9830", "charter@freedomairservices.com", "freedomairservices.com"],
-      "greet": ["Finding freedom starts here.", "Need a jet positioned on the runway? Ask me.", "Empty legs this week. Ask me what's open."],
+      "fleet": [
+        "Challenger 300",
+        "Citation X",
+        "Citation XLS",
+        "CJ3+",
+        "Epic E1000",
+        "Pilatus PC-12",
+        "Airbus EC130 helicopter"
+      ],
+      "npc": {
+        "id": "freedomair",
+        "name": "Joe",
+        "role": "Freedom Air · private jet charter"
+      },
+      "contact": [
+        "Freedom Air charter desk",
+        "Reno, Nevada",
+        "+1 775 447 9830",
+        "charter@freedomairservices.com",
+        "freedomairservices.com"
+      ],
+      "greet": [
+        "Finding freedom starts here.",
+        "Need a jet positioned on the runway? Ask me.",
+        "Empty legs this week. Ask me what's open."
+      ],
       "talk": [
-        { "t": "Welcome to Freedom Air. We run private jet charter and aircraft management out of Reno, and we position aircraft right here on the runway. Where are you headed?", "o": [["What do you fly?", 1], ["Empty legs?", 2], ["How do I book?", 3], ["Just looking", null]] },
-        { "t": "Challenger 300, Citation X, Citation XLS, CJ3+, Epic E1000 and a Pilatus PC-12, plus an Airbus EC130 helicopter for tours. West Coast, East Coast and the Caribbean.", "o": [["Empty legs?", 2], ["How do I book?", 3], ["Thanks", null]] },
-        { "t": "Empty legs are one-way repositioning flights, offered when an aircraft has to fly that way anyway. Ask and we'll tell you what's open this week.", "o": [["How do I book?", 3], ["Thanks", null]] },
-        { "t": "Call +1 775 447 9830 or email charter@freedomairservices.com, and tell them Genesis One sent you. The details are on this card.", "o": [["Got it", null]] }
+        {
+          "t": "I'm Joe, and this is Beth. Welcome to Freedom Air. We run private jet charter and aircraft management out of Reno, and we position aircraft right here on the runway. Where are you headed?",
+          "o": [
+            [
+              "What do you fly?",
+              1
+            ],
+            [
+              "Empty legs?",
+              2
+            ],
+            [
+              "How do I book?",
+              3
+            ],
+            [
+              "Just looking",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Challenger 300, Citation X, Citation XLS, CJ3+, Epic E1000 and a Pilatus PC-12, plus an Airbus EC130 helicopter for tours. West Coast, East Coast and the Caribbean.",
+          "o": [
+            [
+              "Empty legs?",
+              2
+            ],
+            [
+              "How do I book?",
+              3
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Empty legs are one-way repositioning flights, offered when an aircraft has to fly that way anyway. Ask and we'll tell you what's open this week.",
+          "o": [
+            [
+              "How do I book?",
+              3
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Call +1 775 447 9830 or email charter@freedomairservices.com, and tell them Genesis One sent you. The details are on this card.",
+          "o": [
+            [
+              "Got it",
+              null
+            ]
+          ]
+        }
       ]
     }
   }

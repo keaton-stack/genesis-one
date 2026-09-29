@@ -25,10 +25,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var DISC = "Nothing here is an offer to sell securities or investment advice.";
   var DEF = { hall: { title: "INDUSTRY PARTNERS", subtitle: "A coalition of established aviation, logistics, and investment partners ready to bring jobs, activity, and long-term investment to Douglas." },
     partners: {
-      stellar: { name: "Stellar Aviation", badge: "FBO PARTNER", blurb: "A proven FBO operator, bringing fueling, hangar, and ground services to the field, along with local jobs.", services: ["Fuel", "Hangar", "Ground services", "Concierge", "Crew lounge", "Flight planning"], locations: ["Reno  KRNO", "Carson-Tahoe  KCXP", "South Palm Beach  KLNA", "Springfield  KSPI"], npc: { id: "pt_stellar", name: "Stellar Aviation", role: "FBO partner · guest services" }, contact: ["Brad Kost", "Founding Partner and COO", "Bkost@stellaraviationgroup.com", "stellaraviationgroup.com"], greet: ["Welcome to Douglas Municipal. Stellar Aviation, your FBO partner."], talk: [{ t: "Welcome to Stellar Aviation, the FBO partner at Douglas Municipal: fueling, hangar and ground services for the field, along with local jobs.", o: [["Thanks", null]] }] },
+      stellar: { name: "Stellar Aviation", badge: "FBO PARTNER", blurb: "A proven FBO operator, bringing fueling, hangar, and ground services to the field, along with local jobs.", services: ["Fuel", "Hangar", "Ground services", "Concierge", "Crew lounge", "Flight planning"], locations: ["Reno  KRNO", "Carson-Tahoe  KCXP", "South Palm Beach  KLNA", "Springfield  KSPI"], npc: { id: "pt_stellar", name: "Brad Kost", role: "Founding Partner and COO · Stellar Aviation" }, contact: ["Brad Kost", "Founding Partner and COO", "Bkost@stellaraviationgroup.com", "stellaraviationgroup.com"], greet: ["Welcome to Douglas Municipal. Stellar Aviation, your FBO partner."], talk: [{ t: "Welcome to Stellar Aviation, the FBO partner at Douglas Municipal: fueling, hangar and ground services for the field, along with local jobs.", o: [["Thanks", null]] }] },
       financeadvisors: { name: "FinanceAdvisors.com", blurb: "A fintech corporation that matches high-net-worth retirees with wealth managers. Servicing Fisher Investments, Edelman Financial Engines, Empower, and more.", notice: "FinanceAdvisors.com does not provide investment advice.", npc: { id: "pt_paul", name: "Paul Mazzapica", role: "Co-Founder and President · FinanceAdvisors.com" }, contact: ["Paul Mazzapica", "Co-Founder and President", "paul@financeadvisors.com", "financeadvisors.com"], footer: DISC, greet: ["Hi, I'm Paul. Come on in."], talk: [{ t: "Hi, I'm Paul Mazzapica, Co-Founder and President of FinanceAdvisors.com. We match high-net-worth retirees with independent wealth managers. " + DISC, o: [["Goodbye", null]] }] },
-      jetfinders: { name: "JetFinders", tagline: "The only jet contact you'll ever need.", services: ["On-demand charter", "Jet cards", "Fractional ownership", "Aircraft sales and management", "Real estate and hangars", "Asset tokenization"], npc: { id: "pt_jetfinders", name: "JetFinders", role: "Aviation partner · private aviation advisor" }, contact: ["JetFinders", "jetfinders.com"], greet: ["The only jet contact you'll ever need."], talk: [{ t: "Welcome to JetFinders, the only jet contact you'll ever need.", o: [["Thanks", null]] }] },
-      freedomair: { name: "Freedom Air", tagline: "Finding freedom", fleet: ["Challenger 300", "Citation X", "Citation XLS", "CJ3+", "Epic E1000", "Pilatus PC-12", "Airbus EC130 helicopter"], npc: { id: "freedomair", name: "Dana", role: "Freedom Air charter desk" }, contact: ["Freedom Air charter desk", "+1 775 447 9830", "charter@freedomairservices.com"], greet: ["Finding freedom starts here."], talk: [{ t: "Welcome to Freedom Air: private jet charter and aircraft management out of Reno.", o: [["Thanks", null]] }] } } };
+      jetfinders: { name: "JetFinders", tagline: "The only jet contact you'll ever need.", services: ["On-demand charter", "Jet cards", "Fractional ownership", "Aircraft sales and management", "Real estate and hangars", "Asset tokenization"], npc: { id: "pt_jetfinders", name: "Jake", role: "JetFinders · private aviation advisor" }, contact: ["JetFinders", "jetfinders.com"], greet: ["The only jet contact you'll ever need."], talk: [{ t: "Welcome to JetFinders, the only jet contact you'll ever need.", o: [["Thanks", null]] }] },
+      freedomair: { name: "Freedom Air", tagline: "Finding freedom", fleet: ["Challenger 300", "Citation X", "Citation XLS", "CJ3+", "Epic E1000", "Pilatus PC-12", "Airbus EC130 helicopter"], npc: { id: "freedomair", name: "Joe", role: "Freedom Air · private jet charter" }, contact: ["Freedom Air charter desk", "+1 775 447 9830", "charter@freedomairservices.com"], greet: ["Finding freedom starts here."], talk: [{ t: "Welcome to Freedom Air: private jet charter and aircraft management out of Reno.", o: [["Thanks", null]] }] } } };
   function loadData() { if (PT.dataP) return PT.dataP; try { PT.dataP = fetch("/plan/partners_terminal.json?v=" + (window.BUILD || "dev") + "-" + Date.now()).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && j.partners) PT.data = j; return j; }).catch(function (e) { note("data", e); return null; }); } catch (e) { note("data", e); } return PT.dataP; }
   loadData();
   function D() { return PT.data || DEF; }
@@ -702,7 +702,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ───────────────────────── partner staff (talk cards) and the terminal cast ─────────────────────────
   var TALK = window.PLAN_TALK = window.PLAN_TALK || {};
   var STAFF = PT.staff = PT.staff || {};
-  var LOOK = { stellar: [{ body: "f", skin: "c98f63", shirt: "1a3552", pants: "1c1f24", hair: 1, hairc: "1c1512" }], financeadvisors: [{ body: "m", skin: "e3b48f", shirt: "1f2a3c", pants: "3a3d42", hair: 3, hairc: "5b4634", height: 1.03 }], jetfinders: [{ body: "m", skin: "d9a877", shirt: "0f1a2e", pants: "2b2f36", hair: 1, hairc: "3a2416" }] };
+  var LOOK = { stellar: [{ body: "m", skin: "e3b48f", shirt: "1c1f24", pants: "1c1f24", hair: 1, hairc: "1c1512" }], financeadvisors: [{ body: "m", skin: "e3b48f", shirt: "1f2a3c", pants: "3a3d42", hair: 3, hairc: "5b4634", height: 1.03 }], jetfinders: [{ body: "m", skin: "d9a877", shirt: "0f1a2e", pants: "2b2f36", hair: 1, hairc: "3a2416" }] };
   function staffSpot(id) { var I = boothInfo(), sl = SLOTS[id], sp = I.desk && I.desk.staff_spot || [-2.55, 0.158, 0.6]; var p = slotPt(sl, sp[0], sp[2]); return { x: p[0], z: p[1], y: F + (I.platform_top || 0.158) * sl.s, yaw: sl.yaw }; }
   function visitorSpot(id) { var I = boothInfo(), sl = SLOTS[id], sp = I.desk && I.desk.visitor_spot || [-2.55, 0.158, 2.25]; var p = slotPt(sl, sp[0], sp[2] + 0.4); return p; }
   function makeStaff(id) {
@@ -713,7 +713,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var T = TALK[S.id] = { id: S.id, name: npc.name || p.name, role: npc.role || p.name, talk: p.talk, kw: [], greet: p.greet || [], ptContact: p.contact || null, ptFooter: p.footer || null, ptPartner: id, get g() { return S.rig || S.ph; } };
     var vs = visitorSpot(id), vw = l2w(e, vs[0], vs[1]); var hs = { x: vw[0], z: vw[1], r: 4.2, t: T.name, k: T.role + " · press E to talk", p: (p.talk && p.talk[0] && p.talk[0].t) || p.blurb || "", play: "npc:" + S.id }; hotspots.push(hs); S.hs = hs;
   }
-  function refreshTalk() { for (var k in STAFF) { var S = STAFF[k], p = P(S.pid), T = TALK[S.id]; if (S.hs && S.hsText) S.hs.p = S.hsText(); if (T && p) { T.talk = p.talk; T.greet = p.greet || []; T.ptContact = p.contact || null; T.ptFooter = p.footer || null; if (p.npc) { T.name = p.npc.name || T.name; T.role = p.npc.role || T.role; } } } var c = castFind("freedomair"); if (c) { var f = P("freedomair"); if (f && f.talk) { c.talk = f.talk; c.greet = f.greet || c.greet; c.ptContact = f.contact || null; c.ptPartner = "freedomair"; if (f.npc && f.npc.role) c.role = f.npc.role; } } }
+  function refreshTalk() { for (var k in STAFF) { var S = STAFF[k], p = P(S.pid), T = TALK[S.id]; if (S.hs && S.hsText) S.hs.p = S.hsText(); if (T && p) { T.talk = p.talk; T.greet = p.greet || []; T.ptContact = p.contact || null; T.ptFooter = p.footer || null; if (p.npc) { T.name = p.npc.name || T.name; T.role = p.npc.role || T.role; } } } var c = castFind("freedomair"); if (c) { var f = P("freedomair"); if (f && f.talk) { c.talk = f.talk; c.greet = f.greet || c.greet; c.ptContact = f.contact || null; c.ptPartner = "freedomair"; if (f.npc && f.npc.role) c.role = f.npc.role; castName(c, f.npc); } } }
   function castFind(id) { try { for (var i = 0; i < CAST.length; i++) if (CAST[i].id === id) return CAST[i]; } catch (e) {} return null; }
   // the terminal cast moves to the new desks: [id, x, z, yaw]
   var CASTPOS = { rosa: [-1.8, -23.3, 0], marcus: [6.1, 22.2, -Math.PI / 2], dale: [-6.1, 22.2, Math.PI / 2], lupe: [-24.1, 11.8, Math.PI / 2], freedomair: null };
@@ -723,16 +723,42 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var hs = null; for (var h = 0; h < hotspots.length; h++) if (hotspots[h].play === "npc:" + id) { hs = hotspots[h]; break; } if (hs) { var hv = id === "freedomair" ? visitorSpot("freedomair") : [p[0] + Math.sin(p[2]) * 1.6, p[1] + Math.cos(p[2]) * 1.6]; var hw = l2w(e, hv[0], hv[1]); hs.x = hw[0]; hs.z = hw[1]; hs.r = 4.2; } }
     return any;
   }
-  // Paul's rigged model (PLAN_MODEL_INFO.paul, published by the asset round once installed): swaps in for the placeholder once its idle clip plays
-  function paulRig() {
-    var S = STAFF.financeadvisors; if (!S || S.rigState) return; var I = window.PLAN_MODEL_INFO && window.PLAN_MODEL_INFO.paul; if (!I || !I.file || I.installed === false) return; S.rigState = 1;
-    try { var mob = false; try { mob = typeof ASSET !== "undefined" && /models_m/.test(ASSET.models); } catch (e) {} var ld = gltfLoader(), q = "?v=" + (window.BUILD || "dev");
-      ld.load((mob && I.mobile ? I.mobile : I.file) + q, function (gl) { try { var g = gl.scene; g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } }); var bb = new THREE.Box3().setFromObject(g), h = bb.max.y - bb.min.y; var want = (I.size && I.size[1]) || 1.8; if (h > 0.5 && (h < want * 0.85 || h > want * 1.15)) g.scale.multiplyScalar(want / h); g.userData.noCull = true; g.visible = false; S.rigG = g; S.mixer = new THREE.AnimationMixer(g);
-          var useClip = function (cl) { if (!cl || S.rig) return; cl.tracks = cl.tracks.filter(function (t) { return !/\.scale$/.test(t.name); }); S.idle = S.mixer.clipAction(cl); S.idle.play(); scene.add(g); S.rig = g; g.position.copy(S.ph.position); g.rotation.y = S.ph.rotation.y; S.ph.visible = false; S.rigState = 2; PT.n.paulRig = 1; };
-          var emb = (gl.animations || []).filter(function (a) { return /idle|stand|breath|talk/i.test(a.name); })[0]; if (emb) useClip(emb); else if (I.idle) ld.load(I.idle + q, function (c) { useClip(c.animations && c.animations[0]); }, undefined, function (e) { S.rigState = 3; note("paul idle", e); });
-        } catch (err) { S.rigState = 3; note("paul rig", err); } }, undefined, function (e) { S.rigState = 3; note("paul load", e); });
-    } catch (err) { S.rigState = 3; note("paul", err); }
+  // The partners' rigged models (PLAN_MODEL_INFO.<key>, published by the asset rounds once installed): each swaps in for
+  // its placeholder once its idle clip plays. Paul (FinanceAdvisors.com), Brad (Stellar Aviation), Jake (JetFinders),
+  // Beth (Freedom Air, standing by the lounge), and Joe, who takes over the Freedom Air desk character from the client cast.
+  var RIGS = { financeadvisors: "paul", stellar: "brad", jetfinders: "jake", fa_beth: "beth" };
+  var BETH_AT = [-0.55, -1.05];   // booth-local spot in the Freedom Air booth, between the desk and the lounge
+  function rigInfo(key) { var I = window.PLAN_MODEL_INFO && window.PLAN_MODEL_INFO[key]; return I && I.file && I.installed !== false ? I : null; }
+  function loadRig(key, onReady, onFail) {
+    var I = rigInfo(key); if (!I) return false;
+    try { var mob = false; try { mob = typeof ASSET !== "undefined" && /models_m/.test(ASSET.models); } catch (e) {} var ld = gltfLoader(), q = "?v=" + (window.BUILD || "dev"), an = 1; try { an = MAX_ANISO || 1; } catch (e) {}
+      ld.load((mob && I.mobile ? I.mobile : I.file) + q, function (gl) { try { var g = gl.scene; g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; var m = o.material; if (m && m.map && an > 1) { m.map.anisotropy = an; m.map.needsUpdate = true; } } }); var bb = new THREE.Box3().setFromObject(g), h = bb.max.y - bb.min.y; var want = (I.size && I.size[1]) || I.height || 1.8; if (h > 0.5 && (h < want * 0.85 || h > want * 1.15)) g.scale.multiplyScalar(want / h); g.userData.noCull = true; var mixer = new THREE.AnimationMixer(g), done = false;
+          var useClip = function (cl) { if (!cl || done) return; done = true; cl.tracks = cl.tracks.filter(function (t) { return !/\.scale$/.test(t.name); }); var act = mixer.clipAction(cl); act.play(); onReady(g, mixer, act); };
+          var emb = (gl.animations || []).filter(function (a) { return /idle|stand|breath|talk/i.test(a.name); })[0]; if (emb) useClip(emb); else if (I.idle) ld.load(I.idle + q, function (c) { useClip(c.animations && c.animations[0]); }, undefined, function (e) { onFail(e); }); else onFail("no idle clip");
+        } catch (err) { onFail(err); } }, undefined, function (e) { onFail(e); });
+    } catch (err) { onFail(err); }
+    return true;
   }
+  function staffRig(pid) {
+    var S = STAFF[pid], key = RIGS[pid]; if (!S || S.rigState || !key || !rigInfo(key)) return; S.rigState = 1;
+    loadRig(key, function (g, mixer, act) { if (S.rig) return; g.visible = false; S.rigG = g; S.mixer = mixer; S.idle = act; scene.add(g); S.rig = g; g.position.copy(S.ph.position); g.rotation.y = S.ph.rotation.y; S.ph.visible = false; S.rigState = 2; PT.n[key + "Rig"] = 1; }, function (e) { S.rigState = 3; note(key + " rig", e); });
+  }
+  function paulRig() { staffRig("financeadvisors"); }
+  // Beth: no talk card of her own (Joe keeps the Freedom Air desk); an empty placeholder until her model loads
+  function makeBeth() {
+    var e = TE(); if (!e || STAFF.fa_beth || !SLOTS.freedomair) return; var sl = SLOTS.freedomair, I = boothInfo(), p = slotPt(sl, BETH_AT[0], BETH_AT[1]), w = l2w(e, p[0], p[1]);
+    var ph = new THREE.Group(); ph.visible = false; scene.add(ph); var y = F + (I.platform_top || 0.158) * sl.s; ph.position.set(w[0], e[1] + y, w[1]); ph.rotation.y = e[3] + sl.yaw;
+    STAFF.fa_beth = { id: "pt_beth", pid: "freedomair", ph: ph, rig: null, home: { x: p[0], z: p[1], y: y, yaw: sl.yaw }, yaw0: e[3] + sl.yaw, cool: 0, noWalk: true };
+  }
+  // Joe: his rig rides inside the client's Freedom Air cast character (its talk card, hotspot and turning stay the client's);
+  // the cast's own body is hidden once he plays
+  function joeRig() {
+    if (PT.joe) return; var c = castFind("freedomair"); if (!c || !c.g || !rigInfo("joe")) return; PT.joe = { state: 1 };
+    loadRig("joe", function (g, mixer) { var ud = c.g.userData, keep = [ud.label, ud.emote, ud.blob, ud.bubble, ud.cartG]; var hid = c.g.children.filter(function (ch) { return keep.indexOf(ch) < 0; });
+      var sc = c.g.scale.x || 1; if (Math.abs(sc - 1) > 0.01) g.scale.multiplyScalar(1 / sc); g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); c.g.add(g); hid.forEach(function (ch) { ch.visible = false; });
+      var ms = []; g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) ms.push(o); }); PT.joe = { state: 2, g: g, mixer: mixer, hid: hid, ms: ms }; PT.n.joeRig = 1; }, function (e) { PT.joe = { state: 3 }; note("joe rig", e); });
+  }
+  function castName(c, npc) { if (!c || !npc || !npc.name || c.name === npc.name) return; c.name = npc.name; try { setName(c.g, npc.name); c.g.userData.label.scale.set(1.9, 0.48, 1); } catch (e) {} for (var h = 0; h < hotspots.length; h++) if (hotspots[h].play === "npc:" + c.id) { hotspots[h].t = c.name; hotspots[h].k = (npc.role || c.role) + " · press E to talk"; } }
 
   // ───────────────────────── the talk card: selectable contact details under a partner's card ─────────────────────────
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -750,14 +776,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var _v = null;
   function frame(dt, now) {
     var e = TE(); if (!e) return; var inT = inTerm(); dt = Math.min(dt || 0.016, 0.1); if (!inT) warm(now);
-    if (!PT.castDone) { try { if (typeof CAST !== "undefined" && CAST.length && placeCast()) { PT.castDone = true; ["stellar", "financeadvisors", "jetfinders"].forEach(makeStaff); refreshTalk(); } } catch (err) { PT.castDone = true; note("cast", err); } }
+    if (!PT.castDone) { try { if (typeof CAST !== "undefined" && CAST.length && placeCast()) { PT.castDone = true; ["stellar", "financeadvisors", "jetfinders"].forEach(makeStaff); try { makeBeth(); } catch (err) { note("beth", err); } refreshTalk(); } } catch (err) { PT.castDone = true; note("cast", err); } }
     if (PT.data && !PT.dataUsed && PT.castDone) { PT.dataUsed = true; try { refreshTalk(); } catch (err) { note("talk", err); } }
     podium(inT);
     // the terminal cast stays on the floor (their spots are inside the room)
     if (PT.castDone) for (var id in CASTPOS) { var c = castFind(id); if (c && c.ptLocal) { var y0 = e[1] + (c.ptFloor || F); if (Math.abs(c.g.position.y - y0) > 0.001) c.g.position.y = y0; } }
-    for (var k in STAFF) { var S = STAFF[k]; var g = S.rig || S.ph; if (S.ph.visible !== (inT && !S.rig)) S.ph.visible = inT && !S.rig; if (S.rig && S.rig.visible !== inT) S.rig.visible = inT; if (!inT) continue; g.position.y = e[1] + S.home.y; var dxp = player.position.x - g.position.x, dzp = player.position.z - g.position.z, dp = Math.hypot(dxp, dzp); turnTo(g, dp < 7 ? Math.atan2(dxp, dzp) : S.yaw0, dt, 3); if (S.rig) { if (S.mixer) S.mixer.update(dt); } else animateWalk(g, 0, dt);
+    for (var k in STAFF) { var S = STAFF[k]; var g = S.rig || S.ph; if (S.ph.visible !== (inT && !S.rig)) S.ph.visible = inT && !S.rig; if (S.rig && S.rig.visible !== inT) S.rig.visible = inT; if (!inT) continue; g.position.y = e[1] + S.home.y; var dxp = player.position.x - g.position.x, dzp = player.position.z - g.position.z, dp = Math.hypot(dxp, dzp); turnTo(g, dp < 7 ? Math.atan2(dxp, dzp) : S.yaw0, dt, 3); if (S.rig) { if (S.mixer) S.mixer.update(dt); } else if (!S.noWalk) animateWalk(g, 0, dt);
       if (dp < 5.5 && now > S.cool && TALK[S.id] && TALK[S.id].greet && TALK[S.id].greet.length) { S.cool = now + 45000 + Math.random() * 30000; try { npcSay({ g: g, name: TALK[S.id].name }, TALK[S.id].greet[Math.floor(Math.random() * TALK[S.id].greet.length)]); } catch (err) {} } if (g.userData.bubble && now - (g.userData.bubbleAt || 0) > 7000) { g.remove(g.userData.bubble); g.userData.bubble = null; } }
-    if (inT && STAFF.financeadvisors && !STAFF.financeadvisors.rigState) paulRig();
+    if (inT) { for (var rk in RIGS) if (STAFF[rk] && !STAFF[rk].rigState) staffRig(rk); if (!PT.joe) joeRig(); }
+    if (PT.joe && PT.joe.state === 2) { var J = PT.joe; if (J.g.visible !== inT) J.g.visible = inT; if (inT) { J.mixer.update(dt); for (var mj = 0; mj < J.ms.length; mj++) if (!J.ms[mj].visible) J.ms[mj].visible = true; } for (var hj = 0; hj < J.hid.length; hj++) if (J.hid[hj].visible) J.hid[hj].visible = false; }
     contactCard();
     if (!inT) { if (PT.wasIn) { PT.wasIn = false; try { if (!window.WALK_DROP_FIXED && player && player.userData.walk && !player.userData.sitOff) player.userData.walk.position.y = 0; } catch (err) {} disposeRoom(); } return; }
     PT.wasIn = true; var R = inside.g.userData.pt; if (!R) return; var M = PT.M;
