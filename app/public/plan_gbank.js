@@ -122,7 +122,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ═════════════════════════ hooks ═════════════════════════
   // 1. reserve the site first (unshifted), so every module that tests planSpotOK / planFree / scatter keeps off it
   HK.world.unshift({ name: "gbankReserve", fn: function () { if (!window.PLAN_MODE || window.PLAN_GBANK_OFF) return; site();
-    var poly = wpoly(-21, 21, -14, 34.5); planKeepout(poly); GB.keep = poly;
+    var poly = wpoly(-21, 21, -16, 34.5); planKeepout(poly); GB.keep = poly;   /* R3: -16 at the back (the gbank model's tower reaches -14.5) */
     // clear anything already standing on the footprint or the forecourt (props, lamps, bollards, allee trees)
     var n = 0; for (var kind in PLACE) { var list = PLACE[kind]; if (!list || !list.length) continue; var sp = MODEL_SPECS[kind]; if (!sp || !sp.prop) continue; for (var i = list.length - 1; i >= 0; i--) { var e = list[i]; if (planInPoly(poly, e[0], e[2])) { list.splice(i, 1); n++; } } }
     for (var j = COLLIDERS.length - 1; j >= 0; j--) { var c = COLLIDERS[j]; if (c[2] < 2 && planInPoly(poly, c[0], c[1])) COLLIDERS.splice(j, 1); }
@@ -138,7 +138,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     site(); var sum = 0, n = 0; for (var lx = -17; lx <= 17; lx += 2) for (var lz = -12; lz <= 24; lz += 2) { var w = L2W(lx, lz); sum += getH(w[0], w[1]); n++; } S.B = sum / n;
     if (MODELS.gbank && !window.PLAN_GBANK_PROC) { try { analyzeModel(); } catch (e) { GB.modelOK = false; GB.modelWhy = e.message; note("model analysis", e); } }
     // forecourt paving (cantera pavers; walkable through the walk grid)
-    try { var pg = polygon(wpoly(K.court[0], K.court[1], K.court[2], K.court[3]), MT_PAVE(), 0.06); pg.userData.noCull = true; scene.add(pg); GB.paving = pg; } catch (e) { note("paving", e); }
+    var cz0 = K.court[2]; if (GB.modelOK && GB.model && GB.model.A && GB.model.A.door.portal) cz0 = Math.min(cz0, MP(0, GB.model.A.door.portal.z_face)[1] - 0.2);   /* R3: the paving runs to the model's entrance */
+    try { var pg = polygon(wpoly(K.court[0], K.court[1], cz0, K.court[3]), MT_PAVE(), 0.06); pg.userData.noCull = true; scene.add(pg); GB.paving = pg; } catch (e) { note("paving", e); }
     // approach planting: a palm allee framing the axis, agave, yucca and barrel beds along the sides
     var palm = ["datepalm", "canarypalm", "fanpalm2", "fanpalm"].find(function (k) { return MODELS[k]; });
     GB.palm = palm; GB.bedPlants = []; var putL = function (kind, lx, lz, rot, sc, bed) { if (!MODELS[kind] || modelBlocks(lx, lz)) return null; var p = L2W(lx, lz); put(kind, p[0], p[1], S.yaw + (rot || 0), sc || 1); var L = PLACE[kind]; var e = L[L.length - 1]; e.keep = true; e.gbank = true; if (bed !== undefined) GB.bedPlants.push([e, bed]); return e; };
@@ -198,7 +199,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var useModel = !!(MODELS.gbank && !window.PLAN_GBANK_PROC);
     group("ex", 1600); group("up", 220); group("hall", 115); group("suite", 34); group("dyn", 50); group("court", 600);
     if (useModel && GB.modelOK) { try { buildModelShell(); } catch (e) { GB.modelOK = false; GB.modelWhy = e.message; note("model shell", e); G.ex.clear(); clearModelSolids(); } }
-    var model = useModel && GB.modelOK;
+    var model = useModel && GB.modelOK; GB.isModel = !!model;
     if (model) { group("rs", 115); var ex0 = G.ex; CAP = []; G.ex = G.rs; try { buildShell(); } catch (e) { note("room shell", e); } G.ex = ex0; }
     else { CAP = null; }
     var steps = [["shell", model ? null : buildShell], ["stair", model ? null : buildStair], ["hall", buildHall], ["suite", buildSuite], ["terrace", model ? null : buildTerrace], ["court", buildCourt], ["lights", buildLights]];
@@ -206,7 +207,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     GB.mode = model ? "model" : "procedural"; if (useModel && !model) GB.mode = "procedural (model rejected: " + (GB.modelWhy || "?") + ")";
     if (model) { var rsd = GB.roomSolids || []; for (var r = SOLIDS.length - 1; r >= 0; r--) if (rsd.indexOf(SOLIDS[r]) >= 0) SOLIDS.splice(r, 1); try { buildMats(); } catch (e) { note("mats", e); } }
     // merge the static meshes of each group by material (animated and text parts live in dyn, which stays as it is)
-    var saved = 0; ["ex", "up", "hall", "suite", "court", "rs", "dyn"].forEach(function (k) { if (!G[k] || (k === "ex" && GB.mode === "model")) return; try { saved += planMergeStatic(G[k], null, false); } catch (e) { note("merge " + k, e); } });
+    // R3: a far tier for the terrace and the forecourt (the same placements with each model's far LOD geometry: a 25k lounge chair
+    // is 3.9k there); the full groups show only up close, the far ones out to the old range
+    [["up", 28], ["court", 50]].forEach(function (q) { try { farTier(q[0], q[1]); } catch (e) { note("far tier " + q[0], e); } });
+    var saved = 0; ["ex", "up", "hall", "suite", "court", "rs", "dyn", "upF", "courtF"].forEach(function (k) { if (!G[k] || (k === "ex" && GB.mode === "model")) return; try { saved += planMergeStatic(G[k], null, false); } catch (e) { note("merge " + k, e); } });
     for (var k in G) { var inner = k === "hall" || k === "suite" || k === "dyn" || k === "rs"; G[k].traverse(function (o) { if (o.isMesh) { o.receiveShadow = true; if (inner) { o.castShadow = false; o.userData.noShadow = true; } else o.castShadow = !(o.material && o.material.transparent); } }); if (inner && GB.mode === "model") G[k].visible = false; scene.add(G[k]); }
     // interior groups carry userData.interior so the shadow sweep leaves them (they sit in the shell's shadow)
     ["hall", "suite", "dyn", "rs"].forEach(function (k) { if (G[k]) G[k].userData.interior = true; });
@@ -284,9 +288,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // a glazed run: a glass plane along x (front, facing +z) or along z (side, facing +x), optionally with a door gap
   function PLf(g, alongX, a, b, fixed, y0, y1, isFront, gap) { var M = mats(); var h = y1 - y0, dg = gap === undefined ? (isFront ? K.door : 0) : gap; var segs = dg > 0 && a < -dg && b > dg ? [[a, -dg], [dg, b]] : [[a, b]]; if (dg > 0 && isFront && h > K.doorH + 0.3 && gap === undefined) segs = [[a, -dg], [dg, b]];
     segs.forEach(function (sg) { var L = sg[1] - sg[0]; if (L <= 0.05) return; if (alongX) PL(g, L, h, M.glass, (sg[0] + sg[1]) / 2, y0 + h / 2, fixed + 0.02); else PL(g, L, h, M.glass, fixed + 0.02, y0 + h / 2, (sg[0] + sg[1]) / 2, Math.PI / 2); }); }
-  function lettersGBANK(g) { var M = mats(); var tex = cv(1024, 256, function (x, w, h) { x.clearRect(0, 0, w, h); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "400 200px " + DISP; x.fillStyle = gold(x, 30, 230); spaced(x, "GBANK", w / 2 + 14, h / 2 + 8, 28); });
-    var m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, metalness: 0.75, roughness: 0.3, color: 0xffffff, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0.05 }); GB.letterMat = m;
-    var p = PL(G.dyn, 3.4, 0.85, m, 0, K.sy0 - 0.03, K.slab[3] + 0.03); p.userData.noMerge = true; }
+  function lettersGBANK(g, o) { var M = mats(); var tex = cv(1024, 256, function (x, w, h) { x.clearRect(0, 0, w, h); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "400 200px " + DISP; x.fillStyle = gold(x, 30, 230); spaced(x, "GBANK", w / 2 + 14, h / 2 + 8, 28); });
+    var m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, metalness: 0.75, roughness: 0.3, color: 0xffffff, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0.05 }); GB.letterMat = m; (GB.letterMats = GB.letterMats || []).push(m);
+    var p = o ? PL(g, o.w, o.h, m, o.x, o.y, o.z) : PL(G.dyn, 3.4, 0.85, m, 0, K.sy0 - 0.03, K.slab[3] + 0.03); p.userData.noMerge = true; }
 
   // ── the grand stair: a stepped travertine mass with cheek walls, bronze handrails and a light line under each rail ──
   function buildStair() {
@@ -417,8 +421,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!MT.books) { var cols = ["#7a2e24", "#2f4a3a", "#33456a", "#d8c7a4", "#a0783f", "#5a4636", "#efe6d6", "#8c3a2e", "#1f2a3a", "#c2a45a", "#4a5a3a", "#6a2230"]; var bt = cv(64, 16, function (x) { cols.forEach(function (c, i) { x.fillStyle = c; x.fillRect(i * 64 / cols.length, 0, 64 / cols.length + 1, 16); x.fillStyle = "rgba(255,230,170,0.35)"; x.fillRect(i * 64 / cols.length + 1, 3, 1, 10); }); }); bt.userData.text = false; bt.magFilter = THREE.NearestFilter; bt.minFilter = THREE.NearestFilter; bt.generateMipmaps = false; MT.books = new THREE.MeshStandardMaterial({ map: bt, roughness: 0.82 }); MT.booksN = cols.length; }
     for (var s = 0; s < 6; s++) { var sy = y0 + 0.12 + s * 0.52; BX(g, x + 0.02, x + Dp + 0.01, sy - 0.03, sy, z - W / 2 + 0.05, z + W / 2 - 0.05, M.walnut, 1); if (s > 0) BX(g, x + Dp - 0.03, x + Dp - 0.01, sy - 0.045, sy - 0.03, z - W / 2 + 0.08, z + W / 2 - 0.08, M.ledPanel, 1); if (s === 5) continue; var zz = z - W / 2 + 0.1; while (zz < z + W / 2 - 0.15) { if (rr() < 0.12) { zz += 0.3; continue; } var bw = 0.03 + rr() * 0.05, bh = 0.26 + rr() * 0.16; if (rr() < 0.08) { var ob = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), M.brass); ob.position.set(x + 0.2, sy + 0.09, zz + 0.1); g.add(ob); zz += 0.3; continue; } var bk2 = BX(g, x + 0.06, x + 0.06 + 0.2 + rr() * 0.08, sy, sy + bh, zz, zz + bw, MT.books, 0); var ci = (Math.floor(rr() * MT.booksN) + 0.5) / MT.booksN, uvb = bk2.geometry.attributes.uv; for (var ui = 0; ui < uvb.count; ui++) uvb.setXY(ui, ci, 0.5); zz += bw + 0.004; } } }
   // a registered model scaled to a target size [x, y, z] (metres), placed in a building group
-  function placeModel(g, kind, x, y, z, ry, target) { var m = MODELS[kind]; var mg = makeModel(kind); var sx = m.sx || 1, sz = m.sz || 1, sh = m.height || 1; var k = Math.min(target[0] / sx, target[2] / sz, target[1] / sh); if (!isFinite(k) || k <= 0) k = 1; mg.scale.setScalar(k); mg.position.set(x, y, z); mg.rotation.y = ry; g.add(mg); GB.n["m_" + kind] = (GB.n["m_" + kind] || 0) + 1; return mg; }
+  function placeModel(g, kind, x, y, z, ry, target) { var m = MODELS[kind]; var mg = makeModel(kind); mg.children.forEach(function (c, i) { c.userData.lodKind = kind; c.userData.lodPart = i; }); var sx = m.sx || 1, sz = m.sz || 1, sh = m.height || 1; var k = Math.min(target[0] / sx, target[2] / sz, target[1] / sh); if (!isFinite(k) || k <= 0) k = 1; mg.scale.setScalar(k); mg.position.set(x, y, z); mg.rotation.y = ry; g.add(mg); GB.n["m_" + kind] = (GB.n["m_" + kind] || 0) + 1; return mg; }
 
+  function farTier(k, near) { var src = G[k]; if (!src) return; var far = src.userData.far; var f = group(k + "F", far); f.userData.near = near; src.userData.far = near; src.updateMatrixWorld(true); var inv = new THREE.Matrix4().copy(src.matrixWorld).invert(); var n = 0, lod = 0;
+    src.traverse(function (o) { if (!o.isMesh) return; var geo = o.geometry, lk = o.userData.lodKind; if (lk) { var m = MODELS[lk]; if (m && m.lodGeos && m.lodGeos[o.userData.lodPart]) { geo = m.lodGeos[o.userData.lodPart]; lod++; } } var c = new THREE.Mesh(geo, o.material); c.renderOrder = o.renderOrder; c.userData.noMerge = !!o.userData.noMerge; new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld).decompose(c.position, c.quaternion, c.scale); f.add(c); n++; });
+    GB.n["far_" + k] = [n, lod]; }
   // ── the terrace: canopy lights, loungers, a fire table, long planters ──
   function buildTerrace() {
     var g = G.up, M = mats(), y0 = K.TL;
@@ -431,7 +438,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     [[-11.8, 10.6], [-3.6, 10.6], [3.6, 10.6], [15.9, 10.6], [15.9, -10.8], [-15.9, -10.8]].forEach(function (p) { lantern(g, p[0], y0, p[1]); });
     GB.n.terrace = 1;
   }
-  function lounger(g, x, z, ry) { var s = new THREE.Group(); s.position.set(x, 0, z); s.rotation.y = ry; g.add(s); var M = mats(), y0 = K.TL;
+  function lounger(g, x, z, ry, yb) { var s = new THREE.Group(); s.position.set(x, 0, z); s.rotation.y = ry; g.add(s); var M = mats(), y0 = yb === undefined ? K.TL : yb;
     if (MODELS.lounge_chair) { placeModel(s, "lounge_chair", 0, y0, 0, 0, [0.9, 0.95, 0.9]); } else { BX(s, -0.42, 0.42, y0 + 0.16, y0 + 0.22, -0.46, 0.46, M.walnut, 1); BX(s, -0.39, 0.39, y0 + 0.22, y0 + 0.4, -0.43, 0.43, M.plaster, 1); BX(s, -0.39, 0.39, y0 + 0.4, y0 + 0.9, -0.5, -0.33, M.plaster, 1); BX(s, -0.46, -0.4, y0, y0 + 0.6, -0.5, 0.46, M.walnut, 1); BX(s, 0.4, 0.46, y0, y0 + 0.6, -0.5, 0.46, M.walnut, 1); BX(s, -0.46, 0.46, y0 + 0.6, y0 + 0.64, -0.5, -0.36, M.walnut, 1); }
     s.updateMatrixWorld(true); seatFromGroup(s, -0.4, 0.4, -0.32, 0.45, y0 + 0.45, 0, 1); solidFromGroupBox(s, -0.44, 0.44, -0.5, -0.32, y0, y0 + 0.95); }
   function lantern(g, x, y0, z) { var M = mats(); BX(g, x - 0.16, x + 0.16, y0, y0 + 0.04, z - 0.16, z + 0.16, M.bronzeDark, 1); BX(g, x - 0.13, x + 0.13, y0 + 0.04, y0 + 0.62, z - 0.13, z + 0.13, M.shade, 1); BX(g, x - 0.16, x + 0.16, y0 + 0.62, y0 + 0.68, z - 0.16, z + 0.16, M.bronzeDark, 1); }
@@ -455,11 +462,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }); GB.washMat = m; var g = G.court; var gy = function (lx, lz) { var w = L2W(lx, lz); return getH(w[0], w[1]) - S.B; };
     var wash = function (w, h, x, y, z, ry) { var p = PL(g, w, h, m, x, y + h / 2, z, ry); p.userData.noMerge = true; p.renderOrder = 2; return p; };
     (GB.palms || []).forEach(function (p) { var y = gy(p[0], p[1]) + 0.4; wash(2.4, 5.5, p[0], y, p[1], S.yaw * 0 + Math.PI / 2); wash(2.4, 5.5, p[0], y, p[1], 0); });
-    wash(1.4, 5.6, 16.1, 0.6, 11.4, 0); wash(5.4, 3.2, -16.64, 0.05, 20.5, -Math.PI / 2); wash(4.2, 3.0, -16.64, 1.0, 14.8, -Math.PI / 2); var my = GB.monY || 0; wash(6.6, 1.6, 11, my - 0.2, 31.83, 0); }
+    var my = GB.monY || 0; wash(6.6, 1.6, 11, my - 0.2, 31.83, 0);
+    if (!GB.isModel) { wash(1.4, 5.6, 16.1, 0.6, 11.4, 0); wash(5.4, 3.2, -16.64, 0.05, 20.5, -Math.PI / 2); wash(4.2, 3.0, -16.64, 1.0, 14.8, -Math.PI / 2); return; }
+    // R3 model: warm uplights on the entrance portal's face either side of the doors
+    var A = GB.model && GB.model.A; if (!A) return; var pt = A.door.portal; if (pt) { var zf = MP(0, pt.z_face)[1] + 0.03; [pt.x[0] + 0.45, pt.x[1] - 0.45].forEach(function (x) { wash(0.95, (pt.top_y || 4.2) - 0.1, MP(x, 0)[0], 0.05, zf, 0); }); } }
   function buildLights() { try { buildWashes(); } catch (e) { note("washes", e); }
     var add = function (col, k, dist, x, y, z, kind) { var l = new THREE.PointLight(col, k, dist, 1.15); l.position.set(x, y, z); l.castShadow = false; ((kind === "suite" && G.suite) || (kind === "terrace" && G.up) || G.dyn).add(l); GB.lights.push({ l: l, base: k, kind: kind }); };
     add(0xfff0dc, 5.2, 24, -8, 5.2, 3, "hall"); add(0xfff0dc, 5.2, 24, 8, 5.2, 3, "hall"); add(0xeafff0, 4.0, 20, 0, 4.6, -6.5, "hall");
-    add(0xffe2bc, 3.4, 16, -5, 9.9, -4.2, "suite"); add(0xffe2bc, 3.4, 16, 5, 9.9, -5.5, "suite"); add(0xffd6a0, 3.0, 16, 0, 10.2, 5.5, "terrace");
+    add(0xffe2bc, 3.4, 16, -5, 9.9, -4.2, "suite"); add(0xffe2bc, 3.4, 16, 5, 9.9, -5.5, "suite");
+    if (GB.isModel && GB.model) add(0xffd6a0, 3.0, 18, 0, GB.model.TL + 3.4, 4.0, "terrace"); else add(0xffd6a0, 3.0, 16, 0, 10.2, 5.5, "terrace");
   }
 
   // ── texts (partners.json): the ledger, the stations, the panels, the plaques and the lettering ──
@@ -501,11 +512,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     PL(G.suite, 10.6, 10.6 * 420 / 2048, bronzeText(rt), 0, K.TL + 2.75, K.suite[2] + 0.3 + 0.08);
     var dp = cv(1024, 360, function (x, w, h) { x.fillStyle = "#231c15"; x.fillRect(0, 0, w, h); x.strokeStyle = "#c9a25a"; x.lineWidth = 4; x.strokeRect(14, 14, w - 28, h - 28); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "400 58px " + SERIF; x.fillStyle = gold(x, 70, 150); spaced(x, "RIVERSIDE", w / 2, 108, 10); x.font = "400 36px " + SERIF; x.fillStyle = "#e7d2a4"; spaced(x, "MANAGEMENT GROUP", w / 2, 176, 8); x.font = "400 26px " + SANS; x.fillStyle = "#d9c7a4"; x.fillText(D("rmg.site", "rmginvestments.com"), w / 2, 262); });
     PL(GB.mode === "model" ? G.suite : G.up, 1.3, 0.457, lit(dp, 0.18), K.sdoor + 1.05, K.TL + 1.7, K.suite[3] + 0.11);
+    if (GB.mode === "model" && GB.model && GB.model.A && GB.model.A.suite_door) { var sdA = GB.model.A.suite_door, dq = MP(sdA.x - sdA.w / 2 - 1.0, sdA.z); PL(G.up, 1.3, 0.457, lit(dp, 0.2), dq[0], GB.model.TL + 1.65, dq[1] + 0.05); }   /* R3: beside the suite door on the tower */
     var ag = cv(1024, 380, function (x, w, h) { x.fillStyle = "#231c15"; x.fillRect(0, 0, w, h); x.strokeStyle = "#c9a25a"; x.lineWidth = 3; x.strokeRect(12, 12, w - 24, h - 24); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "400 30px " + SERIF; x.fillStyle = "#eadbbd"; var lines = wrap(x, D("rmg.agreement", "") + " " + D("rmg.experience", ""), 900); lines.forEach(function (l, i) { x.fillText(l, w / 2, 92 + i * 46); }); x.font = "italic 400 25px " + SERIF; x.fillStyle = "#cdb88f"; x.fillText(D("legal", ""), w / 2, h - 58); });
     PL(G.suite, 1.9, 0.705, lit(ag, 0.18), K.suite[0] + 0.39, K.TL + 1.6, -0.3, Math.PI / 2);
     // the stair plaque on the newel, the monument faces
     var sp = cv(512, 512, function (x, w, h) { x.fillStyle = "#231c15"; x.fillRect(0, 0, w, h); x.strokeStyle = "#c9a25a"; x.lineWidth = 4; x.strokeRect(14, 14, w - 28, h - 28); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "400 50px " + SERIF; x.fillStyle = gold(x, 100, 180); spaced(x, "RIVERSIDE", w / 2, 150, 6); x.font = "400 30px " + SERIF; x.fillStyle = "#e7d2a4"; spaced(x, "MANAGEMENT GROUP", w / 2, 212, 4); x.fillStyle = "rgba(201,162,90,0.8)"; x.fillRect(w / 2 - 70, 262, 140, 3); x.font = "400 26px " + SANS; x.fillStyle = "#d9c7a4"; x.fillText("Upper terrace", w / 2, 322); x.fillText("Merchant banking since 1996", w / 2, 364); });
-    PL(G.court, 0.4, 0.4, lit(sp, 0.2), K.stair.x0 + 0.075, 0.86, STAIR_FOOT + 0.456);
+    if (GB.mode !== "model") PL(G.court, 0.4, 0.4, lit(sp, 0.2), K.stair.x0 + 0.075, 0.86, STAIR_FOOT + 0.456); else if (TB.plaque) PL(G.court, 0.5, 0.5, lit(sp, 0.2), TB.plaque[0], TB.plaque[1] + 0.8, TB.plaque[2] + 0.004);
     var mo = D("gbank.monument", {}); var mt = cv(2048, 380, function (x, w, h) { x.clearRect(0, 0, w, h); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "400 190px " + DISP; x.fillStyle = gold(x, 40, 230); spaced(x, mo.title || "GBANK", w / 2 + 20, 140, 34); x.font = "600 50px " + SANS; x.fillStyle = "#3a2e22"; x.fillText(mo.sub || "", w / 2, 272); x.font = "400 38px " + SANS; x.fillStyle = "#5a4a38"; x.fillText(mo.line || "", w / 2, 336); });
     var mm = bronzeText(mt); mm.emissiveIntensity = 0.06; GB.monMat = mm; var my = GB.monY || 0; PL(G.court, 6.4, 6.4 * 380 / 2048, mm, 11, my + 0.56, 31.815); PL(G.court, 6.4, 6.4 * 380 / 2048, mm, 11, my + 0.56, 30.985, Math.PI);
     // Will's name on the hall wayfinding is enough: hotspots pick their copy up now too
@@ -517,7 +529,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ═════════════════════════ Will Deitrick ═════════════════════════
   var WILL_AT = [-3.3, -6.3];   // beside the desk, facing the door
   var WILL = { state: 0, g: null, ph: null, stub: null, mixer: null, yaw: 0, greetAt: 0, lab: null };
-  function willPos() { var w = L2W(WILL_AT[0], WILL_AT[1]); return [w[0], S.B + K.TL + 0.014, w[1]]; }
+  // R3: with the gbank model Will stands out on the open terrace by the suite door (anchors.spots.will) and is at his desk once a
+  // visitor steps into the Riverside Management Group suite (the room fade hides the move)
+  function willOnTerrace() { return GB.mode === "model" && GB.model && GB.model.D && GB.model.D.will && GB.inRoom !== "suite"; }
+  function willPos() { if (willOnTerrace()) { var t = MP(GB.model.D.will[0], GB.model.D.will[1]), wt = L2W(t[0], t[1]); return [wt[0], S.B + GB.model.TL + 0.01, wt[1]]; } var w = L2W(WILL_AT[0], WILL_AT[1]); return [w[0], S.B + K.TL + 0.014, w[1]]; }
   // the stand-in: a CAST-style rigged character in a charcoal suit (the engine's avatar), until the will model exists
   function buildWillStandIn() { var p = willPos(); var look = window.__willLook || { skin: "e0b596", shirt: "1b1d22", pants: "2c313b", shoes: "3a2419", hair: 5, hairc: "3b2717", body: "m" };
     var g = avatar("gbank_will", D("will.name", "Will Deitrick"), look, null, null); g.position.set(p[0], p[1], p[2]); g.rotation.y = S.yaw; if (g.userData.label) g.userData.label.scale.set(1.9, 0.48, 1); WILL.ph = g; WILL.yaw = S.yaw; WILL.lab = g.userData.label; try { GB.n.suit = dressWill(g); } catch (e) { note("suit", e); } }
@@ -529,9 +544,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function willTick(dt, now, pl, upper) {
     var g = WILL.g || WILL.ph; if (!g) return; var p = willPos(); var dx = pl.x - p[0], dz = pl.z - p[2], d = Math.hypot(dx, dz);
     // turn to a visitor on this floor (rate limited), otherwise face the door
-    var want = (GB.mode === "model" ? GB.zoneNow === 3 : upper) && d < 7.5 ? Math.atan2(dx, dz) : S.yaw; var err = Math.atan2(Math.sin(want - WILL.yaw), Math.cos(want - WILL.yaw)), turn = 2.4 * dt; WILL.yaw += err > turn ? turn : err < -turn ? -turn : err; g.rotation.y = WILL.yaw; g.position.set(p[0], p[1], p[2]);
+    var onT = willOnTerrace(), near = GB.mode === "model" ? (GB.zoneNow === 3 || (onT && GB.zoneNow === 1)) : upper;
+    var want = near && d < 7.5 ? Math.atan2(dx, dz) : S.yaw; var err = Math.atan2(Math.sin(want - WILL.yaw), Math.cos(want - WILL.yaw)), turn = 2.4 * dt; WILL.yaw += err > turn ? turn : err < -turn ? -turn : err; g.rotation.y = WILL.yaw; g.position.set(p[0], p[1], p[2]);
     if (WILL.ph && !WILL.g) animateWalk(WILL.ph, 0, dt); if (WILL.mixer) WILL.mixer.update(Math.min(dt, 0.1));
-    var inSuite = GB.mode === "model" ? GB.zoneNow === 3 : upper; if (WILL.lab) WILL.lab.visible = inSuite && d < 26; if (GB.mode === "model" && g.visible !== !!GB.inRoom) g.visible = !!GB.inRoom;
+    var inSuite = near; if (WILL.lab) WILL.lab.visible = inSuite && d < 26;
     // a greeting when someone walks up on this floor
     if (inSuite && d < 5 && now > WILL.greetAt) { WILL.greetAt = now + 45000 + rr() * 25000; try { var gr = D("will.greet", []); if (gr.length) npcSay(window.PLAN_TALK.will, gr[Math.floor(rr() * gr.length)]); } catch (e) {} }
     // the real model: once someone is within 140 m (registered in PLAN_MODEL_INFO, or found with one HEAD request)
@@ -546,7 +562,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function willLoaded(gl, info) {
     var g = gl.scene; g.updateMatrixWorld(true); var bb = new THREE.Box3().setFromObject(g); var hgt = bb.max.y - bb.min.y; if (!(hgt > 0.2)) throw new Error("empty will model");
     var sc = hgt > 1.55 && hgt < 2.1 ? 1 : 1.83 / hgt; g.scale.setScalar(sc);
-    g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } }); g.userData.noInst = true; g.userData.noCull = true;
+    // full anisotropic filtering on his maps (the thousand-chart atlas bleeds light streaks at the sleeve hems at grazing angles otherwise), as plan_terminal.js loadRig does for the partners
+    var an = 1; try { an = MAX_ANISO || 1; } catch (e) {} GB.n.willAniso = an;
+    g.traverse(function (o) { if (o.isMesh || o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { if (!m || an <= 1) return; ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap"].forEach(function (s) { var t = m[s]; if (t && t.anisotropy !== an) { t.anisotropy = an; t.needsUpdate = true; } }); }); } }); g.userData.noInst = true; g.userData.noCull = true;
     var mixer = new THREE.AnimationMixer(g); var clip = null, why = "";
     // an idle for the rig: a clip file named in PLAN_MODEL_INFO.will.idle, else the game's char_m idle retargeted onto this rig at runtime
     var start = function (c) { WILL.mixer = mixer; var a = mixer.clipAction(c); a.play(); var p = willPos(); g.position.set(p[0], p[1], p[2]); g.rotation.y = WILL.yaw; scene.add(g); var lab = makeLabel(D("will.name", "Will Deitrick")); lab.scale.set(1.9, 0.48, 1); lab.position.y = 2.25 / sc; g.add(lab); WILL.lab = lab; WILL.g = g; if (WILL.ph) { WILL.ph.visible = false; } WILL.state = 2; GB.n.will = "model"; };
@@ -575,50 +593,110 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // door mats (hall at the front, suite on the terrace). Its stair and terrace are made walkable from a downward raycast of
   // the model's top surfaces (box solids per 0.5 m cell run). If no climbable path to a terrace is found, the procedural
   // pavilion is built instead and PLAN_GBANK.mode says why.
+  // R3: a model registered at real size with anchors (PLAN_MODEL_INFO.gbank.anchors: door, terrace, parapets, stair, suite door, in
+  // the model frame) stands at scale 1 with its entrance on the site axis and takes its mats from the anchors; any other model is
+  // fitted into 36 x 26 x 13 m and analysed blind (as before). The grid is kept in the model frame; x0 / z0 place it in the local frame.
   function analyzeModel() {
-    var m = MODELS.gbank; var mg = makeModel("gbank"); var sx = m.sx || 32, sz = m.sz || 24, sh = m.height || 11;
-    var k = Math.min(36 / sx, 26 / sz, 13 / sh, 1.6); if (k < 0.5) k = 0.5; mg.scale.setScalar(k);
+    var m = MODELS.gbank; var info = (window.PLAN_MODEL_INFO || {}).gbank || null; var A = info && info.anchors && info.anchors.door && info.anchors.terrace ? info.anchors : null;
+    var mg = makeModel("gbank"); var sx = m.sx || 32, sz = m.sz || 24, sh = m.height || 11;
+    var k = A ? (A.scale || 1) : Math.min(36 / sx, 26 / sz, 13 / sh, 1.6); if (k < 0.5) k = 0.5; mg.scale.setScalar(k);
+    var ox = A ? -A.door.x * k : 0, oz = A ? (A.oz || 0) * k : 0; mg.position.set(ox, 0, oz);
     var cell = 0.5, hx = sx * k / 2 + 1, hz = sz * k / 2 + 1, nX0 = Math.floor(2 * hx / cell) + 1, nZ0 = Math.floor(2 * hz / cell) + 1, top = 0;
     var grid = []; for (var gi = 0; gi < nX0; gi++) { grid.push(new Array(nZ0).fill(null)); }
-    var A = new THREE.Vector3(), Bv = new THREE.Vector3(), Cv = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3(), tris = 0;
+    var Av = new THREE.Vector3(), Bv = new THREE.Vector3(), Cv = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3(), tris = 0;
     (m.parts || []).forEach(function (part) { var geo = part.geometry || part.geo; if (!geo || !geo.attributes || !geo.attributes.position) return; var pa = geo.attributes.position, ix = geo.index, nt = ix ? ix.count / 3 : pa.count / 3;
-      for (var t = 0; t < nt; t++) { var i0 = ix ? ix.getX(t * 3) : t * 3, i1 = ix ? ix.getX(t * 3 + 1) : t * 3 + 1, i2 = ix ? ix.getX(t * 3 + 2) : t * 3 + 2; A.fromBufferAttribute(pa, i0).multiplyScalar(k); Bv.fromBufferAttribute(pa, i1).multiplyScalar(k); Cv.fromBufferAttribute(pa, i2).multiplyScalar(k);
-        e1.subVectors(Bv, A); e2.subVectors(Cv, A); nn.crossVectors(e1, e2); var L = nn.length(); if (L < 1e-9) continue; if (Math.abs(nn.y) / L < 0.55) continue; tris++;
-        var x0 = Math.min(A.x, Bv.x, Cv.x), x1 = Math.max(A.x, Bv.x, Cv.x), z0 = Math.min(A.z, Bv.z, Cv.z), z1 = Math.max(A.z, Bv.z, Cv.z); var c0 = Math.max(0, Math.ceil((x0 + hx) / cell - 1e-6)), c1 = Math.min(nX0 - 1, Math.floor((x1 + hx) / cell + 1e-6)), r0 = Math.max(0, Math.ceil((z0 + hz) / cell - 1e-6)), r1 = Math.min(nZ0 - 1, Math.floor((z1 + hz) / cell + 1e-6));
-        var den = (Bv.z - Cv.z) * (A.x - Cv.x) + (Cv.x - Bv.x) * (A.z - Cv.z); if (Math.abs(den) < 1e-12) continue;
-        for (var c = c0; c <= c1; c++) for (var r = r0; r <= r1; r++) { var px = -hx + c * cell, pz = -hz + r * cell; var w1 = ((Bv.z - Cv.z) * (px - Cv.x) + (Cv.x - Bv.x) * (pz - Cv.z)) / den, w2 = ((Cv.z - A.z) * (px - Cv.x) + (A.x - Cv.x) * (pz - Cv.z)) / den, w3 = 1 - w1 - w2; if (w1 < -1e-4 || w2 < -1e-4 || w3 < -1e-4) continue; var y = w1 * A.y + w2 * Bv.y + w3 * Cv.y; if (grid[c][r] === null || y > grid[c][r]) grid[c][r] = y; } } });
+      for (var t = 0; t < nt; t++) { var i0 = ix ? ix.getX(t * 3) : t * 3, i1 = ix ? ix.getX(t * 3 + 1) : t * 3 + 1, i2 = ix ? ix.getX(t * 3 + 2) : t * 3 + 2; Av.fromBufferAttribute(pa, i0).multiplyScalar(k); Bv.fromBufferAttribute(pa, i1).multiplyScalar(k); Cv.fromBufferAttribute(pa, i2).multiplyScalar(k);
+        e1.subVectors(Bv, Av); e2.subVectors(Cv, Av); nn.crossVectors(e1, e2); var L = nn.length(); if (L < 1e-9) continue; if (Math.abs(nn.y) / L < 0.55) continue; tris++;
+        var x0 = Math.min(Av.x, Bv.x, Cv.x), x1 = Math.max(Av.x, Bv.x, Cv.x), z0 = Math.min(Av.z, Bv.z, Cv.z), z1 = Math.max(Av.z, Bv.z, Cv.z); var c0 = Math.max(0, Math.ceil((x0 + hx) / cell - 1e-6)), c1 = Math.min(nX0 - 1, Math.floor((x1 + hx) / cell + 1e-6)), r0 = Math.max(0, Math.ceil((z0 + hz) / cell - 1e-6)), r1 = Math.min(nZ0 - 1, Math.floor((z1 + hz) / cell + 1e-6));
+        var den = (Bv.z - Cv.z) * (Av.x - Cv.x) + (Cv.x - Bv.x) * (Av.z - Cv.z); if (Math.abs(den) < 1e-12) continue;
+        for (var c = c0; c <= c1; c++) for (var r = r0; r <= r1; r++) { var px = -hx + c * cell, pz = -hz + r * cell; var w1 = ((Bv.z - Cv.z) * (px - Cv.x) + (Cv.x - Bv.x) * (pz - Cv.z)) / den, w2 = ((Cv.z - Av.z) * (px - Cv.x) + (Av.x - Cv.x) * (pz - Cv.z)) / den, w3 = 1 - w1 - w2; if (w1 < -1e-4 || w2 < -1e-4 || w3 < -1e-4) continue; var y = w1 * Av.y + w2 * Bv.y + w3 * Cv.y; if (grid[c][r] === null || y > grid[c][r]) grid[c][r] = y; } } });
     for (var gx2 = 0; gx2 < nX0; gx2++) for (var gz2 = 0; gz2 < nZ0; gz2++) { var yv = grid[gx2][gz2]; if (yv !== null && yv < 0.12) grid[gx2][gz2] = null; else if (yv !== null && yv > top) top = yv; }
     if (!tris) { GB.modelWhy = "no upward faces"; return; }
-    var nX = grid.length, nZ = grid[0].length, at = function (a, b) { return a < 0 || b < 0 || a >= nX || b >= nZ ? null : grid[a][b]; }, toL = function (a, b) { return [-hx + a * cell, -hz + b * cell]; };
-    // the terrace: the largest flat plateau between 3 and 9 m
+    var nX = grid.length, nZ = grid[0].length, X0 = -hx + ox, Z0 = -hz + oz; var at = function (a, b) { return a < 0 || b < 0 || a >= nX || b >= nZ ? null : grid[a][b]; }, toL = function (a, b) { return [X0 + a * cell, Z0 + b * cell]; };
+    // the terrace: the largest flat plateau between 3 and 9 m (the anchors' level when registered)
     var hist = {}, best = null; for (var a = 0; a < nX; a++) for (var b = 0; b < nZ; b++) { var v = grid[a][b]; if (v === null || v < 3 || v > 9) continue; var key = (Math.round(v * 5) / 5).toFixed(1); hist[key] = (hist[key] || 0) + 1; } for (var kk in hist) if (!best || hist[kk] > hist[best]) best = kk;
-    if (!best || hist[best] < 40) { GB.modelWhy = "no terrace plateau"; return; } var TLm = +best;
+    if (!best || hist[best] < 40) { GB.modelWhy = "no terrace plateau"; return; } var TLm = A ? A.terrace.y * k : +best;
     // a climbable path from the ground to it (rises under 0.5 m per cell)
     var seen = new Uint8Array(nX * nZ), qu = []; for (var a2 = 0; a2 < nX; a2++) for (var b2 = 0; b2 < nZ; b2++) { if (at(a2, b2) === null && (a2 === 0 || b2 === 0 || a2 === nX - 1 || b2 === nZ - 1)) { seen[a2 * nZ + b2] = 1; qu.push([a2, b2]); } }
     var reached = false; while (qu.length && !reached) { var c = qu.pop(); var h0 = at(c[0], c[1]) || 0; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dd) { var na = c[0] + dd[0], nb = c[1] + dd[1]; if (na < 0 || nb < 0 || na >= nX || nb >= nZ || seen[na * nZ + nb]) return; var nv = at(na, nb) || 0; if (Math.abs(nv - h0) > 0.5) return; seen[na * nZ + nb] = 1; if (Math.abs(nv - TLm) < 0.25) reached = true; qu.push([na, nb]); }); }
     if (!reached) { GB.modelWhy = "no climbable stair to the terrace"; return; }
-    // the hall mat: on the axis in front of the facade (the first cell from the front that rises over 1 m)
-    var ax = Math.round(hx / cell), fz = null; for (var b3 = nZ - 1; b3 >= 0; b3--) { var v3 = at(ax, b3); if (v3 !== null && v3 > 1.0) { fz = toL(ax, b3)[1]; break; } } if (fz === null) { GB.modelWhy = "no facade on the axis"; return; }
-    var hallMat = [0, fz + 1.3];
-    // the suite mat: the front-most terrace cell against the upper volume, nearest the axis
-    var cand = null; for (var a4 = 0; a4 < nX; a4++) for (var b4 = 0; b4 < nZ; b4++) { var v4 = at(a4, b4); if (v4 === null || Math.abs(v4 - TLm) > 0.2) continue; var up = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(function (dd) { var q = at(a4 + dd[0], b4 + dd[1]); return q !== null && q > TLm + 1.5; }); if (!up) continue; var L = toL(a4, b4); var score = L[1] - 0.5 * Math.abs(L[0]); if (!cand || score > cand.s) cand = { s: score, l: L }; }
-    if (!cand) { GB.modelWhy = "no door wall on the terrace"; return; }
-    var suiteMat = [cand.l[0], cand.l[1] + 0.6], suiteOut = [cand.l[0], cand.l[1] + 2.0]; var so = at(Math.round((suiteOut[0] + hx) / cell), Math.round((suiteOut[1] + hz) / cell)); if (so === null || Math.abs(so - TLm) > 0.3) suiteOut = suiteMat.slice();
-    GB.model = { k: k, TL: TLm, top: top, grid: grid, nX: nX, nZ: nZ, cell: cell, hx: hx, hz: hz, hallMat: hallMat, suiteMat: suiteMat, suiteOut: suiteOut, mesh: mg }; GB.modelOK = true;
+    var hallMat, suiteMat, suiteOut;
+    if (A) { hallMat = [A.door.x * k + ox, (A.door.z + (A.door.mat || 1.6)) * k + oz]; var sdA = A.suite_door || null; if (!sdA) { GB.modelWhy = "no suite door in the anchors"; return; } suiteMat = [sdA.x * k + ox, (sdA.z + 1.25) * k + oz]; suiteOut = [sdA.x * k + ox, (sdA.z + 2.7) * k + oz]; }
+    else {
+      // the hall mat: on the axis in front of the facade (the first cell from the front that rises over 1 m)
+      var ax = Math.round((0 - X0) / cell), fz = null; for (var b3 = nZ - 1; b3 >= 0; b3--) { var v3 = at(ax, b3); if (v3 !== null && v3 > 1.0) { fz = toL(ax, b3)[1]; break; } } if (fz === null) { GB.modelWhy = "no facade on the axis"; return; }
+      hallMat = [0, fz + 1.3];
+      // the suite mat: the front-most terrace cell against the upper volume, nearest the axis
+      var cand = null; for (var a4 = 0; a4 < nX; a4++) for (var b4 = 0; b4 < nZ; b4++) { var v4 = at(a4, b4); if (v4 === null || Math.abs(v4 - TLm) > 0.2) continue; var up = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(function (dd) { var q = at(a4 + dd[0], b4 + dd[1]); return q !== null && q > TLm + 1.5; }); if (!up) continue; var Lc = toL(a4, b4); var score = Lc[1] - 0.5 * Math.abs(Lc[0]); if (!cand || score > cand.s) cand = { s: score, l: Lc }; }
+      if (!cand) { GB.modelWhy = "no door wall on the terrace"; return; }
+      suiteMat = [cand.l[0], cand.l[1] + 0.6]; suiteOut = [cand.l[0], cand.l[1] + 2.0]; var so = at(Math.round((suiteOut[0] - X0) / cell), Math.round((suiteOut[1] - Z0) / cell)); if (so === null || Math.abs(so - TLm) > 0.3) suiteOut = suiteMat.slice(); }
+    GB.model = { k: k, TL: TLm, top: top, grid: grid, nX: nX, nZ: nZ, cell: cell, hx: hx, hz: hz, x0: X0, z0: Z0, ox: ox, oz: oz, hallMat: hallMat, suiteMat: suiteMat, suiteOut: suiteOut, mesh: mg, A: A, D: A && A.spots ? A.spots : null }; GB.modelOK = true;
   }
-  function buildModelShell() { var Mo = GB.model; if (!Mo) return; var grid = Mo.grid, nX = Mo.nX, nZ = Mo.nZ, cell = Mo.cell, hx = Mo.hx, hz = Mo.hz;
+  // R3: the model's material pass (it is the only user of the gbank material). The engine renders a PBR building at roughness 1,
+  // which turned the dark bronze glass into matte maroon panels, and the generator bent the big glass planes a little (diagonal
+  // creases in raking light). The glass (the darkest albedo, linear luminance under about 0.04: glass and mullions; corten sits near
+  // 0.09, concrete near 0.4) becomes dark bronze mirror glass (a near-neutral dark tint, roughness 0.06, metalness 0.88, so about a
+  // tenth of the sky probe is reflected; a saturated bronze tint read maroon against the desert) with a
+  // warm glow from within at night; every normal within about 14 degrees of a model axis is snapped to it (flat glass, crisp walls;
+  // the diagonal stair walls and the planting keep theirs).
+  var GLASS = { u: { uGbNight: { value: 0 }, uGbSnap: { value: 1 } }, n: 0 };
+  function gbankGlass(mat) { if (!mat || mat.userData.gbGlass) return; mat.userData.gbGlass = true; GLASS.n++; var U = GLASS.u;
+    var fn = function (sh) { sh.uniforms.uGbNight = U.uGbNight; sh.uniforms.uGbSnap = U.uGbSnap;
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nuniform float uGbSnap; varying vec3 vGbP;").replace("#include <defaultnormal_vertex>", "#include <defaultnormal_vertex>\nvGbP = position; { vec3 gn = normalize(objectNormal); vec3 ga = abs(gn); vec3 gx = ga.x > ga.y && ga.x > ga.z ? vec3(sign(gn.x), 0.0, 0.0) : (ga.y > ga.z ? vec3(0.0, sign(gn.y), 0.0) : vec3(0.0, 0.0, sign(gn.z))); float gk = smoothstep(0.93, 0.975, dot(gn, gx)) * uGbSnap; transformedNormal = normalize(mix(transformedNormal, normalMatrix * gx, gk)); }");
+      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uGbNight; varying vec3 vGbP;").replace("#include <map_fragment>", "#include <map_fragment>\nfloat gbLum = dot(diffuseColor.rgb, vec3(0.3333)); float gbGlass =1.0 - smoothstep(0.03, 0.06, dot(diffuseColor.rgb, vec3(0.3333)));\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.115, 0.104, 0.088) + diffuseColor.rgb * 0.25, gbGlass);")
+        .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.06, gbGlass); metalnessFactor = mix(metalnessFactor, 0.88, gbGlass);")
+        .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n{ float gy = vGbP.y < 5.0 ? vGbP.y / 4.3 : (vGbP.y - 5.34) / 4.6; float gg = mix(1.35, 0.22, smoothstep(0.0, 1.0, gy)); float gh = fract(sin(floor(vGbP.x / 2.05) * 12.9898 + floor(vGbP.z / 2.05) * 78.233 + floor(vGbP.y / 5.0) * 37.719) * 43758.5453); float gv = 0.25 + 1.05 * gh * gh; float gp = smoothstep(0.009, 0.02, gbLum); totalEmissiveRadiance += gbGlass * gp * uGbNight * gg * gv * vec3(0.62, 0.42, 0.22); }"); };
+    if (typeof chainObc === "function") chainObc(mat, fn); else { var prev = mat.onBeforeCompile; mat.onBeforeCompile = function (sh, r) { if (prev) prev.call(this, sh, r); fn(sh, r); }; }
+    var pk = mat.customProgramCacheKey ? mat.customProgramCacheKey.bind(mat) : null; mat.customProgramCacheKey = function () { return (pk ? pk() : "") + "|gbGlass"; }; mat.envMapIntensity = Math.max(mat.envMapIntensity || 1, 1.0); mat.needsUpdate = true; }
+  // a point of the model frame in the local building frame
+  function MP(x, z) { var Mo = GB.model; return [x * Mo.k + Mo.ox, z * Mo.k + Mo.oz]; }
+  function buildModelShell() { var Mo = GB.model; if (!Mo) return; var grid = Mo.grid, nX = Mo.nX, nZ = Mo.nZ, cell = Mo.cell, X0 = Mo.x0, Z0 = Mo.z0;
     // solids: every run of cells along x with the same top (to 5 cm) becomes one box from below the ground to that top
-    GB.modelSolids = []; for (var b5 = 0; b5 < nZ; b5++) { var a5 = 0; while (a5 < nX) { var v5 = grid[a5][b5]; if (v5 === null) { a5++; continue; } var e5 = a5; while (e5 + 1 < nX && grid[e5 + 1][b5] !== null && Math.abs(grid[e5 + 1][b5] - v5) < 0.05) e5++; var sd = SOL(-hx + a5 * cell - cell / 2, -hx + e5 * cell + cell / 2, -hz + b5 * cell - cell / 2, -hz + b5 * cell + cell / 2, -1, v5); if (sd) GB.modelSolids.push(sd); a5 = e5 + 1; } }
-    G.ex.add(Mo.mesh); Mo.solids = GB.modelSolids.length;
-  }
+    GB.modelSolids = []; for (var b5 = 0; b5 < nZ; b5++) { var a5 = 0; while (a5 < nX) { var v5 = grid[a5][b5]; if (v5 === null) { a5++; continue; } var e5 = a5; while (e5 + 1 < nX && grid[e5 + 1][b5] !== null && Math.abs(grid[e5 + 1][b5] - v5) < 0.05) e5++; var sd = SOL(X0 + a5 * cell - cell / 2, X0 + e5 * cell + cell / 2, Z0 + b5 * cell - cell / 2, Z0 + b5 * cell + cell / 2, -1, v5); if (sd) GB.modelSolids.push(sd); a5 = e5 + 1; } }
+    // R3: the parapets and edge walls a 0.5 m raster can miss (0.3 m thick), from the anchors: [x0, x1, z0, z1, top] in the model frame
+    var A = Mo.A; if (A && A.parapets) A.parapets.forEach(function (p) { var q0 = MP(p[0], p[2]), q1 = MP(p[1], p[3]); var sd2 = SOL(q0[0], q1[0], q0[1], q1[1], Mo.TL - 0.4, p[4] * Mo.k); if (sd2) GB.modelSolids.push(sd2); });
+    G.ex.add(Mo.mesh); Mo.solids = GB.modelSolids.length; if (Mo.A) try { (MODELS.gbank.parts || []).forEach(function (pt) { gbankGlass(pt.material); }); } catch (e) { note("glass pass", e); }
+    if (A) { CAP = GB.modelSolids; try { buildModelDress(); } catch (e) { note("model dress", e); } CAP = null; } }
   // is a planting or furniture spot on the model's footprint, or in front of its low steps?
   function modelBlocks(lx, lz) { var Mo = GB.model; if (!Mo) return false; for (var dx = -2; dx <= 2; dx += 0.5) for (var dz = -2; dz <= 2; dz += 0.5) { var h = modelH(lx + dx, lz + dz); if (h === null) continue; if (Math.abs(dx) <= 1.5 && Math.abs(dz) <= 1.5) return true; if (h < 1.2) return true; } return false; }
   function clearModelSolids() { (GB.modelSolids || []).forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); }); }
-  function modelH(lx, lz) { var Mo = GB.model; if (!Mo) return null; var a = Math.round((lx + Mo.hx) / Mo.cell), b = Math.round((lz + Mo.hz) / Mo.cell); if (a < 0 || b < 0 || a >= Mo.nX || b >= Mo.nZ) return null; return Mo.grid[a][b]; }
-  // door mats (model shell only): step on one to go in; walk out through the room's door to come back out
+  function modelH(lx, lz) { var Mo = GB.model; if (!Mo) return null; var a = Math.round((lx - Mo.x0) / Mo.cell), b = Math.round((lz - Mo.z0) / Mo.cell); if (a < 0 || b < 0 || a >= Mo.nX || b >= Mo.nZ) return null; return Mo.grid[a][b]; }
+  // ── R3: the model's own dressing (anchors.spots, model frame): the backlit GBANK letters on the front fascia, the terrace (planters
+  // along the parapet, a pergola lounge, a fire lounge, loungers facing the plaza, lanterns), the plinth for the Riverside Management
+  // Group plaque at the stair foot. Solids go with the model's (off while a room is entered); terrace seats are marked gbT. ──
+  var TB = { bulbs: [] };
+  function buildModelDress() { var Mo = GB.model, A = Mo.A, D = Mo.D || {}, M = mats(), TL = Mo.TL, g = G.up, k = Mo.k; var nSeat0 = GB.seats.length;
+    if (A.fascia) { var fp = MP(0, A.fascia.z_face); lettersGBANK(G.ex, { x: 0, y: (A.fascia.y[0] + A.fascia.y[1]) / 2 * k, z: fp[1] + 0.035, w: 6.6, h: 1.65 }); }
+    // planters along the front parapet (planter_lux: agave and golden barrels), else a stone trough
+    (D.planters || []).forEach(function (q) { var p = MP(q[0], q[1]); if (MODELS.planter_lux) placeModel(g, "planter_lux", p[0], TL, p[1], rr() * TAU, [1.3, 1.6, 1.3]); else { BX(g, p[0] - 0.6, p[0] + 0.6, TL, TL + 0.8, p[1] - 0.6, p[1] + 0.6, M.stoneDark, 1); agave(g, p[0], TL + 0.78, p[1], 0.6); } SOL(p[0] - 0.62, p[0] + 0.62, p[1] - 0.62, p[1] + 0.62, TL, TL + 1.0); });
+    // the pergola lounge: the pergola (when loaded), a sofa at the back, two lounge chairs round a low table
+    if (D.lounge) { var L = MP(D.lounge[0], D.lounge[1]), lr = D.lounge[2] || 0; var lg = new THREE.Group(); lg.position.set(L[0], 0, L[1]); lg.rotation.y = lr; g.add(lg);
+      if (MODELS.pergola) { placeModel(lg, "pergola", 0, TL, 0, 0, [4.0, 3.0, 4.0]); var PI_ = (window.PLAN_MODEL_INFO || {}).pergola || {}; ((PI_.posts && PI_.posts.centers) || [[-1.744, -1.744], [-1.744, 1.744], [1.744, -1.744], [1.744, 1.744]]).forEach(function (pp) { solidFromGroupBox(lg, pp[0] - 0.26, pp[0] + 0.26, pp[1] - 0.26, pp[1] + 0.26, TL, TL + 2.9); }); lg.updateMatrixWorld(true);
+        ((PI_.festoon_bulbs && PI_.festoon_bulbs.centers) || []).forEach(function (b) { var c = Math.cos(lr), s = Math.sin(lr); TB.bulbs.push([L[0] + b[0] * c + b[2] * s, TL + b[1] - 0.03, L[1] - b[0] * s + b[2] * c]); }); GB.n.m_pergola = 1; }
+      sofa(lg, 0, -1.05, 0, 2.4, M.fabric, TL);
+      [-1, 1].forEach(function (sx) { var cx = sx * 0.95, cz = 0.85, ry = Math.atan2(-cx, -0.15 - cz); if (MODELS.lounge_chair) { var cg = new THREE.Group(); cg.position.set(cx, 0, cz); cg.rotation.y = ry; lg.add(cg); placeModel(cg, "lounge_chair", 0, TL, 0, 0, [0.9, 0.95, 0.9]); cg.updateMatrixWorld(true); seatFromGroup(cg, -0.38, 0.38, -0.3, 0.4, TL + 0.47, 0, 1); solidFromGroupBox(cg, -0.42, 0.42, -0.42, -0.26, TL, TL + 0.9); } else chair(lg, cx, cz, ry, M.leather, TL); });
+      BX(lg, -0.55, 0.55, TL + 0.36, TL + 0.42, -0.45, 0.15, M.walnutDark, 1); BX(lg, -0.45, 0.45, TL, TL + 0.36, -0.38, 0.08, M.bronzeDark, 1); lg.updateMatrixWorld(true); solidFromGroupBox(lg, -0.55, 0.55, -0.45, 0.15, TL, TL + 0.42); }
+    // the fire lounge: an outdoor sofa facing the plaza, a long fire table, two lounge chairs across it
+    if (D.fire) { var F = MP(D.fire[0], D.fire[1]); var fg = new THREE.Group(); fg.position.set(F[0], 0, F[1]); fg.rotation.y = D.fire[2] || 0; g.add(fg);
+      sofa(fg, 0, -1.3, 0, 3.0, M.fabric, TL); BX(fg, -1.2, 1.2, TL, TL + 0.36, -0.2, 0.6, M.stoneDark, 1); var ft = BX(fg, -0.95, 0.95, TL + 0.36, TL + 0.5, 0.1, 0.3, M.fire, 1); ft.userData.noMerge = true; fg.updateMatrixWorld(true); solidFromGroupBox(fg, -1.2, 1.2, -0.2, 0.6, TL, TL + 0.5);
+      [-0.95, 0.95].forEach(function (cx) { if (MODELS.lounge_chair) { var cg = new THREE.Group(); cg.position.set(cx, 0, 1.75); cg.rotation.y = Math.PI; fg.add(cg); placeModel(cg, "lounge_chair", 0, TL, 0, 0, [0.9, 0.95, 0.9]); cg.updateMatrixWorld(true); seatFromGroup(cg, -0.38, 0.38, -0.3, 0.4, TL + 0.47, 0, 1); solidFromGroupBox(cg, -0.42, 0.42, -0.42, -0.26, TL, TL + 0.9); } else chair(fg, cx, 1.75, Math.PI, M.leather, TL); }); }
+    // loungers along the front parapet, facing the plaza and the Compass Fountain
+    (D.loungers || []).forEach(function (q) { var p = MP(q[0], q[1]); lounger(g, p[0], p[1], q[2] || 0, TL); });
+    (D.lanterns || []).forEach(function (q) { var p = MP(q[0], q[1]); lantern(g, p[0], TL, p[1]); TB.lanterns = (TB.lanterns || 0) + 1; });
+    // the plinth for the Riverside Management Group plaque beside the stair foot (the plaque itself in buildTexts)
+    if (D.plaque) { var pq = MP(D.plaque[0], D.plaque[1]); var gy = getH.apply(null, L2W(pq[0], pq[1])) - S.B; BX(G.court, pq[0] - 0.36, pq[0] + 0.36, gy - 0.2, gy + 1.15, pq[1] - 0.16, pq[1] + 0.16, M.stone, 1.2); BX(G.court, pq[0] - 0.38, pq[0] + 0.38, gy + 1.15, gy + 1.2, pq[1] - 0.18, pq[1] + 0.18, M.bronze, 1); SOL(pq[0] - 0.36, pq[0] + 0.36, pq[1] - 0.16, pq[1] + 0.16, gy - 0.2, gy + 1.2); TB.plaque = [pq[0], gy, pq[1] + 0.165]; }
+    // the festoon bulbs of the terrace pergola: a warm core and a soft halo, lit at night (frameHook)
+    if (TB.bulbs.length) { var pos = new Float32Array(TB.bulbs.length * 3); TB.bulbs.forEach(function (b, i) { pos[i * 3] = b[0]; pos[i * 3 + 1] = b[1]; pos[i * 3 + 2] = b[2]; }); var bg = new THREE.BufferGeometry(); bg.setAttribute("position", new THREE.BufferAttribute(pos, 3)); bg.computeBoundingSphere();
+      var dsc = cv(64, 64, function (x) { var gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, "rgba(255,246,225,1)"); gr.addColorStop(0.45, "rgba(255,214,150,0.9)"); gr.addColorStop(1, "rgba(255,190,110,0)"); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); }); dsc.userData.text = false;
+      var core = new THREE.Points(bg, new THREE.PointsMaterial({ map: dsc, size: 0.16, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xfff0d0 })), halo = new THREE.Points(bg, new THREE.PointsMaterial({ map: dsc, size: 1.1, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffc98a }));
+      [core, halo].forEach(function (p) { p.userData.noMerge = true; p.frustumCulled = false; p.renderOrder = 3; g.add(p); }); TB.core = core; TB.halo = halo; }
+    for (var i = nSeat0; i < GB.seats.length; i++) GB.seats[i].gbT = true;
+    GB.n.dress = 1; }
   function buildMats() { var Mo = GB.model, M = mats(); var mk = function (l, y) { var gm = new THREE.Group(); BX(gm, -1.1, 1.1, 0, 0.02, -0.7, 0.7, M.rugDeep, 1); [[-1.12, 1.12, -0.72, -0.66], [-1.12, 1.12, 0.66, 0.72], [-1.12, -1.06, -0.72, 0.72], [1.06, 1.12, -0.72, 0.72]].forEach(function (q) { BX(gm, q[0], q[1], 0, 0.025, q[2], q[3], M.brass, 1); }); gm.position.set(l[0], y + 0.01, l[1]); G.court.add(gm); return gm; };
-    var yh = modelH(Mo.hallMat[0], Mo.hallMat[1]) || 0; mk(Mo.hallMat, yh); mk(Mo.suiteMat, Mo.TL); Mo.hallY = yh;
-    var w1 = L2W(Mo.hallMat[0], Mo.hallMat[1]); GB.entryHs.gb.x = w1[0]; GB.entryHs.gb.z = w1[1]; GB.entryHs.gb.lvl = 0; GB.entryHs.r = 2.6; var w2 = L2W(Mo.suiteMat[0], Mo.suiteMat[1]); GB.terrHs.gb.x = w2[0]; GB.terrHs.gb.z = w2[1]; GB.stairHs.gb.lvl = -1; }
+    var yh = modelH(Mo.hallMat[0], Mo.hallMat[1]) || 0; mk(Mo.hallMat, Math.max(yh, Mo.A ? 0.065 : 0)); mk(Mo.suiteMat, Mo.TL); Mo.hallY = yh;
+    var w1 = L2W(Mo.hallMat[0], Mo.hallMat[1]); GB.entryHs.gb.x = w1[0]; GB.entryHs.gb.z = w1[1]; GB.entryHs.gb.lvl = 0; GB.entryHs.r = 2.6; var w2 = L2W(Mo.suiteMat[0], Mo.suiteMat[1]); GB.terrHs.gb.x = w2[0]; GB.terrHs.gb.z = w2[1];
+    // the stair hotspot at the model's stair foot (none when the model has no stair anchor)
+    if (Mo.A && Mo.A.stair && Mo.A.stair.foot) { var sf = MP(Mo.A.stair.foot[0], Mo.A.stair.foot[1] + 1.5); var w3 = L2W(sf[0], sf[1]); GB.stairHs.gb.x = w3[0]; GB.stairHs.gb.z = w3[1]; GB.stairHs.gb.lvl = 0; } else GB.stairHs.gb.lvl = -1; }
   function enterRoom(which) { var Mo = GB.model; if (!Mo || GB.inRoom) return; try { fade(); } catch (e) {} if (!GB.modelSolidsSaved) GB.modelSolidsSaved = GB.modelSolids.slice(); clearModelSolids(); (GB.roomSolids || []).forEach(function (sd) { if (SOLIDS.indexOf(sd) < 0) SOLIDS.push(sd); }); GB.inRoom = which; roomVis(true);
     var l = which === "hall" ? [0, 8.6] : [0, 0.6], y = which === "hall" ? K.hy0 : K.TL; var w = L2W(l[0], l[1]); player.position.set(w[0], S.B + y + 0.02, w[1]); player.rotation.y = S.yaw + Math.PI; yaw = S.yaw; airborne = false; vy = 0; try { lastSent.at = 0; pushMove(true); sfx("ui"); } catch (e) {} }
   function exitRoom(silent) { var Mo = GB.model; if (!GB.inRoom) return; var which = GB.inRoom; if (!silent) { try { fade(); } catch (e) {} } (GB.roomSolids || []).forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); }); (GB.modelSolidsSaved || []).forEach(function (sd) { if (SOLIDS.indexOf(sd) < 0) SOLIDS.push(sd); }); GB.inRoom = null; roomVis(false); GB.leftAt = performance.now();
@@ -635,18 +713,21 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (DATA && !GB.texts) { try { buildTexts(); } catch (e) { GB.texts = true; note("texts", e); } }
     if (DATA && !GB.hsFilled) fillHotspots();
     var cam = camera.position, dc = Math.hypot(cam.x - S.cx, cam.z - S.cz);
-    if ((FRAME_N !== lastF && FRAME_N % 8 === 0) || GB.forceVis) { lastF = FRAME_N; GB.forceVis = false; var mm = GB.mode === "model"; var pz = GB.zoneNow; for (var k in G) { var vis = dc < G[k].userData.far; if (!mm && pz === 2 && (k === "suite" || k === "up")) vis = false; if (!mm && (pz === 1 || pz === 3) && (k === "hall" || k === "dyn")) vis = false; if (mm && (k === "rs" || k === "hall" || k === "suite" || k === "dyn")) vis = !!GB.inRoom; if (mm && k === "ex") vis = vis && !GB.inRoom; if (G[k].visible !== vis) G[k].visible = vis; } }
+    if ((FRAME_N !== lastF && FRAME_N % 8 === 0) || GB.forceVis) { lastF = FRAME_N; GB.forceVis = false; var mm = GB.mode === "model"; var pz = GB.zoneNow; for (var k in G) { var vis = dc < G[k].userData.far && !(G[k].userData.near && dc < G[k].userData.near); if (!mm && pz === 2 && (k === "suite" || k === "up" || k === "upF")) vis = false; if (!mm && (pz === 1 || pz === 3) && (k === "hall" || k === "dyn")) vis = false; if (mm && (k === "rs" || k === "hall" || k === "suite" || k === "dyn")) vis = !!GB.inRoom; if (mm && (k === "ex" || k === "up" || k === "upF")) vis = vis && !GB.inRoom; if (G[k].visible !== vis) G[k].visible = vis; } }
     var nt = typeof night === "number" ? night : 0, glow = Math.max(0, nt - 0.12) / 0.88; var M = MT;
-    if (M) { setE(M.floor, 0.3 * glow); setE(M.oak, 0.22 * glow); setE(M.floorWood, 0.26 * glow); setE(M.plaster, 0.18 * glow); setE(M.ledWarm, 0.12 + 1.8 * glow); setE(M.shade, 0.35 + 0.9 * glow); if (GB.letterMat) setE(GB.letterMat, 0.04 + 2.4 * glow); if (GB.washMat) { var wo = 0.85 * glow; if (Math.abs(GB.washMat.opacity - wo) > 0.01) GB.washMat.opacity = wo; GB.washMat.visible = wo > 0.02; } if (GB.monMat) setE(GB.monMat, 0.05 + 0.9 * glow); }
+    if (M) { setE(M.floor, 0.3 * glow); setE(M.oak, 0.22 * glow); setE(M.floorWood, 0.26 * glow); setE(M.plaster, 0.18 * glow); setE(M.ledWarm, 0.12 + 1.8 * glow); setE(M.shade, 0.35 + 0.9 * glow); (GB.letterMats || []).forEach(function (lm) { setE(lm, 0.04 + 2.4 * glow); }); if (GB.washMat) { var wo = 0.85 * glow; if (Math.abs(GB.washMat.opacity - wo) > 0.01) GB.washMat.opacity = wo; GB.washMat.visible = wo > 0.02; } if (GB.monMat) setE(GB.monMat, 0.05 + 0.9 * glow); }
     for (var i = 0; i < GB.lights.length; i++) { var L = GB.lights[i]; var want = L.kind === "terrace" ? L.base * glow : L.base * (0.75 + 0.25 * glow); if (Math.abs(L.l.intensity / 1.7 - want) > 0.01) L.l.intensity = want; }
     var pl = player ? player.position : null; if (!pl) return; var lp = W2L(pl.x, pl.z), rel = pl.y - S.B; var inFoot = Math.abs(lp[0]) < 17.2 && lp[1] > -12.2 && lp[1] < 12.2; var upper = inFoot && rel > K.TL - 1.2;
-    var zone = upper ? (lp[0] > K.suite[0] && lp[0] < K.suite[1] && lp[1] > K.suite[2] && lp[1] < K.suite[3] ? 3 : 1) : (Math.abs(lp[0]) < 16 && Math.abs(lp[1]) < 11 && rel < K.TL - 1.2 ? 2 : 0); if (GB.mode === "model") { modelTick(now, pl, lp, rel); zone = GB.inRoom === "hall" ? 2 : GB.inRoom === "suite" ? 3 : rel > GB.model.TL - 1.2 && Math.abs(lp[0]) < GB.model.hx && Math.abs(lp[1]) < GB.model.hz ? 1 : 0; upper = zone === 3 || zone === 1; } GB.upper = upper; GB.zoneNow = zone;
+    var zone = upper ? (lp[0] > K.suite[0] && lp[0] < K.suite[1] && lp[1] > K.suite[2] && lp[1] < K.suite[3] ? 3 : 1) : (Math.abs(lp[0]) < 16 && Math.abs(lp[1]) < 11 && rel < K.TL - 1.2 ? 2 : 0); if (GB.mode === "model") { modelTick(now, pl, lp, rel); zone = GB.inRoom === "hall" ? 2 : GB.inRoom === "suite" ? 3 : rel > GB.model.TL - 1.2 && modelH(lp[0], lp[1]) !== null ? 1 : 0; upper = zone === 3 || zone === 1; } GB.upper = upper; GB.zoneNow = zone;
+    if (GB.mode === "model" && GB.willHs) GB.willHs.gb.lvl = willOnTerrace() ? 1 : 3;
+    if (GLASS.n) { var gnv = 0.2 * glow; if (Math.abs(GLASS.u.uGbNight.value - gnv) > 0.005) GLASS.u.uGbNight.value = gnv; }
+    if (TB.core) { var bo = Math.min(1, glow * 1.15); if (Math.abs(TB.core.material.opacity - bo) > 0.01) { TB.core.material.opacity = bo; TB.halo.material.opacity = 0.7 * bo; TB.core.visible = TB.halo.visible = bo > 0.02; } }
     // level-aware hotspots and seats (the hall and the suite share a footprint)
     if (FRAME_N % 4 === 0) { for (var h = 0; h < GB.hs.length; h++) { var hs = GB.hs[h], lv = hs.gb.lvl, on = GB.mode === "model" ? lv === zone : (upper ? lv === 1 || lv === 3 : lv === 0 || lv === 2); var tx = on ? hs.gb.x : 1e7; if (hs.gb.key === "will") { if (on) { var wp2 = willPos(); hs.x = wp2[0]; hs.z = wp2[2]; } else hs.x = 1e7; } else if (hs.x !== tx) { hs.x = tx; hs.z = on ? hs.gb.z : 1e7; } }
-      for (var s = 0; s < GB.seats.length; s++) { var sd = GB.seats[s]; sd.seat = sd.gbLvl === (upper ? 1 : 0) && (GB.mode !== "model" || !!GB.inRoom || sd.gbLvl === 0); } }
+      for (var s = 0; s < GB.seats.length; s++) { var sd = GB.seats[s]; sd.seat = sd.gbT ? upper && !GB.inRoom : sd.gbLvl === (upper ? 1 : 0) && (GB.mode !== "model" || !!GB.inRoom || sd.gbLvl === 0); } }
     // the talk footer (the no-offer line under every Will and Paul card)
     footer();
-    if (WILL.ph && !WILL.g) { var wv = dc < 150 && (GB.mode !== "model" || !!GB.inRoom); if (WILL.ph.visible !== wv) WILL.ph.visible = wv; }
+    { var wv = dc < 150 && (GB.mode !== "model" || GB.inRoom !== "hall"), wg = WILL.g || WILL.ph; if (wg && wg.visible !== wv) wg.visible = wv; }   /* R3: the rig too (45k triangles) beyond 150 m and inside the hall */
     if (dc > 160) return;
     // the ledger scrolls up a row every 2.4 s; the band flashes as each row lands; the live dot blinks
     if (HALL.rows) { var rowT = now / 1000 / 2.4; var rows = HALL.rowsN; HALL.rows.offset.y = (1 - 10 / rows) - ((rowT % rows) / rows); if (HALL.band) HALL.band.material.opacity = 0.05 + 0.16 * Math.pow(1 - (rowT % 1), 3); if (HALL.dot) HALL.dot.visible = (now % 1400) < 900; }

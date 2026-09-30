@@ -1,0 +1,177 @@
+{
+  "_note": "Editable hangar data for plan_hangars.js (Stellar Aviation hangars on the Flight Line). Change any wording here without touching code. Rules: no em dashes, no prices, no percentages, no fee rates, no investment or securities language, no fuel sales on our land (fuel is the City FBO's). numbers: the hangar number painted on each hangar, by plan building id. signs: the fascia sign per plan building id: \"stellar\" (STELLAR AVIATION, the default, used on every aviation hangar) or any other text to set it in type instead (the museum, the cart hub, the depot, Maker Row and the rover garages carry their own names). names: an optional name plate beside the office entrance. aircraft: the card for the aircraft parked inside (by model kind). chief: the Stellar crew chief's talk card.",
+  "numbers": {
+    "b0047": "H1",
+    "b0048": "H2",
+    "b0049": "H3",
+    "b0050": "H4",
+    "b0051": "H5",
+    "b0052": "H6",
+    "b0005": "H7",
+    "b0006": "H8",
+    "b0007": "H9",
+    "b0008": "H10",
+    "b0009": "H11",
+    "b_city_white_hangar": "H12",
+    "b0041": "H13",
+    "b0042": "H14",
+    "b0043": "H15",
+    "b0180": "H16",
+    "b0222": "H17",
+    "b0223": "H18",
+    "b0224": "H19",
+    "b0225": "H20",
+    "b0226": "H21",
+    "b0227": "H22",
+    "b0228": "H23",
+    "b0255": "H24",
+    "b0259": "H25",
+    "b0029": "H26",
+    "b0010": "H27"
+  },
+  "signs": {
+    "a2_giveback_shop": "GIVEBACK SHOP",
+    "b0010": "1928 AIRFIELD MUSEUM",
+    "b0029": "CART AND BIKE HUB",
+    "b0180": "EXPANSE DEPOT",
+    "b0255": "ROVER GARAGE",
+    "b0259": "ROVER GARAGE",
+    "b0222": "MAKER ROW",
+    "b0223": "MAKER ROW",
+    "b0224": "MAKER ROW",
+    "b0225": "MAKER ROW",
+    "b0226": "MAKER ROW",
+    "b0227": "MAKER ROW",
+    "b0228": "MAKER ROW"
+  },
+  "names": {
+    "b0047": "T-HANGAR 1",
+    "b0048": "T-HANGAR 2",
+    "b0049": "T-HANGAR 3",
+    "b0050": "T-HANGAR 4",
+    "b0051": "MAINTENANCE AND AVIONICS",
+    "b0052": "FLIGHT SCHOOL",
+    "b0041": "CLUB HANGAR",
+    "b0042": "CLUB HANGAR",
+    "b0043": "CLUB HANGAR",
+    "b0010": "1928 AIRFIELD MUSEUM",
+    "b0029": "CART AND BIKE HUB",
+    "b0180": "EXPANSE DEPOT",
+    "b0222": "MAKER ROW WORKSHOP",
+    "b0223": "MAKER ROW WORKSHOP",
+    "b0224": "MAKER ROW WORKSHOP",
+    "b0225": "MAKER ROW WORKSHOP",
+    "b0226": "MAKER ROW WORKSHOP",
+    "b0227": "MAKER ROW WORKSHOP",
+    "b0228": "MAKER ROW WORKSHOP",
+    "b0255": "LAUNCH ROW ROVER GARAGE",
+    "b0259": "LAUNCH ROW ROVER GARAGE",
+    "a2_giveback_shop": "THE OFFICIAL GIVEBACK STORE"
+  },
+  "aircraft": {
+    "jet_light": {
+      "t": "Light business jet",
+      "k": "Parked in {hangar} · Stellar Aviation hangar services",
+      "p": "A light business jet, the size class that flies most private trips: range about 2,000 nautical miles, up to 8 passengers and 2 crew. Cleaned, chocked and on ground power while the crew plans the next leg upstairs."
+    },
+    "jet_mid": {
+      "t": "Midsize business jet",
+      "k": "Parked in {hangar} · Stellar Aviation hangar services",
+      "p": "A midsize business jet with a stand-up cabin: range about 3,000 nautical miles, 8 to 9 passengers and 2 crew. It fits this large hangar with room for the ground crew to work around it."
+    },
+    "jet_heavy": {
+      "t": "Large-cabin business jet",
+      "k": "Parked in {hangar} · Stellar Aviation hangar services",
+      "p": "A large-cabin, long-range business jet: range about 6,500 nautical miles, up to 14 passengers and a crew of 3 or 4."
+    },
+    "biplane": {
+      "t": "1928-era biplane",
+      "k": "On display in {hangar}",
+      "p": "An open-cockpit biplane of the kind that flew in when the field opened in 1928, one of the first international airports in the United States. Wood, wire and fabric, a radial engine up front, and a pilot in goggles in the back seat."
+    }
+  },
+  "chief": {
+    "name": "Stellar crew chief",
+    "role": "Stellar Aviation · hangar and line services",
+    "greet": [
+      "Welcome to Stellar Aviation. Mind the wingtips.",
+      "Coffee is on upstairs.",
+      "Good to see you on the Flight Line."
+    ],
+    "talk": [
+      {
+        "t": "Welcome to the hangar. Stellar Aviation runs the FBO in the terminal and looks after the hangars and ground services out here: towing, ground power, hangar space, and getting every aircraft turned around for its crew.",
+        "o": [
+          [
+            "What is parked in here?",
+            1
+          ],
+          [
+            "What does a crew chief do?",
+            2
+          ],
+          [
+            "Can I look around?",
+            3
+          ],
+          [
+            "Who is Stellar Aviation?",
+            4
+          ],
+          [
+            "Thanks",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "A business jet, cleaned and chocked, on ground power while the crew plans the next leg upstairs. The tug in front moves it out onto the apron when it is time to go. Walk around it and press E beside it for the details.",
+        "o": [
+          [
+            "Can I look around?",
+            3
+          ],
+          [
+            "Thanks",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "I run the hangar floor: which aircraft moves when, who tows it, and that it leaves the way it came in. The line team marshals, tows and connects ground power, and we keep the floor clean enough to eat off.",
+        "o": [
+          [
+            "What is parked in here?",
+            1
+          ],
+          [
+            "Thanks",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "Go ahead. The stair at the back on the left goes up to the crew lounge, the coffee bar and the flight planning office. Take a seat on the sofas if you like. Please keep clear of the aircraft and the tug.",
+        "o": [
+          [
+            "Who is Stellar Aviation?",
+            4
+          ],
+          [
+            "Thanks",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "A proven FBO operator with locations at Reno, Carson-Tahoe, South Palm Beach and Springfield, bringing hangar and ground services to this field, along with local jobs. Their team at the terminal can tell you more.",
+        "o": [
+          [
+            "Thanks",
+            null
+          ]
+        ]
+      }
+    ]
+  }
+}

@@ -14,11 +14,14 @@
 //    closer than 150 m to the centreline) and palms beyond
 // New models switch in by themselves as soon as MODELS[kind] exists: fanpalm2, datepalm, canarypalm, bench_lux, planter_lux,
 // ph_planter_1..3, lux_lamp, fence_lux, stone_pillar, the cactus kinds and the Poly Haven shrubs and succulents.
+//  - R3 pergolas: the pergola kind (cedar slats on black steel posts, festoon bulbs) where people stop: behind an opening in the
+//    railing of every desert-modern plaza, rest bays off the promenades, beside golf tees, Genesis Park and the residential courts;
+//    a terrazzo pad with a cantera edge, lounge or bench seating under it, festoon bulbs lit at night, corner post solids
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
 window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
 (function () {
   const NEED = ["fanpalm2", "datepalm", "canarypalm", "bench_lux", "planter_lux", "ph_planter_1", "ph_planter_2", "ph_planter_3", "lux_lamp", "fence_lux", "stone_pillar",
-    "saguaro_young", "saguaro_mid", "barrel_cactus", "prickly_pear", "cholla", "organ_pipe"];
+    "saguaro_young", "saguaro_mid", "barrel_cactus", "prickly_pear", "cholla", "organ_pipe", "pergola", "lounge_chair"];
   for (const k of NEED) if (window.PLAN_MODEL_NEEDS.indexOf(k) < 0) window.PLAN_MODEL_NEEDS.push(k);
 
   const E = window.PLAN_ENRICH = { n: {}, errs: [], t: {}, beds: [], bedRoads: [], raise: [], seats: [], strings: [], lanterns: [], fence: [], plazas: [], proms: [], chunks: [], mine: new Set(), done: false };
@@ -210,6 +213,13 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
     { // e1_opost: an Outpost basalt bollard with a dim LED ring (0.95 m)
       const st = newAcc(), glass = newAcc(); boxA(st, 0, 0.4, 0, 0.14, 0.4, 0.14, 0, COL.basalt, 0.5); boxA(st, 0, 0.92, 0, 0.14, 0.03, 0.14, 0, COL.basalt, 0.5); boxA(glass, 0, 0.84, 0, 0.145, 0.03, 0.145, 0, COL.white);
       vmodel("e1_opost", [[st, m.stone], [glass, m.glow, true]], { solid: 0.18, e1range: 260 }); }
+    { // e1_ptable (R3): a low teak slat coffee table on a black steel frame for the pergola lounges (1.1 x 0.55 m, top 0.42 m)
+      const wood = newAcc(), iron = newAcc();
+      for (let i = 0; i < 6; i++) boxA(wood, 0, 0.405, -0.23 + i * 0.092, 0.55, 0.016, 0.042, 0, COL.teak, 0.6);
+      for (const sz of [-0.265, 0.265]) boxA(iron, 0, 0.378, sz, 0.545, 0.012, 0.012, 0, COL.iron);
+      for (const sx of [-0.5, 0.5]) { boxA(iron, sx, 0.19, 0, 0.016, 0.19, 0.265, 0, COL.iron); boxA(iron, sx, 0.012, 0, 0.03, 0.012, 0.27, 0, COL.iron); }
+      boxA(iron, 0, 0.1, 0, 0.49, 0.01, 0.01, 0, COL.iron);
+      vmodel("e1_ptable", [[mergeAcc(wood, iron), m.timber]], { e1range: 150 }); }
     // the palms this module plants are their own kind (the same model and materials) with a shorter draw range, 440 m instead of
     // 700 m (400 m), and their LOD from 42 m (aliasLod): on the high tier the near palm is 20,000 triangles, the biggest single cost
     for (const k of ["fanpalm", "fanpalm2", "datepalm", "canarypalm"]) if (has(k)) { const a = "e1_" + k; MODELS[a] = Object.assign({}, MODELS[k]); MODEL_SPECS[a] = Object.assign({}, MODEL_SPECS[k], { e1: true, e1range: 400 }); ALIAS[k] = a; }
@@ -278,7 +288,65 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
     const e = place("e1_planter", x, z, rand() * 1.5708, 1, 0.7, "bench"); if (onWalk) E.raise.push({ e, walk: true }); cnt("planters");
     const pk = pick(["agave_cluster", "bush1", "bush2", "agave_cluster"].filter(has)); if (pk) { const sc = pk === "agave_cluster" ? 0.62 : 0.5; put(pk, x, z, rand() * 6.283, sc); const pe = PLACE[pk][PLACE[pk].length - 1]; pe.keep = true; pe.e1 = true; E.raise.push({ e: pe, dy: 0.66, walk: !!onWalk }); } return e; }
   function lanternAt(x, z, onWalk) { const e = place("e1_lantern", x, z, rand() * 6.283, 1, 0.35, "lamp"); E.lanterns.push({ e, walk: !!onWalk }); if (onWalk) E.raise.push({ e, walk: true }); cnt("lanterns"); return e; }
+  // ───────────────────────── pergolas (R3) ─────────────────────────
+  // PLAN_MODEL_INFO.pergola: 4 x 4 x 2.9 m at scale 1, front +Z, posts at (+-1.744, +-1.744) on 0.5 m stone footings, 12 festoon
+  // bulbs under the slats. Placed with its front (+Z) toward the walk or the plaza it serves, on a terrazzo pad with a cantera edge
+  // (DEFER), with a lounge (a bench at the back, two lounge chairs and a teak table) or a pair of benches facing each other.
+  const PERG = []; E.pergolas = PERG;
+  const pgL2W = (x, z, yaw, lx, lz) => { const c = Math.cos(yaw), s = Math.sin(yaw); return [x + lx * c + lz * s, z - lx * s + lz * c]; };
+  const segD = (x, z, a, b) => { const vx = b[0] - a[0], vz = b[1] - a[1]; const L2 = vx * vx + vz * vz || 1; const t = clamp(((x - a[0]) * vx + (z - a[1]) * vz) / L2, 0, 1); return Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t); };
+  // the 4.6 m pad and a margin are clear (the centre and eight points round the edge), the ground is near level, under the 7:1 surface
+  function pergFree(x, z, yaw, own, o) { o = o || {}; if (!has("pergola")) return false;
+    for (const q of PERG) if (Math.hypot(q.x - x, q.z - z) < (o.gap || 40)) return false;
+    if (!spotOK(x, z, 1.6, own, Object.assign({}, o, { road: 0.4 }))) return false;
+    for (const [lx, lz] of [[-2.15, -2.15], [2.15, -2.15], [2.15, 2.15], [-2.15, 2.15], [0, -2.35], [2.35, 0], [-2.35, 0], [0, 2.35]]) { const [px, pz] = pgL2W(x, z, yaw, lx, lz); if (!spotOK(px, pz, 0.3, own, Object.assign({}, o, { road: 0.2, edgeR: 0.1, plaza: o.plaza || o.plazaEdge }))) return false; }
+    let lo = 1e9, hi = -1e9; for (const [lx, lz] of [[-2.3, -2.3], [2.3, -2.3], [2.3, 2.3], [-2.3, 2.3], [0, 0]]) { const [px, pz] = pgL2W(x, z, yaw, lx, lz); const g = getH(px, pz); lo = Math.min(lo, g); hi = Math.max(hi, g); }
+    if (hi - lo > (o.slope || 0.6)) return false; return airOK(x, z, 3.0); }
+  function pergolaAt(x, z, yaw, set, where, own) { const e = place("pergola", x, z, yaw, 1, 2.9, "bench"); const q = { e, x, z, yaw, set, where, items: [] }; PERG.push(q);
+    const it = (kind, lx, lz, ry, seat) => { if (!has(kind)) return null; const [px, pz] = pgL2W(x, z, yaw, lx, lz); put(kind, px, pz, yaw + ry, 1); const pe = PLACE[kind][PLACE[kind].length - 1]; pe.keep = true; pe.e1 = true; E.mine.add(pe); q.items.push(pe); if (seat) E.seats.push({ e: pe, yaw: yaw + ry, onWalk: false, k: kind }); cnt("k:" + kind); return pe; };
+    const bench = has("bench_lux") ? "bench_lux" : "e1_bench";
+    if (set === "pair") { it(bench, -1.08, 0, Math.PI / 2, true); it(bench, 1.08, 0, -Math.PI / 2, true); it("e1_ptable", 0, 0, Math.PI / 2); }
+    else { it(bench, 0, -1.02, 0, true); it("e1_ptable", 0, -0.12, 0);
+      if (has("lounge_chair")) for (const sx of [-1, 1]) { const cx = sx * 0.95, cz = 0.8; it("lounge_chair", cx, cz, Math.atan2(-cx, -0.12 - cz), true); } }
+    // a planter outside each back post where there is room
+    const pk = has("planter_lux") ? "planter_lux" : null; if (pk) for (const sx of [-1, 1]) { const [px, pz] = pgL2W(x, z, yaw, sx * 2.75, -1.5); if (spotOK(px, pz, 0.7, own || null, { road: 0.3, plaza: true, city: true })) { place(pk, px, pz, rand() * 6.283, 0.85, 0.7, "bench"); cnt("pergolaPlanters"); } }
+    cnt("pergolas"); cnt("pergola:" + where); return q; }
+  // cut a plaza railing (rec.rails [start, len] in ring samples) over +-m samples round sample i, so the pergola behind it is reached
+  function cutRail(rec, i, m) { const n = rec.S.length; const out = []; for (const [s0, L] of rec.rails) { let run = null; for (let k = 0; k <= L; k++) { const j = s0 + k; const d = Math.abs((((j - i) % n) + n + n / 2) % n - n / 2); if (d <= m) { if (run && run[1] >= 2) out.push(run); run = null; continue; } if (!run) run = [j, 0]; else run[1]++; } if (run && run[1] >= 2) out.push(run); } rec.rails = out; }
+  // n pergolas spread round a plaza, each just outside its ring where the ring is plain kerb (no entry, building or fountain) for 3 m
+  // either side, facing the plaza centre
+  function ringPergolas(z, n, where, o) { o = o || {}; const R = o.R || z.r - 0.3; const S = o.S || ringScan(z, R); const N = S.length, arc = 6.2832 * R / N; const m = Math.ceil(3.0 / arc); let got = 0; const a0 = o.a0 === undefined ? 0.45 : o.a0;
+    for (let k = 0; k < n; k++) { const target = a0 + k * 6.2832 / n;
+      for (let t = 0; t < 60; t++) { const a = target + (t % 2 ? 1 : -1) * Math.ceil(t / 2) * 0.03; const i = ((Math.round(a / 6.2832 * N) % N) + N) % N; let clear = true; for (let d = -m; d <= m; d++) if (S[((i + d) % N + N) % N].st !== "ok") { clear = false; break; } if (!clear) continue;
+        const Rp = R + (o.out || 2.95); const x = z.x + Math.cos(S[i].a) * Rp, zz = z.z + Math.sin(S[i].a) * Rp; const yaw = Math.atan2(z.x - x, z.z - zz);
+        if (!pergFree(x, zz, yaw, null, Object.assign({ gap: 11, plazaEdge: true }, o.spot || {}))) continue;
+        pergolaAt(x, zz, yaw, (got + (o.odd ? 1 : 0)) % 2 ? "pair" : "lounge", where); if (o.rec) cutRail(o.rec, i, m); got++; break; } }
+    return got; }
+  // rest bays off a walk: every `st` metres, alternating sides, the front toward the walk
+  function walkPergolas(pts, w, own, st, where, o) { o = o || {}; const L = plen(pts); let sd = o.side || 1, n = 0;
+    for (const s of samples(pts, st, Math.min(st * 0.45, L / 2), L - 25)) { if (s.d < 20) continue; let ok = false;
+      for (const dd of [0, 6, -6, 12, -12, 18, -18, 24, -24]) { const s2 = { x: s.x + s.ux * dd, z: s.z + s.uz * dd, ux: s.ux, uz: s.uz };
+        for (const side of [sd, -sd]) { const [x, z] = offP(s2, (w / 2 + 0.6 + 2.15) * side); const yaw = faceIn(s2, side); if (!pergFree(x, z, yaw, own, Object.assign({ gap: 70 }, o.spot || {}))) continue; pergolaAt(x, z, yaw, n % 2 ? "pair" : "lounge", where, own); n++; ok = true; break; }
+        if (ok) { sd = -sd; break; } } }
+    return n; }
+  // golf: one beside a tee (clear of every play line, green and tee), facing the tee; at most five over the Short Six
+  function golfPergolas() { let holes = []; try { holes = typeof planGolfHoles === "function" ? planGolfHoles() : []; } catch (e) { holes = []; } if (!holes.length) return 0;
+    const H = holes.map((d) => { const t = d.pts[0], c = d.pts[d.pts.length - 1]; const L = Math.hypot(c[0] - t[0], c[1] - t[1]) || 1; return { t, c, ux: (c[0] - t[0]) / L, uz: (c[1] - t[1]) / L, w: d.w || 18, gr: d.gr || 9.5 }; });
+    const cp = planPlace("golf_clubhouse"); E.golfPerg = [];
+    const clear = (x, z) => { for (const h of H) { if (segD(x, z, [h.t[0] + h.ux * 12, h.t[1] + h.uz * 12], h.c) < h.w / 2 + 11) return "play"; if (Math.hypot(x - h.c[0], z - h.c[1]) < h.gr + 14) return "green"; if (Math.hypot(x - h.t[0], z - h.t[1]) < 8.5) return "tee"; } if (cp && Math.hypot(x - cp.x, z - cp.z) < (cp.r || 20) + 28) return "clubhouse"; return null; };
+    let n = 0; H.forEach((h, i) => { if (n >= 5) return; for (const lat of [11, 14]) for (const sd of (i % 2 ? [1, -1] : [-1, 1])) { const px = -h.uz * sd, pz = h.ux * sd; const x = h.t[0] + px * lat - h.ux * 2.5, z = h.t[1] + pz * lat - h.uz * 2.5; const why = clear(x, z); E.golfPerg.push([i, lat, sd, why]); if (why) continue; const yaw = Math.atan2(h.t[0] - x, h.t[1] - z); if (!pergFree(x, z, yaw, null, { gap: 45 })) continue; pergolaAt(x, z, yaw, "pair", "golf"); n++; return; } });
+    return n; }
+  // Genesis Park: Windmill Green (the picnic heart) and Spring Terrace, rest bays on the park loop, the Cottonwood Walk and the Lawn Walk
+  function parkPergolas() { const P = window.PLAN; let n = 0;
+    for (const [id, c, a0] of [["gp_pz_windmill", 2, 1.2], ["gp_pz_spring", 1, 0.3]]) { const q = (P.plazas || []).find((p) => p.id === id); if (q && !planSkip(id)) n += ringPergolas(q, c, "park", { spot: { city: true, gap: 11 }, a0 }); }
+    for (const [id, st] of [["gp_p_loop", 300], ["gp_p_cotton", 180], ["gp_p_lawnwalk", 130]]) { const pr = (P.promenades || []).find((p) => p.id === id); if (!pr || planSkip(id)) continue; const recs = ROADS.filter((r) => r.plan === id); n += walkPergolas(pr.pts, pr.width || 5, recs.length ? new Set(recs) : null, st, "park", { spot: { city: true, gap: 60 }, side: -1 }); }
+    return n; }
+  // promenades that get rest bays (desert-modern walks; not Main Street, the Club Walk arcades, the art avenue, the airside apron
+  // walk, the short spurs and steps, or the dark-sky and Old West walks)
+  const PERG_SKIP = new Set(["hl1_club_walk", "hl3_main_street", "hl4_sculpture_ave", "apron_walk", "sun_gate_walk", "flight_deck_spur", "garden_bay_walk", "link_south", "museum_walk", "observatory_spur", "sun_tunnels_spur"]);
   function promenade(q) { const { pr, cfg, own, w, style, pts } = q; const L = plen(pts); const dark = style === "out"; const inside = cfg.inside || w >= 14;
+    // R3: pergola rest bays first, so the benches, lanterns, string posts and beds keep off them
+    if (style === "lux" && !PERG_SKIP.has(pr.id) && L > 120) try { walkPergolas(pts, w, own, 150, "prom:" + pr.id, { side: pr.id.length % 2 ? 1 : -1 }); } catch (e) { E.errs.push("pergolas " + pr.id + ": " + e.message); }
     // benches with a planter beside them, alternating sides
     if (cfg.benches !== false) {
       if (cfg.benches === "median") { const mp = planTrim(pts, 34, L - 32); for (const s of samples(mp, 24, 14, plen(mp) - 6)) for (const sd of [-1, 1]) { const [x, z] = offP(s, 2.7 * sd); if (!spotOK(x, z, 1.0, own, { inside: true, door: true, edgeR: 0.4 })) continue; benchAt(x, z, Math.atan2(-s.uz * sd, s.ux * sd), true); } }
@@ -331,6 +399,8 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
       const trim = Math.ceil(1.1 / arc); const len = r.len - 2 * trim; if (style === "island" || style === "out" || len * arc < 3.5) continue; const segs = []; const open = z.id === "pz_compass" ? 34 : 24; let k = 0;
       while (k < len) { const m = Math.min(len - k, Math.round(open / arc)); if (m * arc >= 2.4) segs.push([r.i0 + trim + k, m]); k += m + Math.round(2.4 / arc); }
       for (const sg of segs) rec.rails.push(sg); }
+    // R3: pergolas just outside the ring of the larger desert-modern plazas (the railing opens in front of each)
+    if (style === "lux" && z.r >= 15 && !/^gp_/.test(z.id)) try { ringPergolas(z, z.id === "pz_compass" ? 4 : z.r >= 28 ? 3 : 2, "plaza:" + z.id, { R, S, rec, a0: 0.45 + (z.id.length % 5) * 0.4, odd: z.id.length % 2 === 1 }); } catch (e) { E.errs.push("pergolas " + z.id + ": " + e.message); }
     // entry pillars (or posts) either side of every ribbon gap wider than 2 m, lamps round the ring, trees framing the entries
     const pk = style === "ow" ? "e1_tpost" : style === "out" ? "e1_opost" : "e1_pillar";
     for (const r of runs) { if (r.st !== "gap" || r.full) continue; const wgap = r.len * arc; if (wgap < 2.0) continue;
@@ -398,6 +468,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
     step("promenades", () => { E.proms = promList(); for (const q of E.proms) promenade(q); });
     step("islands", islands);
     step("roads", () => { for (const r of window.PLAN.roads || []) { const cfg = ROAD[r.id]; if (!cfg || planSkip(r.id)) continue; roadVerge(r, cfg); } });
+    step("pergolas", () => { cnt("pergolasGolf", golfPergolas()); cnt("pergolasPark", parkPergolas()); });
     console.log("plan_enrich: " + JSON.stringify(E.n) + " in " + JSON.stringify(E.t)); }
   PLAN_HOOKS.world.push({ name: "enrichWorld", fn: function enrichWorld() { if (!window.PLAN) return; step("models", buildModels);
     // everything else runs as the very last world hook, after every module has placed its set pieces, solids and keep-outs
@@ -409,7 +480,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   // lift instances that stand on a walk (or in a planter) to the drawn surface: patch the engine's packed matrices
   function reseat() { const byKind = new Map(); for (const r of E.raise) { const k = kindOf(r.e); if (!k) continue; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(r); }
     for (const [k, list] of byKind) { const S = INSTSET.find((q) => q.kind === k); if (!S) continue; const idx = new Map(); S.list.forEach((e, i) => idx.set(e, i));
-      for (const r of list) { const i = idx.get(r.e); if (i === undefined) continue; const e = r.e; let y = e[1]; if (r.walk) { const w = walkTop(e[0], e[2]); if (w !== null) y = Math.max(y, w); } y += r.dy || 0; e.seated = true; if (Math.abs(y - e[1]) < 0.002) continue; e[1] = y; S.mats[i * 16 + 13] = y - (MODELS[k].sink || 0); cnt("reseated"); } S.n = -1; } }
+      for (const r of list) { const i = idx.get(r.e); if (i === undefined) continue; const e = r.e; let y = r.y !== undefined ? r.y : e[1]; if (r.walk) { const w = walkTop(e[0], e[2]); if (w !== null) y = Math.max(y, w); } y += r.dy || 0; e.seated = true; if (Math.abs(y - e[1]) < 0.002) continue; e[1] = y; S.mats[i * 16 + 13] = y - (MODELS[k].sink || 0); cnt("reseated"); } S.n = -1; } }
   const KIND_OF = new Map(); function kindOf(e) { if (KIND_OF.size === 0) for (const k in PLACE) for (const q of PLACE[k]) if (q.e1) KIND_OF.set(q, k); return KIND_OF.get(e) || null; }
   // seats and backs for the benches (the engine sits you on a solid marked seat, facing sd.face)
   function benchSolids() { for (const b of E.seats) { const e = b.e; e.seated = true; const y = e[1]; const c = Math.cos(b.yaw), s = Math.sin(b.yaw); const L = b.k === "e1_bench" ? 1.8 : Math.min(2.4, MODELS[b.k].sx * 0.9);
@@ -517,8 +588,22 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
     E.bulbs = new THREE.Points(g, new THREE.PointsMaterial({ map: MT.disc, size: 0.15, sizeAttenuation: true, alphaTest: 0.45, transparent: false, color: 0xf3ead8 })); E.bulbs.userData.e1 = true; E.bulbs.userData.noInst = true; scene.add(E.bulbs);
     E.halo = new THREE.Points(g, new THREE.PointsMaterial({ map: MT.halo, size: 1.05, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffd9a0 })); E.halo.userData.e1 = true; E.halo.visible = false; scene.add(E.halo);
     const wg = new THREE.BufferGeometry(); wg.setAttribute("position", new THREE.Float32BufferAttribute(BULB.wire, 3)); wg.computeBoundingSphere(); E.wire = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x1a1612 })); E.wire.userData.e1 = true; E.wire.userData.noInst = true; scene.add(E.wire); cnt("bulbs", BULB.pos.length / 3); }
+  // R3 pergolas on the final ground: a terrazzo pad (walkable, in the walk grid with the beds) with a cantera edge a hand's width over
+  // the highest ground under it; the pergola and its seating stand on the pad; a solid at each post; the 12 festoon bulbs join the
+  // string lights' bulb draw (lit and haloed at night), a warm pool under each pergola (lightPools)
+  function pergolaDefer() { const I = (window.PLAN_MODEL_INFO || {}).pergola || {}; const bulbs = (I.festoon_bulbs && I.festoon_bulbs.centers) || []; const posts = (I.posts && I.posts.centers) || [[-1.744, -1.744], [-1.744, 1.744], [1.744, -1.744], [1.744, 1.744]]; const PH = (I.roof && I.roof.top_y) || 2.89;
+    for (const q of PERG) { const { x, z, yaw } = q; let hi = -1e9, lo = 1e9; const h = 2.3;
+      for (const [lx, lz] of [[-h, -h], [h, -h], [h, h], [-h, h], [0, 0], [0, h], [0, -h], [h, 0], [-h, 0]]) { const [px, pz] = pgL2W(x, z, yaw, lx, lz); const g = groundAt(px, pz); hi = Math.max(hi, g); lo = Math.min(lo, g); }
+      const top = hi + 0.07; q.top = top; const P = (lx, lz, y) => { const [px, pz] = pgL2W(x, z, yaw, lx, lz); return [px, y, pz]; };
+      const pad = wacc(MT.bed, x, z, false), hw = h - 0.12; const uv = (lx, lz) => { const [px, pz] = pgL2W(x, z, yaw, lx, lz); return [px / 1.6, pz / 1.6]; };
+      const c0 = P(-hw, -hw, top), c1 = P(-hw, hw, top), c2 = P(hw, hw, top), c3 = P(hw, -hw, top); quad(pad, c0, c1, c2, c3, [...uv(-hw, -hw), ...uv(-hw, hw), ...uv(hw, hw), ...uv(hw, -hw)], [0.93, 0.9, 0.84]);
+      const ed = wacc(MT.stone, x, z, false); const ey = (top + 0.012 + lo - 0.18) / 2, eh = (top + 0.012 - (lo - 0.18)) / 2; const [ax, az] = pgL2W(x, z, yaw, 0, h - 0.06), [bx, bz] = pgL2W(x, z, yaw, 0, -h + 0.06), [cx, cz] = pgL2W(x, z, yaw, h - 0.06, 0), [dx, dz] = pgL2W(x, z, yaw, -h + 0.06, 0);
+      boxA(ed, ax, ey, az, h, eh, 0.06, yaw, COL.cantera, 0.7); boxA(ed, bx, ey, bz, h, eh, 0.06, yaw, COL.cantera, 0.7); boxA(ed, cx, ey, cz, 0.06, eh, h - 0.12, yaw, COL.cantera, 0.7); boxA(ed, dx, ey, dz, 0.06, eh, h - 0.12, yaw, COL.cantera, 0.7);
+      E.raise.push({ e: q.e, y: top }); for (const pe of q.items) E.raise.push({ e: pe, y: top });
+      for (const [lx, lz] of posts) { const [px, pz] = pgL2W(x, z, yaw, lx, lz); addSolid(px, pz, yaw, 0.52, 0.52, top - 0.2, top + PH, "world"); cnt("pergolaSolids"); }
+      for (const b of bulbs) { const [px, pz] = pgL2W(x, z, yaw, b[0], b[2]); BULB.pos.push(px, top + b[1] - 0.03, pz); } cnt("pergolaBulbs", bulbs.length); } }
   // warm pools of light under the lanterns and the pillar lanterns at night (one additive draw)
-  function lightPools() { const spots = []; for (const l of E.lanterns) spots.push([l.e[0], l.e[2], 3.2]); for (const k of ["e1_pillar", "e1_tpost"]) for (const e of PLACE[k] || []) spots.push([e[0], e[2], 3.6]); if (!spots.length) return;
+  function lightPools() { const spots = []; for (const l of E.lanterns) spots.push([l.e[0], l.e[2], 3.2]); for (const q of PERG) spots.push([q.x, q.z, 5.2]); for (const k of ["e1_pillar", "e1_tpost"]) for (const e of PLACE[k] || []) spots.push([e[0], e[2], 3.6]); if (!spots.length) return;
     const pool = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: MT.halo, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), spots.length);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(); spots.forEach(([x, z, r], i) => { p.set(x, groundAt(x, z) + 0.04, z); s.set(r, 1, r); m.compose(p, q, s); pool.setMatrixAt(i, m); }); pool.frustumCulled = false; pool.renderOrder = 2; pool.userData.e1 = true; pool.visible = false; scene.add(pool); E.pool = pool; }
   // ───────────────────────── far props: a real LOD for the heavy props whose LOD file is the full model ─────────────────────────
@@ -567,7 +652,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   PLAN_HOOKS.defer.push({ name: "enrichDefer", fn: function enrichDefer() { if (!window.PLAN || !E.lateDone || E.done) return; E.done = true; mats();
     step("unbed", () => { for (let i = ROADS.length - 1; i >= 0; i--) if (ROADS[i].e1bed) ROADS.splice(i, 1); });
     step("aliasLod", aliasLod); step("propLod", propLod); step("lodDist", lodDist);
-    step("reseat", reseat); step("benchSolids", benchSolids); step("promKerbs", promKerbs); step("beds", bedMeshes); step("plazaMeshes", plazaMeshes); step("islandMeshes", islandMeshes); step("fence", fenceMeshes); step("treeBases", treeBases); step("strings", stringMeshes); step("pools", lightPools); step("flush", flush);
+    step("pergolaPads", pergolaDefer); step("reseat", reseat); step("benchSolids", benchSolids); step("promKerbs", promKerbs); step("beds", bedMeshes); step("plazaMeshes", plazaMeshes); step("islandMeshes", islandMeshes); step("fence", fenceMeshes); step("treeBases", treeBases); step("strings", stringMeshes); step("pools", lightPools); step("flush", flush);
     try { updateCulling(true); } catch (e) {}
     console.log("plan_enrich defer: " + JSON.stringify(E.n) + " in " + JSON.stringify(E.t)); } });
 

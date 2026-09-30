@@ -114,7 +114,7 @@
     const d = (typeof planDistrictAt === "function" ? planDistrictAt(s.x, s.z) : null) || nearestDistrict(s.x, s.z);
     let stage = d ? planStageOf(d) : null; let gp = s.park === "genesis_park" || /^gp_/.test(s.id) || stage === "GP"; if (gp) stage = "GP"; if (!stage) stage = s.city_item ? "AIRPORT" : "S1";
     const all = (s.faces || []).join(" | ");
-    if (s.type === "gateway" || s.type === "totem") { if (/^DOUGLAS MUNICIPAL/i.test(all)) { stage = "AIRPORT"; gp = false; } else if (/^GENESIS PARK/i.test(all)) { stage = "GP"; gp = true; } else { const st = stageFromText(all); if (st) { stage = st; gp = false; } } }
+    if (s.type === "gateway" || s.type === "totem") { if (/^(SOLPORT|DOUGLAS MUNICIPAL)/i.test(all)) { stage = "AIRPORT"; gp = false; } else if (/^GENESIS PARK/i.test(all)) { stage = "GP"; gp = true; } else { const st = stageFromText(all); if (st) { stage = st; gp = false; } } }
     const rec = { id: s.id, s, type: s.type, x: s.x, z: s.z, x0: s.x, z0: s.z, stage, gp, district: d ? d.name : null, theme: d ? (d.theme || "") : "", th: 0 };
     if (s.type === "gateway") { const sc = String(s.scale || ""); rec.fam = /monument/.test(sc) ? "mo" : "dm"; rec.coBrand = /co-branded/.test(sc) || (gp && /monument/.test(sc)); rec.ped = /pedestrian/.test(sc); }
     else rec.fam = { fingerpost: "fp", blade: "bl", kiosk: "ki", trailblazer: "tb", totem: "tm", runway: "rw" }[s.type] || null;

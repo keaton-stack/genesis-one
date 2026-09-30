@@ -133,8 +133,19 @@ window.PLAN_MODEL_SPECS = window.PLAN_MODEL_SPECS || {};
   add("cholla",            { height: 2.0, rot: 0, prop: true, solid: 0.3 });                        // 1.198 x 2 x 0.763 m, front: +Z
   add("organ_pipe",        { height: 4.5, rot: 0, prop: true, solid: 0.55 });                       // 1.759 x 4.5 x 1.433 m, front: +Z
 
-  // not registered: gbank (R2C listed it for regeneration; plan_gbank.js keeps its procedural pavilion). will and paul are rigged and
+  // gbank: registered by task R3 GBANK below (the R2C model was rejected and regenerated). will and paul are rigged and
   // live in PLAN_MODEL_INFO only (never PLAN_MODEL_SPECS: the static path bakes the Armature scale into the geometry).
+
+  // ── task HGR (29 Sep 2026): the Stellar Aviation executive hangar. plan_hangars.js moves every plan "hangar" onto it and adds
+  // the wall solids, the animated glazed door, the signs and the interior (no circle collider here: solid 0; not box: 1, so no
+  // end caps across the door). Meshy 7 ultra from concept assets_r2/concepts/hangar_exec_D2.png; cleaned, re-atlased 4096.
+  add("hangar_exec",       { size: 24.0, rot: 0, solid: 0 });                                        // 21.0 x 8.0 x 24.0 m, door opening +Z
+
+  // ── task R3 GBANK (29 Sep 2026): the GBANK pavilion, regenerated from the solid concept (specs_R2C.json _regen.gbank concept fix).
+  // A building kind (not prop: the client's surface detail and facade night glow apply). plan_gbank.js stands it at scale 1 with the
+  // entrance on its site axis from PLAN_MODEL_INFO.gbank.anchors and makes its own solids (no put(), no collider: solid 0).
+  // Meshy 7 ultra from concept assets_r2/concepts/gbank_r3_b.png; generator surface + generator-surface re-atlas 4096 (booth_lux route).
+  add("gbank",             { size: 30.153, rot: 0, solid: 0 });                                      // 30.0 x 10.403 x 30.153 m, entrance +Z
 })();
 
 // installed facts for module authors (not specs): size [x, height, z] in metres at scale 1, what faces +Z, the source scan.
@@ -1137,4 +1148,107 @@ window.PLAN_MODEL_INFO = window.PLAN_MODEL_INFO || {};
     beth: {"installed": true, "rigged": true, "height": 1.68, "size": [0.6, 1.68, 0.35], "front": "face (+Z), feet on y = 0, footprint centred on the origin", "solid": 0.35, "who": "Beth, Freedom Air", "placement": "plan_terminal.js: stands in the Freedom Air booth between the desk and the lounge (BETH_AT), no talk card of her own", "note": "Meshy 7 rigged character from the approved concept (assets_r2/concepts/beth.png, from the user's reference photo), processed on the R2A route (r2a_run.py): same 24-joint rig and clip files as paul", "file": "/models/beth.glb", "mobile": "/models_m/beth.glb", "lod": "/models/lod/beth.glb", "walk": "/models/beth_walk.glb", "idle": "/models/beth_idle.glb"},
   };
   for (var r2 in RIGGED2) if (RIGGED2[r2].installed) put(r2, RIGGED2[r2]);
+  // task R3 GBANK (29 Sep 2026): the GBANK pavilion's anchors in the model frame (metres at scale 1), read by plan_gbank.js analyzeModel
+  put("gbank", {
+    size: [30.0, 10.403, 30.153], front: "+Z: the centred bronze double entrance in a deep board-formed portal (x -1.65); the stair on the right (+X) climbs from the front-right corner along the right side to the roof terrace",
+    files: { desktop: "/models/gbank.glb", mobile: "/models_m/gbank.glb", far_lod: "/models/lod/gbank.glb" },
+    tris: { desktop: 37272, mobile: 37272, far_lod: 21988 }, kb: { desktop: 10545, mobile: 2080, far_lod: 1477 },
+    units: "metres at scale 1 (x right, y up, z front), footprint (stair included) centred on the origin, base y 0",
+    what: "two-level desert-modern GBANK pavilion: a pale board-formed concrete hall with dark bronze mirror glass in black mullions (no interior visible), a roof terrace open to the sky behind a solid 1.1 m parapet, a corten-clad tower at the back with a bronze glass front and a door onto the terrace, a solid concrete stair with closed risers and an outer wall",
+    anchors: {
+      format: "model frame at scale 1; boxes [x0, x1, z0, z1, top_y]; plan_gbank.js stands the model at `scale` with door.x on its site axis",
+      scale: 1,
+      door: { x: -1.65, z: 11.3, w: 4.1, h: 3.9, mat: 1.6, portal: { x: [-4.2, 1.0], z_face: 11.65, top_y: 4.28 } },
+      fascia: { y: [4.4, 6.35], z_face: 11.35, note: "the concrete band over the glass: a lettering zone centred on the door" },
+      terrace: { y: 5.34, x: [-14.6, 10.1], z: [-2.1, 11.0] },
+      parapets: [[-14.95, 8.85, 11.0, 11.35, 6.45], [-14.95, -14.65, -2.1, 11.35, 6.45], [10.15, 10.45, -2.1, 8.0, 6.45], [4.7, 10.45, -2.15, -1.35, 6.4], [8.55, 8.85, 8.3, 11.35, 6.45]],
+      stair: { foot: [13.8, 15.0], top: [9.5, 8.0], width: 3.9, note: "one solid flight with closed risers: foot at the front-right corner (z 15), rising toward -Z and -X along the right side into the terrace at z 8 between the right parapet and the stair-edge parapet; 0.25 to 0.36 m rise per 0.5 m on a 0.5 m grid (the player climbs 0.6 m steps)" },
+      tower: { x: [-14.95, 4.7], z: [-14.5, -2.45], roof_y: 9.94, top_y: 10.4 },
+      suite_door: { x: -2.65, z: -2.45, w: 1.9, h: 3.1, note: "the door in the tower's bronze glass front onto the terrace" },
+      front_planters: [[-8.3, -4.5, 11.4, 12.1, 1.0], [1.2, 4.5, 11.4, 12.1, 1.0]],
+      spots: { note: "terrace dressing and Will's spot used by plan_gbank.js (clear of the stair landing, the suite door and the walk between them)",
+        will: [-0.4, -0.95], planters: [[-13.0, 10.15], [-7.5, 10.15], [-1.65, 10.15], [4.2, 10.15], [7.3, 10.15]],
+        lounge: [-9.6, 3.6, 0], fire: [1.8, 5.0, 0], loungers: [[-5.3, 8.85, 0], [-4.0, 8.85, 0]],
+        lanterns: [[-14.2, 10.6], [-14.2, -1.7], [8.1, 10.6], [-4.1, -2.0], [-1.2, -2.0], [4.3, -1.75]], plaque: [11.0, 15.3] },
+    },
+    source: "Meshy 7 ultra (image to 3D) from masterplan/assets_r2/concepts/gbank_r3_b.png (task R3 GBANK); generator surface + generator-surface re-atlas 4096 (booth_lux route), 2048 desktop maps, 512 mobile",
+  });
+  // task HGR (29 Sep 2026): the executive hangar's anchors in the model frame (metres at scale 1; scale them with the placement)
+  put("hangar_exec", { size: [21.0, 8.0, 24.0], front: "+Z: the hangar door opening, the office tower at the front left (-X)", wall_z: 11.34, door: { x0: -6.753, x1: 9.564, y1: 5.773, z: 10.992, note: "an open hole (the generator's glazed door was removed); plan_hangars.js hangs its animated door in it" }, tower: { x0: -10.5, x1: -6.753 }, fascia: { y0: 5.93, y1: 7.6 }, roof: 8.0, tris: 3861, files: { desktop: "/models/hangar_exec.glb", mobile: "/models_m/hangar_exec.glb", lod: "/models/lod/hangar_exec.glb" }, note: "one outer skin (Meshy's inner skin, the junk inside the shell and the bottom were deleted), so the inside is empty: plan_hangars.js lines it when the interior is built" });
+})();
+
+// ── round 3 models (task R3M, 29 Sep 2026): genesis_data\masterplan\assets_r3\manifest.json and HANDOFF_R3_MODELS.md ──
+// The hero rebuilds keep their kinds: models/, models_m/ and models/lod/<kind>.glb were replaced (the previous files are in
+// genesis_data\v2\backup_r3\). The specs below give each new model its real size at scale 1 (the plan places them at scale 1,
+// inside the old footprints; the old size values would stretch them). The new kinds load only through plan_showcase.js
+// (PLAN_MODEL_NEEDS). Every GLB: metres, front +Z, base y 0, footprint centred. Meshy 7 ultra (Tripo H3.1 detailed for the
+// sculptures) from gpt_image_2_5 concepts; generator surface + generator-surface re-atlas 4096 (booth_lux route).
+window.PLAN_R3_READY = window.PLAN_R3_READY || { clubhouse: 1, restaurant: 1, dome: 1, pavilion: 1, stellar_fueler: 1, stellar_tug: 1, ec130: 1, pc12: 1, sculpt_ribbon: 1, sculpt_mirror: 1, pilot: 1, linetech: 1, concierge: 1, resident_m: 1, resident_f: 1 };   // R3M: the kinds whose files are installed (all of round 3)
+(function () {
+  var S = window.PLAN_MODEL_SPECS;
+  var RDY = window.PLAN_R3_READY;
+  var add = function (k, sp) { if (RDY[k]) S[k] = Object.assign({}, sp, S[k] || {}); };
+  add("clubhouse",      { size: 29.34, box: 1, solid: 11.88, win: true });   // 29.34 x 9.78 x 26.4 m, entrance +Z (the v2 model was 38 x 17.5 x 26.4)
+  add("restaurant",     { size: 17.3, box: 1, solid: 7.7, win: true });      // 17.2 x 6.38 x 17.3 m, entrance +Z under the pergola (v2: 32 x 8.6 x 17.2)
+  add("dome",           { size: 13.0, solid: 5.3 });                         // 11.24 x 6.69 x 13.0 m, vestibule door +Z
+  add("pavilion",       { size: 17.82, solid: 0 });                          // 17.8 x 8.91 x 17.82 m, walk-under (mast and platform posts below)
+  add("stellar_fueler", { size: 9.5, prop: true, vehicle: true, solid: 0, rot: 0 });     // 3.26 x 3.9 x 9.5 m, cab +Z
+  add("stellar_tug",    { size: 4.5, prop: true, vehicle: true, solid: 0, rot: 0 });     // 1.87 x 2.55 x 4.5 m, seat faces +Z, hitch -Z
+  add("ec130",          { size: 13.053, prop: true, vehicle: true, solid: 0, rot: 0 });  // 10.69 x 3.88 x 13.05 m (rotor 10.69 m), nose +Z
+  add("pc12",           { size: 16.28, prop: true, vehicle: true, solid: 0, rot: 0 });   // 16.28 x 4.63 x 14.79 m, nose +Z
+  add("sculpt_ribbon",  { height: 6.0, prop: true, solid: 1.6, rot: 0 });
+  add("sculpt_mirror",  { height: 5.0, prop: true, solid: 1.5, rot: 0 });
+})();
+// round 3 (task R3M) installed facts: size [x, height, z] in metres at scale 1 in the model frame (x right, y up, z toward
+// the front), what faces +Z, and the anchors modules and the interiors need. The hero rebuilds' anchors describe the NEW
+// files under the old kind names. rigged: the R2A route (load like paul / brad: never PLAN_MODEL_SPECS kinds).
+(function () {
+  var INFO = window.PLAN_MODEL_INFO;
+  var RDY = window.PLAN_R3_READY;
+  var put = function (k, v) { if (RDY[k] && (!INFO[k] || INFO[k].r3)) INFO[k] = v; };   // an entry another agent set first wins (a round 3 one is replaced)
+  var F = function (k) { return { desktop: "/models/" + k + ".glb", mobile: "/models_m/" + k + ".glb", far_lod: "/models/lod/" + k + ".glb" }; };
+  var R3 = {
+    clubhouse: { r3: 1, size: [29.34, 9.779, 26.4], files: F("clubhouse"), front: "+Z: the entrance canopy on two stone piers over the bronze-framed glass double doors, a porch and three wide steps",
+      door: { x: -0.9, z: 9.09, y: 0.83, w: 2.4, h: 3.2, opening: { x0: -3.03, x1: 1.25, z: 10.6 }, note: "door plane z 9.09 (the glass double doors); the stone piers stand at z 10.6 with 4.3 m clear between them (x -3.03 to 1.25); porch floor y 0.83 from z 9.1 to 11.2, then steps down to the ground at z 12.8" },
+      floor: 0.83, walls: { x: [-12.97, 12.97], z: [-12.4, 9.09] }, ceiling: 6.22, roof: 6.36, canopy_soffit: 4.86,
+      upper: { x: [-4.53, 4.67], z: [-3.83, 3.72], floor: 6.36, roof: 9.78, note: "glazed lounge pavilion set back on the roof and a roof terrace behind a glass balustrade (no stair is modelled)" },
+      windows: "ORM blue = the glass mask (6.4 percent of the atlas) read by the client window hook (WIN.kinds)", solid_note: "spec box: 1 (26.4 x 23.8 m standable box) plus a circle of 11.88 m; the door trigger (doorF 0.86) lands 0.7 m in front of the box",
+      src: "Meshy 7 ultra from masterplan/assets_r3/concepts/clubhouse.png (task R3M); replaces the 38 x 17.5 x 26.4 m v2 model" },
+    restaurant: { r3: 1, size: [17.2, 6.376, 17.297], files: F("restaurant"), front: "+Z: the walnut double doors in the glazed dining-room front, under a timber-slat pergola over a sandstone terrace",
+      door: { x: 0, z: 5.66, y: 0.216, w: 2.2, h: 3.0, note: "door plane z 5.66; terrace floor y 0.216 from z 5.66 to 8.65 (the pergola posts stand near its front edge, one at x 1.5, z 8.5)" },
+      floor: 0.216, walls: { x: [-7.66, 7.66], z: [-8.6, 5.66] }, ceiling: 4.98, roof: 5.0, chimney_top: 6.376,
+      windows: "ORM blue = the glass mask for the client window hook (WIN.kinds)", solid_note: "spec box: 1 (15.5 x 15.6 m) plus a circle of 7.7 m; the generator made it square, so it stands at uniform scale inside the old 32 x 17.2 m plan footprint",
+      src: "Meshy 7 ultra from masterplan/assets_r3/concepts/restaurant_c2.png (try 2; try 1 had a fallen pergola rafter); replaces the 32 x 8.6 x 17.2 m v2 model" },
+    dome: { r3: 1, size: [11.242, 6.694, 13.0], files: F("dome"), front: "+Z: the white flat-roofed entry vestibule with the walnut door and two stone steps",
+      door: { x: 0, z: 4.9, y: 0.58, w: 1.0, h: 2.1, note: "vestibule landing y 0.58 at z 5.0 to 5.7, steps to z 6.5; vestibule roof 2.94" }, floor: 0.58, radius: 5.55, top: 6.585,
+      src: "Meshy 7 ultra from masterplan/assets_r3/concepts/dome.png; replaces the v2 dome" },
+    pavilion: { r3: 1, size: [17.8, 8.906, 17.819], files: F("pavilion"), front: "none (square, four masts; rotate freely)", platform_top: 0.5, clear_under_fabric: 3.0,
+      posts: [[6.6, 6.95, 0.45, 0.45], [-6.6, 6.95, 0.45, 0.45], [6.6, -6.95, 0.45, 0.45], [-6.6, -6.95, 0.45, 0.45], [0, 0, 16.6, 16.6, 0.5]],
+      posts_note: "the four masts (full height) and the 0.5 m sandstone platform as a standable box: walk-under (spec solid 0); plan_showcase.js keeps vegetation out from under every placement",
+      src: "Meshy 7 ultra from masterplan/assets_r3/concepts/pavilion.png; replaces the v2 pavilion (its torn-canopy reject)" },
+    stellar_fueler: { r3: 1, size: [3.257, 3.902, 9.5], files: F("stellar_fueler"), front: "+Z: the cab; the hose reel cabinet at the back (-Z)",
+      decal: { x: 1.262, y: 2.2, z: -0.25, w: 2.3, hmax: 0.72, note: "the Stellar logo plane on both tank sides (plan_showcase.js cuts it from PLAN_TERMINAL.tx.stDoor)" },
+      solids: [[0, 0, 2.5, 9.3, -0.2, 3.3]], cab_roof: 3.13, tank_top: 3.17, src: "Meshy 7 ultra from masterplan/assets_r3/concepts/stellar_fueler.png; the self-baked AO came out black (layered shells), so the ORM AO is neutral" },
+    stellar_tug: { r3: 1, size: [1.871, 2.554, 4.5], files: F("stellar_tug"), front: "+Z: the push bumper; the operator faces +Z; the tow hitch at the back", hitch: [0, 0.55, -2.1], seat: 1.28, canopy: 2.4,
+      solids: [[0, 0.1, 1.8, 4.1, -0.2, 1.3]], src: "Meshy 7 ultra from masterplan/assets_r3/concepts/stellar_tug.png" },
+    ec130: { r3: 1, size: [10.69, 3.88, 13.053], files: F("ec130"), front: "+Z: the nose; the fenestron tail at -Z; rotor diameter 10.69 m", nose_z: 5.09, tail_z: -6.2,
+      cabin: { x: [-0.89, 0.89], y: [0.82, 2.29], z: [-1.5, 5.09] }, solids: [[0, 1.8, 1.9, 6.6, 0, 2.4]], who: "Freedom Air (black and gold)", src: "Meshy 7 ultra from masterplan/assets_r3/concepts/ec130.png" },
+    pc12: { r3: 1, size: [16.28, 4.63, 14.792], files: F("pc12"), front: "+Z: the nose and five-blade propeller; T-tail at -Z", nose_z: 7.39, tail_z: -6.38, wing_y: 1.6,
+      solids: [[0, 0.5, 2.0, 13.8, 0, 3.4], [0, 0.8, 16.0, 2.2, 1.3, 2.0]], src: "Meshy 7 ultra from masterplan/assets_r3/concepts/pc12.png" },
+    sculpt_ribbon: { r3: 1, size: [2.279, 6.0, 3.344], files: F("sculpt_ribbon"), front: "none (rotate freely)", src: "Tripo H3.1 detailed from masterplan/assets_r3/concepts/sculpt_ribbon.png, weathered corten" },
+    sculpt_mirror: { r3: 1, size: [4.642, 5.0, 1.255], files: F("sculpt_mirror"), front: "the ring face +Z", material_note: "the generator painted a sky into the albedo; plan_showcase.js turns its material into a true mirror steel (metalness 1, roughness 0.07, no map)", src: "Tripo H3.1 detailed from masterplan/assets_r3/concepts/sculpt_mirror.png" },
+  };
+  for (var k in R3) put(k, R3[k]);
+  // the round 3 rigged people (R2A route, like paul / brad): face +Z, feet on y 0; clips 'idle' and 'walk' (char_m walk, about 0.72 m/s at time scale 1)
+  var RIG = function (k, h, who, where) { return { r3: 1, installed: true, rigged: true, height: h, size: [0.6, h, 0.35], front: "face (+Z), feet on y = 0, footprint centred on the origin", solid: 0.35, who: who, placement: where, walk_speed: 0.72,
+    note: "Meshy 7 rigged character (invented generic person) from masterplan/assets_r3/concepts/" + k + ".png, R2A route (r3a_run.py wraps r2a_run.py): 24-joint rig, same clip files as paul",
+    file: "/models/" + k + ".glb", mobile: "/models_m/" + k + ".glb", lod: "/models/lod/" + k + ".glb", walk: "/models/" + k + "_walk.glb", idle: "/models/" + k + "_idle.glb" }; };
+  var PEOPLE = {
+    linetech: RIG("linetech", 1.8, "Stellar Aviation line technician (navy coveralls, hi-vis vest, ear defenders)", "plan_showcase.js: at the refueller's hose cabinet beside the jet on stand A4"),
+    pilot: RIG("pilot", 1.75, "a captain in uniform", "plan_showcase.js: on the Solport FBO airside forecourt"),
+    concierge: RIG("concierge", 1.82, "the Landing Clubhouse concierge (charcoal suit, green tie)", "plan_showcase.js: beside the clubhouse entrance steps"),
+    resident_m: RIG("resident_m", 1.8, "a resident (smart casual)", "plan_showcase.js: walking the Club Walk loop"),
+    resident_f: RIG("resident_f", 1.68, "a resident (smart casual)", "plan_showcase.js: walking the Club Walk loop"),
+  };
+  for (var p in PEOPLE) put(p, PEOPLE[p]);
 })();

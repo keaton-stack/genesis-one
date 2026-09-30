@@ -27,7 +27,7 @@ const SIGN_MAX = 80;
 const SAY_MAX = 80;
 const GUESTBOOK_MAX = 60;
 const BOARD_MAX = 10;
-const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo", "dance", "brace"];
+const GAMES = ["golf", "course", "obby", "drag", "rings", "hunt", "lap", "rodeo", "dance", "brace", "flight"];   // flight: the Solport Scenic Flight, v = 100000 - points like dance
 const AV_OPTS = { main: [null, "film", "trailer", "off"], side: [null, "trailer", "film", "off"], wall: [null, "loop", "off"] };
 const DUEL_WINDOW_TICKS = 1500, DUEL_STAKE = 40;
 // ── economy ──
@@ -40,7 +40,7 @@ const PROP_MAX = 600, PROP_PER = 80;
 const LOT_PRICE = 1200;
 const BUILD_KINDS = ["home", "dome", "pavilion", "casita"];
 const BUILD_PRICE = { home: 900, dome: 500, pavilion: 400, casita: 600 };
-const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80, brace: 120 };
+const REWARD = { golf: 150, course: 80, obby: 120, drag: 60, rings: 60, hunt: 90, lap: 40, rodeo: 100, dance: 80, brace: 120, flight: 120 };
 // the arcade: a credit costs ARCADE_PLAY, a prize is whatever the cabinet paid out, capped; high scores keep the top eight per game
 const ARCADE_PLAY = 20, ARCADE_CAP = 60, ARCADE_BOARD = 8; const ARCADE_RE = /^[a-z]{2,12}$/;
 // shared attractions: one Lava Room round at a time (phases pushed by the starter's client), and two air-hockey tables with a host and a challenger
@@ -49,6 +49,15 @@ const HOCKEY_TABLES = 2, HOCKEY_STALE = 300;
 function lavaLive(state) { const L = state.lava; return !!(L && L.phase !== "over" && state.tick - (L.tick || 0) <= LAVA_STALE); }
 function hockeyLive(state, table) { const H = (state.hockey || {})[table]; return H && H.host && state.tick - (H.tick || 0) <= HOCKEY_STALE ? H : null; }
 const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Tower"]];
+// Sol Passport progression (public/plan_progress.js): stamps, ranks earned by play only (never bought, never tied to coins or tokens)
+// and an in-game community impact tally. The client keeps the full ledger; the room keeps a compact copy per player (stamp and award
+// bit sets as hex, repeatable xp, the day cap, the visit streak) merged monotonically (bits OR, counters max) so reloads, tabs and
+// devices never lose progress, plus the public rank shown on nameplates and the shared impact counters. Clients only send "prog"
+// once they see view.progv, so an older room never receives it.
+const PROG_V = 1, PROG_HEX_RE = /^[0-9a-f]{0,64}$/, PROG_TITLE_RE = /^[a-z0-9_]{0,24}$/, PROG_NUM_MAX = 1e7;
+const IMPACT_KEYS = ["stamps", "talks", "flights", "landings", "acts", "rides", "visits"], IMPACT_STEP = 20;
+function progInt(v, max) { return Number.isInteger(v) && v >= 0 && v <= max; }
+function hexOr(a, b) { a = a || ""; b = b || ""; let out = ""; for (let i = 0; i < Math.max(a.length, b.length); i++) out += (parseInt(a[i] || "0", 16) | parseInt(b[i] || "0", 16)).toString(16); return out.replace(/0+$/, ""); }
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
 function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
 const SEATS = 4;                 // one driver + three riders
@@ -221,6 +230,14 @@ export function validateAction(state, playerId, action) {
     if (action.op === "ping") { const T = (state.hockey || {})[action.table]; if (!T || T.host !== playerId) return { ok: false, error: "not your table" }; return { ok: true }; }
     return { ok: false, error: "bad hockey op" };
   }
+  if (action.t === "prog") {
+    for (const k of ["b", "a"]) if (action[k] !== undefined && (typeof action[k] !== "string" || !PROG_HEX_RE.test(action[k]))) return { ok: false, error: "bad passport" };
+    for (const k of ["rx", "d", "dv", "vd", "sk", "x"]) if (action[k] !== undefined && !progInt(action[k], PROG_NUM_MAX)) return { ok: false, error: "bad progress" };
+    if (action.r !== undefined && !progInt(action.r, 3)) return { ok: false, error: "bad rank" };
+    if (action.ti !== undefined && action.ti !== null && (typeof action.ti !== "string" || !PROG_TITLE_RE.test(action.ti))) return { ok: false, error: "bad title" };
+    if (action.add !== undefined) { if (!action.add || typeof action.add !== "object" || Array.isArray(action.add)) return { ok: false, error: "bad impact" }; for (const k in action.add) if (!IMPACT_KEYS.includes(k) || !progInt(action.add[k], IMPACT_STEP)) return { ok: false, error: "bad impact" }; }
+    return { ok: true };
+  }
   if (action.t === "quest") {
     if (!Number.isInteger(action.step) || action.step < 0 || action.step > 4) return { ok: false, error: "bad step" };
     if (((me && me.quest) || 0) !== action.step) return { ok: false, error: "step already claimed" };
@@ -259,6 +276,7 @@ export function applyAction(state, playerId, action) {
   let lots = state.lots || defaultLots();
   let props = state.props || [];
   let av = state.av || null, duel = state.duel || null; let lava = state.lava || null, hockey = state.hockey || {};
+  let progs = state.progs || {}, impact = state.impact || {};
   if (action.t === "move") {
     me.x = Math.round(action.x * 100) / 100;
     me.z = Math.round(action.z * 100) / 100;
@@ -331,7 +349,7 @@ export function applyAction(state, playerId, action) {
     // and its last occupant is dropped there too
     const home = defaultVehicles()[me.veh];
     if (veh.kind === "jet" && !veh.driver && veh.riders.length === 0 && (veh.y > 0 || !onLand(veh.x, veh.z))) {
-      veh.x = home.x; veh.z = home.z; veh.y = 0; veh.ry = home.ry; veh.pitch = 0;
+      veh.x = home.x; veh.z = home.z; veh.y = 0; veh.ry = home.ry; veh.pitch = 0; veh.roll = 0;
     }
     V[me.veh] = veh;
     // step out beside the vehicle
@@ -346,6 +364,7 @@ export function applyAction(state, playerId, action) {
     veh.y = num(action.y) ? Math.round(action.y * 100) / 100 : 0;
     veh.ry = Math.round(action.ry * 1000) / 1000;
     veh.pitch = num(action.pitch) ? Math.round(action.pitch * 1000) / 1000 : 0;
+    veh.roll = veh.kind === "jet" && num(action.roll) ? Math.max(-1.6, Math.min(1.6, Math.round(action.roll * 1000) / 1000)) : 0;   // the bank, so everyone sees a turning jet bank
     veh.t = tick;
     V[me.veh] = veh;
     me.x = veh.x; me.z = veh.z; me.ry = veh.ry;
@@ -366,6 +385,17 @@ export function applyAction(state, playerId, action) {
     else if (action.op === "join") hockey = { ...hockey, [action.table]: { ...T, guest: playerId, tick } };
     else if (action.op === "leave") { if (T && T.host === playerId) { hockey = { ...hockey }; delete hockey[action.table]; } else if (T) hockey = { ...hockey, [action.table]: { ...T, guest: null, tick } }; }
     else if (action.op === "ping") hockey = { ...hockey, [action.table]: { ...T, tick } };
+  } else if (action.t === "prog") {
+    const P = { ...(progs[playerId] || {}) };
+    if (action.b !== undefined) P.b = hexOr(P.b, action.b);
+    if (action.a !== undefined) P.a = hexOr(P.a, action.a);
+    if (action.rx !== undefined) P.rx = Math.max(P.rx || 0, action.rx);
+    if (action.d !== undefined) { if (action.d > (P.d || 0)) { P.d = action.d; P.dv = action.dv || 0; } else if (action.d === P.d) P.dv = Math.max(P.dv || 0, action.dv || 0); }
+    if (action.vd !== undefined) { if (action.vd > (P.vd || 0)) { P.vd = action.vd; P.sk = action.sk || 1; } else if (action.vd === P.vd) P.sk = Math.max(P.sk || 0, action.sk || 0); }
+    progs = { ...progs, [playerId]: P };
+    const pr = me.pr || { x: 0, r: 0, t: null };
+    me.pr = { x: action.x !== undefined ? action.x : pr.x, r: action.r !== undefined ? action.r : pr.r, t: action.ti !== undefined ? action.ti || null : pr.t };
+    if (action.add) { const I = { ...impact }; for (const k in action.add) I[k] = (I[k] || 0) + action.add[k]; impact = I; }
   } else if (action.t === "quest") {
     me.quest = action.step + 1; me.coins = (me.coins || 0) + 25; me.xp = (me.xp || 0) + 15;
   } else if (action.t === "name") {
@@ -385,7 +415,7 @@ export function applyAction(state, playerId, action) {
 
   me.t = tick;
   players[playerId] = me;
-  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel, arcade, lava, hockey };
+  return { tick, players, vehicles: V, guestbook, boards, lots, props, av, duel, arcade, lava, hockey, progs, impact };
 }
 
 export function isGameOver() {
@@ -394,5 +424,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, lava: state.lava || null, hockey: state.hockey || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, lava: state.lava || null, hockey: state.hockey || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS, progv: PROG_V, prog: (state.progs || {})[playerId] || null, impact: state.impact || {} };
 }

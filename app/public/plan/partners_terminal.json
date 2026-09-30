@@ -1,5 +1,5 @@
 {
-  "_about": "Industry Partners hall in the Douglas Municipal terminal (plan_terminal.js). Edit any line here without touching code. Talk nodes: t = what the character says, o = the reply buttons as [label, next node index or null to close]. contact = the selectable lines shown under the talk card. footer = a line always shown under the card for that character. Rules: no em dashes, no percentages, no prices, nothing that offers or solicits securities or gives investment advice.",
+  "_about": "Industry Partners hall in the Stellar Aviation FBO, the terminal of Solport (plan_terminal.js). Edit any line here without touching code. Talk nodes: t = what the character says, o = the reply buttons as [label, next node index or null to close]. contact = the selectable lines shown under the talk card. footer = a line always shown under the card for that character. Rules: no em dashes, no percentages, no prices, nothing that offers or solicits securities or gives investment advice.",
   "version": 1,
   "hall": {
     "title": "INDUSTRY PARTNERS",
@@ -8,15 +8,15 @@
   "partners": {
     "stellar": {
       "name": "Stellar Aviation",
-      "badge": "FBO PARTNER",
-      "blurb": "A proven FBO operator, bringing fueling, hangar, and ground services to the field, along with local jobs.",
+      "badge": "SOLPORT FBO",
+      "blurb": "A proven FBO operator, now running the FBO at Solport: fuel, hangar, ground services, a crew lounge and concierge, along with local jobs.",
       "tagline": "Soaring Beyond Expectations",
       "services": [
         "Fuel",
         "Hangar",
         "Ground services",
-        "Concierge",
         "Crew lounge",
+        "Concierge",
         "Flight planning"
       ],
       "locations": [
@@ -37,13 +37,13 @@
         "stellaraviationgroup.com"
       ],
       "greet": [
-        "Welcome to Douglas Municipal. Stellar Aviation, your FBO partner.",
+        "Welcome to Solport. This is the Stellar Aviation FBO.",
         "Fuel, hangar and ground services, all at one desk.",
         "Flying in? We look after the aircraft, the crew and you."
       ],
       "talk": [
         {
-          "t": "I'm Brad Kost, Founding Partner and COO of Stellar Aviation, the FBO partner at Douglas Municipal. We are a proven FBO operator, bringing fueling, hangar and ground services to the field, along with local jobs. What would you like to know?",
+          "t": "I'm Brad Kost, Founding Partner and COO of Stellar Aviation. Stellar operates the FBO here at Solport: this whole building is our FBO, and we look after every aircraft, crew and passenger that comes through it. What would you like to know?",
           "o": [
             [
               "What does an FBO do?",
@@ -52,6 +52,10 @@
             [
               "Where do jets refuel?",
               2
+            ],
+            [
+              "What's in this FBO?",
+              5
             ],
             [
               "Where else do you operate?",
@@ -75,8 +79,8 @@
               2
             ],
             [
-              "Where else do you operate?",
-              3
+              "What's in this FBO?",
+              5
             ],
             [
               "Thanks",
@@ -85,7 +89,7 @@
           ]
         },
         {
-          "t": "Fuel is sold through the City of Douglas FBO on the airport itself, and Stellar is the operator bringing those FBO services to the field. Genesis One's own parcels never sell fuel: aircraft taxi to the City ramp to refuel, and the hangar homes and the Flight Line stay fuel free.",
+          "t": "Right here. Stellar operates the FBO at Solport, so fuel, hangar space, ground services, the crew lounge and concierge all run through this desk, with fueling out on the ramp by Gate A2. Genesis One's own parcels never sell fuel: the hangar homes and the Flight Line stay fuel free.",
           "o": [
             [
               "What does an FBO do?",
@@ -102,7 +106,7 @@
           ]
         },
         {
-          "t": "Stellar runs FBOs at Reno (KRNO), Carson-Tahoe (KCXP), South Palm Beach (KLNA) and Springfield (KSPI), and recently refreshed its Reno-Tahoe FBO. Douglas Municipal would bring the same standard to southern Arizona.",
+          "t": "Stellar runs FBOs at Reno (KRNO), Carson-Tahoe (KCXP), South Palm Beach (KLNA) and Springfield (KSPI), and recently refreshed its Reno-Tahoe FBO. Solport brings the same standard to southern Arizona.",
           "o": [
             [
               "How do I reach Stellar?",
@@ -115,8 +119,25 @@
           ]
         },
         {
-          "t": "I'm the contact for Douglas. My details are on this card; you can select and copy them.",
+          "t": "I'm the contact for Solport. My details are on this card; you can select and copy them.",
           "o": [
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Everything a flight needs, under one roof. Arrivals and check-in are inside the doors, the crew lounge and flight planning room sit beside this stand, and concierge can arrange cars and ground transport onto Genesis One. Out on the ramp we handle fuel, hangar space and ground services. Stellar looks after the aviation side of Solport, from the moment a jet lands to the moment it leaves.",
+          "o": [
+            [
+              "Where do jets refuel?",
+              2
+            ],
+            [
+              "How do I reach Stellar?",
+              4
+            ],
             [
               "Thanks",
               null
@@ -167,12 +188,8 @@
               4
             ],
             [
-              "Are you part of Giveback Ventures?",
-              5
-            ],
-            [
               "Thanks",
-              6
+              5
             ]
           ]
         },
@@ -189,7 +206,7 @@
             ],
             [
               "Thanks",
-              6
+              5
             ]
           ]
         },
@@ -206,7 +223,7 @@
             ],
             [
               "Thanks",
-              6
+              5
             ]
           ]
         },
@@ -223,7 +240,7 @@
             ],
             [
               "Thanks",
-              6
+              5
             ]
           ]
         },
@@ -236,20 +253,7 @@
             ],
             [
               "Thanks",
-              6
-            ]
-          ]
-        },
-        {
-          "t": "Yes, I founded Giveback Ventures, the company building the Giveback protocol and the on-chain rails behind Genesis One. Today I'm here for FinanceAdvisors.com.",
-          "o": [
-            [
-              "How does capital move in Genesis One?",
-              2
-            ],
-            [
-              "Thanks",
-              6
+              5
             ]
           ]
         },
@@ -338,7 +342,7 @@
           ]
         },
         {
-          "t": "JetFinders is the aviation partner for Genesis One: charters in and out of Douglas Municipal, owners' aircraft at home on the Flight Line, and hangars and hangar homes with their own taxiway access. Captain Reyes flies with us; you'll find him out on the apron by Gate A2.",
+          "t": "JetFinders is the aviation partner for Genesis One: charters in and out of Solport, owners' aircraft at home on the Flight Line, and hangars and hangar homes with their own taxiway access. Captain Reyes flies with us; you'll find him out on the apron by Gate A2.",
           "o": [
             [
               "What do you offer?",
@@ -385,7 +389,7 @@
     "freedomair": {
       "name": "Freedom Air",
       "tagline": "Finding freedom",
-      "blurb": "Private jet charter and aircraft management from Reno, Nevada, positioning aircraft right here on the runway.",
+      "blurb": "Private jet charter and aircraft management from Reno, Nevada, positioning aircraft right here at Solport.",
       "fleet": [
         "Challenger 300",
         "Citation X",
@@ -414,7 +418,7 @@
       ],
       "talk": [
         {
-          "t": "I'm Joe, and this is Beth. Welcome to Freedom Air. We run private jet charter and aircraft management out of Reno, and we position aircraft right here on the runway. Where are you headed?",
+          "t": "I'm Joe, and this is Beth. Welcome to Freedom Air. We run private jet charter and aircraft management out of Reno, and we position aircraft right here at Solport. Where are you headed?",
           "o": [
             [
               "What do you fly?",

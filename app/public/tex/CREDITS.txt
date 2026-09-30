@@ -52,3 +52,8 @@ ph_streetlamp_2: street_lamp_02 (Josh Dean)
 ph_patioset: outdoor_table_chair_set_01 (James Ray Cock)
 ph_sofa_1: sofa_02 (Kirill Sannikov)
 ph_sofa_2: sofa_03 (Fran Calvente)
+
+Terrain layers (plan_gfx.js, round 3 graphics pass): Poly Haven (polyhaven.com), CC0. 1K diffuse and OpenGL normal maps, re-encoded.
+gfx_caliche, gfx_caliche_n: dry_ground_01 (Rob Tuytel)
+gfx_sand, gfx_sand_n: dense_sand (Dimitrios Savva)
+gfx_gravel, gfx_gravel_n: rocky_trail_02 (Amal Kumar)

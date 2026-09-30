@@ -1,4 +1,5 @@
-// plan_terminal.js (T, round 2, 25 Sep 2026): the Douglas Municipal terminal interior and its Industry Partners hall.
+// plan_terminal.js (T, round 2, 25 Sep 2026): the terminal of Solport, the Stellar Aviation FBO: its interior and its
+// Industry Partners hall, and (29 Sep 2026) its exterior branding (the Stellar Aviation signs, SOLPORT letters, the monument).
 // Classic script, loaded before client.js. Everything lives in this IIFE and window.PLAN_TERMINAL; client functions and
 // consts are reached by bare name at call time. A PLAN_HOOKS.world hook takes over the terminal furnishing
 // (furnishTerminal), the hall people (spawnHallWalkers, updateHall); a frame hook keeps everyone on the real floor.
@@ -8,10 +9,16 @@
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
 (function () {
   "use strict";
-  // the new asset kinds this interior uses as soon as they exist (loadModels only loads what a module declares)
-  var NEED = ["term_checkin", "term_seating", "term_carousel", "term_cafe", "term_info", "term_planter", "booth_lux", "lounge_chair", "exec_desk", "bookcase", "ph_quiver_1", "ph_succulent_2", "ph_shrub_4"];
+  // the asset kinds this interior uses as soon as they exist (loadModels only loads what a module declares). J (30 Sep 2026): the terminal
+  // set is seen only inside the FBO, so it is declared lazy (window.PLAN_MODEL_LAZY: registered, not in the boot download) and fetched with
+  // window.PLAN_LOAD_KINDS when the player approaches or enters (or during the fly-in, which ends inside); the three planting scans are
+  // also planted outdoors (plan_land.js), so they stay boot kinds. exec_desk, lounge_chair and bookcase were declared here but never placed.
+  var NEED = ["ph_quiver_1", "ph_succulent_2", "ph_shrub_4"];
+  var TSET = ["term_checkin", "term_seating", "term_carousel", "term_cafe", "term_info", "term_planter", "booth_lux"];
   var ND = window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   for (var ni = 0; ni < NEED.length; ni++) if (ND.indexOf(NEED[ni]) < 0) ND.push(NEED[ni]);
+  var LZ = window.PLAN_MODEL_LAZY = window.PLAN_MODEL_LAZY || [];
+  for (var li = 0; li < TSET.length; li++) if (LZ.indexOf(TSET[li]) < 0) LZ.push(TSET[li]);
 
   var PT = window.PLAN_TERMINAL = window.PLAN_TERMINAL || {};
   PT.v = "r2t-1"; PT.errs = PT.errs || []; PT.n = PT.n || {}; PT.tx = PT.tx || {};
@@ -25,7 +32,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var DISC = "Nothing here is an offer to sell securities or investment advice.";
   var DEF = { hall: { title: "INDUSTRY PARTNERS", subtitle: "A coalition of established aviation, logistics, and investment partners ready to bring jobs, activity, and long-term investment to Douglas." },
     partners: {
-      stellar: { name: "Stellar Aviation", badge: "FBO PARTNER", blurb: "A proven FBO operator, bringing fueling, hangar, and ground services to the field, along with local jobs.", services: ["Fuel", "Hangar", "Ground services", "Concierge", "Crew lounge", "Flight planning"], locations: ["Reno  KRNO", "Carson-Tahoe  KCXP", "South Palm Beach  KLNA", "Springfield  KSPI"], npc: { id: "pt_stellar", name: "Brad Kost", role: "Founding Partner and COO · Stellar Aviation" }, contact: ["Brad Kost", "Founding Partner and COO", "Bkost@stellaraviationgroup.com", "stellaraviationgroup.com"], greet: ["Welcome to Douglas Municipal. Stellar Aviation, your FBO partner."], talk: [{ t: "Welcome to Stellar Aviation, the FBO partner at Douglas Municipal: fueling, hangar and ground services for the field, along with local jobs.", o: [["Thanks", null]] }] },
+      stellar: { name: "Stellar Aviation", badge: "SOLPORT FBO", blurb: "A proven FBO operator, now running the FBO at Solport: fuel, hangar, ground services, a crew lounge and concierge, along with local jobs.", services: ["Fuel", "Hangar", "Ground services", "Concierge", "Crew lounge", "Flight planning"], locations: ["Reno  KRNO", "Carson-Tahoe  KCXP", "South Palm Beach  KLNA", "Springfield  KSPI"], npc: { id: "pt_stellar", name: "Brad Kost", role: "Founding Partner and COO · Stellar Aviation" }, contact: ["Brad Kost", "Founding Partner and COO", "Bkost@stellaraviationgroup.com", "stellaraviationgroup.com"], greet: ["Welcome to Solport. This is the Stellar Aviation FBO."], talk: [{ t: "Welcome to Stellar Aviation. We operate the FBO here at Solport: fuel, hangar, ground services, the crew lounge and concierge, along with local jobs.", o: [["Thanks", null]] }] },
       financeadvisors: { name: "FinanceAdvisors.com", blurb: "A fintech corporation that matches high-net-worth retirees with wealth managers. Servicing Fisher Investments, Edelman Financial Engines, Empower, and more.", notice: "FinanceAdvisors.com does not provide investment advice.", npc: { id: "pt_paul", name: "Paul Mazzapica", role: "Co-Founder and President · FinanceAdvisors.com" }, contact: ["Paul Mazzapica", "Co-Founder and President", "paul@financeadvisors.com", "financeadvisors.com"], footer: DISC, greet: ["Hi, I'm Paul. Come on in."], talk: [{ t: "Hi, I'm Paul Mazzapica, Co-Founder and President of FinanceAdvisors.com. We match high-net-worth retirees with independent wealth managers. " + DISC, o: [["Goodbye", null]] }] },
       jetfinders: { name: "JetFinders", tagline: "The only jet contact you'll ever need.", services: ["On-demand charter", "Jet cards", "Fractional ownership", "Aircraft sales and management", "Real estate and hangars", "Asset tokenization"], npc: { id: "pt_jetfinders", name: "Jake", role: "JetFinders · private aviation advisor" }, contact: ["JetFinders", "jetfinders.com"], greet: ["The only jet contact you'll ever need."], talk: [{ t: "Welcome to JetFinders, the only jet contact you'll ever need.", o: [["Thanks", null]] }] },
       freedomair: { name: "Freedom Air", tagline: "Finding freedom", fleet: ["Challenger 300", "Citation X", "Citation XLS", "CJ3+", "Epic E1000", "Pilatus PC-12", "Airbus EC130 helicopter"], npc: { id: "freedomair", name: "Joe", role: "Freedom Air · private jet charter" }, contact: ["Freedom Air charter desk", "+1 775 447 9830", "charter@freedomairservices.com"], greet: ["Finding freedom starts here."], talk: [{ t: "Welcome to Freedom Air: private jet charter and aircraft management out of Reno.", o: [["Thanks", null]] }] } } };
@@ -287,7 +294,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var bm = new THREE.MeshStandardMaterial({ color: 0x4a3524, metalness: 0.9, roughness: 0.3, alphaMap: lt, alphaTest: 0.5, envMap: PT.env ? PT.env.texture : null, envMapIntensity: 1.0 }); bm.userData.pt = 1;
     var sm = new THREE.MeshBasicMaterial({ color: 0x3a1e08, alphaMap: lt, transparent: true, opacity: 0.35, depthWrite: false });
     var L1 = new THREE.Mesh(new THREE.PlaneGeometry(13.2, 1.65), bm); L1.position.set(0, 5.75, zW + 0.09); g.add(L1); var S1 = new THREE.Mesh(new THREE.PlaneGeometry(13.2, 1.65), sm); S1.position.set(0.05, 5.7, zW + 0.02); g.add(S1);
-    var sub = panel("gone2", 2048, 160, function (x, W, H) { txt(x, "DOUGLAS MUNICIPAL AIRPORT  ·  FIELD DGL  ·  EST. 1928", W / 2, H / 2, "600 70px " + FT.ui, "#2b1c10", 18); });
+    var sub = panel("gone2", 2048, 160, function (x, W, H) { txt(x, "SOLPORT  ·  STELLAR AVIATION FBO  ·  FIELD DGL", W / 2, H / 2, "600 70px " + FT.ui, "#2b1c10", 18); });
     var S2 = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 0.75), new THREE.MeshBasicMaterial({ map: sub, transparent: true, opacity: 0.85, depthWrite: false })); S2.position.set(0, 4.55, zW + 0.05); g.add(S2);
     try { var lg = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.0), new THREE.MeshBasicMaterial({ map: LOGO_TEX, transparent: true, depthWrite: false })); lg.position.set(0, 2.45, zW + 0.05); g.add(lg); } catch (e) { note("logo", e); }
     // four desks (term_checkin when it exists)
@@ -462,11 +469,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ── the hanging 1928 biplane over the crossing and its brass medallion ──
   function buildHeritage(K, M, g, e) {
     var md = panel("medal", 1024, 1024, function (x, W, H) { var c = W / 2; x.clearRect(0, 0, W, H); x.fillStyle = "#3a332c"; x.beginPath(); x.arc(c, c, c - 4, 0, TAU); x.fill(); x.strokeStyle = "#c9a45e"; x.lineWidth = 10; x.beginPath(); x.arc(c, c, c - 14, 0, TAU); x.stroke(); x.lineWidth = 4; x.beginPath(); x.arc(c, c, c - 118, 0, TAU); x.stroke();
-      var t = "DOUGLAS MUNICIPAL AIRPORT  ·  FIELD DGL  ·  EST. 1928  ·  31°20'N  109°30'W  ·  "; x.font = "600 44px " + FT.ui; x.fillStyle = "#e3c587"; x.textAlign = "center"; x.textBaseline = "middle"; var ang = 0, step = TAU / t.length; for (var i = 0; i < t.length; i++) { x.save(); x.translate(c, c); x.rotate(ang); x.fillText(t[i], 0, -(c - 66)); x.restore(); ang += step; }
+      var t = "SOLPORT  ·  FIELD DGL  ·  AN AIRFIELD SINCE 1928  ·  31°20'N  109°30'W  ·  "; x.font = "600 44px " + FT.ui; x.fillStyle = "#e3c587"; x.textAlign = "center"; x.textBaseline = "middle"; var ang = 0, step = TAU / t.length; for (var i = 0; i < t.length; i++) { x.save(); x.translate(c, c); x.rotate(ang); x.fillText(t[i], 0, -(c - 66)); x.restore(); ang += step; }
       x.save(); x.translate(c, c); var north = Math.atan2(Math.sin(e[3]), -Math.cos(e[3])); x.rotate(north); for (var k = 0; k < 8; k++) { var L = k % 2 ? 200 : 360, w = k % 2 ? 26 : 44; x.save(); x.rotate(k * Math.PI / 4); x.fillStyle = k === 0 ? "#f4d9a0" : "#c9a45e"; x.beginPath(); x.moveTo(0, -L); x.lineTo(w, 0); x.lineTo(0, 30); x.lineTo(-w, 0); x.closePath(); x.fill(); x.fillStyle = "rgba(0,0,0,0.25)"; x.beginPath(); x.moveTo(0, -L); x.lineTo(w, 0); x.lineTo(0, 0); x.closePath(); x.fill(); x.restore(); } txt(x, "N", 0, -300, "400 64px " + FT.disp, "#3a332c", 0); x.restore(); });
     var mm = new THREE.MeshStandardMaterial({ map: md, alphaTest: 0.5, roughness: 0.3, metalness: 0.4, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6, envMap: PT.env ? PT.env.texture : null, envMapIntensity: 0.8 }); var mp = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 4.8), mm); mp.rotation.x = -Math.PI / 2; mp.position.set(0, F + 0.006, -0.5); mp.userData.noSolid = true; g.add(mp);
     if (hasM("biplane")) { var bp = model(g, "biplane", 0.3, F + 5.1, -0.5, Math.PI / 2 - 0.4, 0.82); if (bp) { bp.rotation.z = 0.12; bp.rotation.x = -0.05; var R = (MODELS.biplane.radius || 4.5) * 0.82 * 0.72; [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(function (s) { var a = Math.PI / 2 - 0.4, lx = s[0] * R * 0.55, lz = s[1] * R * 0.22; var wx = 0.3 + lx * Math.cos(a) + lz * Math.sin(a), wz = -0.5 - lx * Math.sin(a) + lz * Math.cos(a); K.box(0.01, 9.2 - 7.0, 0.01, M.steel, wx, F + 7.0, wz); }); } }
-    var pq = panel("plaque", 1024, 512, function (x, W, H) { x.fillStyle = "#1a1510"; x.fillRect(0, 0, W, H); x.strokeStyle = "#c9a45e"; x.lineWidth = 6; x.strokeRect(12, 12, W - 24, H - 24); txt(x, "DOUGLAS MUNICIPAL  ·  1928", W / 2, 90, "600 56px " + FT.ui, "#e3c587", 6); lines(x, ["One of the first international airports in the United States,", "on the border with Agua Prieta, Sonora. The biplane overhead", "is a 1928-style trainer like the ones that flew from this field.", "The 1928 Airfield Museum is next door, beside the Tower."], W / 2, 200, 62, "600 32px " + FT.ui, "#f5f1e6", 0); });
+    var pq = panel("plaque", 1024, 512, function (x, W, H) { x.fillStyle = "#1a1510"; x.fillRect(0, 0, W, H); x.strokeStyle = "#c9a45e"; x.lineWidth = 6; x.strokeRect(12, 12, W - 24, H - 24); txt(x, "SOLPORT  ·  THE 1928 AIRFIELD", W / 2, 90, "600 56px " + FT.ui, "#e3c587", 6); lines(x, ["One of the first international airports in the United States,", "on the border with Agua Prieta, Sonora. The biplane overhead", "is a 1928-style trainer like the ones that flew from this field.", "The 1928 Airfield Museum is next door, beside the Tower."], W / 2, 200, 62, "600 32px " + FT.ui, "#f5f1e6", 0); });
     K.box(1.4, 1.0, 0.5, M.walnut, 3.6, F, 2.6, -0.6, 1.2); K.box(1.44, 0.04, 0.54, M.brass, 3.6, F + 1.0, 2.6, -0.6); var pp = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.65), new THREE.MeshBasicMaterial({ map: pq })); pp.position.set(3.6, F + 1.05, 2.6); pp.rotation.set(-1.2, -0.6, 0, "YXZ"); pp.userData.noSolid = true; g.add(pp); K.solid(3.6, 2.6, 1.4, 0.5, 0, 1.05, -0.6);
   }
 
@@ -480,7 +487,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       x.fillStyle = "rgba(60,48,34,0.55)"; x.fillRect(0, H * 0.74, W, 5); for (var q = 0; q < 26000; q++) { x.fillStyle = "rgba(" + (R() < 0.5 ? "40,30,20" : "255,245,225") + "," + (R() * 0.12) + ")"; x.fillRect(R() * W, R() * H, 1.5, 1.5); }
       var vg = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.62); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(40,28,16,0.55)"); x.fillStyle = vg; x.fillRect(0, 0, W, H); x.strokeStyle = "#efe6d4"; x.lineWidth = 22; x.strokeRect(0, 0, W, H); });
     var zc = 1.6, y0 = F + 3.9; K.box(0.1, 3.3, 7.6, M.walnut, -HALF + 0.22, y0 - 0.15, zc, 0, 1.2); var pp = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 3.15), new THREE.MeshBasicMaterial({ map: ph })); pp.position.set(-HALF + 0.28, y0 + 1.5, zc); pp.rotation.y = Math.PI / 2; pp.userData.noSolid = true; g.add(pp);
-    var cap = panel("histC", 2048, 256, function (x, W, H) { x.fillStyle = "#231b13"; x.fillRect(0, 0, W, H); x.strokeStyle = "#b99a62"; x.lineWidth = 6; x.strokeRect(8, 8, W - 16, H - 16); txt(x, "DOUGLAS MUNICIPAL AIRPORT  ·  1928", W / 2, 78, "600 64px " + FT.ui, "#e3c587", 10); txt(x, "One of the first international airports in the United States. The 1928 Airfield Museum is next door, beside the Tower.", W / 2, 172, "400 40px " + FT.ui, "#efe6d4", 0, "center", W - 90); });
+    var cap = panel("histC", 2048, 256, function (x, W, H) { x.fillStyle = "#231b13"; x.fillRect(0, 0, W, H); x.strokeStyle = "#b99a62"; x.lineWidth = 6; x.strokeRect(8, 8, W - 16, H - 16); txt(x, "DOUGLAS MUNICIPAL AIRPORT  ·  1928", W / 2, 78, "600 64px " + FT.ui, "#e3c587", 10); txt(x, "One of the first international airports in the United States. Solport flies on from the same field; the 1928 Airfield Museum is next door, beside the Tower.", W / 2, 172, "400 40px " + FT.ui, "#efe6d4", 0, "center", W - 90); });
     K.box(0.06, 0.62, 5.6, M.bronze, -HALF + 0.22, y0 - 0.95, zc); var cp = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 0.66), new THREE.MeshBasicMaterial({ map: cap })); cp.position.set(-HALF + 0.26, y0 - 0.64, zc); cp.rotation.y = Math.PI / 2; cp.userData.noSolid = true; g.add(cp);
   }
   // ── the Genesis One master plan under glass: drawn from plan.json (districts in the stage colours, roads, walks, buildings, the runway) ──
@@ -500,7 +507,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function buildPlanTable(K, M, g) {
     var cx = 11.8, cz = 9.2, s = 3.0; K.box(s - 0.4, 0.84, s - 0.4, M.walnut, cx, 0, cz, 0, 1.2); K.box(s, 0.06, s, M.walnut, cx, 0.84, cz, 0, 1.2); [[0, s / 2], [0, -s / 2], [s / 2, 0], [-s / 2, 0]].forEach(function (o) { K.box(o[0] ? 0.05 : s + 0.05, 0.05, o[0] ? s + 0.05 : 0.05, M.brass, cx + o[0], 0.88, cz + o[1]); }); K.box(s - 0.12, 0.012, s - 0.12, M.glassCase, cx, 0.925, cz);
     var t = planCanvas(); var mp = new THREE.Mesh(new THREE.PlaneGeometry(s - 0.14, s - 0.14), new THREE.MeshStandardMaterial({ map: t, roughness: 0.6, metalness: 0 })); mp.rotation.x = -Math.PI / 2; mp.position.set(cx, 0.905, cz); mp.userData.noSolid = true; g.add(mp); K.solid(cx, cz, s, s, 0, 1.0);
-    var cap = panel("planCap", 1024, 256, function (x, W, H) { x.fillStyle = "#1a1510"; x.fillRect(0, 0, W, H); txt(x, "GENESIS ONE  ·  THE MASTER PLAN", W / 2, 60, "600 40px " + FT.ui, "#e3c587", 6); lines(x, ["A concept on the real land at Douglas Municipal. Genesis Park is a partnership proposal,", "subject to agreement with the City of Douglas. The Crossing is planned, subject to City of", "Douglas and FAA approval. Stage Three homes are future, subject to rezoning."], W / 2, 130, 42, "400 25px " + FT.ui, "#efe6d4", 0, "center", W - 50); });
+    var cap = panel("planCap", 1024, 256, function (x, W, H) { x.fillStyle = "#1a1510"; x.fillRect(0, 0, W, H); txt(x, "GENESIS ONE  ·  THE MASTER PLAN", W / 2, 60, "600 40px " + FT.ui, "#e3c587", 6); lines(x, ["A concept on the real land at Solport. Genesis Park is a partnership proposal,", "subject to agreement with the City of Douglas. The Crossing is planned, subject to City of", "Douglas and FAA approval. Stage Three homes are future, subject to rezoning."], W / 2, 130, 42, "400 25px " + FT.ui, "#efe6d4", 0, "center", W - 50); });
     K.box(1.3, 0.9, 0.34, M.walnut, cx - s / 2 - 0.5, 0, cz, Math.PI / 2, 1.2); var cp = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.3), new THREE.MeshBasicMaterial({ map: cap })); cp.position.set(cx - s / 2 - 0.66, 0.93, cz); cp.rotation.set(-0.7, -Math.PI / 2, 0, "YXZ"); cp.userData.noSolid = true; g.add(cp); K.solid(cx - s / 2 - 0.5, cz, 0.34, 1.3, 0, 1.0);
   }
 
@@ -516,7 +523,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function brandArt(id) {
     var p = P(id) || {}, key = "b_" + id;
     var logo = panel(key + "L", 1280, 540, function (x, W, H) {
-      if (id === "stellar") { x.fillStyle = "#fbf8f2"; x.fillRect(0, 0, W, H); x.fillStyle = "#111"; rrect(x, W / 2 - 150, 40, 300, 56, 28); x.fill(); txt(x, p.badge || "FBO PARTNER", W / 2, 69, "600 28px " + FT.ui, "#fff", 6); stellarMark(x, W / 2 + 20, 270, 1.55); txt(x, (p.tagline || "").toUpperCase(), W / 2, 470, "600 30px " + FT.ui, "#6c737a", 10); }
+      if (id === "stellar") { x.fillStyle = "#fbf8f2"; x.fillRect(0, 0, W, H); x.fillStyle = "#111"; rrect(x, W / 2 - 150, 40, 300, 56, 28); x.fill(); txt(x, p.badge || "SOLPORT FBO", W / 2, 69, "600 28px " + FT.ui, "#fff", 6); stellarMark(x, W / 2 + 20, 270, 1.55); txt(x, (p.tagline || "").toUpperCase(), W / 2, 470, "600 30px " + FT.ui, "#6c737a", 10); }
       else if (id === "financeadvisors") { x.fillStyle = "#121212"; x.fillRect(0, 0, W, H); faMark(x, W / 2, 250, 150); x.fillStyle = "#e2323d"; x.fillRect(W / 2 - 70, 360, 140, 5); txt(x, "FINANCEADVISORS.COM", W / 2, 430, "600 34px " + FT.ui, "#d8d8d8", 12); }
       else if (id === "jetfinders") { var gg = x.createLinearGradient(0, 0, W, H); gg.addColorStop(0, "#0b1426"); gg.addColorStop(1, "#050810"); x.fillStyle = gg; x.fillRect(0, 0, W, H); jfMark(x, W / 2 - 30, 230, 150); txt(x, p.tagline || "", W / 2, 400, "italic 400 40px " + FT.serif, "#c9d6ea", 1); }
       else { x.fillStyle = "#0b0b0c"; x.fillRect(0, 0, W, H); img("/tex/freedomair_eagle.png", function (im) { x.drawImage(im, W / 2 - 80, 40, 160, 151); if (TX[key + "L"]) TX[key + "L"].needsUpdate = true; }); img("/tex/freedomair_gold.png", function (im) { x.drawImage(im, W / 2 - 440, 225, 880, 92); if (TX[key + "L"]) TX[key + "L"].needsUpdate = true; }); txt(x, "F I N D I N G   F R E E D O M", W / 2, 400, "600 34px " + FT.ui, "#c9a24d", 4); txt(x, "PRIVATE JET CHARTER  ·  AIRCRAFT MANAGEMENT", W / 2, 460, "600 26px " + FT.ui, "#e8e2d4", 6); } });
@@ -525,7 +532,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         else if (id === "financeadvisors") { txt(x, "HOW IT WORKS", 60, 90, "600 40px " + FT.ui, "#e2323d", 8, "left"); var st = ["1  A short questionnaire about you", "2  Matched with independent wealth managers", "3  You choose who to talk to"]; lines(x, st, 60, 190, 80, "600 38px " + FT.ui, "#f2f2f2", 0, "left", W - 120); txt(x, (p.notice || "").split(".")[0] + ".", 60, 470, "400 26px " + FT.ui, "#9a9a9a", 0, "left", W - 120); }
         else if (id === "jetfinders") { txt(x, "ONE ADVISOR FOR ALL YOUR FLYING", 60, 90, "600 34px " + FT.ui, "#7fb2ff", 5, "left"); (p.services || []).slice(0, 8).forEach(function (s2, i) { var col = i % 2, row = i >> 1; txt(x, "·  " + s2, 60 + col * 470, 180 + row * 86, "600 32px " + FT.ui, "#eef3fb", 0, "left", 440); }); }
         else { txt(x, "THE FLEET", 60, 90, "600 40px " + FT.ui, "#c9a24d", 8, "left"); (p.fleet || []).forEach(function (s2, i) { var col = i % 2, row = i >> 1; txt(x, s2, 60 + col * 470, 180 + row * 80, "600 36px " + FT.ui, "#f2ede2", 0, "left", 440); }); } }),
-      panel(key + "S2", 1024, 540, function (x, W, H) { slideBase(x, W, H, id); var body = p.blurb || ""; var ls = wrapText(x, body, W - 140, "600 38px " + FT.ui); if (id === "stellar") { txt(x, "FBO NETWORK", 60, 90, "600 40px " + FT.ui, "#1464b4", 6, "left"); (p.locations || []).forEach(function (s2, i) { txt(x, s2, 90, 170 + i * 70, "600 38px " + FT.ui, "#1b2330", 2, "left"); }); txt(x, "Coming to Douglas Municipal  DGL", 90, 460, "600 34px " + FT.ui, "#1464b4", 1, "left"); }
+      panel(key + "S2", 1024, 540, function (x, W, H) { slideBase(x, W, H, id); var body = p.blurb || ""; var ls = wrapText(x, body, W - 140, "600 38px " + FT.ui); if (id === "stellar") { txt(x, "FBO NETWORK", 60, 90, "600 40px " + FT.ui, "#1464b4", 6, "left"); (p.locations || []).forEach(function (s2, i) { txt(x, s2, 90, 170 + i * 70, "600 38px " + FT.ui, "#1b2330", 2, "left"); }); txt(x, "Solport  DGL  ·  the FBO you are standing in", 90, 460, "600 34px " + FT.ui, "#1464b4", 1, "left"); }
         else { lines(x, ls.slice(0, 6), 70, 120, 58, "600 38px " + FT.ui, id === "freedomair" ? "#f2ede2" : "#f2f2f2", 0, "left", W - 140); if (id === "freedomair") txt(x, "+1 775 447 9830", 70, 470, "600 36px " + FT.mono, "#c9a24d", 2, "left"); } })];
     return { logo: logo, header: header, slides: slides };
   }
@@ -551,10 +558,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     K.pop();
     // lightbox logo, header on the canopy front, the wing screen
     var lz = I.brand_wall && I.brand_wall.logo_zone || { center: [0.05, 2.25, -2.47], w: 5.0, h: 2.1 };
-    add2(new THREE.Mesh(new THREE.PlaneGeometry(lz.w, lz.h), new THREE.MeshBasicMaterial({ map: art.logo })), lz.center[0], lz.center[1], lz.center[2] + 0.012, 0);
+    // (J: the procedural stand's lit panel face is at z -2.29 and its wing glass at x 3.70, in front of the model's surfaces: keep the logo and the screen on them)
+    add2(new THREE.Mesh(new THREE.PlaneGeometry(lz.w, lz.h), new THREE.MeshBasicMaterial({ map: art.logo })), lz.center[0], lz.center[1], useModel ? lz.center[2] + 0.012 : -2.284, 0);
     var hdr = new THREE.MeshBasicMaterial({ map: art.header, transparent: true, depthWrite: false }); add2(new THREE.Mesh(new THREE.PlaneGeometry(6.4, 0.8), hdr), 0, 4.3, 2.28, 0);
     K.push(sl.x, sl.z, sl.yaw, s, F); K.box(6.6, 0.06, 0.08, M.bronze, 0, 3.93, 2.28); [-3.0, 3.0].forEach(function (hx) { K.box(0.05, 0.8, 0.05, M.bronze, hx, 3.93, 2.24); }); K.box(6.6, 0.9, 0.04, M.bglass, 0, 3.88, 2.24); K.pop();
-    var scr = I.screen || { center: [3.82, 2.2, 0.25], w: 2.3, h: 1.2 }; var sm = new THREE.MeshBasicMaterial({ map: art.slides[0] }); add2(new THREE.Mesh(new THREE.PlaneGeometry(scr.w, scr.h), sm), scr.center[0] - 0.012, scr.center[1], scr.center[2], -Math.PI / 2); (PT.screens = PT.screens || []).push({ m: sm, slides: art.slides, i: 0, id: id });
+    var scr = I.screen || { center: [3.82, 2.2, 0.25], w: 2.3, h: 1.2 }; var sm = new THREE.MeshBasicMaterial({ map: art.slides[0] }); add2(new THREE.Mesh(new THREE.PlaneGeometry(scr.w, scr.h), sm), useModel ? scr.center[0] - 0.012 : 3.694, scr.center[1], scr.center[2], -Math.PI / 2); (PT.screens = PT.screens || []).push({ m: sm, slides: art.slides, i: 0, id: id });
     // the aisle totem at the booth's front left corner (outside the platform)
     var tp = slotPt(sl, -4.55, 2.2), tyaw = sl.yaw; K.push(tp[0], tp[1], tyaw, 1, 0); K.box(0.96, 0.06, 0.4, M.bronze, 0, F, 0); K.box(0.9, 2.4, 0.08, M.walnut, 0, F + 0.06, 0, 0, -1.2); K.solid(0, 0, 0.96, 0.4, 0, 2.4); K.pop();
     var tt = totemArt(id); [0, Math.PI].forEach(function (r0, i) { var mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 2.05), new THREE.MeshBasicMaterial({ map: tt })); var off = i ? -0.045 : 0.045; mesh.position.set(tp[0] + Math.sin(tyaw + r0) * 0.045, F + 0.06 + 1.2, tp[1] + Math.cos(tyaw + r0) * 0.045); mesh.rotation.y = tyaw + r0; mesh.userData.noSolid = true; g.add(mesh); });
@@ -564,11 +572,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function stellarExtension(K, M, g) {
     var zb = -HALF + 0.14, x0 = 23.4, x1 = 26.8, cx = (x0 + x1) / 2;
     K.box(x1 - x0, 3.6, 0.3, M.walnut, cx, F, zb + 0.15, 0, -1.2); K.box(x1 - x0 - 0.3, 2.6, 0.02, M.plaster, cx, F + 0.7, zb + 0.31);
-    var fb = panel("stFBO", 768, 640, function (x, W, H) { x.fillStyle = "#f6f8fb"; x.fillRect(0, 0, W, H); x.fillStyle = "#1464b4"; x.fillRect(0, 0, W, 14); txt(x, "DOUGLAS MUNICIPAL  DGL", W / 2, 80, "600 38px " + FT.ui, "#1464b4", 4); txt(x, "FBO PARTNER", W / 2, 130, "600 28px " + FT.ui, "#6c737a", 8); var p = P("stellar"); (p.services || []).forEach(function (s2, i) { txt(x, s2, W / 2, 220 + i * 62, "600 38px " + FT.ui, "#1b2330", 1); }); txt(x, "Fuel is sold at the City of Douglas FBO on the airport.", W / 2, H - 50, "400 22px " + FT.ui, "#6c737a", 0, "center", W - 50); });
+    var fb = panel("stFBO", 768, 640, function (x, W, H) { x.fillStyle = "#f6f8fb"; x.fillRect(0, 0, W, H); x.fillStyle = "#1464b4"; x.fillRect(0, 0, W, 14); txt(x, "SOLPORT  DGL", W / 2, 80, "600 38px " + FT.ui, "#1464b4", 4); txt(x, "FBO OPERATOR", W / 2, 130, "600 28px " + FT.ui, "#6c737a", 8); var p = P("stellar"); (p.services || []).forEach(function (s2, i) { txt(x, s2, W / 2, 220 + i * 62, "600 38px " + FT.ui, "#1b2330", 1); }); txt(x, "Stellar Aviation operates the FBO at Solport.", W / 2, H - 50, "400 22px " + FT.ui, "#6c737a", 0, "center", W - 50); });
     var fp = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.5, 2.5), new THREE.MeshBasicMaterial({ map: fb })); fp.position.set(cx, F + 1.95, zb + 0.33); fp.userData.noSolid = true; g.add(fp); K.solid(cx, zb + 0.15, x1 - x0, 0.3, 0, 3.6);
     K.flat(3.3, 3.6, M.rug, cx, F + 0.005, -23.1, 0, 2.0); sofa(K, M, cx, -24.6, 0, 3); club(K, M, 24.2, -21.9, Math.PI * 0.85); K.cyl(0.32, 0.32, 0.42, M.walnut, 25.6, F, -22.4, 20); K.solid(25.6, -22.4, 0.64, 0.64, 0, 0.8);
     // west: a tall FBO-network totem and a planter
-    var nw = panel("stNet", 512, 1280, function (x, W, H) { x.fillStyle = "#0f2745"; x.fillRect(0, 0, W, H); stellarMark(x, W / 2 + 10, 150, 0.6); x.fillStyle = "#ffffff"; x.globalAlpha = 0.12; x.fillRect(50, 250, W - 100, 2); x.globalAlpha = 1; txt(x, "FBO NETWORK", W / 2, 320, "600 36px " + FT.ui, "#9cc6f2", 8); var p = P("stellar"); (p.locations || []).concat(["Douglas Municipal  DGL"]).forEach(function (s2, i) { txt(x, s2, W / 2, 420 + i * 92, "600 34px " + FT.ui, i === 4 ? "#f4cd5a" : "#ffffff", 1, "center", W - 60); }); txt(x, "Soaring Beyond Expectations", W / 2, H - 120, "italic 400 30px " + FT.serif, "#c8dcf2", 0); });
+    var nw = panel("stNet", 512, 1280, function (x, W, H) { x.fillStyle = "#0f2745"; x.fillRect(0, 0, W, H); stellarMark(x, W / 2 + 10, 150, 0.6); x.fillStyle = "#ffffff"; x.globalAlpha = 0.12; x.fillRect(50, 250, W - 100, 2); x.globalAlpha = 1; txt(x, "FBO NETWORK", W / 2, 320, "600 36px " + FT.ui, "#9cc6f2", 8); var p = P("stellar"); (p.locations || []).concat(["Solport  DGL"]).forEach(function (s2, i) { txt(x, s2, W / 2, 420 + i * 92, "600 34px " + FT.ui, i === 4 ? "#f4cd5a" : "#ffffff", 1, "center", W - 60); }); txt(x, "Soaring Beyond Expectations", W / 2, H - 120, "italic 400 30px " + FT.serif, "#c8dcf2", 0); });
     K.box(1.3, 3.4, 0.36, M.walnut, 12.6, F, -24.8, 0, -1.2); K.box(1.4, 0.08, 0.46, M.bronze, 12.6, F, -24.8); var np = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 2.9), new THREE.MeshBasicMaterial({ map: nw })); np.position.set(12.6, F + 1.85, -24.61); np.userData.noSolid = true; g.add(np); K.solid(12.6, -24.8, 1.3, 0.36, 0, 3.4);
   }
   // when booth_lux is not loaded: a walnut and stone stand of the same footprint and layout (brand wall -Z, desk front left, lounge right)
@@ -590,7 +598,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     K.box(0.06, 1.76, 8.14, M.bronze, 10.2, F + 4.62, -0.5); [-3.6, 2.6].forEach(function (z) { K.box(0.012, 9.2 - 6.38, 0.012, M.steel, 10.2, F + 6.38, z); });
     K.box(0.03, 0.004, 24.0, M.brass, 10.0, F, 5.5); K.box(0.03, 0.004, 14.0, M.brass, 10.0, F, -18.0);
     // a directory totem at the hall entrance
-    var dir = panel("hallDir", 512, 1280, function (x, W, H) { x.fillStyle = "#101112"; x.fillRect(0, 0, W, H); x.fillStyle = "#b99a62"; x.fillRect(0, 0, W, 10); txt(x, "INDUSTRY", W / 2, 100, "400 76px " + FT.disp, "#f5f1e6", 10); txt(x, "PARTNERS", W / 2, 180, "400 76px " + FT.disp, "#f5f1e6", 10); var rows = [["STELLAR AVIATION", "FBO partner", "#5aa0e6"], ["FINANCEADVISORS.COM", "Paul Mazzapica", "#e2323d"], ["JETFINDERS", "Private aviation", "#9cc0ff"], ["FREEDOM AIR", "Charter desk", "#c9a24d"]]; rows.forEach(function (r, i) { var y = 330 + i * 190; x.fillStyle = r[2]; x.fillRect(46, y - 44, 10, 110); txt(x, r[0], 78, y - 6, "600 36px " + FT.ui, "#ffffff", 2, "left", W - 110); txt(x, r[1], 78, y + 44, "400 30px " + FT.ui, "#b9b6ae", 1, "left", W - 110); }); txt(x, "Arrivals Court is through the door ahead.", W / 2, H - 90, "400 26px " + FT.ui, "#8f8a80", 0, "center", W - 60); });
+    var dir = panel("hallDir", 512, 1280, function (x, W, H) { x.fillStyle = "#101112"; x.fillRect(0, 0, W, H); x.fillStyle = "#b99a62"; x.fillRect(0, 0, W, 10); txt(x, "INDUSTRY", W / 2, 100, "400 76px " + FT.disp, "#f5f1e6", 10); txt(x, "PARTNERS", W / 2, 180, "400 76px " + FT.disp, "#f5f1e6", 10); var rows = [["STELLAR AVIATION", "Solport FBO operator", "#5aa0e6"], ["FINANCEADVISORS.COM", "Paul Mazzapica", "#e2323d"], ["JETFINDERS", "Private aviation", "#9cc0ff"], ["FREEDOM AIR", "Charter desk", "#c9a24d"]]; rows.forEach(function (r, i) { var y = 330 + i * 190; x.fillStyle = r[2]; x.fillRect(46, y - 44, 10, 110); txt(x, r[0], 78, y - 6, "600 36px " + FT.ui, "#ffffff", 2, "left", W - 110); txt(x, r[1], 78, y + 44, "400 30px " + FT.ui, "#b9b6ae", 1, "left", W - 110); }); txt(x, "Arrivals Court is through the door ahead.", W / 2, H - 90, "400 26px " + FT.ui, "#8f8a80", 0, "center", W - 60); });
     K.box(1.1, 2.7, 0.3, M.walnut, 12.0, F, -5.7, -Math.PI / 2, -1.2); K.box(1.2, 0.06, 0.4, M.bronze, 12.0, F, -5.7, -Math.PI / 2); K.solid(12.0, -5.7, 1.1, 0.3, 0, 2.7, -Math.PI / 2);
     [-Math.PI / 2, Math.PI / 2].forEach(function (r0) { var p = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 2.4), new THREE.MeshBasicMaterial({ map: dir })); p.position.set(12.0 + (r0 < 0 ? -0.16 : 0.16), F + 1.45, -5.7); p.rotation.y = r0; p.userData.noSolid = true; g.add(p); });
   }
@@ -606,6 +614,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     hangSign(K, M, g, "w3", [["bag", "Baggage claim  1", "u"]], [["exit", "Arrivals Court  ·  The Landing", "ul"], ["info", "Information  ·  Check-in", "l"]], -19.0, F + 4.4, -12.4, 0, 4.8, 1.1);
     // the lounge and cafe blade
     hangSign(K, M, g, "w4", [["exit", "Arrivals Court", "ur"]], [["lounge", "Giveback Lounge", "u"], ["cup", "Sky Cafe", "ur"]], -15.8, F + 4.2, 3.9, 0, 3.8, 0.95);
+    // the Stellar Aviation FBO lightbox over the airside axis: arrivals from Gate A2 read WELCOME TO SOLPORT, the hall side reads the gate
+    var wA = panel("stWelA", 2048, 400, function (x, W, H) { stellarFace(x, W, H, { fbo: true, big: "SOLPORT", sub: "WELCOME", k: 1.05 }); }), wB = panel("stWelB", 2048, 400, function (x, W, H) { stellarFace(x, W, H, { fbo: true, sub: "GATE A2  ·  THE APRON", k: 1.05 }); });
+    var ww = 7.2, wh = ww * 400 / 2048, wy = F + 6.3, wz = 19.6; [[wA, 0], [wB, Math.PI]].forEach(function (s) { var p = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), new THREE.MeshBasicMaterial({ map: s[0] })); p.position.set(Math.sin(s[1]) * 0.075, wy, wz + Math.cos(s[1]) * 0.075); p.rotation.y = s[1]; p.userData.noSolid = true; g.add(p); });
+    K.box(ww + 0.2, wh + 0.2, 0.14, M.bronze, 0, wy - wh / 2 - 0.1, wz); [-ww / 2 + 0.4, ww / 2 - 0.4].forEach(function (o) { K.box(0.012, 9.2 - (wy + wh / 2 + 0.1), 0.012, M.steel, o, wy + wh / 2 + 0.1, wz); });
   }
 
   // ───────────────────────── lights (the client's five pooled point lights and hemisphere, plus three more and three spots) ─────────────────────────
@@ -639,7 +651,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     steps.forEach(function (st) { try { st[1](K, M, g, st[0] === "heritage" ? e : half, hgt); } catch (err) { note("build " + st[0], err); } });
     K.done();
     var R = { lights: buildLights(g), sun: buildSun(g, M), built: performance.now() - t0 };
-    g.userData.pt = R; g.userData.ptOK = true; PT.n.build = Math.round(R.built); PT.last = { g: g };
+    g.userData.pt = R; g.userData.ptOK = true; PT.n.build = Math.round(R.built); PT.last = { g: g }; g.userData.ptMissing = tsetMissing().length; R.at = performance.now();
   }
 
   // ───────────────────────── hall people: walkers on an aisle graph, seated travellers, the info desk attendant ─────────────────────────
@@ -770,12 +782,52 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (box.style.display !== "block") box.style.display = "block";
   }
 
+  // ───────────────────────── J: the terminal set on demand ─────────────────────────
+  // Requested when the player comes near the FBO (inside its footprint plus 25 m at once, plus 90 m after the first 6 s of play), steps
+  // inside, or is on the fly-in (from 25 s, or as soon as the cabin set has landed): the flight ends inside the room. A room built before
+  // the set arrived uses the procedural pieces; when the set lands it is rebuilt in place (the player keeps their spot and view) at the
+  // first calm moment: not seated, no talk card, not riding.
+  function tsetMissing() { return TSET.filter(function (k) { try { return !!MODEL_SPECS[k] && !hasM(k); } catch (e) { return false; } }); }
+  function tsetLoad(why) {
+    if (PT.tsetP || typeof window.PLAN_LOAD_KINDS !== "function") return PT.tsetP || null;
+    PT.n.tsetWhy = why; PT.n.tsetT0 = performance.now();
+    PT.tsetP = window.PLAN_LOAD_KINDS(TSET).then(function (got) { PT.n.tsetMs = Math.round(performance.now() - PT.n.tsetT0); PT.n.tsetGot = got.length; PT.tsetDone = true; return got; }, function (err) { note("tset", err); PT.tsetP = null; return []; });
+    return PT.tsetP;
+  }
+  PT.tsetLoad = tsetLoad; PT.tsetMissing = tsetMissing;
+  function lazyFrame(e, inT, now) {
+    if (PT.f0 === undefined) PT.f0 = now;
+    if (inT && PT.tsetDone && !PT.tsetRetry && tsetMissing().length) { PT.tsetRetry = true; PT.tsetP = null; PT.tsetDone = false; }   // entering asks once more for what failed
+    if (!PT.tsetP && typeof window.PLAN_LOAD_KINDS === "function") { var why = null;
+      if (inT) why = "inside";
+      else if (typeof FLY !== "undefined" && FLY.on) { if (FLY.t > 25 || (window.FLYIN && window.FLYIN.cabDone)) why = "fly-in"; }
+      else if (player) { var R0 = (MODELS.terminal && MODELS.terminal.radius ? MODELS.terminal.radius * (e[4] || 1) : 48), d = Math.hypot(player.position.x - e[0], player.position.z - e[2]); if (d < R0 + 25 || (d < R0 + 90 && now - PT.f0 > 6000)) why = "approach " + Math.round(d - R0) + " m"; }
+      if (why) tsetLoad(why); }
+    if (inT && PT.tsetDone && inside && inside.g && inside.g.userData.ptMissing > 0 && tsetMissing().length < inside.g.userData.ptMissing) { var R = inside.g.userData.pt; if (R && now - (R.at || 0) > 1500 && calm()) refreshRoom(); }
+  }
+  function calm() { try { if (SIT.on || riding || (typeof ARC !== "undefined" && ARC.on)) return false; var tk = document.getElementById("talk"); if (tk && tk.classList.contains("on")) return false; if (typeof talkNpc !== "undefined" && talkNpc) return false; } catch (e) { return false; } return true; }
+  function disposeG(L) { L.traverse(function (o) { if (o.userData && o.userData.ptStatic && o.geometry) o.geometry.dispose(); if (o.isInstancedMesh && o.userData.noSolid && o.geometry) o.geometry.dispose(); }); }
+  function refreshRoom() {
+    if (!inside || !inside.door || inside.door.kind !== "terminal") return false; var door = inside.door, e = door.e, oldG = inside.g;
+    var lp = w2l(e, player.position.x, player.position.z), py = player.position.y - e[1], yw = yaw, pt = pitch, pr = player.rotation.y, lc = w2l(e, camera.position.x, camera.position.z), cy = camera.position.y;
+    PT.n.refresh = (PT.n.refresh || 0) + 1; PT.n.refreshAt = Math.round(performance.now());
+    try { leaveInterior(); enterInterior(door); } catch (err) { note("refresh", err); }
+    if (!inside) return false;
+    var w = l2w(e, lp[0], lp[1]); player.position.set(w[0], e[1] + py, w[1]); yaw = yw; pitch = pt; player.rotation.y = pr; var cw = l2w(e, lc[0], lc[1]); camera.position.set(cw[0], cy, cw[1]);
+    try { lastSent.at = 0; pushMove(true); } catch (err) {}
+    try { if (oldG !== inside.g && !oldG.parent) disposeG(oldG); } catch (err) { note("refresh dispose", err); }
+    return true;
+  }
+  PT.refreshRoom = refreshRoom;
+
   // ───────────────────────── every frame ─────────────────────────
   var WARM = [function () { terrazzo("terr1", "#e5dccb", CH1, 7); }, function () { terrazzo("terr2", "#b0a797", CH2, 11); }, function () { woodTex("walnut2", "#2a1e16", "#6f5643", 5, 30); }, function () { woodTex("oakgrain", "#8a6440", "#c49a6c", 31, 44); }, function () { plankTex("planks"); }, function () { onyxTex(); }, function () { terrazzo("gravel", "#6f6457", CHG, 19); }, function () { patchTex(); scallopTex(); poolTex(); runnerTex(); }, function () { if (window.PLAN) planCanvas(); }];
   function warm(now) { if (PT.warmI === undefined) { PT.warmI = 0; PT.warmAt = now + 15000; } if (PT.warmI >= WARM.length || now < PT.warmAt || PT.warmBusy) return; PT.warmBusy = true; var run = function () { PT.warmBusy = false; PT.warmAt = performance.now() + 1500; try { WARM[PT.warmI++](); } catch (e) { note("warm", e); } }; if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 4000 }); else setTimeout(run, 50); }
   var _v = null;
   function frame(dt, now) {
     var e = TE(); if (!e) return; var inT = inTerm(); dt = Math.min(dt || 0.016, 0.1); if (!inT) warm(now);
+    try { lazyFrame(e, inT, now); } catch (err) { if (!PT.lazyErr) { PT.lazyErr = 1; note("lazy", err); } }
+    try { brandFrame(); } catch (err) { if (!PT.brandErr) { PT.brandErr = 1; note("brand frame", err); } }
     if (!PT.castDone) { try { if (typeof CAST !== "undefined" && CAST.length && placeCast()) { PT.castDone = true; ["stellar", "financeadvisors", "jetfinders"].forEach(makeStaff); try { makeBeth(); } catch (err) { note("beth", err); } refreshTalk(); } } catch (err) { PT.castDone = true; note("cast", err); } }
     if (PT.data && !PT.dataUsed && PT.castDone) { PT.dataUsed = true; try { refreshTalk(); } catch (err) { note("talk", err); } }
     podium(inT);
@@ -802,7 +854,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function lightsByHour(R, M) { var nk = nightK(), day = 1 - nk; R.lights.pts.forEach(function (l) { l.intensity = 0.55 + 0.45 * nk; }); R.lights.spots.forEach(function (s) { s.intensity = 0.9 + 0.6 * nk; }); if (R.lights.hemi) R.lights.hemi.intensity = 0.28 + 0.22 * day; M.sky.color.setRGB(0.02 + 0.9 * day, 0.03 + 0.9 * day, 0.06 + 0.9 * day); M.walnut.emissive.setHex(0x2e2419); M.walnut.emissiveIntensity = 0.1 * nk; M.walnutD.emissive.setHex(0x2e2419); M.walnutD.emissiveIntensity = 0.08 * nk; M.pool.opacity = 0.07 + 0.12 * nk; M.scallop.opacity = 0.1 + 0.16 * nk; M.onyx.emissiveIntensity = 0.7 + 0.5 * nk; M.fire.opacity = 0.9; if (Math.abs((PT.envNight || 0) - nk) > 0.3) { var tex = envMap(); if (tex) for (var k in M) { var mt = M[k]; if (mt && mt.isMeshStandardMaterial && mt.envMap !== tex) { mt.envMap = tex; } } } }
   // the merged geometry of a room that was left (the room is rebuilt on every entry; textures and materials are shared and kept)
-  function disposeRoom() { var L = PT.last && PT.last.g; if (!L || L.parent) return; L.traverse(function (o) { if (o.userData && o.userData.ptStatic && o.geometry) o.geometry.dispose(); if (o.isInstancedMesh && o.userData.noSolid && o.geometry) o.geometry.dispose(); }); PT.last = null; }
+  function disposeRoom() { var L = PT.last && PT.last.g; if (!L || L.parent) return; disposeG(L); PT.last = null; }
   // the client's landside door pieces (planTerminalLandside) join the house finishes; its 1928 board and green exit board give way to the photograph wall and a house-style sign
   function tidyClient(g, half, M) { var lz = (typeof TERM !== "undefined" && TERM.landZ !== undefined) ? TERM.landZ : -0.5;
     g.children.forEach(function (o) { if (o.userData.ptStatic || o.userData.noSolid && o.isMesh && o.material && o.material.userData && o.material.userData.pt) return;
@@ -819,6 +871,111 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (PT.pod.none) return; if (PT.pod.pod.visible === inT) { PT.pod.pod.visible = !inT; PT.pod.frame.visible = inT; }
   }
 
+  // ───────────────────────── the exterior: Solport's terminal is the Stellar Aviation FBO ─────────────────────────
+  // A PLAN_HOOKS.defer hook (after the client's shell, forecourt and landside door are built) adds, in the shell's frame
+  // (x across the hall, +x = the landside end facing Arrivals Court, +z = the airside front facing Gate A2, y up from the pad):
+  //  - a backlit STELLAR AVIATION | FBO lightbox standing on the airside roof edge (the booth's stellarMark, set on canvas),
+  //  - on the landside end wall: SOLPORT in lit letters on a bronze band and a STELLAR AVIATION | FBO lightbox,
+  //  - the FBO signs over both doors (the client's ARRIVALS · DEPARTURES and ARRIVALS COURT boards are re-faced),
+  //  - SOLPORT on a bronze fascia band on the porte-cochere (in place of the client's GENESIS ONE INTERNATIONAL letters),
+  //  - a SOLPORT monument on the airside forecourt beside the red carpet.
+  // brandFrame lights them by the hour. Every letter is canvas type or geometry; nothing is downloaded or generated.
+  var BR = PT.brand = PT.brand || {};
+  var BRP = [];
+  function bpanel(key, W, H, fn, lin) { var t = panel(key, W, H, fn, lin); t.anisotropy = 16; if (!t.userData.fn) { t.userData.fn = fn; BRP.push(t); } return t; }
+  // the web fonts may land after the world is built: every brand canvas is drawn again once they are in
+  function brandRedraw() { BRP.forEach(function (t) { var c = t.userData.c; if (!c || !t.userData.fn) return; var x = c.getContext("2d"); x.setTransform(1, 0, 0, 1, 0, 0); x.shadowBlur = 0; x.globalAlpha = 1; x.clearRect(0, 0, c.width, c.height); try { t.userData.fn(x, c.width, c.height, t); } catch (e) { note("brand redraw", e); } t.needsUpdate = true; }); }
+  // a Stellar lightbox face: white, the logo; with o.fbo a divider and FBO (o.sub beneath it); a Stellar-blue base band
+  function stellarFace(x, W, H, o) {
+    o = o || {}; var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#ffffff"); g.addColorStop(1, "#edf1f5"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    var band = Math.max(4, Math.round(H * 0.05)); x.fillStyle = "#1464b4"; x.fillRect(0, H - band, W, band);
+    var s = H / 228 * (o.k || 1), lx = o.fbo ? (o.lx || 0.345) * W : W / 2 + 35 * s;
+    stellarMark(x, lx, H * 0.47 - band * 0.3, s);
+    if (o.fbo) { x.fillStyle = "#c3c9d0"; x.fillRect(Math.round(W * 0.668), Math.round(H * 0.17), Math.max(2, Math.round(W * 0.0018)), Math.round(H * 0.6));
+      var big = o.big || "FBO", fx = W * 0.835, fs = Math.round(Math.min(H * (o.sub ? 0.4 : 0.48), W * 0.29 / (big.length * 0.74))); txt(x, big, fx + fs * 0.02, H * (o.sub ? 0.38 : 0.46), "900 " + fs + "px " + FT.heavy, "#1464b4", Math.round(fs * 0.04));
+      if (o.sub) { var ss = Math.round(H * (o.subK || 0.105)); txt(x, o.sub, fx + ss * 0.15, H * 0.745, "600 " + ss + "px " + FT.ui, "#5f666d", Math.round(ss * 0.3), "center", W * 0.3); } }
+  }
+  // SOLPORT: an alpha mask (white letters on black), 2048 x 320, the letters' plane is 6.4 : 1
+  function solType(x, cx, cy, px, ls, bold) { x.font = "600 " + px + "px " + FT.ui; x.textAlign = "center"; x.textBaseline = "middle"; try { x.letterSpacing = ls + "px"; } catch (e) {} x.fillStyle = "#fff"; x.fillText("SOLPORT", cx + ls / 2, cy); if (bold) { x.lineWidth = bold; x.lineJoin = "round"; x.strokeStyle = "#fff"; x.strokeText("SOLPORT", cx + ls / 2, cy); } try { x.letterSpacing = "0px"; } catch (e) {} }
+  function solLetters() { return bpanel("solL", 2048, 320, function (x, W, H) { x.fillStyle = "#000"; x.fillRect(0, 0, W, H); solType(x, W / 2, H / 2 + 8, 238, 62, 11); }, true); }
+  // its soft glow: the same layout at half scale inside 64 px side and 48 px top and bottom margins, blurred
+  function solHalo() { return bpanel("solH", 1152, 256, function (x, W, H) { x.fillStyle = "#000"; x.fillRect(0, 0, W, H); x.shadowColor = "rgba(255,238,210,1)"; x.shadowBlur = 26; for (var i = 0; i < 3; i++) solType(x, W / 2, H / 2 + 4, 119, 31, 6); x.shadowBlur = 0; }); }
+  function brandMats() {
+    if (BR.M) return BR.M; var m = {}, L = solLetters();
+    m.bronze = new THREE.MeshStandardMaterial({ color: 0x2b2622, roughness: 0.38, metalness: 0.75 });
+    m.band = new THREE.MeshStandardMaterial({ color: 0x24201d, roughness: 0.42, metalness: 0.7 });
+    m.champ = new THREE.MeshStandardMaterial({ color: 0xcdb68a, roughness: 0.3, metalness: 0.85 });
+    m.trav = new THREE.MeshStandardMaterial({ color: 0xf1e7d6, roughness: 0.75 }); try { m.trav.map = texRep("travertine", 2, 1); } catch (e) {}
+    m.letW = new THREE.MeshStandardMaterial({ color: 0xf7f7f4, alphaMap: L, alphaTest: 0.5, emissive: 0xfff6ea, emissiveIntensity: 0.08, roughness: 0.35, metalness: 0.05 });
+    m.ret = new THREE.MeshStandardMaterial({ color: 0x3a342e, alphaMap: L, alphaTest: 0.5, roughness: 0.4, metalness: 0.6, side: THREE.DoubleSide });
+    m.halo = new THREE.MeshBasicMaterial({ map: solHalo(), color: 0xffe7c4, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    m.blue = new THREE.MeshStandardMaterial({ color: 0x1464b4, emissive: 0x1464b4, emissiveIntensity: 0.25, roughness: 0.4 });
+    m.lamp = new THREE.MeshStandardMaterial({ color: 0xfff3dc, emissive: 0xffe6bd, emissiveIntensity: 0.2, roughness: 0.4 });
+    BR.lit = []; return (BR.M = m);
+  }
+  function faceMat(tex) { var mt = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.3, roughness: 0.32, metalness: 0 }); BR.lit.push(mt); return mt; }
+  function bbox(w, h, d, mat, x, y, z) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; }
+  // dimensional letters (SOLPORT): a lit face plane and five alpha-tested return slices behind it, facing +z of the group
+  function letters3D(w, depth) { var M = brandMats(), g = new THREE.Group(), geo = new THREE.PlaneGeometry(w, w / 6.4); var f = new THREE.Mesh(geo, M.letW); f.position.z = depth; g.add(f); for (var i = 0; i < 5; i++) { var sl = new THREE.Mesh(geo, M.ret); sl.position.z = depth * i / 5; sl.castShadow = i === 0; g.add(sl); } return g; }
+  // their halo on the band behind them (night only)
+  function halo3D(w) { var hm = new THREE.Mesh(new THREE.PlaneGeometry(w * 1152 / 1024, w / 6.4 * 256 / 160), brandMats().halo); hm.renderOrder = 2; (BR.halos = BR.halos || []).push(hm); return hm; }
+  function brandTex() {
+    return { roof: bpanel("stRoof", 3072, 600, function (x, W, H) { stellarFace(x, W, H, { fbo: true, sub: "SOLPORT", k: 1.08 }); }),
+      land: bpanel("stLandB", 2048, 410, function (x, W, H) { stellarFace(x, W, H, { fbo: true, sub: "SOLPORT", k: 1.05 }); }),
+      portal: bpanel("stPortal", 2048, 250, function (x, W, H) { stellarFace(x, W, H, { fbo: true, sub: "ARRIVALS  ·  DEPARTURES", subK: 0.1, k: 1.05 }); }),
+      door: bpanel("stDoor", 1536, 384, function (x, W, H) { stellarFace(x, W, H, { fbo: true, sub: "SOLPORT", k: 1.05 }); }),
+      mon: bpanel("stMon", 1024, 205, function (x, W, H) { stellarFace(x, W, H, { fbo: true, sub: "FIELD DGL", k: 1.05 }); }) };
+  }
+  function removeBrand() { (BR.objs || []).forEach(function (o) { if (o.parent) o.parent.remove(o); }); (BR.restore || []).forEach(function (r) { try { r(); } catch (e) {} }); BR.objs = []; BR.restore = []; BR.halos = []; BR.built = false; }
+  function buildBrand() {
+    var T = null; try { T = TSHELL; } catch (e) { return; } var e = TE(); if (!T || !T.g || !e) return; if (BR.built && BR.g === T.g) return; removeBrand();
+    var M = brandMats(), X = brandTex(), g = T.g, objs = BR.objs = [], rest = BR.restore = []; BR.g = g; BR.halos = [];
+    var add = function (parent, o) { parent.add(o); objs.push(o); return o; };
+    var nb = 0;
+    // 1. airside roof: the STELLAR AVIATION | FBO lightbox on the canopy's roof edge, a bronze cabinet on a plinth with two back stays
+    { var s = new THREE.Group(); var fw = 30.0, fh = fw * 600 / 3072, cy = 14.1 + fh / 2 + 0.2;
+      s.add(bbox(fw + 0.5, fh + 0.4, 0.5, M.bronze, 0, cy, 40.55)); s.add(bbox(fw + 0.7, 0.55, 0.62, M.bronze, 0, 13.82, 40.5));
+      var face = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), faceMat(X.roof)); face.position.set(0, cy, 40.806); s.add(face);
+      [-10, 10].forEach(function (sx) { var st = bbox(0.26, 0.26, 6.2, M.bronze, sx, cy - 0.4, 37.6); st.rotation.x = -0.62; st.position.y = cy - 1.95; s.add(st); });
+      add(g, s); nb++; }
+    // 2. landside end wall (faces +x): SOLPORT on a bronze band left of the door, the Stellar lightbox right of it (as you face the wall),
+    //    both clear of the Sun Gate shell as you come up the walk from Arrivals Court
+    { var ls = new THREE.Group(); ls.position.set(46.0, 0, 0); ls.rotation.y = Math.PI / 2;   // group +z = out of the wall, group +x = along -z (the viewer's right)
+      var bw = 16.0, by = 6.5; var sz = -23.0; ls.add(bbox(bw, 3.1, 0.14, M.band, sz, by, 0.62)); ls.add(bbox(bw + 0.1, 0.06, 0.2, M.champ, sz, by + 1.58, 0.63)); ls.add(bbox(bw + 0.1, 0.06, 0.2, M.champ, sz, by - 1.58, 0.63));
+      var lt = letters3D(13.2, 0.16); lt.position.set(sz, by + 0.05, 0.7); ls.add(lt); var hl = halo3D(13.2); hl.position.set(sz, by + 0.05, 0.695); ls.add(hl);
+      var lw = 14.0, lh = lw * 410 / 2048; ls.add(bbox(lw + 0.35, lh + 0.35, 0.4, M.bronze, 19.0, by, 0.75)); var lf = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh), faceMat(X.land)); lf.position.set(19.0, by, 0.956); ls.add(lf);
+      add(g, ls); nb++; }
+    // 3. the FBO sign over the airside doors: the client's ARRIVALS · DEPARTURES board is re-faced
+    g.children.forEach(function (o) { var p = o.geometry && o.geometry.parameters; if (o.isMesh && p && o.geometry.type === "PlaneGeometry" && Math.abs(p.width - 9) < 0.01 && Math.abs(p.height - 1.1) < 0.01) { var old = o.material; o.material = faceMat(X.portal); rest.push(function () { o.material = old; }); nb++; } });
+    // 4. the landside door's board (ARRIVALS COURT, outside) becomes the Stellar Aviation FBO sign; 5. the porte-cochere: SOLPORT on a bronze fascia band
+    var land = (typeof TERM !== "undefined" && TERM.land) || null;
+    scene.children.forEach(function (grp) { if (!grp.isGroup) return;
+      grp.children.forEach(function (o) { var p = o.geometry && o.geometry.parameters; if (!o.isMesh || !p || o.geometry.type !== "PlaneGeometry") return;
+        if (land && Math.abs(p.width - 5.6) < 0.01 && Math.abs(p.height - 1.4) < 0.01 && Math.hypot(grp.position.x - land[0], grp.position.z - land[1]) < 3) { var old = o.material; o.material = faceMat(X.door); rest.push(function () { o.material = old; }); nb++; }
+        if (Math.abs(p.width - 17) < 0.01 && Math.abs(p.height - 2.1) < 0.01 && Math.hypot(grp.position.x - e[0], grp.position.z - e[2]) < 70 && !grp.userData.solBand) { o.visible = false; rest.push(function () { o.visible = true; }); grp.userData.solBand = 1; rest.push(function () { grp.userData.solBand = 0; });
+          var pb = new THREE.Group(); pb.add(bbox(19.9, 1.5, 0.22, M.band, 0, 7.42, 5.86)); pb.add(bbox(20.0, 0.06, 0.26, M.champ, 0, 8.2, 5.86)); pb.add(bbox(20.0, 0.06, 0.26, M.champ, 0, 6.64, 5.86));
+          var pl = letters3D(7.0, 0.12); pl.position.set(0, 7.44, 5.97); pb.add(pl); var ph = halo3D(7.0); ph.position.set(0, 7.44, 5.973); pb.add(ph);
+          add(grp, pb); nb++; } }); });
+    // 6. the SOLPORT monument on the forecourt, left of the carpet as you walk in from Gate A2, turned toward the stand
+    { var mp = l2w(e, -19.5, 63.5), my = getH(mp[0], mp[1]), yaw = e[3] + 0.5; var mo = new THREE.Group(); mo.position.set(mp[0], my, mp[1]); mo.rotation.y = yaw;
+      mo.add(bbox(10.2, 0.45, 2.8, M.trav, 0, 0.225, 0)); mo.add(bbox(8.8, 3.3, 0.9, M.band, 0, 2.1, 0)); mo.add(bbox(9.0, 0.1, 1.0, M.champ, 0, 3.8, 0)); mo.add(bbox(0.08, 3.3, 0.94, M.champ, -4.36, 2.1, 0)); mo.add(bbox(0.08, 3.3, 0.94, M.champ, 4.36, 2.1, 0));
+      [1, -1].forEach(function (sd) { var f2 = new THREE.Group(); f2.rotation.y = sd > 0 ? 0 : Math.PI; var ml = letters3D(7.2, 0.08); ml.position.set(0, 2.9, 0.45); f2.add(ml); var mh = halo3D(7.2); mh.position.set(0, 2.9, 0.452); f2.add(mh);
+        f2.add(bbox(2.6, 0.045, 0.02, M.blue, 0, 2.15, 0.46)); var mf = new THREE.Mesh(new THREE.PlaneGeometry(5.3, 5.3 * 205 / 1024), faceMat(X.mon)); mf.position.set(0, 1.3, 0.457); f2.add(mf);
+        [-3.6, 3.6].forEach(function (lx0) { f2.add(bbox(0.34, 0.1, 0.22, M.lamp, lx0, 0.5, 1.05)); }); mo.add(f2); });
+      mo.traverse(function (o) { if (o.isMesh && o.material !== M.halo) { o.castShadow = true; o.receiveShadow = true; } }); add(scene, mo); BR.mon = mo;
+      try { addSolid(mp[0], mp[1], yaw, 10.2, 2.8, my, my + 0.45, "world"); addSolid(mp[0], mp[1], yaw, 8.8, 0.9, my, my + 3.85, "world"); } catch (err) { note("brand solids", err); } nb++; }
+    BR.built = true; BR.n = nb; PT.n.brand = nb; BR.nk = -1;
+    try { if (document.fonts && document.fonts.status !== "loaded") document.fonts.ready.then(brandRedraw); } catch (err) {}
+    setTimeout(brandRedraw, 20000);
+  }
+  // lit by the hour: the lightbox faces glow, the letters light up and their halos come on after dusk
+  function brandFrame() {
+    if (!BR.built || !BR.M) return; PT.bfc = (PT.bfc || 0) + 1; if (PT.bfc % 20) return; var nk = nightK(); if (Math.abs(nk - BR.nk) < 0.01) return; BR.nk = nk;
+    (BR.lit || []).forEach(function (m) { m.emissiveIntensity = 0.3 + 2.0 * nk; }); var M = BR.M; M.letW.emissiveIntensity = 0.08 + 1.3 * nk; M.halo.opacity = 0.95 * nk; M.blue.emissiveIntensity = 0.25 + 1.2 * nk; M.lamp.emissiveIntensity = 0.2 + 2.2 * nk;
+    (BR.halos || []).forEach(function (h) { h.visible = nk > 0.02; });
+  }
+  PT.buildBrand = buildBrand; PT.removeBrand = removeBrand; PT.brandRedraw = brandRedraw;
+
   // ───────────────────────── install ─────────────────────────
   PT.install = function () {
     var O = PT.orig = PT.orig || {};
@@ -831,5 +988,6 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   PT.frame = frame; PT.debug = { route: route, NODES: NODES, EDGES: EDGES, DEST: DEST, floorAt: floorAt, l2w: l2w, w2l: w2l, mats: mats, SLOTS: SLOTS, staffSpot: staffSpot, visitorSpot: visitorSpot };
   if (!PT.hooked) { PT.hooked = true; var H = window.PLAN_HOOKS;
     H.world.push({ name: "planTerminal", fn: function () { window.PLAN_TERMINAL.install(); } });
+    (H.defer = H.defer || []).push({ name: "planTerminalBrand", fn: function () { try { window.PLAN_TERMINAL.buildBrand(); } catch (err) { note("brand", err); } } });
     H.frame.push({ name: "planTerminalFrame", fn: function (dt, now) { try { window.PLAN_TERMINAL.frame(dt, now); } catch (err) { if (!PT.frameErr) { PT.frameErr = 1; note("frame", err); } } } }); }
 })();

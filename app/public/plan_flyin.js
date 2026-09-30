@@ -21,8 +21,12 @@ window.FLYIN = window.FLYIN || {};
 (function () {
   "use strict";
   const F = window.FLYIN;
-  const NEEDS = ["jet_heavy", "jet_mid", "jet_light", "gbjet2", "cab_seat", "cab_divan", "cab_table", "cab_galley", "cab_credenza", "cab_bulkhead"];
+  // J (30 Sep 2026): the jets stand on the aprons and load at boot; the cabin set is seen only inside the fly-in, so it is registered
+  // as lazy (window.PLAN_MODEL_LAZY: spec known, no download at boot) and fetched with window.PLAN_LOAD_KINDS when a flight is coming
+  const NEEDS = ["jet_heavy", "jet_mid", "jet_light", "gbjet2"];
+  const CAB = F.CAB = ["cab_seat", "cab_divan", "cab_table", "cab_galley", "cab_credenza", "cab_bulkhead"];
   for (const k of NEEDS) if (window.PLAN_MODEL_NEEDS.indexOf(k) < 0) window.PLAN_MODEL_NEEDS.push(k);
+  { const LZ = window.PLAN_MODEL_LAZY = window.PLAN_MODEL_LAZY || []; for (const k of CAB) if (LZ.indexOf(k) < 0) LZ.push(k); }
   F.version = "r2";
   if (F.golden === undefined) F.golden = true;          // hold the site clock at golden hour for the whole flight
   if (!F.goldenT) F.goldenT = 0.712;                    // day fraction: early evening; the sun stands off the left side on the downwind (shafts through the windows)
@@ -120,6 +124,7 @@ window.FLYIN = window.FLYIN || {};
     M.steel = S({ color: 0xc9cdd1, metalness: 0.9, roughness: 0.32 });
     M.stone = S({ map: tex("/tex/travertine.jpg", 1.6, 1.6, true), color: 0xfbf8f3, roughness: 0.14, metalness: 0 });
     M.porcelain = S({ color: 0xfdfbf7, roughness: 0.16 });
+    M.quartz = S({ color: 0xf1eee8, roughness: 0.22, normalMap: grainNormal(23, 0.6, 3), normalScale: new THREE.Vector2(0.15, 0.15) });   // J: the galley model's white quartz, for its filler units
     M.reveal = S({ color: 0xf3ede2, roughness: 0.42 });
     M.led = cab(new THREE.MeshStandardMaterial({ color: 0xfff1dc, emissive: 0xffdcae, emissiveIntensity: 2.6, roughness: 0.6 }));
     M.ledDim = cab(new THREE.MeshStandardMaterial({ color: 0xfff1dc, emissive: 0xffd7a0, emissiveIntensity: 0.9, roughness: 0.6 }));
@@ -165,9 +170,10 @@ window.FLYIN = window.FLYIN || {};
   function extrude(pts, depth, holes) { const s = new THREE.Shape(pts.map((p) => new THREE.Vector2(p[0], p[1]))); for (const h of holes || []) s.holes.push(new THREE.Path(h.map((p) => new THREE.Vector2(p[0], p[1])))); const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 12 }); g.translate(0, 0, -depth / 2); boxUV(g); return ensureAttrs(g); }
   function mergeGeos(list) {
     let nv = 0, ni = 0; for (const g of list) { nv += g.attributes.position.count; ni += g.index.count; }
-    const P = new Float32Array(nv * 3), N = new Float32Array(nv * 3), UV = new Float32Array(nv * 2), C = new Float32Array(nv * 3), I = new Uint32Array(ni); let ov = 0, oi = 0;
-    for (const g of list) { const p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv, c = g.attributes.color, ix = g.index.array; for (let i = 0; i < p.count; i++) { const o = (ov + i) * 3; P[o] = p.getX(i); P[o + 1] = p.getY(i); P[o + 2] = p.getZ(i); N[o] = n.getX(i); N[o + 1] = n.getY(i); N[o + 2] = n.getZ(i); UV[(ov + i) * 2] = u ? u.getX(i) : 0; UV[(ov + i) * 2 + 1] = u ? u.getY(i) : 0; if (c) { C[o] = c.getX(i); C[o + 1] = c.getY(i); C[o + 2] = c.getZ(i); } else { C[o] = C[o + 1] = C[o + 2] = -1; } } for (let i = 0; i < ix.length; i++) I[oi + i] = ix[i] + ov; ov += p.count; oi += ix.length; }
-    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(P, 3)); g.setAttribute("normal", new THREE.BufferAttribute(N, 3)); g.setAttribute("uv", new THREE.BufferAttribute(UV, 2)); g.setAttribute("color", new THREE.BufferAttribute(C, 3)); g.setIndex(new THREE.BufferAttribute(I, 1)); g.computeBoundingSphere(); return g;
+    const hasT = list.length > 0 && list.every((g) => g.attributes.tangent && g.attributes.tangent.itemSize === 4);
+    const P = new Float32Array(nv * 3), N = new Float32Array(nv * 3), UV = new Float32Array(nv * 2), C = new Float32Array(nv * 3), I = new Uint32Array(ni), TG = hasT ? new Float32Array(nv * 4) : null; let ov = 0, oi = 0;
+    for (const g of list) { const p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv, c = g.attributes.color, ix = g.index.array, tg = g.attributes.tangent; if (TG) for (let i = 0; i < p.count; i++) { const o4 = (ov + i) * 4; TG[o4] = tg.getX(i); TG[o4 + 1] = tg.getY(i); TG[o4 + 2] = tg.getZ(i); TG[o4 + 3] = tg.getW(i); } for (let i = 0; i < p.count; i++) { const o = (ov + i) * 3; P[o] = p.getX(i); P[o + 1] = p.getY(i); P[o + 2] = p.getZ(i); N[o] = n.getX(i); N[o + 1] = n.getY(i); N[o + 2] = n.getZ(i); UV[(ov + i) * 2] = u ? u.getX(i) : 0; UV[(ov + i) * 2 + 1] = u ? u.getY(i) : 0; if (c) { C[o] = c.getX(i); C[o + 1] = c.getY(i); C[o + 2] = c.getZ(i); } else { C[o] = C[o + 1] = C[o + 2] = -1; } } for (let i = 0; i < ix.length; i++) I[oi + i] = ix[i] + ov; ov += p.count; oi += ix.length; }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(P, 3)); g.setAttribute("normal", new THREE.BufferAttribute(N, 3)); g.setAttribute("uv", new THREE.BufferAttribute(UV, 2)); g.setAttribute("color", new THREE.BufferAttribute(C, 3)); if (TG) g.setAttribute("tangent", new THREE.BufferAttribute(TG, 4)); g.setIndex(new THREE.BufferAttribute(I, 1)); g.computeBoundingSphere(); return g;
   }
 
   // ───────────────────────────── the fuselage cross-section (left side, +x; mirrored for the right) ─────────────────────────────
@@ -240,11 +246,41 @@ window.FLYIN = window.FLYIN || {};
       for (let i = 0; i < p.count; i++) { if (c.getX(i) >= 0) continue; const a = this.ao(p.getX(i), p.getY(i), p.getZ(i), n.getX(i), n.getY(i), n.getZ(i)); c.setXYZ(i, a, a * 0.985, a * 0.955); }
       c.needsUpdate = true; if (!mat.vertexColors) { mat.vertexColors = true; mat.needsUpdate = true; } const m = new THREE.Mesh(g, mat); m.castShadow = !mat.transparent; m.receiveShadow = true; m.frustumCulled = false; m.userData.noCull = true; group.add(m); }
   };
-  // a model placed in the cabin: its geometry copied into the buckets (per material), fitted into a slot
+  // a model placed in the cabin: its geometry copied into the buckets (per material), fitted into a slot; returns the fit scale
+  // (J: the MikkTSpace tangents are kept, so the models' normal maps light as authored; applyMatrix4 turns them with the placement)
   function modelInto(B, kind, x, y, z, ry, slot) {
     const m = MODELS[kind]; if (!m) return false; const s = Math.min(slot[0] / Math.max(0.05, m.sx), slot[1] / Math.max(0.05, m.height), slot[2] / Math.max(0.05, m.sz)); const M4 = new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), V3(s, s, s));
-    F.mc = F.mc || new Map(); for (const part of m.parts) { let mt = F.mc.get(part.material); if (!mt) { mt = cabClone(part.material); mt.vertexColors = true; F.mc.set(part.material, mt); } const g = part.geometry.clone(); for (const k of Object.keys(g.attributes)) if (k !== "position" && k !== "normal" && k !== "uv") g.deleteAttribute(k); xm(g, M4); B.add(mt, g); }
-    return true;
+    F.mc = F.mc || new Map(); for (const part of m.parts) { let mt = F.mc.get(part.material); if (!mt) { mt = cabClone(part.material); mt.vertexColors = true; F.mc.set(part.material, mt); } const g = part.geometry.clone(); for (const k of Object.keys(g.attributes)) if (k !== "position" && k !== "normal" && k !== "uv" && k !== "tangent") g.deleteAttribute(k); if (g.attributes.tangent && g.attributes.tangent.itemSize !== 4) g.deleteAttribute("tangent"); xm(g, M4); B.add(mt, g); }
+    return s;
+  }
+
+  // J: a display laid exactly on a model's own screen. The screen rectangle comes from PLAN_MODEL_INFO[kind].screen (model frame,
+  // scale 1, facing +Z); the model's front surface over it is sampled (the highest +Z-facing triangle under each grid point, 1 cm
+  // inside the frame) so the picture follows the panel's curve 3 mm proud of the glass. UVs crop the 16:9 map canvas to the screen's
+  // own aspect (cover, never stretched), and the mesh gets the model's placement (x, y, z, ry, fit scale s).
+  const SCREEN_DEF = { cab_bulkhead: { x: [-0.901, 0.269], y: [0.865, 1.529], face_z_range: [0.052, 0.117] } };
+  function screenOnModel(kind, x, y, z, ry, s, mat, texAspect) {
+    const m = MODELS[kind]; if (!m || !s) return null; const info = (window.PLAN_MODEL_INFO && PLAN_MODEL_INFO[kind]) || {}; const sc = info.screen || SCREEN_DEF[kind]; if (!sc || !sc.x || !sc.y) return null;
+    const k0 = info.size && info.size[1] ? m.height / info.size[1] : 1; const x0 = sc.x[0] * k0, x1 = sc.x[1] * k0, y0 = sc.y[0] * k0, y1 = sc.y[1] * k0; const ins = 0.01;
+    const NX = 28, NY = 8, zs = new Float32Array((NX + 1) * (NY + 1)).fill(-1e9); const gx = (i) => x0 + ins + (x1 - x0 - 2 * ins) * i / NX, gy = (j) => y0 + ins + (y1 - y0 - 2 * ins) * j / NY;
+    const A = V3(), B2 = V3(), C = V3(), e1 = V3(), e2 = V3(), n = V3();
+    for (const part of m.parts) { const g = part.geometry, p = g.attributes.position, ix = g.index ? g.index.array : null, T = (ix ? ix.length : p.count) / 3;
+      for (let t = 0; t < T; t++) { const a = ix ? ix[t * 3] : t * 3, b = ix ? ix[t * 3 + 1] : t * 3 + 1, c = ix ? ix[t * 3 + 2] : t * 3 + 2; A.fromBufferAttribute(p, a); B2.fromBufferAttribute(p, b); C.fromBufferAttribute(p, c);
+        const mnx = Math.min(A.x, B2.x, C.x), mxx = Math.max(A.x, B2.x, C.x), mny = Math.min(A.y, B2.y, C.y), mxy = Math.max(A.y, B2.y, C.y); if (mxx < x0 || mnx > x1 || mxy < y0 || mny > y1) continue;
+        n.crossVectors(e1.subVectors(B2, A), e2.subVectors(C, A)); if (Math.abs(n.z) < 0.35 * n.length() || n.lengthSq() < 1e-16) continue;
+        const d = (B2.y - C.y) * (A.x - C.x) + (C.x - B2.x) * (A.y - C.y); if (Math.abs(d) < 1e-12) continue;
+        for (let j = 0; j <= NY; j++) { const py = gy(j); if (py < mny || py > mxy) continue; for (let i = 0; i <= NX; i++) { const px = gx(i); if (px < mnx || px > mxx) continue;
+          const l1 = ((B2.y - C.y) * (px - C.x) + (C.x - B2.x) * (py - C.y)) / d, l2 = ((C.y - A.y) * (px - C.x) + (A.x - C.x) * (py - C.y)) / d, l3 = 1 - l1 - l2; if (l1 < -1e-6 || l2 < -1e-6 || l3 < -1e-6) continue;
+          const pz = l1 * A.z + l2 * B2.z + l3 * C.z, q = j * (NX + 1) + i; if (pz > zs[q]) zs[q] = pz; } } } }
+    let hit = 0; const fb = sc.face_z_range ? (sc.face_z_range[0] + sc.face_z_range[1]) / 2 * k0 : (sc.center ? sc.center[2] * k0 : 0.1);
+    for (let q = 0; q < zs.length; q++) if (zs[q] > -1e8) hit++;
+    for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { const q = j * (NX + 1) + i; if (zs[q] > -1e8) continue; let best = null, bd = 1e9; for (let jj = 0; jj <= NY; jj++) for (let ii = 0; ii <= NX; ii++) { const qq = jj * (NX + 1) + ii; if (zs[qq] < -1e8) continue; const dd = Math.abs(ii - i) + Math.abs(jj - j) * 0.5; if (dd < bd) { bd = dd; best = zs[qq]; } } zs[q] = best === null ? fb : best; }
+    const W = x1 - x0, H = y1 - y0, sa = W / H, ta = texAspect || 16 / 9; let u0 = 0, u1 = 1, v0 = 0, v1 = 1; if (sa < ta) { const f = sa / ta; u0 = (1 - f) / 2; u1 = 1 - u0; } else { const f = ta / sa; v0 = (1 - f) / 2; v1 = 1 - v0; }
+    const P = [], N = [], UV = [], I = [];
+    for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) { const fx = i / NX, fy = j / NY; P.push(x0 + W * fx, y0 + H * fy, zs[j * (NX + 1) + i] + 0.003); N.push(0, 0, 1); UV.push(u0 + (u1 - u0) * fx, v0 + (v1 - v0) * fy); }
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + 1, c = a + NX + 1, dd = c + 1; I.push(a, b, c, b, dd, c); }
+    const geo = geoFrom(P, N, UV, I); geo.computeVertexNormals(); geo.applyMatrix4(new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), V3(s, s, s)));
+    const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = 1; mesh.userData.screen = { kind, w: W * s, h: H * s, aspect: sa, crop: [u0, u1, v0, v1], hits: hit, grid: zs.length }; return mesh;
   }
 
   // ── the layout: +z forward (flight deck), +x the left side, floor at y = 0. Seats face f (the sitter looks along (sin f, cos f)). ──
@@ -254,7 +290,7 @@ window.FLYIN = window.FLYIN || {};
   const SEATS = [   // [x, z, f, zone]
     [0.60, 3.05, 0, "club"], [-0.60, 3.05, 0, "club"], [0.60, 5.0, Math.PI, "club"], [-0.60, 5.0, Math.PI, "club"],
     [0.60, 1.80, Math.PI, "conf"], [-0.60, 1.80, Math.PI, "conf"], [0.60, -0.25, 0, "conf"], [-0.60, -0.25, 0, "conf"],
-    [0.60, -2.45, Math.PI, "lounge"], [0.60, -5.40, 0, "lounge"]];
+    [0.52, -1.45, -Math.PI / 2, "lounge"], [0.52, -4.82, -Math.PI / 2, "lounge"]];   // J: the lounge pair swivels to face the divan across the aisle, either side of a full-length credenza
   F.layout = { Z, WIN, SEATS };
 
   function seatParts(B, M, x, z, f) {
@@ -333,7 +369,22 @@ window.FLYIN = window.FLYIN || {};
     F.aftModel = modelInto(B, "cab_bulkhead", 0, 0, Z.ab + 0.16, 0, [2.46, 1.95, 0.32]);
     // the galley, forward right: walnut cabinets, stone counter, a sink, two ovens and an espresso machine behind black glass, crystal storage, work lights
     { const x0 = -0.98, x1 = -0.4, z0 = 5.92, z1 = 8.28, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, L = z1 - z0;
-      if (modelInto(B, "cab_galley", xc, 0, zc, Math.PI / 2, [L, 1.78, 0.62])) { const m = MODELS.cab_galley, s = Math.min(L / m.sx, 1.78 / m.height, 0.62 / m.sz), gl = m.sx * s; for (const [za, zb] of [[z0, zc - gl / 2], [zc + gl / 2, z1]]) if (zb - za > 0.04) { B.add(M.walnut, rbox(x1 - x0, 1.72, zb - za, 0.012, 2).translate(xc, 0.86, (za + zb) / 2)); B.add(M.stone, rbox(x1 - x0 + 0.02, 0.03, zb - za, 0.006, 1).translate(xc + 0.01, 0.92, (za + zb) / 2)); } }
+      const gs = modelInto(B, "cab_galley", xc, 0, zc, Math.PI / 2, [L, 1.78, 0.62]);
+      if (gs) { // J: the walnut filler units either side carry the model's own counter line (counter_y x the fit), flush with its depth
+        const m = MODELS.cab_galley, inf = (window.PLAN_MODEL_INFO && PLAN_MODEL_INFO.cab_galley) || {}, k0 = inf.size && inf.size[1] ? m.height / inf.size[1] : 1;
+        const gl = m.sx * gs, gd = m.sz * gs, xb = xc - gd / 2, xf = xc + gd / 2, cy = (inf.counter_y || 0.959) * k0 * gs, uy0 = F.galU0 || 1.3, uy1 = Math.min(1.74, m.height * gs - 0.04);
+        F.galley = { s: gs, counter: cy, len: gl, xb, xf };
+        for (const [za, zb] of [[z0, zc - gl / 2], [zc + gl / 2, z1]]) if (zb - za > 0.04) { const w = zb - za, zm = (za + zb) / 2, wp = Math.min(0.2, w * 0.35);
+          B.add(M.black, rbox(gd - 0.05, 0.08, w - 0.004, 0.004, 1).translate(xc - 0.025, 0.04, zm));                                         // toe kick
+          B.add(M.walnut, rbox(gd, cy - 0.03 - 0.08, w, 0.012, 2).translate(xc, 0.08 + (cy - 0.11) / 2, zm));                                 // base unit
+          B.add(M.black, rbox(0.004, 0.004, w - 0.03, 0.001, 1).translate(xf + 0.001, cy - 0.21, zm));                                        // drawer line
+          B.add(M.gold, rbox(0.016, 0.016, wp, 0.005, 1).translate(xf + 0.01, cy - 0.12, zm)); B.add(M.gold, rbox(0.016, 0.016, wp, 0.005, 1).translate(xf + 0.01, cy - 0.34, zm));
+          B.add(M.quartz, rbox(gd + 0.018, 0.03, w, 0.006, 1).translate(xc + 0.009, cy - 0.015, zm));                                         // counter at the model's height
+          B.add(M.quartz, rbox(0.018, uy0 - cy, w, 0.004, 1).translate(xb + 0.009, (cy + uy0) / 2, zm));                                    // backsplash
+          B.add(M.walnut, rbox(0.34, uy1 - uy0, w, 0.012, 2).translate(xb + 0.17, (uy0 + uy1) / 2, zm));                                     // upper unit
+          B.add(M.black, rbox(0.004, uy1 - uy0 - 0.03, 0.004, 0.001, 1).translate(xb + 0.341, (uy0 + uy1) / 2, zm));
+          B.add(M.gold, rbox(0.016, 0.12, 0.016, 0.005, 1).translate(xb + 0.35, uy0 + 0.1, zm - 0.03));
+          B.add(M.ledDim, rbox(0.28, 0.005, w - 0.05, 0.002, 1).translate(xb + 0.17, uy0 - 0.003, zm), true); } }
       else {
         B.add(M.walnut, rbox(x1 - x0, 0.88, L, 0.012, 2).translate(xc, 0.46, zc)); B.add(M.black, rbox(x1 - x0 - 0.02, 0.06, L - 0.02, 0.01, 1).translate(xc, 0.03, zc));
         for (let i = 0; i < 4; i++) { const zz = z0 + L * (i + 0.5) / 4; B.add(M.black, rbox(0.004, 0.84, 0.006, 0.001, 1).translate(x1 + 0.002, 0.46, z0 + L * i / 4)); B.add(M.gold, rbox(0.018, 0.02, 0.22, 0.006, 1).translate(x1 + 0.014, 0.82, zz)); B.add(M.black, rbox(0.004, 0.006, L / 4 - 0.02, 0.001, 1).translate(x1 + 0.002, 0.58, zz)); }
@@ -350,10 +401,10 @@ window.FLYIN = window.FLYIN || {};
       const door = [[6.62, 0.08], [7.38, 0.08], [7.38, 1.72], [6.62, 1.72], [6.62, 0.08]]; B.add(M.black, wallRibbon(1, door, 0.012, 0.006)); B.add(M.chrome, rbox(0.04, 0.05, 0.36, 0.015, 2).translate(wallX(1.05) - 0.05, 1.05, 7.0)); B.add(M.chrome, cyl(0.02, 0.02, 0.05, 10).rotateZ(Math.PI / 2).translate(wallX(1.05) - 0.025, 1.05, 7.16)); }
     // the moving map, the gold-leaf mark, plaques
     F.mapTex = F.mapTex || mapCanvas();
-    { const scrM = cab(new THREE.MeshBasicMaterial({ map: F.mapTex, color: new THREE.Color(1.25, 1.25, 1.25), toneMapped: true }));
-      B.add(M.black, rbox(0.72, 0.43, 0.022, 0.01, 2).translate(-0.78, 1.36, Z.gb - 0.05)); const s1 = new THREE.Mesh(new THREE.PlaneGeometry(0.672, 0.378), scrM); s1.position.set(-0.78, 1.36, Z.gb - 0.062); s1.rotation.y = Math.PI; s1.frustumCulled = false; g.add(s1);
+    { const scrM = cab(new THREE.MeshBasicMaterial({ map: F.mapTex, color: new THREE.Color(1.25, 1.25, 1.25), toneMapped: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
+      B.add(M.black, rbox(0.72, 0.43, 0.022, 0.01, 2).translate(-0.78, 1.36, Z.gb - 0.05)); const s1 = new THREE.Mesh(new THREE.PlaneGeometry(0.672, 0.378), scrM); s1.position.set(-0.78, 1.36, Z.gb - 0.063); s1.rotation.y = Math.PI; s1.frustumCulled = false; g.add(s1);
       const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.18), cab(new THREE.MeshStandardMaterial({ map: goldLogo(), color: 0xf6dfa6, metalness: 1, roughness: 0.22, transparent: true, alphaTest: 0.3 }))); lg.position.set(0.8, 1.38, Z.gb - 0.042); lg.rotation.y = Math.PI; lg.frustumCulled = false; g.add(lg);
-      const plaque = (txt, x, y, z, ry) => { try { const t = textTexture([{ text: txt, size: 104, y: 0.6, color: "#f5f1e6", font: "'Space Grotesk', system-ui, sans-serif", weight: 600 }], 512, 160, { planks: false, border: "#c9a24d" }); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.094), cab(new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.2 }))); m.position.set(x, y, z); m.rotation.y = ry; m.frustumCulled = false; g.add(m); } catch (e) {} };
+      const plaque = (txt, x, y, z, ry) => { try { const t = textTexture([{ text: txt, size: Math.min(104, Math.floor(460 / (txt.length * 0.62))), y: 0.6, color: "#f5f1e6", font: "'Space Grotesk', system-ui, sans-serif", weight: 600 }], 512, 160, { planks: false, border: "#c9a24d" }); const m = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.094), cab(new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.2 }))); m.position.set(x, y, z); m.rotation.y = ry; m.frustumCulled = false; g.add(m); } catch (e) {} };
       plaque("FLIGHT DECK", 0, 1.872, Z.fd - 0.004, Math.PI); if (!F.aftModel) plaque("LAVATORY", 0, 1.872, Z.ab + 0.004, 0); plaque("GALLEY", -0.78, 1.72, Z.gb + 0.05, 0);
       F.scrM = scrM; }
     // seats: the forward club four, the conference four with tables, the lounge pair
@@ -368,7 +419,8 @@ window.FLYIN = window.FLYIN || {};
     for (const sd of [-1, 1]) { B.add(M.crystal, lathe([[0, 0], [0.035, 0], [0.038, 0.09], [0.035, 0.09], [0.032, 0.006], [0, 0.006]], 18).translate(sd * 1.02, 0.623, 4.05)); B.add(M.chrome, cyl(0.045, 0.045, 0.004, 20).translate(sd * 1.02, 0.623, 4.05)); }
     // the divan, aft right: walnut plinth, quilted cushions, a leather back rail, bolsters, throw pillows and a cashmere throw
     { const x0 = -0.98, x1 = -0.36, z0 = -4.2, z1 = -1.95, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, L = z1 - z0;
-      if (!modelInto(B, "cab_divan", -0.63, 0, zc, Math.PI / 2, [L, 0.92, 0.88])) {
+      const ds = modelInto(B, "cab_divan", -0.63, 0, zc, Math.PI / 2, [L, 0.92, 0.88]); { const inf = (window.PLAN_MODEL_INFO && PLAN_MODEL_INFO.cab_divan) || {}; const k0 = ds && inf.size && inf.size[1] ? MODELS.cab_divan.height / inf.size[1] : 1; F.divan = ds ? { x: -0.63, zc, half: MODELS.cab_divan.sx * ds / 2, arm: (inf.arm_top_y || 0.685) * k0 * ds } : { x: xc, zc, half: L / 2, arm: 0.713 }; }
+      if (!ds) {
         B.add(M.walnut, rbox(x1 - x0, 0.1, L, 0.012, 2).translate(xc, 0.05, zc)); B.add(M.gold, rbox(0.012, 0.016, L - 0.02, 0.004, 1).translate(x1 + 0.004, 0.09, zc)); B.add(M.leatherD, rbox(x1 - x0 - 0.02, 0.24, L - 0.02, 0.04, 3).translate(xc, 0.22, zc));
         for (let i = 0; i < 3; i++) { const zz = z0 + 0.14 + (L - 0.28) * (i + 0.5) / 3; B.add(M.leatherQ, rbox(0.56, 0.14, (L - 0.3) / 3 - 0.01, 0.06, 3, 0.018).translate(xc + 0.02, 0.405, zz)); const bk = rbox(0.14, 0.34, (L - 0.3) / 3 - 0.012, 0.06, 3, 0); bk.applyMatrix4(new THREE.Matrix4().makeRotationZ(0.2)); B.add(M.leatherQ, bk.translate(-0.86, 0.66, zz)); }
         B.add(M.leather, rbox(0.2, 0.05, L, 0.02, 2).translate(-1.0, 0.84, zc)); B.add(M.walnut, rbox(0.2, 0.03, L, 0.01, 2).translate(-1.0, 0.875, zc));
@@ -379,19 +431,27 @@ window.FLYIN = window.FLYIN || {};
       for (let i = 0; i < 3; i++) { const zz = -2.4 - i * 0.68; seats.push({ x: -0.62, z: zz, f: Math.PI / 2, zone: "divan", sit: true }); }
       for (let zz = z0 + 0.25; zz < z1; zz += 0.45) blocks.push([xc - 0.02, zz, 0.34]); B.sphere(xc, 0.4, zc - 0.6, 0.45, 0.8); B.sphere(xc, 0.4, zc + 0.6, 0.45, 0.8);
       psu(-1, -2.4); psu(-1, -3.08); psu(-1, -3.76); }
-    // the credenza, aft left: walnut, stone top, orchids in a crystal vase, a rising monitor with the moving map
-    { const x0 = 0.42, x1 = 0.98, z0 = -4.5, z1 = -3.25, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, L = z1 - z0;
-      let credTop = 0.76; if (modelInto(B, "cab_credenza", xc, 0, zc, -Math.PI / 2, [L, 0.76, 0.56])) { const m = MODELS.cab_credenza; credTop = m.height * Math.min(L / m.sx, 0.76 / m.height, 0.56 / m.sz); } else { B.add(M.walnut, rbox(x1 - x0, 0.72, L, 0.014, 2).translate(xc, 0.37, zc)); B.add(M.stone, rbox(x1 - x0 + 0.02, 0.03, L + 0.02, 0.008, 2).translate(xc, 0.745, zc)); for (const zz of [z0 + L / 3, z0 + 2 * L / 3]) B.add(M.black, rbox(0.004, 0.66, 0.006, 0.001, 1).translate(x0 - 0.002, 0.37, zz)); B.add(M.gold, rbox(0.016, 0.018, 0.22, 0.005, 1).translate(x0 - 0.012, 0.62, zc)); B.add(M.black, rbox(0.004, 0.02, L - 0.04, 0.001, 1).translate(x0 - 0.002, 0.03, zc)); }
-      orchid(B, M, 0.66, credTop, -3.5, 0.3);
-      blocks.push([xc, zc - 0.35, 0.36], [xc, zc + 0.35, 0.36]); B.sphere(xc, 0.4, zc, 0.5, 0.8); }
+    // the credenza, aft left, opposite the divan (J: a full 1.9 m bay, so the model keeps its real proportions and its 0.6 m top lines up
+    // with the window ledge; the lounge pair stands at its ends): walnut, the decanter tray, an orchid, two books
+    { const x0 = 0.47, x1 = 0.93, z0 = -4.18, z1 = -2.28, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, L = z1 - z0;
+      let credTop = 0.62; const cs = modelInto(B, "cab_credenza", xc, 0, zc, -Math.PI / 2, [L, 0.84, 0.48]);
+      if (cs) { const inf = (window.PLAN_MODEL_INFO && PLAN_MODEL_INFO.cab_credenza) || {}; const k0 = inf.size && inf.size[1] ? MODELS.cab_credenza.height / inf.size[1] : 1; credTop = (inf.top_y || 0.605) * k0 * cs; }
+      else { B.add(M.black, rbox(x1 - x0 - 0.05, 0.07, L - 0.05, 0.004, 1).translate(xc + 0.025, 0.035, zc)); B.add(M.walnut, rbox(x1 - x0, credTop - 0.1, L, 0.014, 2).translate(xc, 0.07 + (credTop - 0.1) / 2, zc)); B.add(M.stone, rbox(x1 - x0 + 0.02, 0.03, L + 0.02, 0.008, 2).translate(xc - 0.01, credTop - 0.015, zc));
+        for (const zz of [z0 + L / 4, zc, z0 + 3 * L / 4]) B.add(M.black, rbox(0.004, credTop - 0.16, 0.006, 0.001, 1).translate(x0 - 0.002, 0.07 + (credTop - 0.1) / 2, zz)); for (const zz of [z0 + L / 8, z0 + 3 * L / 8, z0 + 5 * L / 8, z0 + 7 * L / 8]) B.add(M.gold, rbox(0.016, 0.018, 0.16, 0.005, 1).translate(x0 - 0.012, credTop - 0.1, zz)); }
+      F.cred = { x: xc, z0, z1, top: credTop };
+      orchid(B, M, xc + 0.03, credTop, z0 + 0.3, 0.3);
+      B.add(M.folio, rbox(0.2, 0.028, 0.26, 0.006, 2).translate(xc + 0.04, credTop + 0.014, z1 - 0.3)); { const b2 = rbox(0.17, 0.022, 0.23, 0.005, 2); b2.applyMatrix4(new THREE.Matrix4().makeRotationY(0.22)); B.add(M.accent, b2.translate(xc + 0.04, credTop + 0.039, z1 - 0.31)); }
+      for (let zz = z0 + 0.22; zz < z1; zz += 0.46) blocks.push([xc, zz, 0.3]); B.sphere(xc, 0.35, zc - 0.5, 0.45, 0.8); B.sphere(xc, 0.35, zc + 0.5, 0.45, 0.8); }
     // the drink station aft right: a walnut cabinet, champagne on ice, flutes
     { const x0 = -0.98, x1 = -0.5, z0 = -6.08, z1 = -4.45, xc = (x0 + x1) / 2, zc = (z0 + z1) / 2, L = z1 - z0; B.add(M.walnut, rbox(x1 - x0, 0.92, L, 0.014, 2).translate(xc, 0.47, zc)); B.add(M.stone, rbox(x1 - x0 + 0.02, 0.03, L + 0.02, 0.008, 2).translate(xc, 0.945, zc)); B.add(M.gold, rbox(0.016, 0.018, 0.3, 0.005, 1).translate(x1 + 0.012, 0.8, zc));
       B.add(M.chrome, lathe([[0, 0], [0.09, 0], [0.11, 0.2], [0.115, 0.21], [0.105, 0.21], [0, 0.02]], 28).translate(-0.72, 0.96, -5.1)); B.add(M.black, lathe([[0, 0], [0.04, 0], [0.042, 0.2], [0.02, 0.26], [0.014, 0.33], [0, 0.33]], 16).translate(-0.72, 1.02, -5.1)); B.add(M.gold, cyl(0.016, 0.016, 0.05, 10).translate(-0.72, 1.33, -5.1));
       for (let i = 0; i < 4; i++) flute(B, M, -0.66 - (i % 2) * 0.08, 0.96, -5.55 + Math.floor(i / 2) * 0.1, i === 0); blocks.push([xc, zc - 0.4, 0.34], [xc, zc + 0.4, 0.34]); B.sphere(xc, 0.5, zc, 0.5, 0.7); }
     // the lounge's second screen side lamp glow and the aft bulkhead orchid shelf
     if (!F.aftModel) { B.add(M.walnut, rbox(0.34, 0.025, 0.14, 0.008, 2).translate(-0.66, 1.2, Z.ab + 0.07)); orchid(B, M, -0.66, 1.212, Z.ab + 0.08, 0.18);
-      B.add(M.black, rbox(0.6, 0.36, 0.02, 0.01, 2).translate(0.68, 1.34, Z.ab + 0.01)); const s2 = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.315), F.scrM); s2.position.set(0.68, 1.34, Z.ab + 0.021); s2.frustumCulled = false; g.add(s2); }
-    else { const s2 = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 0.54), F.scrM); s2.position.set(0, 1.22, Z.ab + 0.325); s2.frustumCulled = false; g.add(s2); }
+      B.add(M.black, rbox(0.6, 0.36, 0.02, 0.01, 2).translate(0.68, 1.34, Z.ab + 0.01)); const s2 = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.315), F.scrM); s2.position.set(0.68, 1.34, Z.ab + 0.022); s2.frustumCulled = false; g.add(s2); }
+    else { let s2 = null; try { s2 = screenOnModel("cab_bulkhead", 0, 0, Z.ab + 0.16, 0, F.aftModel, F.scrM, F.mapC ? F.mapC.width / F.mapC.height : 16 / 9); } catch (e) { log("aft screen", e); }
+      if (!s2) { const k = F.aftModel; s2 = new THREE.Mesh(new THREE.PlaneGeometry(1.17 * k, 0.664 * k), F.scrM); s2.position.set(-0.316 * k, 1.197 * k, Z.ab + 0.16 + 0.121 * k); s2.frustumCulled = false; }
+      s2.name = "aftScreen"; F.aftScreen = s2; g.add(s2); }
     B.build(g);
     // the windows: glass panes (one mesh per side) and the pleated shades (instanced, one per side)
     { const glassG = { "1": [], "-1": [] }; for (const w of windows) { const eg = new THREE.CircleGeometry(1, 48); eg.rotateY(w.side > 0 ? -Math.PI / 2 : Math.PI / 2); eg.scale(1, WB * 0.9, WA * 0.9); eg.translate(w.side * 1.34, w.y, w.z); glassG[String(w.side)].push(ensureAttrs(eg)); }
@@ -480,11 +540,11 @@ window.FLYIN = window.FLYIN || {};
     if (pp && pp.pts) { const pts = pp.pts; x.lineWidth = 4; x.strokeStyle = "#4DDE6F"; x.beginPath(); let started = false; for (let i = 0; i < pts.length; i += 4) { const q = pts[i]; if (q.t > FLY.t) break; if (!started) { x.moveTo(X(q.x), Y(q.z)); started = true; } else x.lineTo(X(q.x), Y(q.z)); } x.lineTo(X(ax), Y(az)); x.stroke();
       x.setLineDash([10, 9]); x.lineWidth = 2.5; x.strokeStyle = "rgba(245,241,230,0.75)"; x.beginPath(); x.moveTo(X(ax), Y(az)); for (let i = 0; i < pts.length; i += 4) { const q = pts[i]; if (q.t <= FLY.t) continue; x.lineTo(X(q.x), Y(q.z)); } x.stroke(); x.setLineDash([]); }
     x.font = "600 17px 'Space Grotesk', system-ui, sans-serif"; x.textAlign = "left";
-    for (const [n, px, pz] of [["Terminal", 94, -39], ["Arrivals Court", 129, -142], ["Founders Row", 432, -474], ["Main Street", 744, 311], ["Four Corners", 668, 153], ["The Genesis Ring", 995, 833], ["The Commons", 285, 721], ["Genesis Park", -212, -372], ["Launch Complex", 896, -190]]) { const sx = X(px), sy = Y(pz); if (sx < 10 || sx > W - 120 || sy < top + 10 || sy > top + mh - 10) continue; x.fillStyle = "rgba(245,241,230,0.9)"; x.beginPath(); x.arc(sx, sy, 3.5, 0, 6.283); x.fill(); x.fillStyle = "rgba(245,241,230,0.82)"; x.fillText(n, sx + 8, sy + 5); }
+    for (const [n, px, pz] of [["Stellar FBO", 94, -39], ["Arrivals Court", 129, -142], ["Founders Row", 432, -474], ["Main Street", 744, 311], ["Four Corners", 668, 153], ["The Genesis Ring", 995, 833], ["The Commons", 285, 721], ["Genesis Park", -212, -372], ["Launch Complex", 896, -190]]) { const sx = X(px), sy = Y(pz); if (sx < 10 || sx > W - 120 || sy < top + 10 || sy > top + mh - 10) continue; x.fillStyle = "rgba(245,241,230,0.9)"; x.beginPath(); x.arc(sx, sy, 3.5, 0, 6.283); x.fill(); x.fillStyle = "rgba(245,241,230,0.82)"; x.fillText(n, sx + 8, sy + 5); }
     { const sx = X(ax), sy = Y(az); x.save(); x.translate(sx, sy); x.rotate(-pth.heading + Math.PI); const gl = x.createRadialGradient(0, 0, 2, 0, 0, 30); gl.addColorStop(0, "rgba(77,222,111,0.55)"); gl.addColorStop(1, "rgba(77,222,111,0)"); x.fillStyle = gl; x.beginPath(); x.arc(0, 0, 30, 0, 6.283); x.fill(); x.fillStyle = "#ffffff"; x.beginPath(); x.moveTo(0, -18); x.lineTo(3, -8); x.lineTo(17, 2); x.lineTo(17, 5); x.lineTo(3, 1); x.lineTo(2.5, 11); x.lineTo(7, 15); x.lineTo(7, 17); x.lineTo(0, 15); x.lineTo(-7, 17); x.lineTo(-7, 15); x.lineTo(-2.5, 11); x.lineTo(-3, 1); x.lineTo(-17, 5); x.lineTo(-17, 2); x.lineTo(-3, -8); x.closePath(); x.fill(); x.restore(); }
     x.restore();
     x.fillStyle = "rgba(5,12,18,0.92)"; x.fillRect(0, 0, W, top); x.fillRect(0, H - bot, W, bot); x.fillStyle = "#4DDE6F"; x.fillRect(0, top - 2, W, 2); x.fillRect(0, H - bot, W, 2);
-    x.textAlign = "left"; x.fillStyle = "#f5f1e6"; x.font = "36px Anton, Impact, sans-serif"; x.fillText("GIVEBACK ONE", 24, 46); x.font = "600 18px 'JetBrains Mono', monospace"; x.fillStyle = "rgba(245,241,230,0.6)"; x.fillText("MOVING MAP", 262, 44); x.textAlign = "right"; x.fillStyle = "#4DDE6F"; x.fillText("DOUGLAS MUNICIPAL · RUNWAY 21", W - 24, 44);
+    x.textAlign = "left"; x.fillStyle = "#f5f1e6"; x.font = "36px Anton, Impact, sans-serif"; x.fillText("GIVEBACK ONE", 24, 46); x.font = "600 18px 'JetBrains Mono', monospace"; x.fillStyle = "rgba(245,241,230,0.6)"; x.fillText("MOVING MAP", 262, 44); x.textAlign = "right"; x.fillStyle = "#4DDE6F"; x.fillText("SOLPORT · RUNWAY 21", W - 24, 44);
     const P2 = flyPath(FLY.t + 0.5); const spd = Math.hypot(P2.x - pth.x, P2.z - pth.z) / 0.5 * 1.944; const agl = Math.max(0, (F.jetP ? F.jetP.y - getH(pth.x, pth.z) : 0)) * 3.281; const tt = pp ? pp.tTD - FLY.t : 0;
     const phase = FLY.t < FLY_T.approach ? (tt > 0 ? `${Math.floor(tt / 60)}:${String(Math.floor(tt % 60)).padStart(2, "0")}` : "0:00") : FLY.t < FLY_T.roll ? "LANDED" : FLY.t < FLY_T.taxi ? "TAXI" : "GATE A2";
     const cells = [["GROUND SPEED", `${Math.round(spd)} KT`], ["ALTITUDE", FLY.t < FLY_T.approach ? `${Math.round(agl / 10) * 10} FT AGL` : "ON THE GROUND"], [FLY.t < FLY_T.approach ? "TIME TO TOUCHDOWN" : "STATUS", phase], ["DESTINATION", "GATE A2"]];
@@ -571,7 +631,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   function startFlyInR2() {
     if (FLY.on || !T) return; if (F.active) cleanup();   // a previous flight whose clean-up frame has not run yet closeCards(); if (inside) leaveInterior(); if (cartMode) toggleCart(); towerView = false; if (SIT.on) { SIT.on = false; } RIDE_ON.id = null;
     const nflights = +(localStorage.getItem("g1:flights") || 0); FLY.route = 0; planFlyTimes(); localStorage.setItem("g1:flights", String(nflights + 1));
-    F.shots = shots(); FLY_T.ext = F.shots[4].t0; pathMarks(); F.dipL = dips();
+    F.shots = shots(); FLY_T.ext = F.shots[4].t0; pathMarks(); F.dipL = dips(); try { cabLoad("flight"); } catch (e) { log("cab load", e); }
     if (!FLY.g) { FLY.g = buildCabin(); scene.add(FLY.g); }
     FLY.on = true; FLY.t = 0; FLY.seenLm = {}; FLY.order = null; FLY.start = performance.now(); FLY.done = false; FLY.phase = "ext";
     if (!FLY.warm) { try { FLY.g.visible = true; FLY.g.updateMatrixWorld(true); collectLights(); updateLightPool(); renderer.compile(scene, camera); } catch (e) {} }
@@ -581,7 +641,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     // the cabin crew: Ava, in her galley
     for (const c of [...FLY.g.children]) if (c.userData && c.userData.id === "fa_ava") FLY.g.remove(c);
     try { const fa = avatar("fa_ava", "Ava · Flight attendant", { body: "f", skin: "c98f63", shirt: "1c1f24", pants: "1c1f24", hair: 1, hairc: "2a1a10" }, null, "outfit_flight"); fa.userData.label.scale.set(1.6, 0.4, 1); fa.userData.label.visible = false; fa.position.set(-0.12, 0, 7.0); fa.rotation.y = -Math.PI / 2; FLY.g.add(fa); cabTree(fa);
-      FLY.fa = { g: fa, name: "Ava", id: "fa_ava", mode: "galley", pause: 6, tz: 7.0, lines: ["Good evening, and welcome aboard Giveback One. We are joining the circuit for Runway 21 at Douglas Municipal.", "Champagne, a Sonoran Sunrise or an espresso? I can bring it to your seat.", "Look out the left side: that is The Expanse, with the Genesis Ring in the far corner.", "Main Street runs straight at the Ring. Four Corners is the crossroads halfway down.", "We turn base over the open desert, then final over the North Section Road.", "Sky, your guide, meets you at Arrivals Court, just out of the terminal's landside door."], li: 0 }; } catch (e) { log("crew", e); FLY.fa = null; }
+      FLY.fa = { g: fa, name: "Ava", id: "fa_ava", mode: "galley", pause: 6, tz: 7.0, lines: ["Good evening, and welcome aboard Giveback One. We are joining the circuit for Runway 21 at Solport.", "Champagne, a Sonoran Sunrise or an espresso? I can bring it to your seat.", "Look out the left side: that is The Expanse, with the Genesis Ring in the far corner.", "Main Street runs straight at the Ring. Four Corners is the crossroads halfway down.", "We turn base over the open desert, then final over the North Section Road.", "Sky, your guide, meets you at Arrivals Court, just out of the landside door of the Stellar Aviation FBO."], li: 0 }; } catch (e) { log("crew", e); FLY.fa = null; }
     FLY.spots = [{ lx: -0.15, lz: 6.95, r: 0.9, t: "ask Ava for a drink", fn: orderDrinkR2 }, { lx: 0, lz: 8.05, r: 0.8, t: "flight deck door", fn: () => { lower("CAPTAIN", "Cleared to land, Runway 21", "Left-hand circuit over The Expanse. Enjoy the view.", 5); sfx("ui"); } },
       { lx: -0.45, lz: 5.35, r: 0.75, t: "the moving map", fn: () => { lower("MOVING MAP", "Giveback One on the circuit", "The map draws the real layout of Genesis One and our path to Gate A2.", 6); sfx("ui"); } },
       { lx: 0, lz: F.aftModel ? -5.7 : -5.95, r: 0.75, t: F.aftModel ? "the aft cabin" : "lavatory", fn: () => { lower("AFT CABIN", "The lavatory", "Walnut, onyx and a window of its own, behind the aft bulkhead. Please be seated for landing.", 5); sfx("ui"); } },
@@ -593,7 +653,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     F.labels = []; hideLabels();
     F.active = true; F.saved = { timeOffset: timeOffset, aoLevel: QUAL.q, ao: QUAL.q.ao, up: camera.up.clone() }; F.lmAt = 0; F.fired = {}; F.shot = null; F.shotKind = "ext"; F.mapAt = 0; F.mapView = null; F.yawL = Math.PI + 0.8; F.lastH = null; F.camS = null;
     document.body.classList.add("g1fly", "g1ext"); const U2 = ui(); U2.r.style.display = ""; U2.dip.style.transition = "none"; U2.dip.style.background = "#000"; U2.dip.style.opacity = 1;
-    yaw = Math.PI; player.userData.walk.visible = false; $("#skipfly").style.display = ""; setStatus("Giveback One · joining the circuit for Runway 21, Douglas Municipal"); sfx("ui");
+    yaw = Math.PI; player.userData.walk.visible = false; $("#skipfly").style.display = ""; setStatus("Giveback One · joining the circuit for Runway 21, Solport"); sfx("ui");
     try { if (!("ontouchstart" in window) && canvas.requestPointerLock) { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } } catch (e) {}
     FLY.hum = null; holdGolden(true);
   }
@@ -653,16 +713,16 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     if (cross(P.tFinal + 1.5)) { cabinChime(); lower("CAPTAIN", "Established on final, Runway 21", "Crossing the North Section Road. Cabin crew, please take your seats for landing.", 6); }
     if (cross(tTD)) { sfx("land"); F.shake = 1; tyreSmoke(1.4); } if (cross(tTD + 0.12)) tyreSmoke(1); if (t > tTD && t < tTD + 0.9 && Math.random() < 0.6) tyreSmoke(0.25);
     if (t > tTD && t < FLY_T.roll && FX && FX.dust && Math.random() < 0.3 && F.jetP) emitDust(F.jetP.x, getH(F.jetP.x, F.jetP.z), F.jetP.z, 1, 3, 0.6);
-    if (cross(tTD + 8)) { cabinChime(); lower("CAPTAIN", "Welcome to Douglas Municipal", "The 1928 airfield. We are taxiing to Gate A2, beside the terminal. Please stay seated.", 7); }
+    if (cross(tTD + 8)) { cabinChime(); lower("CAPTAIN", "Welcome to Solport", "The 1928 airfield at Douglas, Arizona. We are taxiing to Gate A2 at the Stellar Aviation FBO. Please stay seated.", 7); }
     if (cross(P.tEnd - 1.2)) { cabinChime(); }
   }
   function overlay(t, S, cabin) {
     const U2 = ui(); const P = planFlyPath(); const now = performance.now();
     { const [o, c] = dipAt(t); if (U2.dip.style.background !== c) U2.dip.style.background = c; U2.dip.style.opacity = o.toFixed(3); }
-    const title = S.id === "establish" && t > 0.9 && t < 5.9; if (title) { if (U2.ta.textContent !== "GENESIS ONE") { U2.ta.style.fontSize = ""; U2.ta.textContent = "GENESIS ONE"; U2.tb.textContent = "The Awakening"; U2.tc.textContent = "DOUGLAS MUNICIPAL AIRPORT · DOUGLAS, ARIZONA"; } }
-    const arrive = S.id === "arrive" && t > P.tEnd - 6.5; if (arrive && U2.ta.textContent !== "WELCOME TO GENESIS ONE") { U2.ta.textContent = "WELCOME TO GENESIS ONE"; U2.tb.textContent = "Sky meets you at Arrivals Court"; U2.tc.textContent = "GATE A2 · DOUGLAS MUNICIPAL AIRPORT"; U2.ta.style.fontSize = "clamp(34px,5vw,80px)"; }
+    const title = S.id === "establish" && t > 0.9 && t < 5.9; if (title) { if (U2.ta.textContent !== "GENESIS ONE") { U2.ta.style.fontSize = ""; U2.ta.textContent = "GENESIS ONE"; U2.tb.textContent = "The Awakening"; U2.tc.textContent = "SOLPORT · DOUGLAS, ARIZONA"; } }
+    const arrive = S.id === "arrive" && t > P.tEnd - 6.5; if (arrive && U2.ta.textContent !== "WELCOME TO SOLPORT") { U2.ta.textContent = "WELCOME TO SOLPORT"; U2.tb.textContent = "Sky meets you at Arrivals Court"; U2.tc.textContent = "GATE A2 · STELLAR AVIATION FBO · GENESIS ONE"; U2.ta.style.fontSize = "clamp(34px,5vw,80px)"; }
     U2.ttl.classList.toggle("on", title || arrive); U2.ttl.classList.toggle("hi", arrive);
-    const caps = { wing: [7.4, 10.8, "GIVEBACK ONE · INBOUND FOR RUNWAY 21"], tail: [11.8, 15.0, "AHEAD: GENESIS ONE, ON THE 1928 AIRFIELD AT DOUGLAS"], window: [15.8, 18.2, "JOINING THE LEFT-HAND CIRCUIT OVER THE EXPANSE"], touch: [P.tTD - 9, P.tTD - 2.5, "RUNWAY 21 · DOUGLAS MUNICIPAL AIRPORT"] };
+    const caps = { wing: [7.4, 10.8, "GIVEBACK ONE · INBOUND FOR RUNWAY 21"], tail: [11.8, 15.0, "AHEAD: SOLPORT AND GENESIS ONE, ON THE 1928 AIRFIELD"], window: [15.8, 18.2, "JOINING THE LEFT-HAND CIRCUIT OVER THE EXPANSE"], touch: [P.tTD - 9, P.tTD - 2.5, "RUNWAY 21 · SOLPORT"] };
     const c = caps[S.id]; const capOn = !!(c && t > c[0] && t < c[1]); if (c && U2.capT !== c[2]) { U2.capT = c[2]; U2.cap.textContent = c[2]; } U2.cap.classList.toggle("on", capOn);
     if (S.id === "cabin" && t > S.t0 + 1.5 && !F.fired.aboard) { F.fired.aboard = 1; lower("WELCOME ABOARD", "Giveback One", "Take a window seat: The Expanse passes on the left. Walk the cabin, or press E by Ava for a drink.", 7); }
     if (U2.lowUntil && now > U2.lowUntil) { U2.low.classList.remove("on"); U2.lowUntil = 0; }
@@ -761,7 +821,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   }
   // the drink lands on the ledge or the table beside your seat
   function placeDrink(q) { try { const M = mats(); const g = FLY.g; if (F.drinkM) { F.drinkM.parent && F.drinkM.parent.remove(F.drinkM); } const grp = new THREE.Group(); const glass = new THREE.Mesh(lathe([[0, 0], [0.034, 0], [0.037, 0.1], [0.034, 0.1], [0.031, 0.006], [0, 0.006]], 18), M.crystal); const fill = new THREE.Mesh(lathe([[0, 0.006], [0.03, 0.006], [0.033, 0.07], [0, 0.07]], 16), M.juice); grp.add(glass, fill);
-      let x = 0.9, y = 0.623, z = 3.05; if (q) { if (q.zone === "conf") { x = q.x * 1.13; y = 0.753; z = 0.775 + (q.f === 0 ? -0.2 : 0.2); } else if (q.zone === "divan") { x = -0.62; y = 0.5; z = -3.4; } else { x = Math.sign(q.x) * 1.02; y = 0.623; z = q.z + Math.cos(q.f) * 0.2; } }
+      let x = 0.9, y = 0.623, z = 3.05; if (q) { if (q.zone === "conf") { x = q.x * 1.13; y = 0.753; z = 0.775 + (q.f === 0 ? -0.2 : 0.2); } else if (q.zone === "divan") { const D = F.divan; if (D) { x = D.x + 0.14; y = D.arm; z = q.z > D.zc ? D.zc + D.half - 0.07 : D.zc - D.half + 0.07; } else { x = -0.62; y = 0.5; z = -3.4; } } else if (q.zone === "lounge" && F.cred) { const C2 = F.cred; x = C2.x - 0.12; y = C2.top; z = q.z > (C2.z0 + C2.z1) / 2 ? C2.z1 - 0.1 : C2.z0 + 0.1; } else { x = Math.sign(q.x) * 1.02; y = 0.623; z = q.z + Math.cos(q.f) * 0.2; } }
       grp.position.set(x, y, z); grp.traverse((o) => { if (o.isMesh) o.frustumCulled = false; }); g.add(grp); F.drinkM = grp; } catch (e) { log("drink", e); } }
 
   // ───────────────────────────── the end of the flight ─────────────────────────────
@@ -818,7 +878,55 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
 
   // ───────────────────────────── install ─────────────────────────────
   // every override dispatches through F.impl, so a new copy of this file evaluated in a running page takes over (hot reload in tests)
-  F.impl = { buildCabinR2, startFlyInR2, updateFlyInR2, flyCameraR2, flySpotR2, flyStandR2, orderDrinkR2, serveDrinkR2, upgradeTraffic, upgradeVehicle, upgradeInteriorJet, upgradePlanJets, seatPlanJets, cleanup, frameAboard, frameJets, smokeSys, heroJet, ui, log };
+  // ───────────────────────────── J: the cabin set on demand ─────────────────────────────
+  // The six cab_* models (52 MB desktop, 7 MB mobile) are not part of the boot download. They are requested once the world is playable
+  // for a player who has not flown yet (the fly-in starts after the name and the look, and opens with 19 s of exterior shots), and at the
+  // start of any flight. The cabin warmed at boot is procedural; when the set lands before the cabin is first shown (flight time under
+  // CAB_SWAP_T) the cabin is rebuilt with the models and swapped in place (Ava moves across, shaders compile in the background).
+  // Later than that the procedural cabin flies this flight and the models are used from the next one.
+  const CAB_SWAP_T = 17.5;
+  F.n = F.n || {};
+  function cabMissing() { return CAB.filter((k) => { try { return MODEL_SPECS[k] && !has(k); } catch (e) { return false; } }); }
+  function cabLoad(why) {
+    if (F.cabP && F.cabDone && why === "flight" && cabMissing().length) F.cabP = null;   // a new flight asks again for what failed last time
+    if (F.cabP) return F.cabP; if (typeof window.PLAN_LOAD_KINDS !== "function") return null;
+    if (!cabMissing().length) { F.cabDone = true; return (F.cabP = Promise.resolve(CAB.filter(has))); }
+    F.n.cabWhy = why; F.n.cabT0 = performance.now();
+    F.cabP = window.PLAN_LOAD_KINDS(CAB).then((got) => { F.n.cabMs = Math.round(performance.now() - F.n.cabT0); F.n.cabGot = got.length; F.cabDone = true; if (got.length) F.cabNew = true; return got; }, (e) => { log("cab load", e); F.cabP = null; return []; });
+    return F.cabP;
+  }
+  F.cabLoad = cabLoad;
+  function disposeCabin(g, keep) { if (!g) return; g.traverse((o) => { if (keep && isIn(o, keep)) return; if ((o.isMesh || o.isInstancedMesh || o.isPoints) && o.geometry && !(o.userData && o.userData.id)) o.geometry.dispose(); }); }
+  function swapCabin() {
+    const old = FLY.g || null, cached = F.cabin && F.cabin !== old ? F.cabin : null;
+    if (!old) { if (cached) { disposeCabin(cached); } F.cabin = null; F.n.cabSwap = "dropped"; return true; }
+    let ava = null; for (const c of old.children) if (c.userData && c.userData.id === "fa_ava") ava = c;
+    F.cabin = null; const g = buildCabinR2(); F.cabin = g;
+    g.position.copy(old.position); g.quaternion.copy(old.quaternion); g.scale.copy(old.scale); g.visible = old.visible;
+    if (ava) { old.remove(ava); g.add(ava); }
+    const par = old.parent; if (par) { par.remove(old); par.add(g); } FLY.g = g;
+    if (FLY.on) { const si = old.userData.seats ? old.userData.seats.indexOf(FLY.seat) : -1; if (FLY.seat) FLY.seat = g.userData.seats[si >= 0 ? si : 0]; for (const w of g.userData.windows) { w.want = 0; setShade(w, 0); }
+      for (const sp of FLY.spots || []) if (sp.t === "the aft cabin" || sp.t === "lavatory") { sp.lz = F.aftModel ? -5.7 : -5.95; sp.t = F.aftModel ? "the aft cabin" : "lavatory"; } }
+    disposeCabin(old, ava); if (cached) disposeCabin(cached);
+    try { if (typeof collectLights === "function") { collectLights(); if (typeof updateLightPool === "function") updateLightPool(); } } catch (e) { log("cab lights", e); }
+    try { const was = g.visible; g.visible = true; g.updateMatrixWorld(true); const pr = renderer.compileAsync ? renderer.compileAsync(g, camera, scene) : null; g.visible = was; if (pr && pr.catch) pr.catch(() => {}); else if (!pr) { g.visible = true; renderer.compile(g, camera, scene); g.visible = was; } } catch (e) { log("cab compile", e); }
+    F.n.cabSwap = FLY.on ? "in flight at " + FLY.t.toFixed(1) + " s" : "before the flight"; return true;
+  }
+  F.swapCabin = swapCabin;
+  function cabFrame() {
+    try {
+      if (!F.cabP && typeof window.PLAN_LOAD_KINDS === "function" && window.PLAN && (FLY.on || !localStorage.getItem("g1:flown"))) cabLoad(FLY.on ? "flight" : "new player");
+      // plan_hangars.js furnishes its hangar lounges with cab_divan when it exists (it does not declare it): fetched on its own, in the
+      // background, 20 s into play, so those interiors keep the model without it weighing on the first load
+      { const now = performance.now(); if (F.t0 === undefined) F.t0 = now; if (!F.divP && !F.cabP && now - F.t0 > 20000 && typeof window.PLAN_LOAD_KINDS === "function" && window.PLAN) F.divP = window.PLAN_LOAD_KINDS(["cab_divan"]); }
+      // in flight the rebuild (a few hundred ms) waits for a moment the eye forgives: the black opening, or the first frames after a hard cut
+      if (F.cabNew) { let ok = !FLY.on; if (FLY.on && FLY.t < CAB_SWAP_T) { ok = FLY.t < 1.0; for (const S of (F.shots || []).slice(1, 4)) if (FLY.t >= S.t0 && FLY.t < S.t0 + 0.3) ok = true; }
+        if (ok) { F.cabNew = false; swapCabin(); } else if (FLY.on && FLY.t >= CAB_SWAP_T) { F.cabNew = false; F.cabStale = true; F.n.cabSwap = "late: next flight"; } }
+      if (F.cabStale && !FLY.on && !F.active) { F.cabStale = false; if (F.cabin && !F.cabin.parent) { disposeCabin(F.cabin); F.cabin = null; } }
+    } catch (e) { log("cab frame", e); }
+  }
+
+  F.impl = { buildCabinR2, startFlyInR2, updateFlyInR2, flyCameraR2, flySpotR2, flyStandR2, orderDrinkR2, serveDrinkR2, upgradeTraffic, upgradeVehicle, upgradeInteriorJet, upgradePlanJets, seatPlanJets, cleanup, frameAboard, frameJets, smokeSys, heroJet, ui, log, cabFrame, cabLoad, swapCabin };
   function install() {
     if (F.installed) return; F.installed = true; const I = () => F.impl;
     const orig = { buildCabin, warmCabin, startFlyIn, updateFlyIn, flyCamera, endFlyIn, flySpot, flyStand, orderDrink, serveDrink, spawnTrafficJet, ensureVehicle, furnish, makeLabel, makeBubble };
@@ -845,5 +953,5 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   if (!F.hooked) { F.hooked = true;
     window.PLAN_HOOKS.world.push({ name: "flyinWorld", fn: function () { F.install(); try { F.impl.upgradePlanJets(); } catch (e) { F.impl.log("plan jets", e); } } });
     window.PLAN_HOOKS.defer.push({ name: "flyinDefer", fn: function () { try { F.impl.seatPlanJets(); } catch (e) { F.impl.log("seat jets", e); } } });
-    window.PLAN_HOOKS.frame.push({ name: "flyinFrame", fn: function (dt) { const I = F.impl; if (F.active && !FLY.on) I.cleanup(); I.frameAboard(dt); I.frameJets(); } }); }
+    window.PLAN_HOOKS.frame.push({ name: "flyinFrame", fn: function (dt) { const I = F.impl; if (F.active && !FLY.on) I.cleanup(); if (I.cabFrame) I.cabFrame(); I.frameAboard(dt); I.frameJets(); } }); }
 })();
