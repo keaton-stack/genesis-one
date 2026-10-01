@@ -649,6 +649,8 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   // the palm aliases share the original's LOD geometry (it may load after the aliases were made)
   function aliasLod() { for (const k in ALIAS) { const a = ALIAS[k]; if (!MODELS[a]) continue; if (!MODELS[a].lodGeos && MODELS[k] && MODELS[k].lodGeos) MODELS[a].lodGeos = MODELS[k].lodGeos; const S = INSTSET.find((q) => q.kind === a); if (!S) continue;
       if (MODELS[a].lodGeos && !S.far) { try { attachLod(a); } catch (e) {} } if (S.far && S.lodR !== 42) { S.lodR = 42; S.n = -1; } } }
+  // P2A: a kind streamed in after the defer pass (plan_stream.js swaps its proxy for the full model) gets the same LOD treatment; each step skips what it already did
+  E.relod = function () { if (!E.done) return 0; aliasLod(); propLod(); lodDist(); return 1; };
   PLAN_HOOKS.defer.push({ name: "enrichDefer", fn: function enrichDefer() { if (!window.PLAN || !E.lateDone || E.done) return; E.done = true; mats();
     step("unbed", () => { for (let i = ROADS.length - 1; i >= 0; i--) if (ROADS[i].e1bed) ROADS.splice(i, 1); });
     step("aliasLod", aliasLod); step("propLod", propLod); step("lodDist", lodDist);
