@@ -444,7 +444,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     addGroup(g); OP.domeGroup = g; light(0xffd7a0, 1.3, 42, c[0], y0 + 9, c[1], "night"); OP.n.dome = edges.size;
   }
 
-  // ── the Dark Sky Observatory: red-light bollards on the spur and a stargazing pad ──
+  // ── the Outpost Observatory: red-light bollards on the spur and a stargazing pad ──
   function buildObservatory(Mm) {
     var sp = prom("observatory_spur"); var posts = [], caps = [], glows = [];
     if (sp) { var L = polyLen(sp.pts), w = sp.width || 6; for (var d = 1.5; d <= L; d += 3.5) { var s = at(sp.pts, d); for (var sd = -1; sd <= 1; sd += 2) { var x = s.x + s.rx * (w / 2 + 0.45) * sd, z = s.z + s.rz * (w / 2 + 0.45) * sd, y = getH(x, z); posts.push(mtx(x, y + 0.42, z)); caps.push(mtx(x, y + 0.86, z)); glows.push([x, y + 0.8, z, 0.7]); } } }
@@ -812,7 +812,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   TALK.host = { id: "host", name: "The Outpost host", role: "Launch Plaza · The Outpost", get g() { return HOST.g || HOST.stub; },
     talk: [{ t: "Welcome to The Outpost, the off-world end of the Horizon Line. I walk Launch Plaza in a surface suit so you know you have arrived. What would you like to see?", o: [["The Countdown", 1], ["The Genesis Ring", 2], ["Mission Control and the Dome", 3], ["What can I do out here?", 4], ["Thanks", null]] },
       { t: "Ten numbered light rings count down along the Launch Walk, one every 25 metres, from ring 10 at the Outpost Gate to ring 1 under the Genesis Ring. After dark the xeno-garden between them glows blue.", o: [["The Genesis Ring", 2], ["Something else", 0], ["Thanks", null]] },
-      { t: "The Genesis Ring stands 24 metres tall on its edge at the end of the line, lit a steady cyan at night. The Orbit Walk circles it past the eight planet fountains. From midnight to one it dims for the Dark Sky Observatory.", o: [["Mission Control and the Dome", 3], ["Something else", 0], ["Thanks", null]] },
+      { t: "The Genesis Ring stands 24 metres tall on its edge at the end of the line, lit a steady cyan at night. The Orbit Walk circles it past the eight planet fountains. From midnight to one it dims for the Outpost Observatory.", o: [["Mission Control and the Dome", 3], ["Something else", 0], ["Thanks", null]] },
       { t: "Mission Control faces Launch Plaza, the lander stands on its blast pad beside the walk, and the Genesis Dome keeps a desert garden under glass. Stratos Field and the Low-G Course are at the south end of The Outpost.", o: [["What can I do out here?", 4], ["The Countdown", 1], ["Thanks", null]] },
       { t: "Take a balloon up from Stratos Field and race the rings, try the Low-G Course where you jump higher, find the eight planet fountains on the Orbit Walk, and stay for the Launch Mist: the pad at the centre of this plaza fires every half minute.", o: [["The Genesis Ring", 2], ["Something else", 0], ["Thanks", null]] }] };
   // D3: she walks with the char_f walk and stands with the char_f idle, both retargeted onto the host rig with
@@ -880,7 +880,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // the countdown clock, once a second while anyone could read it
     if (OP.clockTex && now - lastClock > 1000) { lastClock = now; var ck = OP.pos.clock; if (ck && Math.hypot(ck[0] - camera.position.x, ck[1] - camera.position.z) < 320) { var st = clockState(); if (st.key !== OP.clockKey) { OP.clockKey = st.key; var cv = OP.clockTex.userData.canvas; clockDraw(cv.getContext("2d"), cv.width, cv.height, st); OP.clockTex.needsUpdate = true; } } }
     // tell the player once when the dark-sky hour starts while they are in The Outpost
-    if (ds > 0.5 && !dsMsg) { dsMsg = true; try { if (OP.pos.ring && Math.hypot(OP.pos.ring[0] - camera.position.x, OP.pos.ring[1] - camera.position.z) < 500) logLine("The Outpost", "The dark-sky hour has begun: the Ring and the Countdown dim for the Dark Sky Observatory."); } catch (e) {} }
+    if (ds > 0.5 && !dsMsg) { dsMsg = true; try { if (OP.pos.ring && Math.hypot(OP.pos.ring[0] - camera.position.x, OP.pos.ring[1] - camera.position.z) < 500) logLine("The Outpost", "The dark-sky hour has begun: the Ring and the Countdown dim for the Outpost Observatory."); } catch (e) {} }
     if (ds < 0.2) dsMsg = false;
   }
 

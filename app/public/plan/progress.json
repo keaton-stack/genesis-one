@@ -43,7 +43,8 @@
     { "id": "rodeo", "n": 7, "name": "Bull Ride" },
     { "id": "dance", "n": 8, "name": "Dance Battle" },
     { "id": "brace", "n": 9, "name": "Balloon Race" },
-    { "id": "arcade", "n": 10, "name": "Arcade prize" }
+    { "id": "arcade", "n": 10, "name": "Arcade prize" },
+    { "id": "stargaze", "n": 11, "name": "Stargazing session" }
   ],
   "rides": [
     { "id": "rover", "n": 0, "name": "Outpost Rover" },
@@ -192,6 +193,12 @@
       { "n": 197, "id": "t_ada", "talk": "ada", "kind": "local" },
       { "n": 198, "id": "t_nate", "talk": "nate", "kind": "local" },
       { "n": 199, "id": "t_bo", "talk": "bo", "kind": "local" }
+    ] },
+    { "id": "darksky", "n": 11, "name": "The Dark Sky", "sub": "The Stargazer Pyramids and the Solport Dark Sky Observatory", "ink": "#2b2f6b", "stamps": [
+      { "n": 200, "id": "p_stargazer_pyramids", "name": "The Stargazer Pyramids", "x": 742, "z": 800, "r": 34 },
+      { "n": 201, "id": "p_dark_sky_observatory", "name": "Solport Dark Sky Observatory", "x": 772, "z": 772, "r": 13 },
+      { "n": 202, "id": "p_first_stargaze", "name": "First stargazing session", "x": 772, "z": 772, "r": 0.3 },
+      { "n": 203, "id": "t_astronomer", "talk": "astronomer", "kind": "local", "name": "Dr. Celeste Ruiz", "org": "Solport Dark Sky Observatory" }
     ] }
   ],
   "titles": [
@@ -206,6 +213,7 @@
     { "id": "friend_of_the_park", "name": "Friend of the Park", "unlock": "chapter:park" },
     { "id": "partner_circle", "name": "Partner Circle", "unlock": "chapter:partners" },
     { "id": "good_neighbour", "name": "Good Neighbour", "unlock": "chapter:locals" },
+    { "id": "stargazer", "name": "Stargazer", "unlock": "chapter:darksky" },
     { "id": "regular_flyer", "name": "Regular Flyer", "unlock": "streak:7" },
     { "id": "sol_voyager", "name": "Sol Voyager", "unlock": "passport" }
   ],

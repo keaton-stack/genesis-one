@@ -318,8 +318,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // no shadow pass) and their mask back on the way out; instances are dropped from the instance buffers the client fills.
   var IC = P.ic = { kind: null, key: null, sig: 0, quads: [], boxes: [], np: 0, all: true, at: 0, cam: new THREE.Vector3(1e9, 0, 0), M: new THREE.Matrix4(), inv: new THREE.Matrix4(), invS: 1, cands: [], nObj: 0, nInst: 0, roots: [] };
   var PL = new Float64Array(64 * 20), _v = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _n = new THREE.Vector3(), _mc = new THREE.Vector3(), _s = new THREE.Sphere(), _bx = new THREE.Box3(), _m4 = new THREE.Matrix4();
-  function roomKey() { try { var ins = inside; if (ins) { if (ins.hgr) return ins.hgr; if (ins.int3) return ins.int3; if (ins.g) return ins.g; } } catch (e) {} var GB = window.PLAN_GBANK; if (GB && GB.site && (GB.zoneNow === 2 || GB.zoneNow === 3)) return GB; return null; }
-  function roomSig(k) { try { if (inside && inside.hgr === k) return k.open > 0.02 ? 2 : 1; } catch (e) {} if (k && k.zoneNow) return k.zoneNow; return 0; }
+  function roomKey() { try { var ins = inside; if (ins) { if (ins.hgr) return ins.hgr; if (ins.int3) return ins.int3; if (ins.g) return ins.g; } } catch (e) {} var GB = window.PLAN_GBANK; if (GB && GB.site && (GB.zoneNow === 2 || GB.zoneNow === 3)) return GB;
+    var RH = P.rooms; if (RH) for (var i = 0; i < RH.length; i++) { try { var rk = RH[i].key(); if (rk) return rk; } catch (e) {} }   // R4: module rooms (PLAN_PERF.rooms [{ name, key() }], the key has perfRoom(R) and perfSig())
+    return null; }
+  function roomSig(k) { try { if (inside && inside.hgr === k) return k.open > 0.02 ? 2 : 1; } catch (e) {} if (k && typeof k.perfSig === "function") { try { return k.perfSig(); } catch (e) { return 0; } } if (k && k.zoneNow) return k.zoneNow; return 0; }
   // rectangles in a room frame: ax "x" = the plane z = c (a: x, b: y), "z" = the plane x = c (a: z, b: y), "y" = the plane y = c (a: x, b: z)
   function R(ax, c, a0, a1, b0, b1) { return { ax: ax, c: c, a0: Math.min(a0, a1), a1: Math.max(a0, a1), b0: Math.min(b0, b1), b1: Math.max(b0, b1) }; }
   function mergeRects(list) { var out = []; list.forEach(function (r) { for (var i = 0; i < out.length; i++) { var o = out[i]; if (o.ax === r.ax && Math.abs(o.c - r.c) < 0.35) { o.a0 = Math.min(o.a0, r.a0); o.a1 = Math.max(o.a1, r.a1); o.b0 = Math.min(o.b0, r.b0); o.b1 = Math.max(o.b1, r.b1); return; } } out.push(R(r.ax, r.c, r.a0, r.a1, r.b0, r.b1)); }); return out; }
@@ -329,6 +331,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (mn === sz) out.push(R("x", (_bx.min.z + _bx.max.z) / 2, _bx.min.x, _bx.max.x, _bx.min.y, _bx.max.y)); else if (mn === sx) out.push(R("z", (_bx.min.x + _bx.max.x) / 2, _bx.min.z, _bx.max.z, _bx.min.y, _bx.max.y)); else out.push(R("y", (_bx.min.y + _bx.max.y) / 2, _bx.min.x, _bx.max.x, _bx.min.z, _bx.max.z)); }); return out; }
   // the room the camera is in: its frame, its boxes (the camera must be in one of them) and its openings
   function describe(k) {
+    if (k && typeof k.perfRoom === "function") { var Dm = k.perfRoom(R); if (Dm) return Dm; }   // R4: a module room describes itself
     var D = { kind: null, M: new THREE.Matrix4(), boxes: [], rects: [], roots: [] };
     if (inside && inside.hgr === k && k.L) { var L = k.L; D.kind = "hangar"; L.g.updateMatrixWorld(true); D.M.copy(L.g.matrixWorld); D.roots.push(L.g);
       D.boxes.push([L.xL - 0.3, L.xR + 0.3, -1, L.Hc + 1.5, L.zB - 0.3, L.zF + 0.6]);

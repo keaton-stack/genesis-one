@@ -57,3 +57,29 @@ Terrain layers (plan_gfx.js, round 3 graphics pass): Poly Haven (polyhaven.com),
 gfx_caliche, gfx_caliche_n: dry_ground_01 (Rob Tuytel)
 gfx_sand, gfx_sand_n: dense_sand (Dimitrios Savva)
 gfx_gravel, gfx_gravel_n: rocky_trail_02 (Amal Kumar)
+
+Night sky (plan_gfx.js, round 4 sky pass), files in tex/sky/:
+sky_l_8k.jpg, sky_l_4k.jpg, sky_l_2k.jpg (luminance), sky_c_2k.jpg, sky_c_1k.jpg (colour): NASA/Goddard Space Flight Center Scientific
+  Visualization Studio, "Deep Star Maps 2020" (Ernie Wright), https://svs.gsfc.nasa.gov/4851 . Public domain (NASA media usage guidelines).
+  Built from the Hipparcos-2, Tycho-2 and Gaia DR2 catalogs (with the Yale Bright Star Catalog, UCAC3 and XHIP). Re-encoded: the stars
+  brighter than magnitude 8 removed (they are drawn from stars.bin), an asinh-stretched luminance plus a low-resolution chroma layer.
+stars.bin (41,411 stars to magnitude 8: position, magnitude, B-V colour) and const.json (IAU constellation figures and names):
+  d3-celestial by Olaf Frohn, https://github.com/ofrohn/d3-celestial , BSD 3-Clause licence, Copyright (c) 2015, Olaf Frohn. All rights
+  reserved. Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following
+  conditions are met: redistributions of source code must retain the above copyright notice, this list of conditions and the following
+  disclaimer; redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+  disclaimer in the documentation and/or other materials provided with the distribution; neither the name of the copyright holder nor
+  the names of its contributors may be used to endorse or promote products derived from this software without specific prior written
+  permission. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES ARE
+  DISCLAIMED. (d3-celestial's star data derive from the Hipparcos catalogue, ESA 1997.)
+moon_1k.jpg, moon_2k.jpg: NASA's Scientific Visualization Studio, "CGI Moon Kit" (Ernie Wright), https://svs.gsfc.nasa.gov/4720 ,
+  LRO Camera (LROC) colour mosaic, public domain.
+tele_m42.jpg: NASA, ESA, M. Robberto (Space Telescope Science Institute/ESA) and the Hubble Space Telescope Orion Treasury Project
+  Team, https://esahubble.org/images/heic0601a/ , CC BY 4.0.
+tele_m31.jpg: NASA, ESA, Digitized Sky Survey 2 (Acknowledgement: Davide De Martin), https://esahubble.org/images/heic1502b/ , CC BY 4.0.
+tele_m13.jpg: NASA, ESA, and the Hubble Heritage Team (STScI/AURA), https://esahubble.org/images/opo0840a/ , CC BY 4.0.
+tele_jupiter.jpg: NASA, ESA, A. Simon (Goddard Space Flight Center), and M. H. Wong (University of California, Berkeley),
+  https://esahubble.org/images/heic2017a/ , CC BY 4.0 (cropped to the disc).
+Ephemerides: JPL "Keplerian Elements for Approximate Positions of the Major Planets" (E. M. Standish), the Moon after P. Schlyter's
+  "How to compute planetary positions", Jupiter's moons after J. Meeus, Astronomical Algorithms (low-accuracy method); code written
+  for this project.

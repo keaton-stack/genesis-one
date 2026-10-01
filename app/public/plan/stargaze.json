@@ -1,0 +1,141 @@
+{
+  "_about": "The Stargazer Pyramids and the Solport Dark Sky Observatory (plan_stargaze.js). Every name, line of copy, size, light level and position is here so it can be changed without touching code. World metres: x = east, z = south. rot is the yaw in degrees (180 = the deck and door face north). Rules: no em dashes, no prices, no percentages, no investment language. If you move the site, also move the three stamps of the 'darksky' chapter in plan/progress.json.",
+  "names": {
+    "retreat": "The Stargazer Pyramids",
+    "retreatShort": "Stargazer Pyramids",
+    "observatory": "Solport Dark Sky Observatory",
+    "modelPyramid": "The Model Pyramid",
+    "amphitheatre": "The Star Theatre",
+    "terrace": "The Stargazing Terrace",
+    "zone": "A dark sky retreat · Stage Three · The Expanse"
+  },
+  "sign": {
+    "line1": "THE STARGAZER PYRAMIDS",
+    "line2": "A DARK SKY RETREAT",
+    "line3": "SOLPORT DARK SKY OBSERVATORY"
+  },
+  "site": {
+    "rot": 180,
+    "deckHeight": 0.95,
+    "hub": [742, 800],
+    "zoneRadius": 105,
+    "zoneCenter": [716, 800],
+    "lot": { "x": 670, "z": 806.2, "w": 24, "d": 12, "rot": 8.7, "bays": 6, "carts": 3, "rover": 1 },
+    "signAt": { "x": 684.5, "z": 801.5, "rot": 98 },
+    "observatory": { "x": 772, "z": 772, "r": 4.6, "domeR": 4.75, "wallH": 4.2, "doorToward": [764, 804] },
+    "amphitheatre": { "x": 754, "z": 792, "toward": [772, 772], "tiers": [5.2, 6.7, 8.2], "arc": 230 },
+    "terrace": { "x": 786, "z": 750, "r": 8.6, "loungers": 10 },
+    "astronomer": { "x": 760.5, "z": 786.5 }
+  },
+  "sizes": {
+    "L": { "label": "800 sq ft pyramid", "side": 8.62, "height": 7.05, "back": 0.8, "front": 6.4, "sideMargin": 1.2, "rows": 6, "cols": 8, "stepsX": 3.6, "tubX": -3.0, "tubZ": 3.0, "fireX": 1.9, "fireZ": 2.6 },
+    "S": { "label": "500 sq ft pyramid", "side": 6.82, "height": 5.6, "back": 0.7, "front": 5.4, "sideMargin": 1.1, "rows": 5, "cols": 6, "stepsX": 2.8, "tubX": -2.35, "tubZ": 2.5, "fireX": 1.45, "fireZ": 2.2 }
+  },
+  "pyramids": [
+    { "id": "P1", "size": "S", "x": 603, "z": 858 },
+    { "id": "P2", "size": "L", "x": 626, "z": 852 },
+    { "id": "P3", "size": "S", "x": 648, "z": 846 },
+    { "id": "P4", "size": "L", "x": 671, "z": 842 },
+    { "id": "P5", "size": "S", "x": 694, "z": 835 },
+    { "id": "P10", "size": "L", "x": 716, "z": 832 },
+    { "id": "P11", "size": "S", "x": 738, "z": 828 },
+    { "id": "P6", "size": "L", "x": 760, "z": 824, "open": true, "model": true },
+    { "id": "P7", "size": "S", "x": 783, "z": 818 },
+    { "id": "P12", "size": "L", "x": 778, "z": 848 },
+    { "id": "P8", "size": "S", "x": 795, "z": 730 },
+    { "id": "P9", "size": "S", "x": 757, "z": 756 },
+    { "id": "P13", "size": "S", "x": 805, "z": 788 },
+    { "id": "P14", "size": "L", "x": 735, "z": 790, "open": true }
+  ],
+  "paths": [
+    { "id": "lot", "pts": [[671.5, 812.6], [672.6, 816.5], [672.2, 821.4]] },
+    { "id": "campus", "pts": [[761.5, 805.2], [763.2, 798], [766.8, 790.5], [769.4, 783], [770.8, 777.8]] },
+    { "id": "amph", "pts": [[763.2, 798], [759.5, 799.6], [756.5, 800.4]] },
+    { "id": "terrace", "pts": [[776.4, 768.6], [780.5, 763.5], [783.2, 758.6]] },
+    { "id": "p14", "pts": [[731.4, 777.4], [727.2, 780.2], [724.6, 787.5], [725.4, 796.4], [728.6, 804.6], [729.2, 809.8]] },
+    { "id": "p14amph", "pts": [[725.4, 796.4], [733.5, 799.5], [741.8, 799.2], [745.2, 797.6]] },
+    { "id": "p9", "pts": [[754.2, 745.3], [749.6, 747.6], [747.4, 754.5], [748.6, 763.2], [755.5, 769.6], [762.6, 773.8], [767.3, 775.6]] },
+    { "id": "p8", "pts": [[792.2, 719.3], [787.4, 721.2], [783.2, 727.5], [781.8, 735.4], [783.6, 741.6]] },
+    { "id": "p13", "pts": [[802.2, 777.3], [797.2, 775.6], [790.6, 774.8], [783.8, 774.9], [777.2, 773.6]] }
+  ],
+  "vegetation": { "perPyramid": 9, "campus": 26, "seed": 1977 },
+  "light": {
+    "bollardSpacing": 8.5,
+    "bollardColor": "#ff9e52",
+    "glowColor": "#ffc483",
+    "glassGlow": 2.5,
+    "tubColor": "#38c8ff",
+    "domeRed": "#ff3a2a"
+  },
+  "stargaze": {
+    "settleSeconds": 2.6,
+    "fov": 72,
+    "telescopeFov": 6,
+    "firstSessionSeconds": 8,
+    "ambientVolume": 0.22,
+    "keys": { "constellations": "C", "telescope": "T", "timelapse": "L", "exit": "Esc or E" },
+    "ui": {
+      "title": "Stargazing",
+      "hint": "Drag to look around · C constellations · T telescope · L star trails · 1 to 9 point at a target · Esc or E to get up",
+      "upTonight": "Up tonight",
+      "noTargets": "Look up: the sky above Douglas, Arizona",
+      "constellationsOn": "Constellations on",
+      "constellationsOff": "Constellations off",
+      "telescope": "Telescope",
+      "timelapse": "Star trails",
+      "exit": "Get up",
+      "daytime": "The stars come out after sunset. Come back after dark, or lie back and watch the sky turn."
+    }
+  },
+  "prompts": {
+    "bed": "lie back on the bed and stargaze",
+    "lounger": "lie back and stargaze",
+    "terrace": "lie back on a lounger and stargaze",
+    "telescope": "look through the telescope",
+    "obsTelescope": "look through the observatory telescope",
+    "glassClear": "switch the smart glass to frosted",
+    "glassFrost": "switch the smart glass to clear",
+    "doorOpen": "close the door · or walk in",
+    "doorShut": "open the door",
+    "locked": "occupied tonight · the guests have frosted the glass",
+    "tub": "slip into the hot tub",
+    "fire": "sit by the fire"
+  },
+  "info": {
+    "sign": { "t": "The Stargazer Pyramids", "k": "A dark sky retreat · Stage Three · The Expanse", "p": "Fourteen glass pyramids on raised timber decks in the desert of the Ridge Arroyo, each with panoramic triple pane glass, smart glass that switches from clear to frosted, a telescope by the glass, a king bed under the stars, and a private deck with a hot tub and a fire pit. The Solport Dark Sky Observatory sits at the heart of the retreat. Every light out here is shielded, amber and pointed down." },
+    "observatory": { "t": "Solport Dark Sky Observatory", "k": "Dome, telescope, theatre and terrace", "p": "The dome opens its slit after sunset. Inside, a large reflecting telescope tracks tonight's targets under dim red light that keeps your night vision. Talks run at the Star Theatre beside the dome, and the Stargazing Terrace has loungers for anyone who wants to lie back and look up." },
+    "terrace": { "t": "The Stargazing Terrace", "k": "Lie back · E on any lounger", "p": "A ring of zero gravity loungers on a gravel terrace with almost no light of its own. Lie back, let your eyes adapt, and look up. The bronze compass rose in the centre shows north, where Polaris holds still while the sky turns around it." },
+    "theatre": { "t": "The Star Theatre", "k": "Astronomy talks around the fire", "p": "Stone tiers around a fire pit lounge, open toward the dome. The resident astronomer gives short talks here after dark about what is up tonight." },
+    "model": { "t": "The Model Pyramid", "k": "Open for anyone to walk through", "p": "Walk in through the glass door: a king bed that faces up through the glass, a lounge with a sofa and a fireplace, a dining table, a full kitchen with an espresso machine, a spa bathroom with a rain shower and a telescope by the glass. Switch the smart glass from clear to frosted by the door." }
+  },
+  "rooms": {
+    "bed": ["The bed", "A king bed under the apex", "The bed faces up through the glass so you fall asleep under the Milky Way. Press E to lie back and stargaze."],
+    "lounge": ["The lounge", "Sofa and fireplace", "A deep sofa in front of a suspended fireplace, warm enough for a desert winter night."],
+    "kitchen": ["The kitchen", "Full kitchen with an espresso machine", "A stone counter, an induction cooktop, a small fridge drawer and an espresso machine for the morning after a late night."],
+    "bath": ["The spa bathroom", "Rain shower behind frosted glass", "A rain shower, a stone vessel basin and a frosted glass screen that keeps the stars in view above it."],
+    "dining": ["The dining table", "Dinner for two under the apex", "A walnut table for two with the whole sky as the ceiling."]
+  },
+  "astronomer": {
+    "id": "astronomer",
+    "name": "Dr. Celeste Ruiz",
+    "role": "Resident Astronomer · Solport Dark Sky Observatory",
+    "look": { "skin": "c98f63", "shirt": "1d2a3a", "pants": "1c1f24", "hair": 2, "body": "f" },
+    "greet": ["Give your eyes twenty minutes. The sky keeps getting better.", "Clear skies tonight. Come and look.", "Red light only out here, it keeps your night vision."],
+    "talk": [
+      { "t": "Welcome to the Solport Dark Sky Observatory. Out here, on a moonless night, the Milky Way is bright enough to cast a faint glow on the sand. What would you like to know?", "o": [["What is up tonight?", 1], ["Why is it so dark here?", 2], ["How do I stargaze here?", 3], ["Tell me about the pyramids", 4], ["Thanks", null]] },
+      { "t": "{tonight}", "o": [["How do I find them?", 3], ["Why is it so dark here?", 2], ["Thanks", null]] },
+      { "t": "Southern Arizona is one of the best stargazing regions in the country: high desert, dry air and very few city lights. Every fixture at the retreat is shielded, amber and pointed down, so no light goes up into the sky. Give your eyes twenty to thirty minutes in the dark and you will see several times more stars. Red light does not undo that, which is why the dome glows red inside.", "o": [["What is up tonight?", 1], ["How do I stargaze here?", 3], ["Thanks", null]] },
+      { "t": "Lie back on any lounger on the terrace, or on the bed in the Model Pyramid, and press E. Drag to look around the sky. C draws the constellations, T puts you behind the telescope, L runs a short star trail time lapse, and the list of what is up tonight swings your view onto a target. E or Esc to get up again.", "o": [["What is up tonight?", 1], ["Tell me about the pyramids", 4], ["Thanks", null]] },
+      { "t": "Fourteen glass pyramids, some about five hundred square feet and some about eight hundred, each on its own timber deck with a hot tub and a fire pit. The glass is triple pane, and the smart glass switches from clear to frosted when you want privacy. The Model Pyramid next to the theatre is open to everyone.", "o": [["What is up tonight?", 1], ["Thanks", null]] }
+    ],
+    "tonightFallback": "Tonight, look north for Polaris, which holds still while everything else wheels around it, and follow the Milky Way from horizon to horizon. Lie back on a lounger and give your eyes a few minutes.",
+    "tonightIntro": "Tonight from Douglas:",
+    "kw": [["star|sky|planet|moon|telescope|milky", "Lie back on a lounger and press E. The list of what is up tonight points you straight at it."], ["hello|hi|hey", "Good evening. Clear skies."]]
+  },
+  "progress": {
+    "stampRetreat": "p_stargazer_pyramids",
+    "stampObservatory": "p_dark_sky_observatory",
+    "stampFirst": "p_first_stargaze",
+    "activity": "stargaze"
+  }
+}

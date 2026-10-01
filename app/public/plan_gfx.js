@@ -28,7 +28,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       sky: [2.0, 1.75, 0.0035, 0.82],   // Preetham: turbidity, rayleigh, mie coefficient, mie g (clear high-desert air)
       skyExpo: 0.42, skyKnee: 0.78, skyCap: 1.12, envDesat: 0.25, envK: 0.9,
       cloudN: 64, stormCells: 6, rainN: 10, dustN: 6,
-      aoRadius: 0.62, heat: 0.003, ssr: 0.6, shaft: 1.3
+      aoRadius: 0.62, heat: 0.003, ssr: 0.6, shaft: 1.3,
+      // R4 sky: the Moon (size x real, brightness), the map (black point, gamma, gain, saturation), the catalogue stars, the night key light
+      sk: { moonScale: 3.0, moonLit: 1.5, moonTele: 1.0, moonSky: 0.8, airglow: 1.0, mapBlack: 0.1, mapGamma: 3.0, mapGain: 2.0, mapSat: 0.75, mapShoulder: 0.55, mapLocal: 0.85, hpThresh: 0.02, hpGain: 2.6, pebbleDark: 0.12, dither: 0.03, starLim: 7.7, starMaxLow: 7.0, starGain: 2.0, grainPx: 4.5, grainBase: 0.015, grainDens: 3.2, grainGain: 0.32, starKey: 0.1, starFill: 0.62, liftDark: 0.0015, moonKey: 0.45, moonFill: 0.65, fogNight: [0.011, 0.02, 0.046], fogMoon: [0.06, 0.068, 0.085], envNight: 0.028, starCol: [0.92, 0.86, 0.78], moonCol: [0.86, 0.9, 1.0], fillCol: [0.52, 0.51, 0.54], fillNeutral: 0.75, nightCloud0: 0.04, nightCloud1: 0.35, conLine: 0.7, skySat: 1.15, trailGain: 1.0, teleGain: 4.0, teleLim: 5.0, teleMip: 0.5, teleBlack: 0.2, teleMapGain: 0.7, planetTele: [1, 1, 1, 1, 1] }
     }
   };
   function note(w, e) { var m = w + ": " + (e && e.message ? e.message : e); GX.errs.push(m); if (GX.errs.length <= 8) console.warn("[gfx] " + m); }
@@ -43,6 +45,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   GX.addReflectiveFloor = function (obj, opts) { var h = { obj: obj, opts: opts || {}, id: "f" + (pending.floors.length + GX.floors.length + 1), removed: false, remove: function () { h.removed = true; try { removeFloor(h); } catch (e) {} } }; if (!GX.on) return h; if (!GX.installed) { pending.floors.push(h); return h; } try { addFloor(h); } catch (e) { note("addReflectiveFloor", e); } return h; };
   GX.addSunShaft = function (opts) { var h = { opts: opts || {}, removed: false, remove: function () { h.removed = true; try { removeShaft(h); } catch (e) {} } }; if (!GX.on) return h; if (!GX.installed) { pending.shafts.push(h); return h; } try { addShaft(h); } catch (e) { note("addSunShaft", e); } return h; };
   GX.setStorm = function (k) { GX.storm.force = k === null || k === undefined ? null : clamp(+k, 0, 1); return GX.storm.force; };
+  // window.PLAN_SKY (the stargazing API, R4): created here so it exists (inert) even with ?gfx=0; kept across a hot reload
+  var PS_API = (window.PLAN_SKY && window.PLAN_SKY._gfx) ? window.PLAN_SKY : { _gfx: 1, _q: [] }; window.PLAN_SKY = PS_API;
+  PS_API.version = 1; PS_API.ready = false; PS_API.mapReady = false; PS_API.lightK = 1; PS_API._q = PS_API._q || [];
+  PS_API.onReady = function (cb) { if (PS_API.ready) { try { cb(PS_API); } catch (e) {} } else PS_API._q.push(cb); };
+  ['setStargaze', 'constellations', 'timeLapse', 'setDate', 'meteor', 'dirTo', 'altAz', 'telescopeView', 'moon', 'now'].forEach(function (k) { PS_API[k] = function () { return null; }; });
+  PS_API.targets = function () { return []; }; PS_API.planets = function () { return []; }; PS_API.state = function () { return { ready: false, off: OFF }; };
   if (OFF) { GX.disabled = true; return; }
 
   // tier: 0 low / phone, 1 medium desktop, 2 high and ultra
@@ -60,6 +68,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var SKY_FRAG = [
     "uniform float uShift; uniform sampler2D tMilky; uniform float kDusk; uniform float kNight; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunCol; uniform float glow;",
     "uniform vec3 uMoonDir; uniform float uStorm; uniform float uFlash; uniform float uTime; uniform vec4 uSkyK; uniform float uSkyExpo; uniform vec3 uKnee; uniform float uEnv; uniform vec3 uStormCol; uniform vec3 uFlashDir; uniform float uGfx;",
+    // R4: the sky matrix (world -> J2000), the NASA star map (stretched luminance + chroma), the Moon, meteors, the telescope switches
+    "uniform mat3 uW2E; uniform sampler2D tSkyL; uniform sampler2D tSkyC; uniform sampler2D tMoon; uniform vec4 uMap; uniform vec4 uMap2; uniform vec4 uMap3; uniform vec4 uMap4; uniform vec4 uMap5; uniform vec4 uNightK; uniform vec3 uMoonSun; uniform vec3 uMoonN; uniform vec4 uMoonP; uniform vec3 uMoonTint; uniform vec4 uMetA[2]; uniform vec4 uMetB[2]; uniform vec4 uTele;",
     "varying vec3 vDir;",
     GLSL_NOISE,
     "const float PI = 3.141592653589793;",
@@ -76,17 +86,40 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "  return (Lin + 0.1 * Fex) * 0.04 + vec3(0.0, 0.0003, 0.00075); }",
     // luminance knee: keeps the bright horizon band under the bloom threshold without flattening the blue zenith
     "vec3 knee(vec3 c){ float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); if (l <= uKnee.x) return c; float l2 = uKnee.x + (uKnee.y - uKnee.x) * (1.0 - exp(-(l - uKnee.x) / max(1e-3, uKnee.y - uKnee.x))); return c * (l2 / l); }",
-    "vec3 stars(vec3 d){ vec3 p = d * 190.0; vec3 id = floor(p); float h = gHash3(id); if (h < 0.991) return vec3(0.0);",
-    "  vec3 sp = (id + 0.25 + 0.5 * vec3(gHash3(id + 1.3), gHash3(id + 2.7), gHash3(id + 5.1))) / 190.0; vec3 sd = normalize(sp); float a = length(d - sd);",
-    "  float px = max(length(fwidth(d)), 1e-5); float sz = px * 0.6; float b = pow((h - 0.991) / 0.009, 4.0) * 1.3 + 0.06;",
-    "  float tw = 0.72 + 0.28 * sin(uTime * (2.0 + 5.0 * gHash3(id + 9.1)) + h * 90.0); tw = mix(1.0, tw, 0.5 + 0.5 * (1.0 - smoothstep(0.05, 0.5, d.y)));",
-    "  vec3 col = mix(vec3(1.0, 0.82, 0.64), vec3(0.72, 0.82, 1.0), gHash3(id + 3.3));",
-    "  return col * b * tw * exp(-a * a / (sz * sz)) * smoothstep(0.0, 0.12, d.y); }",
-    "vec3 milky(vec3 d){ vec3 n = normalize(vec3(0.32, 0.5, 0.8)); float band = dot(d, n); float k = exp(-band * band * 16.0);",
-    "  vec3 core = normalize(vec3(-0.62, 0.35, 0.7)); float c = pow(max(0.0, dot(d, core)), 3.0);",
-    "  float n1 = gNoise3(d * 6.0) * 0.55 + gNoise3(d * 15.0 + 3.7) * 0.3 + gNoise3(d * 38.0) * 0.15; float lane = smoothstep(0.28, 0.62, gNoise3(d * 9.0 + 9.1)) * exp(-band * band * 70.0);",
-    "  float m = k * (0.25 + 0.75 * smoothstep(0.35, 0.85, n1)) * (1.0 - 0.7 * lane) * (0.55 + 0.9 * c);",
-    "  return vec3(0.62, 0.64, 0.78) * m * 0.11 + vec3(0.8, 0.66, 0.5) * c * k * 0.03; }",
+    // procedural stars in the J2000 frame: the fallback until the catalogue is in (uMap2.y) and the faint field in the telescope (uTele.z cells)
+    "vec3 stars(vec3 d, float sc, float thr){ vec3 p = d * sc; vec3 id = floor(p); float h = gHash3(id); if (h < thr) return vec3(0.0);",
+    "  vec3 sp = (id + 0.25 + 0.5 * vec3(gHash3(id + 1.3), gHash3(id + 2.7), gHash3(id + 5.1))) / sc; vec3 sd = normalize(sp); float a = length(d - sd);",
+    "  float px = max(length(fwidth(d)), 1e-7); float u = (h - thr) / max(1.0 - thr, 1e-4); float sz = px * (0.5 + 0.3 * u); float b = pow(u, 6.0) * 1.8 + 0.035 + 0.05 * gHash3(id + 7.1);",
+    "  vec3 col = mix(vec3(1.0, 0.88, 0.76), vec3(0.74, 0.86, 1.12), smoothstep(0.25, 0.6, gHash3(id + 3.3))); return col * b * exp(-a * a / (sz * sz)); }",
+    // the procedural Milky Way (until the star map is in), laid on the real galactic plane so the cross-fade does not move it
+    "vec3 milkyP(vec3 e){ const vec3 NGP = vec3(-0.86766, -0.19807, 0.45599); const vec3 GC = vec3(-0.05487, -0.87343, -0.48385); float band = dot(e, NGP); float k = exp(-band * band * 16.0);",
+    "  float c = pow(max(0.0, dot(e, GC)), 3.0); float n1 = gNoise3(e * 6.0) * 0.55 + gNoise3(e * 15.0 + 3.7) * 0.3 + gNoise3(e * 38.0) * 0.15; float lane = smoothstep(0.28, 0.62, gNoise3(e * 9.0 + 9.1)) * exp(-band * band * 70.0);",
+    "  float m = k * (0.25 + 0.75 * smoothstep(0.35, 0.85, n1)) * (1.0 - 0.7 * lane) * (0.55 + 0.9 * c); return vec3(0.62, 0.64, 0.78) * m * 0.11 + vec3(0.8, 0.66, 0.5) * c * k * 0.03; }",
+    // the NASA map: equirectangular J2000, centred on 0h, RA increasing to the left; seam-safe gradients, sharp near the pole
+    "vec3 skyMap(vec3 e, out float L){ float ra = atan(e.y, e.x); float dec = asin(clamp(e.z, -1.0, 1.0)); float u1 = 0.5 - ra * 0.15915494; float u2 = fract(u1 + 0.5); float v = 0.5 - dec * 0.31830989;",
+    "  vec2 gx = vec2(dFdx(u1), dFdx(v)), gy = vec2(dFdy(u1), dFdy(v)); float ax = dFdx(u2), ay = dFdy(u2); if (max(abs(ax), abs(ay)) < max(abs(gx.x), abs(gy.x))) { gx.x = ax; gy.x = ay; }",
+    "  float vl = max(max(abs(gx.y), abs(gy.y)), 1e-7) * 16.0; gx.x = clamp(gx.x, -vl, vl); gy.x = clamp(gy.x, -vl, vl); ",
+    // three reads: the native map (s), a blurred one (sB: the glow without its stars) and a wide one (sW: the local mean for contrast)
+    "  vec2 uv = vec2(u1, v); float s, sB, sW; vec3 ch; float lod0 = log2(max(max(length(gx * uMap4.xy), length(gy * uMap4.xy)), 1e-4));",
+    "  if (uTele.x > 0.5) { s = textureLod(tSkyL, uv, uTele.w).r; sB = s; sW = textureLod(tSkyL, uv, uTele.w + 3.0).r; ch = textureLod(tSkyC, uv, max(uTele.w - 2.0, 0.0)).rgb; }",
+    "  else { s = textureGrad(tSkyL, uv, gx, gy).r; ch = textureGrad(tSkyC, uv, gx, gy).rgb; sB = uMap3.x > 0.5 ? textureLod(tSkyL, uv, max(lod0 + 1.2, 1.0)).r : s; sW = textureLod(tSkyL, uv, max(lod0 + 5.0, 4.6)).r; }",
+    // the glow: black point and gamma, local contrast against the wide field (deeper dust lanes, a brighter core), a soft shoulder
+    "  float g = pow(max(sB - uMap.y, 0.0) / (1.0 - uMap.y), uMap.z); float w = pow(max(sW - uMap.y, 0.0) / (1.0 - uMap.y), uMap.z);",
+    "  g *= pow(clamp((g + 0.003) / (w + 0.003), 0.2, 5.0), uMap3.y); g *= uMap.w; L = g / (1.0 + g / uMap2.z);",
+    // the faint star field: the high-pass of the native map (the stars below the catalogue's magnitude 8), squared to keep them crisp
+    "  float hp = max(s - sB - uMap3.z, 0.0); hp = pow(hp, 1.35) * uMap3.w;",
+    "  vec3 c = ch / max(dot(ch, vec3(0.2126, 0.7152, 0.0722)), 0.03); c = max(mix(vec3(1.0), c, uMap2.x), 0.0);",
+    // the look of a processed astrophoto: violet-blue outer glow, cream-gold core
+    "  float t1 = smoothstep(0.003, 0.08, L), t2 = smoothstep(0.1, 0.38, L); c = mix(vec3(1.0), c, 0.55 + 0.75 * t2);",
+    // a colour range like a processed astrophoto: blue-violet in the faint outer band, magenta-lavender in the body, cream-white core
+    "  c *= mix(mix(vec3(0.5, 0.64, 1.46), vec3(0.94, 0.72, 1.34), t1), vec3(1.16, 1.0, 0.98), t2);",
+    "  return c * L + vec3(0.82, 0.9, 1.14) * hp; }",
+    // meteors: a streak along a great circle with a bright head (two slots, uniform-driven, no draw call)
+    "vec3 meteor(vec3 d, vec4 A, vec4 B){ vec3 a = A.xyz, b = B.xyz; vec3 n = normalize(cross(a, b)); float off = dot(d, n); float px = max(length(fwidth(d)), 1e-6);",
+    "  float w = exp(-off * off / (px * px * 1.3)); if (w < 0.004) return vec3(0.0); vec3 dp = normalize(d - n * off); float tot = acos(clamp(dot(a, b), -1.0, 1.0));",
+    "  float s = atan(dot(cross(a, dp), n), dot(a, dp)) / max(tot, 1e-4); float hd = A.w; float body = smoothstep(hd - 0.5, hd, s) * step(s, hd) * smoothstep(0.0, 0.04, s); float head = exp(-pow((s - hd) * tot / (px * 1.5), 2.0)) * step(0.0, s);",
+    "  vec3 col = mix(vec3(0.86, 0.92, 1.0), vec3(0.62, 1.0, 0.72), smoothstep(1.8, 3.5, B.w)); return col * w * (body * 0.55 + head * 1.5) * B.w; }",
+    "vec3 meteors(vec3 d){ vec3 o = vec3(0.0); if (uMetB[0].w > 0.0) o += meteor(d, uMetA[0], uMetB[0]); if (uMetB[1].w > 0.0) o += meteor(d, uMetA[1], uMetB[1]); return o; }",
     "void main(){ vec3 d = normalize(vDir); vec3 s = normalize(sunDir); float sy = s.y; float h = max(d.y, 0.0);",
     // day: single scattering, eye-adapted scale from the CPU, knee
     "  vec3 dayC = knee(preetham(vec3(d.x, max(d.y, 0.0), d.z), s) * uSkyExpo);",
@@ -96,19 +129,29 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "  float venus = smoothstep(-0.12, -0.02, sy) * (1.0 - smoothstep(0.0, 0.06, h)) * pow(1.0 - toward, 3.0);",
     "  vec3 band = (mix(vec3(0.16, 0.19, 0.36), vec3(1.0, 0.46, 0.2), pow(toward, 2.4) * smoothstep(-0.3, -0.04, sy)) + vec3(0.3, 0.16, 0.24) * venus) * (1.0 - smoothstep(0.0, 0.28, h));",
     "  vec3 top = mix(vec3(0.05, 0.08, 0.2), vec3(0.09, 0.12, 0.26), pow(toward, 3.0)); vec3 twC = mix(band + top * smoothstep(0.0, 0.28, h), top, smoothstep(0.28, 0.9, h)) * (0.1 + 0.9 * smoothstep(-0.34, 0.0, sy));",
-    // night: airglow near the horizon, stars, Milky Way, moon
-    "  vec3 nightC = mix(vec3(0.085, 0.095, 0.13), vec3(0.011, 0.015, 0.034), smoothstep(-0.02, 0.55, d.y));",
-    // the towns to the south (Douglas, Agua Prieta) leave a faint warm dome on the horizon
-    "  nightC += vec3(0.05, 0.034, 0.018) * pow(max(0.0, dh.z), 2.0) * (1.0 - smoothstep(0.0, 0.16, h));",
-    "  float sa = uShift * 6.28318; vec3 dr = vec3(d.x * cos(sa) - d.z * sin(sa), d.y, d.x * sin(sa) + d.z * cos(sa));",
-    "  float nk = kNight * (1.0 - uStorm * 0.9);",
-    "  if (nk > 0.001 && uEnv < 0.5) { nightC += (milky(dr) + stars(dr)) * nk; }",
+    // night: a navy gradient with airglow near the horizon (uNightK.z), the towns' glow to the south (uNightK.w), the moonlit sky (uNightK.y)
+    "  vec3 nightC = mix(vec3(0.0168, 0.0323, 0.0711), vec3(0.0063, 0.0131, 0.0279), pow(smoothstep(-0.02, 0.5, d.y), 0.6)) * uNightK.z * (1.0 - 0.65 * uTele.x);",
+    "  nightC += vec3(0.05, 0.034, 0.018) * pow(max(0.0, dh.z), 2.0) * (1.0 - smoothstep(0.0, 0.16, h)) * uNightK.w;",
+    "  nightC += vec3(0.92, 0.92, 1.0) * uMap2.w * uEnv;",
+    // the probe only (above): starlight and airglow as ambient fill
+    "  if (uNightK.y > 0.0 && uTele.x < 0.5) { vec3 M0 = normalize(uMoonDir); float cm = max(dot(d, M0), 0.0); nightC += (vec3(0.016, 0.03, 0.068) * (0.7 + 0.5 * (1.0 - smoothstep(0.0, 0.5, h))) + vec3(0.05, 0.058, 0.07) * (pow(cm, 12.0) * 0.5 + pow(cm, 120.0) * 1.2)) * uNightK.y; }",
+    // the stars and the Milky Way (not in the light probe): extinction and reddening by airmass, faded at the horizon
+    "  float nk = kNight * (1.0 - uStorm * 0.9) * uNightK.x; vec3 bgS = vec3(0.0);",
+    "  if (nk > 0.001 && uEnv < 0.5) { vec3 e = normalize(uW2E * d);",
+    "    float altD = degrees(asin(clamp(d.y, -1.0, 1.0))); float X = 1.0 / (max(d.y, 0.0) + 0.50572 * pow(max(altD + 6.07995, 0.5), -1.6364)); vec3 ext = exp(-vec3(0.07, 0.11, 0.2) * (min(X, 40.0) - 1.0)) * smoothstep(-0.012, 0.035, d.y);",
+    "    vec3 mw = vec3(0.0); float L = 0.0; if (uMap.x > 0.001) mw = skyMap(e, L) * uMap.x; if (uMap.x < 0.999) mw += milkyP(e) * (1.0 - uMap.x);",
+    "    vec3 st = vec3(0.0); if (uMap2.y > 0.001) st += stars(e, 190.0, 0.991) * uMap2.y; if (uMap5.x > 1.0 && uTele.x < 0.5) st += stars(e, uMap5.x, 1.0 - clamp(uMap5.y + uMap5.z * L, 0.0, 0.5)) * uMap5.w; if (uTele.x > 0.5 && uTele.z > 1.0) st += stars(e, uTele.z, 1.0 - clamp(0.1 + 2.5 * L, 0.1, 0.55)) * 0.7;",
+    "    bgS = (mw + st) * ext * nk; nightC += bgS; if (uMetB[0].w + uMetB[1].w > 0.0) nightC += meteors(d) * ext * kNight * (1.0 - uStorm); }",
     "  vec3 sky = dayC * (1.0 - tw) + twC * tw; sky = mix(sky, nightC, kNight);",
-    // the moon: a lit sphere, phase from the real sun direction, maria, a soft halo
-    "  { vec3 M = normalize(uMoonDir); float md = dot(d, M); float mr = 0.0115; if (md > 0.99) { float ang = acos(clamp(md, -1.0, 1.0)); float mvis = smoothstep(0.35, 0.8, kNight + 0.25 * (1.0 - smoothstep(0.1, 0.4, sy))) * (1.0 - uStorm * 0.95);",
-    "      sky += vec3(0.55, 0.6, 0.72) * exp(-ang * 55.0) * 0.08 * mvis; if (ang < mr * 1.15) { vec3 mR = normalize(cross(M, vec3(0.0, 1.0, 0.0))); vec3 mU = cross(mR, M); vec2 q = vec2(dot(d, mR), dot(d, mU)) / mr; float q2 = dot(q, q);",
-    "        if (q2 < 1.0) { vec3 n = mR * q.x + mU * q.y + M * sqrt(1.0 - q2); float lit = smoothstep(-0.06, 0.12, dot(n, s)); float mar = 0.72 + 0.28 * smoothstep(0.35, 0.7, gNoise(q * 2.2 + 3.0)) - 0.1 * smoothstep(0.55, 0.8, gNoise(q * 6.0 + 1.0));",
-    "          vec3 moon = vec3(1.0, 0.97, 0.9) * mar * (lit * 1.6 + 0.015) * (0.9 + 0.1 * sqrt(1.0 - q2)); float edge = smoothstep(1.0, 0.9, q2); sky = mix(sky, moon, edge * mvis); } } } }",
+    // the Moon at its real place: a lit sphere with the NASA LRO albedo, the phase from the real Sun, earthshine on the dark side, a halo
+    "  { vec3 M = normalize(uMoonDir); float md = dot(d, M); float mr = uMoonP.x; float mvis = uMoonP.z * (1.0 - uStorm * 0.95); if (mvis > 0.001 && md > cos(min(mr * 9.0, 1.5))) { float ang = acos(clamp(md, -1.0, 1.0));",
+    "      if (uEnv < 0.5) sky += uMoonTint * (exp(-ang / (mr * 1.7)) * 0.05 + exp(-ang / (mr * 7.0)) * 0.012) * uMoonP.y * mvis * (1.0 - 0.9 * uTele.x);",
+    "      if (ang < mr * 1.05) { vec3 Np = normalize(uMoonN - M * dot(uMoonN, M)); vec3 Lx = cross(M, Np); vec2 q = vec2(dot(d, Lx), dot(d, Np)) / mr; float q2 = dot(q, q);",
+    "        if (q2 < 1.0) { float z = sqrt(1.0 - q2); vec3 n = Lx * q.x + Np * q.y - M * z; float lat = asin(clamp(q.y, -1.0, 1.0)); float lon = atan(q.x, z);",
+    "          float alb = texture2D(tMoon, vec2(0.5 + lon * 0.15915494, 0.5 - lat * 0.31830989)).g; alb = pow(alb, 1.55) * 1.5; float mu = dot(n, normalize(uMoonSun));",
+    "          float lit = smoothstep(-0.015, 0.05, mu) * (0.8 + 0.2 * sqrt(max(mu, 0.0))); float pxm = max(length(fwidth(d)), 1e-7);",
+    "          vec3 moon = vec3(1.0, 0.97, 0.92) * alb * (lit * uMoonP.w + 0.014 * (1.0 - uMoonP.y)); float mX = 1.0 / (max(M.y, 0.0) + 0.50572 * pow(max(degrees(asin(clamp(M.y, -1.0, 1.0))) + 6.07995, 0.5), -1.6364)); moon *= exp(-vec3(0.06, 0.12, 0.24) * (min(mX, 30.0) - 1.0) * (1.0 - uTele.x * 0.6)); float edge = smoothstep(1.0, max(0.0, 1.0 - 1.6 * pxm / mr), sqrt(q2));",
+    "          sky = mix(sky, max(sky - bgS * kNight, vec3(0.0)) + moon, edge * mvis); } } } }",
     // the sun disc and its glow (bounded, as before: the bloom and flare were tuned to it)
     "  float sd = max(dot(d, s), 0.0); sky += sunCol * glow * (1.0 - uStorm * 0.97) * (pow(sd, 900.0) * 2.6 + pow(sd, 60.0) * 0.18 * (1.0 - smoothstep(0.1, 0.5, sy)) + pow(sd, 8.0) * 0.12);",
     // the monsoon: a slate deck, lighter toward the horizon, a brighter rim away from the storm, lightning lights the deck
@@ -116,8 +159,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "    float n = gNoise(vec2(atan(d.z, d.x) * 6.0, h * 9.0) + uTime * 0.02) * 0.5 + gNoise(vec2(atan(d.z, d.x) * 17.0, h * 25.0) - uTime * 0.03) * 0.5; deck *= 0.82 + 0.3 * n;",
     "    sky = mix(sky, deck, uStorm * mix(0.6, 0.97, smoothstep(0.2, 0.75, tS))); sky += vec3(0.75, 0.8, 1.0) * uFlash * (0.25 + 0.75 * pow(max(0.0, dot(d, normalize(uFlashDir + vec3(0.0, 0.25, 0.0)))), 6.0)) * uStorm; }",
     "  if (uEnv > 0.5) { float l = dot(sky, vec3(0.2126, 0.7152, 0.0722)); sky = mix(sky, vec3(l), uKnee.z); }",
+    "  sky *= 1.0 + (gHash(gl_FragCoord.xy) - 0.5) * uMap4.z * kNight;",
     "  gl_FragColor = vec4(max(sky, vec3(0.0)), 1.0); }"
   ].join("\n");
+  // the view direction from the camera (the dome is centred on the world origin, kilometres from the player: no parallax on the stars)
+  var SKY_VERT = "varying vec3 vDir; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vDir = w.xyz - cameraPosition; gl_Position = projectionMatrix * viewMatrix * w; }";
 
   // CPU copy of the scattering (fog / haze colour, the eye-adapted scale)
   function preethamCPU(d, s, K) {
@@ -139,7 +185,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var U = skyMat.uniforms;
     U.uMoonDir = { value: new THREE.Vector3(-0.55, 0.62, 0) }; U.uStorm = { value: 0 }; U.uFlash = { value: 0 }; U.uTime = { value: 0 }; U.uSkyK = { value: new THREE.Vector4().fromArray(GX.K.sky) };
     U.uSkyExpo = { value: GX.K.skyExpo }; U.uKnee = { value: new THREE.Vector3(GX.K.skyKnee, GX.K.skyCap, GX.K.envDesat) }; U.uEnv = { value: 0 }; U.uStormCol = { value: new THREE.Color(0.2, 0.22, 0.26) }; U.uFlashDir = { value: new THREE.Vector3(0.55, 0, 0.83) }; U.uGfx = { value: 1 };
-    skyMat.fragmentShader = SKY_FRAG; skyMat.needsUpdate = true;
+    skInstallUniforms(); if (!ORIG.skyVert) ORIG.skyVert = skyMat.vertexShader;
+    skyMat.fragmentShader = SKY_FRAG; skyMat.vertexShader = SKY_VERT; skyMat.needsUpdate = true;
     // the probe renders the sky too: a slightly desaturated, eye-adapted copy lights the world (uEnv), then the flag drops again
     if (!ORIG.updateEnvironment) ORIG.updateEnvironment = updateEnvironment;
     var ue = ORIG.updateEnvironment;
@@ -147,10 +194,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // the old star points are drawn in the sky shader now (2 draws saved)
     try { stars.visible = false; stars2.visible = false; } catch (e) {}
     GX.n.sky = 1;
+    try { skInstall(); } catch (e) { skNote("install", e); }
   }
   function uninstallSky() {
     if (typeof skyMat === "undefined" || !ORIG.skyFrag) return;
-    skyMat.fragmentShader = ORIG.skyFrag; skyMat.needsUpdate = true;
+    skyMat.fragmentShader = ORIG.skyFrag; if (ORIG.skyVert) skyMat.vertexShader = ORIG.skyVert; skyMat.needsUpdate = true; try { skUninstall(); } catch (e) {}
     if (ORIG.updateEnvironment) updateEnvironment = ORIG.updateEnvironment;
     try { stars.visible = true; stars2.visible = true; } catch (e) {}
   }
@@ -172,7 +220,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "  gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0); }"
   ].join("\n");
   var CLOUD_FRAG = [
-    "uniform sampler2D tNoise; uniform vec3 uLDir; uniform vec3 uLCol; uniform vec3 uAmbT; uniform vec3 uAmbB; uniform vec3 uHaze; uniform float uHazeK; uniform float uDay; uniform float uStorm; uniform float uFlash; uniform vec3 uFlashP; uniform float uTime; uniform float uGust; uniform vec3 uStormCol; uniform vec3 uSDir;",
+    "uniform sampler2D tNoise; uniform vec3 uLDir; uniform vec3 uLCol; uniform vec3 uAmbT; uniform vec3 uAmbB; uniform vec3 uHaze; uniform float uHazeK; uniform float uDay; uniform float uStorm; uniform float uFlash; uniform vec3 uFlashP; uniform float uTime; uniform float uGust; uniform vec3 uStormCol; uniform vec3 uSDir; uniform float uFadeK;",
     "varying vec2 vUv; varying vec4 vI; varying vec3 vB0; varying vec3 vB1; varying vec3 vB2; varying float vDist; varying float vH;",
     GLSL_NOISE,
     "float nz(vec2 p){ return texture2D(tNoise, p).r; } float nz2(vec2 p){ return texture2D(tNoise, p).g; } float nz3(vec2 p){ return texture2D(tNoise, p).b; }",
@@ -219,7 +267,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "    col = vec3(0.62, 0.48, 0.34) * (uAmbT * 0.5 + uLCol * 0.55 * uDay * (0.6 + 0.4 * clamp(sb.y + 0.5, 0.0, 1.0)));",
     "  }",
     "  float hz = 1.0 - exp(-vDist * uHazeK); col = mix(col, uHaze, hz * (type > 2.5 ? 0.5 : type > 0.5 ? 0.3 : 0.85)); a *= 1.0 - smoothstep(26000.0, 36000.0, vDist); if (type < 0.5) a *= mix(0.55, 1.0, uDay) * (1.0 - 0.45 * uStorm);",
-    "  gl_FragColor = vec4(col, a); }"
+    "  gl_FragColor = vec4(col, a * uFadeK); }"
   ].join("\n");
 
   var CL = null;
@@ -238,6 +286,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     geo.setAttribute("iPos", new THREE.InstancedBufferAttribute(pos, 4)); geo.setAttribute("iSz", new THREE.InstancedBufferAttribute(sz, 4)); geo.attributes.iPos.setUsage(THREE.DynamicDrawUsage); geo.attributes.iSz.setUsage(THREE.DynamicDrawUsage); geo.instanceCount = N;
     var mat = new THREE.ShaderMaterial({ uniforms: { tNoise: { value: noiseTexture() }, uLDir: { value: new THREE.Vector3(0, 1, 0) }, uLCol: { value: new THREE.Color(1, 1, 1) }, uAmbT: { value: new THREE.Color(0.5, 0.6, 0.75) }, uAmbB: { value: new THREE.Color(0.35, 0.36, 0.4) }, uHaze: { value: new THREE.Color(0.8, 0.8, 0.8) }, uHazeK: { value: 0.00004 }, uDay: { value: 1 }, uStorm: { value: 0 }, uFlash: { value: 0 }, uFlashP: { value: new THREE.Vector3() }, uTime: { value: 0 }, uGust: { value: 0 }, uStormCol: { value: new THREE.Color(0.2, 0.22, 0.26) }, uSDir: { value: new THREE.Vector3(1, 0, 0) }, uDrift: { value: new THREE.Vector2() } },
       defines: { PUFFS: GX.bootTier >= 1 ? 7 : 5 }, vertexShader: CLOUD_VERT, fragmentShader: CLOUD_FRAG, transparent: true, depthWrite: false, depthTest: true, fog: false, side: THREE.DoubleSide });
+    mat.uniforms.uFadeK = { value: 1 };
     var mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = -1; mesh.userData.noCull = true; mesh.userData.noShadow = true; mesh.name = "gfx_clouds";
     CL = { mesh: mesh, list: list, pos: pos, sz: sz, N: N, drift: 0, sortAt: 0, camAt: new THREE.Vector3(1e9, 0, 0) };
     // the 70 sprite billboards go away (the client loop over DETAILS.cumulus sees an empty list)
@@ -285,7 +334,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     day: [1.12, 1.09, [0.93, 0.97, 1.08], [1.06, 1.0, 0.93], [1.02, 1.0, 0.98], 0.0, 1.12],
     golden: [1.16, 1.1, [0.91, 0.94, 1.08], [1.08, 1.0, 0.88], [1.05, 1.0, 0.93], 0.0, 1.16],
     blue: [1.04, 1.06, [0.86, 0.94, 1.16], [1.02, 0.98, 1.02], [0.92, 0.97, 1.1], 0.004, 0.9],
-    night: [1.05, 1.08, [0.86, 0.95, 1.16], [1.0, 1.0, 1.03], [0.88, 0.96, 1.12], 0.004, 0.72],
+    night: [1.08, 1.04, [0.94, 0.98, 1.07], [1.02, 1.0, 0.98], [0.97, 0.985, 1.03], 0.007, 0.86],
     storm: [0.82, 1.05, [0.92, 0.97, 1.06], [1.0, 1.0, 1.0], [0.95, 0.99, 1.04], 0.003, 0.78]
   };
   function lerpG(a, b, t) { var o = []; for (var i = 0; i < a.length; i++) { if (Array.isArray(a[i])) { o.push([mix(a[i][0], b[i][0], t), mix(a[i][1], b[i][1], t), mix(a[i][2], b[i][2], t)]); } else o.push(mix(a[i], b[i], t)); } return o; }
@@ -333,16 +382,19 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (S > 0) fogC.lerp(TMP.c5.setRGB(0.3, 0.28, 0.25).multiplyScalar(0.35 + 0.65 * day), S * 0.8);
     scene.fog.color.copy(fogC);
     if (typeof POST !== "undefined" && POST.hazeCol) { POST.hazeCol.lerp(fogC, 0.85); if (S > 0) POST.sunCol.multiplyScalar(1 - 0.85 * S); }
+    // R4: the real sky (matrices, the Moon, planets, meteors, stargazing); the real Moon lights the clouds
+    try { skUpdate(dt || 0, el, S, U.kNight.value); if (SK.moon) mdir = SK.moon.dir; } catch (e) { if (!SK.upErr) { SK.upErr = 1; skNote("update", e); } }
     // light: the storm dims the key light and cools the fill; a strike lights everything for a moment
-    var keyK = 1 - 0.78 * S; var fl = st.flash;
+    var keyK = (1 - 0.78 * S) * (SK.keyDir ? SK.keyK : 1); var fl = st.flash;
     try { if (CSMX.on && CSMX.csm) { for (var li = 0; li < CSMX.csm.lights.length; li++) lscale(CSMX.csm.lights[li], keyK, 0); } else lscale(sun, keyK, 0); } catch (e) {}
-    lscale(hemi, 1 - 0.3 * S, fl * 0.45); if (S > 0) hemi.color.lerp(TMP.c.setRGB(0.66, 0.72, 0.82), S * 0.6); if (fl > 0) hemi.color.lerp(TMP.c.setRGB(0.85, 0.9, 1.0), clamp(fl, 0, 1));
+    if (SK.keyDir) skKeyDir(SK.keyDir);
+    lscale(hemi, (1 - 0.3 * S) * (SK.fillK || 1), fl * 0.45); if (S > 0) hemi.color.lerp(TMP.c.setRGB(0.66, 0.72, 0.82), S * 0.6); if (fl > 0) hemi.color.lerp(TMP.c.setRGB(0.85, 0.9, 1.0), clamp(fl, 0, 1));
     if (typeof POST !== "undefined") { POST.exposure *= 1 + fl * 0.15; }
     try { cloudA.material.opacity = Math.min(0.95, cloudA.material.opacity + S * 0.4 * day); cloudB.material.opacity = Math.min(0.9, cloudB.material.opacity + S * 0.5 * day); cloudA.material.color.lerp(TMP.c.setRGB(0.16, 0.17, 0.19), S * 0.8); cloudB.material.color.copy(cloudA.material.color); } catch (e) {}
     // clouds: light, ambient and haze
     if (CL) { var cu = CL.mesh.material.uniforms; var lightDir = el > -0.04 ? sdir : mdir; cu.uLDir.value.fromArray(lightDir);
       var sc = sun.color; var sunUp = sstep(-0.06, 0.1, el); var goldK = sstep(0.35, 0.02, el) * sunUp;
-      cu.uLCol.value.setRGB(1.0, 0.94 - 0.28 * goldK, 0.86 - 0.5 * goldK).multiplyScalar(0.85 * sunUp * (1 - 0.7 * S)); if (el <= -0.04) cu.uLCol.value.setRGB(0.045, 0.052, 0.07).multiplyScalar(nightK * (1 - S));
+      cu.uLCol.value.setRGB(1.0, 0.94 - 0.28 * goldK, 0.86 - 0.5 * goldK).multiplyScalar(0.85 * sunUp * (1 - 0.7 * S)); if (el <= -0.04) cu.uLCol.value.setRGB(0.045, 0.052, 0.07).multiplyScalar(nightK * (1 - S) * (1 + 7 * (SK.moonBright || 0)));
       cu.uAmbT.value.setRGB(zen[0], zen[1], zen[2]).multiplyScalar(skyE * 0.9).lerp(TMP.c.setRGB(0.55, 0.58, 0.64), 0.35); cu.uAmbT.value.multiplyScalar(0.35 + 0.65 * day);
       if (nightK > 0) cu.uAmbT.value.lerp(TMP.c.setRGB(0.012, 0.015, 0.024), nightK);
       if (tw > 0) cu.uAmbT.value.lerp(TMP.c.setRGB(0.26, 0.26, 0.38), tw * 0.5 * day);
@@ -407,7 +459,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ═════════════════════════ post: grading, heat shimmer, floor reflections, AO, golden-hour rays ═════════════════════════
   function rep(src, a, b, what) { if (src.indexOf(a) < 0) { note("post patch", what + " anchor missing"); return src; } return src.split(a).join(b); }
-  var FIN_UNI = "uniform float uGSat; uniform float uGSatLo; uniform float uGCon; uniform vec3 uGSh; uniform vec3 uGHi; uniform vec3 uGWB; uniform float uGLift; uniform float uFlash; uniform vec3 uGfxCam; uniform mat4 uGfxVP; uniform float uHeatK; uniform vec4 uHS[16]; uniform float uHSN; uniform vec4 uFlY[4]; uniform vec4 uFlB[4]; uniform float uFlN; uniform float uSsrK; uniform vec2 uAoPx;\n";
+  var FIN_UNI = "uniform float uGSat; uniform float uGSatLo; uniform float uGCon; uniform vec3 uGSh; uniform vec3 uGHi; uniform vec3 uGWB; uniform float uGLift; uniform float uFlash; uniform vec3 uGfxCam; uniform mat4 uGfxVP; uniform float uHeatK; uniform vec4 uHS[16]; uniform float uHSN; uniform vec4 uFlY[4]; uniform vec4 uFlB[4]; uniform float uFlN; uniform float uSsrK; uniform vec2 uAoPx; uniform float uBloomK; uniform float uSkyGradeK; uniform float uGSatSky;\n";
   var FIN_FN = [
     "vec3 gfxWorld(vec2 uv, float lin){ vec3 pv = vec3((uv * 2.0 - 1.0) * uTan * lin, -lin); return uGfxCam + uCamRot * pv; }",
     "float gfxLin(vec2 uv){ float z = texture2D(tDepth, uv).x; return 2.0 * uNear * uFar / (uFar + uNear - (z * 2.0 - 1.0) * (uFar - uNear)); }",
@@ -428,7 +480,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // AO upsampling that respects depth edges (no dark halo round a near silhouette against the far ground or the sky)
     "float gfxAO(vec2 uv, float lin0){ vec2 px = uAoPx; float acc = 0.0, tw = 0.0; for (int i = 0; i < 4; i++) { vec2 o = (vec2(float(i - (i / 2) * 2), float(i / 2)) * 2.0 - 1.0) * px * 0.75; float zl = gfxLin(uv + o); float w = 1.0 / (0.02 + abs(zl - lin0) / max(lin0, 0.5)); acc += texture2D(tAO, uv + o).r * w; tw += w; } return acc / max(tw, 1e-4); }",
     // grading: saturation, contrast, split tone and white balance per time of day (keyframes in plan_gfx.js)
-    "vec3 gfxGrade(vec3 c){ c *= uGWB; float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, mix(uGSatLo, uGSat, smoothstep(0.06, 0.4, l))); c = (c - 0.5) * uGCon + 0.5; l = clamp(dot(c, vec3(0.299, 0.587, 0.114)), 0.0, 1.0); c = mix(c * uGSh, c * uGHi, smoothstep(0.12, 0.82, l)); c += uGLift * (1.0 - c); return c; }"
+    "vec3 gfxGrade(vec3 c, float sky){ float sk = sky * uSkyGradeK; c *= mix(uGWB, vec3(1.0), sk * 0.6); float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, mix(mix(uGSatLo, uGSat, smoothstep(0.06, 0.4, l)), mix(1.0, uGSatSky, smoothstep(0.03, 0.22, l)), sk)); vec3 c0 = c; c = mix((c - 0.5) * uGCon + 0.5, c0, sk); l = clamp(dot(c, vec3(0.299, 0.587, 0.114)), 0.0, 1.0); c = mix(c * uGSh, c * uGHi, smoothstep(0.12, 0.82, l)); c += uGLift * (1.0 - c) * (1.0 - sk); return c; }"
   ].join("\n") + "\n";
 
   // stable AO: a 4x4 interleaved pattern (no per-frame noise), horizon-style occlusion, then a 4x4 depth-aware box that cancels the pattern
@@ -466,10 +518,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       src = rep(src, "float amp = 0.0; uvh += vec2(sin(vUv.y * 90.0 + uTime * 2.7) + sin(vUv.y * 41.0 - uTime * 1.9), cos(vUv.x * 70.0 + uTime * 2.2)) * amp;",
         "float amp = gfxHeat(vUv, lin0); if (amp > 0.0) { vec2 wob = vec2(sin(vUv.y * 170.0 + uTime * 5.1 + sin(vUv.x * 60.0 + uTime * 1.3) * 2.0) + 0.6 * sin(vUv.y * 310.0 - uTime * 7.3), cos(vUv.x * 120.0 + vUv.y * 40.0 - uTime * 4.2)) * amp; if (gfxLin(vUv + wob) > lin0 * 0.8) uvh += wob; }", "heat");
       src = rep(src, "float ao = texture2D(tAO, vUv).r;", "c = gfxFloor(c, vUv, lin0); float ao = uAoK > 0.0 ? gfxAO(vUv, lin0) : 1.0;", "ao");
-      src = rep(src, "float l = luma(c); c = mix(vec3(l), c, 1.18); c = (c - 0.5) * 1.1 + 0.5; c = mix(c * vec3(0.9, 0.96, 1.12), c * vec3(1.08, 1.0, 0.9), smoothstep(0.12, 0.82, l));", "c = gfxGrade(c);", "grade");
+      src = rep(src, "float l = luma(c); c = mix(vec3(l), c, 1.18); c = (c - 0.5) * 1.1 + 0.5; c = mix(c * vec3(0.9, 0.96, 1.12), c * vec3(1.08, 1.0, 0.9), smoothstep(0.12, 0.82, l));", "c = gfxGrade(c, isSky);", "grade");
+      src = rep(src, "c += texture2D(tBloom, vUv).rgb * 0.3", "c += texture2D(tBloom, vUv).rgb * 0.3 * uBloomK", "bloom");
       var U = F.uniforms; U.uGSat = { value: 1.18 }; U.uGSatLo = { value: 1.18 }; U.uGCon = { value: 1.1 }; U.uGSh = { value: new THREE.Vector3(0.9, 0.96, 1.12) }; U.uGHi = { value: new THREE.Vector3(1.08, 1.0, 0.9) }; U.uGWB = { value: new THREE.Vector3(1, 1, 1) }; U.uGLift = { value: 0 }; U.uFlash = { value: 0 };
       U.uGfxCam = { value: new THREE.Vector3() }; U.uGfxVP = { value: new THREE.Matrix4() }; U.uHeatK = { value: 0 }; U.uHS = { value: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(function () { return new THREE.Vector4(); }) }; U.uHSN = { value: 0 };
-      U.uFlY = { value: [0, 1, 2, 3].map(function () { return new THREE.Vector4(); }) }; U.uFlB = { value: [0, 1, 2, 3].map(function () { return new THREE.Vector4(); }) }; U.uFlN = { value: 0 }; U.uSsrK = { value: 0 }; U.uAoPx = { value: new THREE.Vector2(1 / 640, 1 / 360) };
+      U.uFlY = { value: [0, 1, 2, 3].map(function () { return new THREE.Vector4(); }) }; U.uFlB = { value: [0, 1, 2, 3].map(function () { return new THREE.Vector4(); }) }; U.uFlN = { value: 0 }; U.uSsrK = { value: 0 }; U.uAoPx = { value: new THREE.Vector2(1 / 640, 1 / 360) }; U.uBloomK = { value: 1 }; U.uSkyGradeK = { value: 0 }; U.uGSatSky = { value: 1.15 };
       F.fragmentShader = src; F.needsUpdate = true; GX.post.fin = true;
     } else note("post", "mFinal changed: grading, heat and floor reflections skipped");
     // AO
@@ -523,12 +576,701 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       more.sort(function (p, q) { return q[8] - p[8]; }); more.slice(0, 7).forEach(function (m) { segs.push(m.slice(0, 8)); }); RW = { segs: segs, set: false }; GX.n.heatSegs = segs.length; } catch (e) { note("runway", e); }
   }
 
+
+  // ═════════════════════════ R4 SKY: the real sky over Douglas, Arizona (31.34 N, 109.51 W) ═════════════════════════
+  // NASA SVS Deep Star Maps 2020 (public domain) for the Milky Way and the faint stars, the brightest 5,044 stars as crisp points
+  // (d3-celestial, BSD), the Moon (NASA CGI Moon Kit) and the five naked-eye planets from a low-precision ephemeris, meteors,
+  // satellites, IAU constellation figures, a telescope view and a stargazing mode (window.PLAN_SKY, see HANDOFF_R4_SKY.md).
+  // World frame: x east, y up, z south (north is -z, the plan's convention). The day light (the client's sun) is untouched.
+  var D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  var SK = GX.sky = {
+    lat: 31.3441, lon: -109.5063, date: null, tlOff: 0, tl: null, tier: -1, res: "", jd: 0, lst: 0,
+    E2W: [1, 0, 0, 0, 1, 0, 0, 0, 1], W2E: null, sun: null, moon: null, planets: [], stars: null, starN: 0,
+    mapK: 0, mapWant: 0, sg: { on: false, k: 0, opts: {} }, conK: 0, conOn: false, lightK: 1, met: [null, null], metNext: 0, sat: [null, null], satNext: 0,
+    keyK: 1, tele: [], errs: [], loaded: {}, bytes: 0
+  };
+  function skNote(w, e) { note("sky " + w, e); }
+  function skJD(ms) { return ms / 86400000 + 2440587.5; }
+  function v3n(v) { var l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  function v3dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function v3cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function radec(raDeg, decDeg) { var a = raDeg * D2R, d = decDeg * D2R, c = Math.cos(d); return [c * Math.cos(a), c * Math.sin(a), Math.sin(d)]; }
+  function m3mul(A, B) { var o = []; for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++) o.push(A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c]); return o; }
+  function m3v(M, v) { return [M[0] * v[0] + M[1] * v[1] + M[2] * v[2], M[3] * v[0] + M[4] * v[1] + M[5] * v[2], M[6] * v[0] + M[7] * v[1] + M[8] * v[2]]; }
+  function m3t(M) { return [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]]; }
+  var EPS0 = 23.4392911 * D2R, CE = Math.cos(EPS0), SE = Math.sin(EPS0);
+  function ecl2eq(v) { return [v[0], v[1] * CE - v[2] * SE, v[1] * SE + v[2] * CE]; }
+  function kepler(M, e) { var E = M + e * Math.sin(M) * (1 + e * Math.cos(M)); for (var i = 0; i < 6; i++) E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return E; }
+  // the sky's own time: the game's hour on tonight's date in Arizona (MST, no daylight saving). The night runs from game noon to game
+  // noon, so the date only steps at midday (the stars and the Moon never jump at night). PLAN_SKY.setDate() or ?skydate= override it.
+  function skyMs() {
+    var gh = 12; try { gh = dayT() * 24; } catch (e) {}
+    var base = SK.date;
+    if (base === null || base === undefined) { var d = new Date(Date.now() - 19 * 3600000); base = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+    return base + 7 * 3600000 + (gh >= 12 ? gh : gh + 24) * 3600000 + SK.tlOff;
+  }
+  // precession J2000 -> date (IAU 1976), Greenwich mean sidereal time
+  function precess(T) {
+    var as = D2R / 3600; var z0 = (2306.2181 * T + 0.30188 * T * T) * as, z = (2306.2181 * T + 1.09468 * T * T) * as, th = (2004.3109 * T - 0.42665 * T * T) * as;
+    var cz0 = Math.cos(z0), sz0 = Math.sin(z0), cz = Math.cos(z), sz = Math.sin(z), ct = Math.cos(th), st = Math.sin(th);
+    return [cz0 * ct * cz - sz0 * sz, -sz0 * ct * cz - cz0 * sz, -st * cz, cz0 * ct * sz + sz0 * cz, -sz0 * ct * sz + cz0 * cz, -st * sz, cz0 * st, -sz0 * st, ct];
+  }
+  function gmst(jd) { var d = jd - 2451545.0, T = d / 36525; var g = 280.46061837 + 360.98564736629 * d + 0.000387933 * T * T - T * T * T / 38710000; return (((g % 360) + 360) % 360) * D2R; }
+  // J2000 equatorial -> world (x east, y up, z south) at the site for a given local sidereal time
+  function skyMatrix(jd, lstExtra) {
+    var T = (jd - 2451545.0) / 36525; var lst = gmst(jd) + SK.lon * D2R + (lstExtra || 0); SK.lst = lst;
+    var cl = Math.cos(lst), sl = Math.sin(lst), ph = SK.lat * D2R, cp = Math.cos(ph), sp = Math.sin(ph);
+    var Rz = [cl, sl, 0, -sl, cl, 0, 0, 0, 1];
+    var Menu = [0, 1, 0, cp, 0, sp, sp, 0, -cp];
+    return m3mul(Menu, m3mul(Rz, precess(T)));
+  }
+  // the Sun (low precision; ecliptic of date, general precession removed -> J2000)
+  function sunPos(jd) {
+    var n = jd - 2451545.0, T = n / 36525; var L = (280.460 + 0.9856474 * n) * D2R, g = (357.528 + 0.9856003 * n) * D2R;
+    var lam = L + (1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * D2R - 1.396971 * T * D2R;
+    return { eq: ecl2eq([Math.cos(lam), Math.sin(lam), 0]), r: 1.00014 - 0.01671 * Math.cos(g) - 0.00014 * Math.cos(2 * g) };
+  }
+  // the Moon (Schlyter's elements with the main perturbations; about 2 arcmin), geocentric J2000 and distance in Earth radii
+  function moonPos(jd) {
+    var d = jd - 2451543.5, T = (jd - 2451545.0) / 36525;
+    var N = (125.1228 - 0.0529538083 * d) * D2R, i = 5.1454 * D2R, w = (318.0634 + 0.1643573223 * d) * D2R, a = 60.2666, e = 0.0549;
+    var M = ((115.3654 + 13.0649929509 * d) % 360) * D2R; var E = kepler(M, e);
+    var xv = a * (Math.cos(E) - e), yv = a * Math.sqrt(1 - e * e) * Math.sin(E); var v = Math.atan2(yv, xv), r = Math.hypot(xv, yv);
+    var xh = r * (Math.cos(N) * Math.cos(v + w) - Math.sin(N) * Math.sin(v + w) * Math.cos(i)), yh = r * (Math.sin(N) * Math.cos(v + w) + Math.cos(N) * Math.sin(v + w) * Math.cos(i)), zh = r * Math.sin(v + w) * Math.sin(i);
+    var lon = Math.atan2(yh, xh), lat = Math.atan2(zh, Math.hypot(xh, yh));
+    var Ms = (356.0470 + 0.9856002585 * d) * D2R, ws = (282.9404 + 4.70935E-5 * d) * D2R, Ls = Ms + ws, Lm = M + w + N, D = Lm - Ls, F = Lm - N, S = Math.sin;
+    lon += (-1.274 * S(M - 2 * D) + 0.658 * S(2 * D) - 0.186 * S(Ms) - 0.059 * S(2 * M - 2 * D) - 0.057 * S(M - 2 * D + Ms) + 0.053 * S(M + 2 * D) + 0.046 * S(2 * D - Ms) + 0.041 * S(M - Ms) - 0.035 * S(D) - 0.031 * S(M + Ms) - 0.015 * S(2 * F - 2 * D) + 0.011 * S(M - 4 * D)) * D2R;
+    lat += (-0.173 * S(F - 2 * D) - 0.055 * S(M - F - 2 * D) - 0.046 * S(M + F - 2 * D) + 0.033 * S(F + 2 * D) + 0.017 * S(2 * M + F)) * D2R;
+    r += -0.58 * Math.cos(M - 2 * D) - 0.46 * Math.cos(2 * D);
+    lon -= 1.396971 * T * D2R;
+    var cb = Math.cos(lat); return { eq: ecl2eq([cb * Math.cos(lon), cb * Math.sin(lon), Math.sin(lat)]), r: r };
+  }
+  // planets: JPL "Keplerian elements for approximate positions of the major planets" (1800 to 2050), J2000 ecliptic
+  var PLAN_EL = {
+    Mercury: [0.38709927, 0.00000037, 0.20563593, 0.00001906, 7.00497902, -0.00594749, 252.25032350, 149472.67411175, 77.45779628, 0.16047689, 48.33076593, -0.12534081],
+    Venus: [0.72333566, 0.00000390, 0.00677672, -0.00004107, 3.39467605, -0.00078890, 181.97909950, 58517.81538729, 131.60246718, 0.00268329, 76.67984255, -0.27769418],
+    Earth: [1.00000261, 0.00000562, 0.01671123, -0.00004392, -0.00001531, -0.01294668, 100.46457166, 35999.37244981, 102.93768193, 0.32327364, 0, 0],
+    Mars: [1.52371034, 0.00001847, 0.09339410, 0.00007882, 1.84969142, -0.00813131, -4.55343205, 19140.30268499, -23.94362959, 0.44441088, 49.55953891, -0.29257343],
+    Jupiter: [5.20288700, -0.00011607, 0.04838624, -0.00013253, 1.30439695, -0.00183714, 34.39644051, 3034.74612775, 14.72847983, 0.21252668, 100.47390909, 0.20469106],
+    Saturn: [9.53667594, -0.00125060, 0.05386179, -0.00050991, 2.48599187, 0.00193609, 49.95424423, 1222.49362201, 92.59887831, -0.41897216, 113.66242448, -0.28867794]
+  };
+  // per planet: [radius arcsec at 1 AU, magnitude: [H, k1, k2, k3] for 5 log(r D) + k1 i + k2 i^2 + k3 i^3, colour rgb, pole RA, pole Dec, oblateness]
+  var PLAN_INFO = {
+    Mercury: [3.37, [-0.42, 0.038, -0.000273, 0.000002], [0.86, 0.8, 0.74], 281.01, 61.45, 0],
+    Venus: [8.41, [-4.40, 0.0009, 0.000239, -0.00000065], [1.0, 0.96, 0.86], 272.76, 67.16, 0],
+    Mars: [4.68, [-1.52, 0.016, 0, 0], [1.0, 0.66, 0.44], 317.68, 52.89, 0.006],
+    Jupiter: [98.44, [-9.40, 0.005, 0, 0], [1.0, 0.94, 0.84], 268.06, 64.50, 0.065],
+    Saturn: [82.73, [-8.88, 0.044, 0, 0], [1.0, 0.92, 0.74], 40.59, 83.54, 0.098]
+  };
+  var PLAN_NAMES = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn"];
+  function helio(name, T) {
+    var E = PLAN_EL[name]; var a = E[0] + E[1] * T, e = E[2] + E[3] * T, I = (E[4] + E[5] * T) * D2R, L = (E[6] + E[7] * T) * D2R, wb = (E[8] + E[9] * T) * D2R, O = (E[10] + E[11] * T) * D2R;
+    var w = wb - O, M = L - wb; M = M - 2 * Math.PI * Math.floor((M + Math.PI) / (2 * Math.PI)); var Ea = kepler(M, e);
+    var xp = a * (Math.cos(Ea) - e), yp = a * Math.sqrt(1 - e * e) * Math.sin(Ea);
+    var cw = Math.cos(w), sw = Math.sin(w), cO = Math.cos(O), sO = Math.sin(O), cI = Math.cos(I), sI = Math.sin(I);
+    return [(cw * cO - sw * sO * cI) * xp + (-sw * cO - cw * sO * cI) * yp, (cw * sO + sw * cO * cI) * xp + (-sw * sO + cw * cO * cI) * yp, (sw * sI) * xp + (cw * sI) * yp];
+  }
+  function planetPos(jd) {
+    var T = (jd - 2451545.0) / 36525; var Ee = helio("Earth", T); var Re = Math.hypot(Ee[0], Ee[1], Ee[2]); var out = [];
+    for (var i = 0; i < PLAN_NAMES.length; i++) {
+      var nm = PLAN_NAMES[i], P = helio(nm, T); var r = Math.hypot(P[0], P[1], P[2]);
+      var g = [P[0] - Ee[0], P[1] - Ee[1], P[2] - Ee[2]]; var dl = Math.hypot(g[0], g[1], g[2]);
+      // light time
+      var P2 = helio(nm, T - dl * 0.0057755 / 36525); g = [P2[0] - Ee[0], P2[1] - Ee[1], P2[2] - Ee[2]]; dl = Math.hypot(g[0], g[1], g[2]);
+      var ci = clamp((r * r + dl * dl - Re * Re) / (2 * r * dl), -1, 1), ph = Math.acos(ci) * R2D; var I = PLAN_INFO[nm], H = I[1];
+      var mag = H[0] + 5 * Math.log10(r * dl) + H[1] * ph + H[2] * ph * ph + H[3] * ph * ph * ph;
+      var eq = v3n(ecl2eq(g)); var sunFrom = v3n(ecl2eq([-P2[0], -P2[1], -P2[2]]));
+      if (nm === "Saturn") { var pole = radec(I[3], I[4]); var B = Math.asin(clamp(-v3dot(pole, eq), -1, 1)); mag += -2.6 * Math.abs(Math.sin(B)) + 1.25 * Math.sin(B) * Math.sin(B); }
+      out.push({ name: nm, eq: eq, dist: dl, r: r, phase: ph, illum: (1 + ci) / 2, mag: mag, radius: I[0] / dl / 3600 * D2R, sun: sunFrom, col: I[2], pole: radec(I[3], I[4]), obl: I[5] });
+    }
+    return out;
+  }
+  // Jupiter's four Galilean moons (Meeus ch. 44, low accuracy): apparent X (west) and Y (north) in Jupiter radii
+  function galilean(jd) {
+    var d = jd - 2451545.0; var V = (172.74 + 0.00111588 * d) * D2R, M = (357.529 + 0.9856003 * d) * D2R, N = (20.020 + 0.0830853 * d) * D2R + 0.329 * D2R * Math.sin(V), J = (66.115 + 0.9025179 * d) * D2R - 0.329 * D2R * Math.sin(V);
+    var A = (1.915 * Math.sin(M) + 0.020 * Math.sin(2 * M)) * D2R, B = (5.555 * Math.sin(N) + 0.168 * Math.sin(2 * N)) * D2R, K = J + A - B;
+    var R = 1.00014 - 0.01671 * Math.cos(M) - 0.00014 * Math.cos(2 * M), r = 5.20872 - 0.25208 * Math.cos(N) - 0.00611 * Math.cos(2 * N);
+    var Dl = Math.sqrt(r * r + R * R - 2 * r * R * Math.cos(K)), psi = Math.asin(R / Dl * Math.sin(K)); var t = d - Dl / 173;
+    var u1 = (163.8069 + 203.4058646 * t) * D2R + psi - B, u2 = (358.4140 + 101.2916335 * t) * D2R + psi - B, u3 = (5.7176 + 50.2345180 * t) * D2R + psi - B, u4 = (224.8092 + 21.4879800 * t) * D2R + psi - B;
+    var G = (331.18 + 50.310482 * t) * D2R, Hh = (87.45 + 21.569231 * t) * D2R;
+    u1 += 0.473 * D2R * Math.sin(2 * (u1 - u2)); u2 += 1.065 * D2R * Math.sin(2 * (u2 - u3)); u3 += 0.165 * D2R * Math.sin(G); u4 += 0.843 * D2R * Math.sin(Hh);
+    var rr = [5.9057 - 0.0244 * Math.cos(2 * (u1 - u2)), 9.3966 - 0.0882 * Math.cos(2 * (u2 - u3)), 14.9883 - 0.0216 * Math.cos(G), 26.3627 - 0.1939 * Math.cos(Hh)], uu = [u1, u2, u3, u4];
+    return uu.map(function (u, k) { return { name: ["Io", "Europa", "Ganymede", "Callisto"][k], x: rr[k] * Math.sin(u), y: -rr[k] * Math.cos(u) * 0.05, front: Math.cos(u) < 0 ? 0 : 1, mag: [5.0, 5.3, 4.6, 5.6][k] }; });
+  }
+  // B-V colour index -> linear RGB (Ballesteros temperature, a blackbody fit), luminance normalised
+  function bvRGB(bv) {
+    bv = clamp(bv, -0.4, 2.0); var T = 4600 * (1 / (0.92 * bv + 1.7) + 1 / (0.92 * bv + 0.62)); var t = T / 100, r, g, b;
+    if (t <= 66) { r = 255; g = 99.4708025861 * Math.log(t) - 161.1195681661; b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307; }
+    else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); g = 288.1221695283 * Math.pow(t - 60, -0.0755148492); b = 255; }
+    var c = [clamp(r, 0, 255) / 255, clamp(g, 0, 255) / 255, clamp(b, 0, 255) / 255].map(function (x) { return Math.pow(x, 2.2); });
+    // keep the hue but soften it toward white a little (the eye sees star colours weakly), then normalise the luminance
+    c = c.map(function (x) { return 0.45 + 0.55 * x; }); c = [c[0] * 0.93, c[1] * 0.98, c[2] * 1.12]; var l = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; return [c[0] / l, c[1] / l, c[2] / l];
+  }
+
+  // ── data: background loads with retries (a busy server drops files); images decode off the main thread (createImageBitmap) ──
+  var SKDIR = "/tex/sky/";
+  function skFetch(url, kind, tries) {
+    tries = tries || 0;
+    return fetch((window.AV || String)(url + (url.indexOf("?") < 0 ? "?v=" + (window.BUILD || "dev") : ""))).then(function (r) { if (!r.ok) throw new Error(url + " " + r.status); return kind === "json" ? r.json() : r.arrayBuffer().then(function (b) { SK.bytes += b.byteLength; return b; }); })
+      .catch(function (e) { if (tries < 4) return new Promise(function (res) { setTimeout(res, 800 * (tries + 1)); }).then(function () { return skFetch(url, kind, tries + 1); }); throw e; });
+  }
+  function skImage(url) {
+    return skFetch(url, "buf").then(function (buf) {
+      var blob = new Blob([buf], { type: "image/jpeg" });
+      if (typeof createImageBitmap === "function") return createImageBitmap(blob, { imageOrientation: "none", premultiplyAlpha: "none", colorSpaceConversion: "none" });
+      return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = URL.createObjectURL(blob); });
+    });
+  }
+  // every sky texture is addressed top-down (v = 0 is the image's top row): flipY off for bitmaps and images alike
+  function skTex(img, o) {
+    var t = new THREE.Texture(img); o = o || {}; t.flipY = false; t.format = o.red ? THREE.RedFormat : THREE.RGBAFormat; t.colorSpace = o.srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.wrapS = o.clampS ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.generateMipmaps = o.mips !== false; t.minFilter = o.mips === false ? THREE.LinearFilter : THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+    try { t.anisotropy = Math.min(o.aniso || 1, renderer.capabilities.getMaxAnisotropy()); } catch (e) {}
+    t.needsUpdate = true; return t;
+  }
+  function px1(rgb) { var t = new THREE.DataTexture(new Uint8Array([rgb[0], rgb[1], rgb[2], 255]), 1, 1); t.needsUpdate = true; return t; }
+  var SKT = ORIG.skt = ORIG.skt || { L: null, C: null, moon: null, moon2: null, img: {} };   // kept across a hot reload
+
+  // ── the catalogue stars, the planets and two satellite slots: one Points draw, transformed on the GPU by the sky matrix ──
+  var STAR_VERT = [
+    "attribute vec3 aCol; attribute vec3 aMag; uniform mat3 uE2W; uniform float uLim; uniform float uGain; uniform float uVis; uniform float uTime; uniform float uPR; uniform vec3 uMoonDir; uniform vec2 uMoon; uniform vec4 uTeleS;",
+    "varying vec3 vC; varying float vR; varying float vHalo;",
+    "void main(){ vec3 d = normalize(uE2W * position); float h = d.y; float kind = aMag.y;",
+    "  float altD = degrees(asin(clamp(h, -1.0, 1.0))); float X = 1.0 / (max(h, 0.0) + 0.50572 * pow(max(altD + 6.07995, 0.5), -1.6364)); X = min(X, 40.0);",
+    "  float m = aMag.x + 0.18 * (X - 1.0) - uTeleS.x; float lim = uLim + uTeleS.y;",
+    // the Moon washes out its neighbourhood and hides what is behind its disc
+    "  float ca = dot(d, normalize(uMoonDir)); float ang = acos(clamp(ca, -1.0, 1.0)); lim -= uMoon.y * (1.6 * exp(-ang / 0.09) + 0.6 * exp(-ang / 0.5)); float occ = step(uMoon.x * 1.03, ang);",
+    "  float vis = smoothstep(lim + 0.35, lim - 0.9, m) * smoothstep(-0.008, 0.02, h) * uVis * occ; if (kind > 0.5) vis *= aMag.z;",
+    "  float f = pow(10.0, -0.4 * (m - 1.0)); float b = min(pow(f, 0.3), 2.4) * vis;",
+    // scintillation: stars twinkle more near the horizon (planets hardly), with a little colour flicker for the bright ones
+    "  float tw = 1.0; float sd = fract(sin(dot(position.xy, vec2(127.1, 311.7)) + position.z * 74.7) * 43758.5); vec3 fl = vec3(1.0);",
+    "  if (kind < 0.5) { float amp = 0.05 + 0.55 * pow(1.0 - smoothstep(0.03, 0.75, h), 2.0); amp *= 1.0 - uTeleS.z * 0.7; float n = sin(uTime * (6.0 + 9.0 * sd) + sd * 50.0) * 0.6 + sin(uTime * (13.0 + 11.0 * fract(sd * 7.3)) + sd * 17.0) * 0.4; tw = 1.0 + amp * n;",
+    "    fl = 1.0 + vec3(0.18, -0.06, -0.16) * amp * sin(uTime * (9.0 + 7.0 * sd) + sd * 9.0) * smoothstep(0.3, 1.5, b); }",
+    "  else if (kind < 1.5) { tw = 1.0 + 0.04 * sin(uTime * 7.0 + sd * 40.0) * (1.0 - smoothstep(0.1, 0.5, h)); }",
+    "  b *= max(tw, 0.0); vec3 ext = exp(-vec3(0.07, 0.12, 0.24) * (X - 1.0));",
+    "  vC = aCol * fl * ext * b * uGain; vHalo = smoothstep(0.25, 2.2, b);",
+    "  float sz = (3.5 + 3.0 * min(b, 2.5) + 16.0 * vHalo) * uPR; vR = sz; gl_PointSize = sz;",
+    "  gl_Position = projectionMatrix * viewMatrix * vec4(cameraPosition + d * 70000.0, 1.0); if (b < 0.004 || (kind > 0.5 && kind < 1.5 && uTeleS.w > 0.5)) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }"
+  ].join("\n");
+  var STAR_FRAG = [
+    "uniform float uPR; varying vec3 vC; varying float vR; varying float vHalo;",
+    "void main(){ vec2 p = (gl_PointCoord - 0.5) * vR; float r2 = dot(p, p) / (uPR * uPR); float s = 0.62 + 0.38 * vHalo;",
+    "  float core = exp(-r2 / (2.0 * s * s)); float rr = sqrt(r2); float wing = vHalo * (0.11 * exp(-rr / (0.9 + 1.1 * vHalo)) + 0.02 * exp(-rr / (2.2 + 2.6 * vHalo))) * smoothstep(vR / uPR * 0.5, vR / uPR * 0.3, rr);",
+    "  vec3 c = vC * (core + wing); if (max(c.r, max(c.g, c.b)) < 0.0015) discard; gl_FragColor = vec4(c, 1.0); }"
+  ].join("\n");
+  function skStarMat() {
+    return new THREE.ShaderMaterial({
+      uniforms: { uE2W: { value: new THREE.Matrix3() }, uLim: { value: 6.5 }, uGain: { value: 1 }, uVis: { value: 0 }, uTime: { value: 0 }, uPR: { value: 1 }, uMoonDir: { value: new THREE.Vector3(0, -1, 0) }, uMoon: { value: new THREE.Vector2(0.005, 0) }, uTeleS: { value: new THREE.Vector4(0, 0, 0, 0) } },
+      vertexShader: STAR_VERT, fragmentShader: STAR_FRAG, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, fog: false
+    });
+  }
+  var NPL = 5, NSAT = 2;
+  function skBuildStars(buf) {
+    var dv = new DataView(buf); var n = dv.getUint32(0, true);
+    // phones and low quality keep the stars to magnitude 7 (the file is sorted by magnitude), desktop all 41,411 to magnitude 8
+    if (SK.tier < 1) { var lim = GX.K.sk.starMaxLow; for (var q = 0; q < n; q++) if (dv.getInt16(4 + q * 8 + 4, true) / 100 > lim) { n = q; break; } }
+    var N = n + NPL + NSAT;
+    var pos = new Float32Array(N * 3), col = new Float32Array(N * 3), mag = new Float32Array(N * 3), list = [];
+    for (var i = 0; i < n; i++) {
+      var o = 4 + i * 8; var ra = dv.getUint16(o, true) / 65535 * 360, dec = dv.getInt16(o + 2, true) / 32767 * 90, m = dv.getInt16(o + 4, true) / 100, bv = dv.getInt16(o + 6, true) / 1000;
+      var v = radec(ra, dec), c = bvRGB(bv); pos.set(v, i * 3); col.set(c, i * 3); mag[i * 3] = m; mag[i * 3 + 1] = 0; mag[i * 3 + 2] = 1; if (m < 4.6) list.push([v, m, c]);
+    }
+    for (var k = n; k < N; k++) { pos.set([0, 0, -1], k * 3); col.set([1, 1, 1], k * 3); mag[k * 3] = 30; mag[k * 3 + 1] = k < n + NPL ? 1 : 2; mag[k * 3 + 2] = 0; }
+    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aCol", new THREE.BufferAttribute(col, 3)); g.setAttribute("aMag", new THREE.BufferAttribute(mag, 3));
+    g.attributes.position.setUsage(THREE.DynamicDrawUsage); g.attributes.aMag.setUsage(THREE.DynamicDrawUsage); g.attributes.aCol.setUsage(THREE.DynamicDrawUsage);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e9);
+    SK.starN = n; SK.bright = list; return g;
+  }
+  function skStarsObject(geo) {
+    var mat = skStarMat(); var pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = -2; pts.userData.noCull = true; pts.userData.noShadow = true; pts.name = "sky_stars";
+    return pts;
+  }
+  // write the planets (and the satellites) into their slots of the Points buffer (a few floats per frame)
+  function skWriteMovers() {
+    var S = SK.pts; if (!S) return; var g = S.geometry, P = g.attributes.position, C = g.attributes.aCol, M = g.attributes.aMag; var n = SK.starN;
+    for (var i = 0; i < NPL; i++) { var p = SK.planets[i]; var j = n + i; if (!p) continue; P.array.set(p.eq, j * 3); C.array.set(p.col, j * 3); M.array[j * 3] = p.mag; M.array[j * 3 + 2] = SK.planetOn ? 1 : 0; }
+    for (var s = 0; s < NSAT; s++) { var st = SK.sat[s], j2 = n + NPL + s; if (st && st.eq) { P.array.set(st.eq, j2 * 3); M.array[j2 * 3] = st.mag; M.array[j2 * 3 + 2] = st.a; } else { M.array[j2 * 3 + 2] = 0; } }
+    P.clearUpdateRanges(); P.addUpdateRange(n * 3, (NPL + NSAT) * 3); P.needsUpdate = true; C.clearUpdateRanges(); C.addUpdateRange(n * 3, (NPL + NSAT) * 3); C.needsUpdate = true; M.clearUpdateRanges(); M.addUpdateRange(n * 3, (NPL + NSAT) * 3); M.needsUpdate = true;
+  }
+
+  // ── constellations: IAU figures as anti-aliased screen-space quads (one draw) and the names as text quads from a canvas atlas (one draw) ──
+  var CON_VERT = [
+    "attribute vec3 iA; attribute vec3 iB; uniform mat3 uE2W; uniform vec2 uVP; uniform float uW; uniform float uGap; varying float vS; varying float vA; varying float vE;",
+    "vec4 clipOf(vec3 e){ vec3 d = normalize(uE2W * e); return projectionMatrix * viewMatrix * vec4(cameraPosition + d * 70000.0, 1.0); }",
+    "void main(){ vec3 dA = normalize(uE2W * iA), dB = normalize(uE2W * iB); vA = min(smoothstep(-0.02, 0.1, dA.y), smoothstep(-0.02, 0.1, dB.y));",
+    // leave a small gap at each star (planetarium style)
+    "  float L = acos(clamp(dot(iA, iB), -1.0, 1.0)); float g = min(uGap / max(L, 1e-4), 0.3); vec3 a = normalize(mix(iA, iB, g)), b = normalize(mix(iA, iB, 1.0 - g));",
+    "  vec4 ca = clipOf(a), cb = clipOf(b); float e = 1.0; if (ca.w < 1.0 && cb.w < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }",
+    "  if (ca.w < 1.0) ca = mix(ca, cb, (1.0 - ca.w) / (cb.w - ca.w)); if (cb.w < 1.0) cb = mix(cb, ca, (1.0 - cb.w) / (ca.w - cb.w));",
+    "  vec2 sa = ca.xy / ca.w * uVP * 0.5, sb = cb.xy / cb.w * uVP * 0.5; vec2 t = sb - sa; float tl = length(t); vec2 dir = tl > 1e-3 ? t / tl : vec2(1.0, 0.0); vec2 nrm = vec2(-dir.y, dir.x);",
+    "  float side = position.y; float end = position.x; vec4 c = end < 0.5 ? ca : cb; vec2 s = (end < 0.5 ? sa : sb) + nrm * side * (uW * 0.5 + 1.0);",
+    "  vS = side * (uW * 0.5 + 1.0); vE = e; gl_Position = vec4(s / (uVP * 0.5) * c.w, c.z, c.w); }"
+  ].join("\n");
+  var CON_FRAG = "uniform float uK; uniform float uW; uniform vec3 uCol; varying float vS; varying float vA; varying float vE; void main(){ float a = clamp(uW * 0.5 + 0.5 - abs(vS), 0.0, 1.0) * uK * vA; if (a < 0.004) discard; gl_FragColor = vec4(uCol * a, 1.0); }";
+  var LAB_VERT = [
+    "attribute vec3 iD; attribute vec4 iUV; attribute vec3 iSz; uniform mat3 uE2W; uniform vec2 uVP; uniform float uScale; varying vec2 vUv; varying float vA; varying float vKind;",
+    "void main(){ vec3 d = normalize(uE2W * iD); vA = smoothstep(0.0, 0.12, d.y); vKind = iSz.z; vec4 c = projectionMatrix * viewMatrix * vec4(cameraPosition + d * 70000.0, 1.0); if (c.w < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }",
+    "  vec2 off = (position.xy + vec2(iSz.z > 0.5 ? 0.62 : 0.0, iSz.z > 0.5 ? 0.5 : 0.0)) * iSz.xy * uScale; vUv = vec2(mix(iUV.x, iUV.z, position.x + 0.5), mix(iUV.w, iUV.y, position.y + 0.5));",
+    "  gl_Position = vec4(c.xy / c.w + off / (uVP * 0.5), c.z / c.w, 1.0); }"
+  ].join("\n");
+  var LAB_FRAG = "uniform sampler2D tAtlas; uniform float uK; uniform vec3 uCol; uniform vec3 uCol2; varying vec2 vUv; varying float vA; varying float vKind; void main(){ float a = texture2D(tAtlas, vUv).r * uK * vA; if (a < 0.01) discard; gl_FragColor = vec4((vKind > 0.5 ? uCol2 : uCol) * a, 1.0); }";
+  var STAR_NAMES = [["Polaris", 37.95, 89.26], ["Sirius", 101.29, -16.72], ["Vega", 279.23, 38.78], ["Arcturus", 213.92, 19.18], ["Capella", 79.17, 46.0], ["Rigel", 78.63, -8.2], ["Betelgeuse", 88.79, 7.41], ["Procyon", 114.83, 5.22], ["Aldebaran", 68.98, 16.51], ["Antares", 247.35, -26.43], ["Altair", 297.7, 8.87], ["Deneb", 310.36, 45.28], ["Spica", 201.3, -11.16], ["Regulus", 152.09, 11.97], ["Fomalhaut", 344.41, -29.62], ["Pollux", 116.33, 28.03], ["Castor", 113.65, 31.89], ["Canopus", 95.99, -52.7], ["Achernar", 24.43, -57.24], ["Bellatrix", 81.28, 6.35], ["Mizar", 200.98, 54.93], ["Dubhe", 165.93, 61.75], ["Alnilam", 84.05, -1.2], ["Mira", 34.84, -2.98], ["Algol", 47.04, 40.96], ["Shaula", 263.4, -37.1], ["Rasalhague", 263.73, 12.56], ["Hamal", 31.79, 23.46], ["Denebola", 177.26, 14.57], ["Alphard", 141.9, -8.66]];
+  function skBuildConst(data) {
+    var segs = []; var L = data.lines; for (var k in L) L[k].forEach(function (line) { for (var i = 1; i < line.length; i++) segs.push([radec(line[i - 1][0], line[i - 1][1]), radec(line[i][0], line[i][1])]); });
+    var base = new THREE.InstancedBufferGeometry(); base.setAttribute("position", new THREE.BufferAttribute(new Float32Array([0, -1, 0, 1, -1, 0, 1, 1, 0, 0, 1, 0]), 3)); base.setIndex([0, 1, 2, 0, 2, 3]);
+    var A = new Float32Array(segs.length * 3), B = new Float32Array(segs.length * 3); segs.forEach(function (s, i) { A.set(s[0], i * 3); B.set(s[1], i * 3); });
+    base.setAttribute("iA", new THREE.InstancedBufferAttribute(A, 3)); base.setAttribute("iB", new THREE.InstancedBufferAttribute(B, 3)); base.instanceCount = segs.length; base.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e9);
+    var lm = new THREE.ShaderMaterial({ uniforms: { uE2W: { value: new THREE.Matrix3() }, uVP: { value: new THREE.Vector2(1280, 720) }, uW: { value: 1.4 }, uGap: { value: 0.5 * D2R }, uK: { value: 0 }, uCol: { value: new THREE.Color(0.32, 0.46, 0.72) } }, vertexShader: CON_VERT, fragmentShader: CON_FRAG, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, fog: false });
+    var lines = new THREE.Mesh(base, lm); lines.frustumCulled = false; lines.renderOrder = -2; lines.userData.noCull = true; lines.userData.noShadow = true; lines.name = "sky_const_lines"; lines.visible = false;
+    // the names: a canvas atlas (constellations in spaced capitals, bright stars in italics)
+    var items = data.names.map(function (n) { return { t: n[1].toUpperCase().split("").join(" "), d: radec(n[2], n[3]), k: 0, rank: n[4] }; }).concat(STAR_NAMES.map(function (s) { return { t: s[0], d: radec(s[1], s[2]), k: 1, rank: 1 }; }));
+    var cv = document.createElement("canvas"); cv.width = 2048; cv.height = 1024; var x = cv.getContext("2d"); x.fillStyle = "#000"; x.fillRect(0, 0, 2048, 1024); x.fillStyle = "#fff"; x.textBaseline = "middle";
+    var px = 6, py = 4, rowH = 34; var uv = [];
+    items.forEach(function (it) { x.font = it.k ? "italic 500 23px Georgia, serif" : "600 21px 'Segoe UI', system-ui, sans-serif"; var w = Math.ceil(x.measureText(it.t).width) + 8; if (px + w > 2044) { px = 6; py += rowH; } x.fillText(it.t, px + 4, py + rowH / 2); it.uv = [px / 2048, py / 1024, (px + w) / 2048, (py + rowH) / 1024]; it.w = w; px += w + 6; });
+    var tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.NoColorSpace; tex.flipY = false; tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter;
+    var lg = new THREE.InstancedBufferGeometry(); lg.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]), 3)); lg.setIndex([0, 1, 2, 0, 2, 3]);
+    var D = new Float32Array(items.length * 3), U = new Float32Array(items.length * 4), Z = new Float32Array(items.length * 3);
+    items.forEach(function (it, i) { D.set(it.d, i * 3); U.set([it.uv[0], it.uv[1], it.uv[2], it.uv[3]], i * 4); var s = it.k ? 0.62 : (it.rank === 1 ? 0.78 : it.rank === 2 ? 0.66 : 0.58); Z.set([it.w * s, rowH * s, it.k], i * 3); });
+    lg.setAttribute("iD", new THREE.InstancedBufferAttribute(D, 3)); lg.setAttribute("iUV", new THREE.InstancedBufferAttribute(U, 4)); lg.setAttribute("iSz", new THREE.InstancedBufferAttribute(Z, 3)); lg.instanceCount = items.length; lg.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e9);
+    var tm = new THREE.ShaderMaterial({ uniforms: { tAtlas: { value: tex }, uE2W: { value: lm.uniforms.uE2W.value }, uVP: { value: lm.uniforms.uVP.value }, uScale: { value: 1 }, uK: { value: 0 }, uCol: { value: new THREE.Color(0.42, 0.58, 0.86) }, uCol2: { value: new THREE.Color(0.86, 0.8, 0.62) } }, vertexShader: LAB_VERT, fragmentShader: LAB_FRAG, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, fog: false });
+    var labels = new THREE.Mesh(lg, tm); labels.frustumCulled = false; labels.renderOrder = -2; labels.userData.noCull = true; labels.userData.noShadow = true; labels.name = "sky_const_names"; labels.visible = false;
+    SK.conNames = items.length; return { lines: lines, labels: labels };
+  }
+
+  // ── star trails for the time-lapse: each bright star as an arc of line segments rotated about the pole on the GPU (one draw, only while used) ──
+  var TRAIL_VERT = [
+    "attribute vec3 aCol; attribute float aS; uniform mat3 uE2W; uniform vec3 uPole; uniform float uAng; uniform float uK; varying vec3 vC;",
+    "void main(){ float a = aS * uAng; vec3 v = position * cos(a) + cross(uPole, position) * sin(a) + uPole * dot(uPole, position) * (1.0 - cos(a)); vec3 d = normalize(uE2W * v);",
+    "  float fade = smoothstep(1.0, 0.75, aS) * smoothstep(-0.01, 0.06, d.y); vC = aCol * fade * uK;",
+    "  gl_Position = projectionMatrix * viewMatrix * vec4(cameraPosition + d * 70000.0, 1.0); }"
+  ].join("\n");
+  function skBuildTrails() {
+    var L = (SK.bright || []).filter(function (s) { return s[1] < (GX.tier >= 1 ? 4.6 : 3.8); }); var SEG = 28, n = L.length * SEG * 2;
+    var pos = new Float32Array(n * 3), col = new Float32Array(n * 3), s = new Float32Array(n); var o = 0;
+    L.forEach(function (st) { var b = Math.min(Math.pow(Math.pow(10, -0.4 * (st[1] - 1)), 0.5), 2.2) * 0.55; for (var k = 0; k < SEG; k++) for (var e = 0; e < 2; e++) { pos.set(st[0], o * 3); col.set([st[2][0] * b, st[2][1] * b, st[2][2] * b], o * 3); s[o] = (k + e) / SEG; o++; } });
+    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("aCol", new THREE.BufferAttribute(col, 3)); g.setAttribute("aS", new THREE.BufferAttribute(s, 1)); g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e9);
+    var m = new THREE.ShaderMaterial({ uniforms: { uE2W: { value: SK.pts.material.uniforms.uE2W.value }, uPole: { value: new THREE.Vector3(0, 0, 1) }, uAng: { value: 0 }, uK: { value: 0 } }, vertexShader: TRAIL_VERT, fragmentShader: "varying vec3 vC; void main(){ gl_FragColor = vec4(vC, 1.0); }", transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, fog: false });
+    var ls = new THREE.LineSegments(g, m); ls.frustumCulled = false; ls.renderOrder = -2; ls.userData.noCull = true; ls.userData.noShadow = true; ls.name = "sky_trails"; ls.visible = false; return ls;
+  }
+
+  // ── install: the sky uniforms (bound to 1 px stand-ins, so nothing recompiles when the real textures arrive), the small data now ──
+  function setM3(m, A) { m.set(A[0], A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[8]); return m; }
+  function skInstallUniforms() {
+    var U = skyMat.uniforms;
+    U.uW2E = { value: new THREE.Matrix3() }; U.tSkyL = { value: px1([0, 0, 0]) }; U.tSkyC = { value: px1([255, 255, 255]) }; U.tMoon = { value: px1([140, 140, 140]) };
+    U.uMap = { value: new THREE.Vector4(0, 0.1, 2.2, 1.1) }; U.uMap2 = { value: new THREE.Vector4(1.5, 1, 1, 0) }; U.uMap3 = { value: new THREE.Vector4(0, 0.6, 0.03, 0.5) }; U.uMap4 = { value: new THREE.Vector4(2048, 1024, 0.03, 0) }; U.uMap5 = { value: new THREE.Vector4(0, 0.04, 2.0, 0.3) }; U.uNightK = { value: new THREE.Vector4(1, 0, 1, 1) };
+    U.uMoonSun = { value: new THREE.Vector3(1, 0, 0) }; U.uMoonN = { value: new THREE.Vector3(0, 1, 0) }; U.uMoonP = { value: new THREE.Vector4(0.0072, 0.5, 0, 2.0) }; U.uMoonTint = { value: new THREE.Color(0.55, 0.6, 0.72) };
+    U.uMetA = { value: [new THREE.Vector4(), new THREE.Vector4()] }; U.uMetB = { value: [new THREE.Vector4(1, 0, 0, 0), new THREE.Vector4(1, 0, 0, 0)] }; U.uTele = { value: new THREE.Vector4(0, 0, 400, 0) };
+  }
+  function skInstall() {
+    SK.tier = GX.bootTier; var maxT = 4096; try { maxT = renderer.capabilities.maxTextureSize; } catch (e) {}
+    SK.res = SK.tier >= 2 && maxT >= 8192 ? "8k" : SK.tier >= 1 ? "4k" : "2k"; SK.cres = SK.tier >= 1 ? "2k" : "1k";
+    SK.planetOn = true; SK.satOn = SK.tier >= 1; SK.metOn = true;
+    var m = /[?&]skydate=(\d{4})-(\d{2})-(\d{2})/.exec(location.search); if (m) SK.date = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    if (!SK.pts && !SK.loading) {
+      SK.loading = true;
+      skFetch(SKDIR + "stars.bin", "buf").then(function (buf) {
+        if (!GX.installed) return; SK.pts = skStarsObject(skBuildStars(buf)); scene.add(SK.pts); SK.trails = skBuildTrails(); scene.add(SK.trails); SK.loaded.stars = 1; skMarkReady();
+      }).catch(function (e) { skNote("stars", e); });
+      skFetch(SKDIR + "const.json", "json").then(function (d) { if (!GX.installed) return; SK.con = skBuildConst(d); scene.add(SK.con.lines); scene.add(SK.con.labels); SK.loaded.con = 1; }).catch(function (e) { skNote("constellations", e); });
+      skImage(SKDIR + "moon_1k.jpg").then(function (im) { if (!GX.installed) return; SKT.moon = skTex(im, { srgb: false, clampS: true }); skyMat.uniforms.tMoon.value = SKT.moon; SK.loaded.moon = 1; }).catch(function (e) { skNote("moon", e); });
+    } else if (SK.pts) { scene.add(SK.pts); if (SK.trails) scene.add(SK.trails); if (SK.con) { scene.add(SK.con.lines); scene.add(SK.con.labels); } }
+    if (SKT.moon && SKT.moon.isTexture) skyMat.uniforms.tMoon.value = SKT.moon; if (SKT.L && SKT.C) { skyMat.uniforms.tSkyL.value = SKT.L; skyMat.uniforms.tSkyC.value = SKT.C; SK.mapState = 4; SK.mapWant = SK.mapK = 1; PS_API.mapReady = true; }
+    GX.n.skyR4 = SK.res;
+  }
+  function skUninstall() {
+    [SK.pts, SK.trails, SK.con && SK.con.lines, SK.con && SK.con.labels].forEach(function (o) { if (o && o.parent) o.parent.remove(o); });
+    SK.tele.slice().forEach(function (t) { try { t.dispose(); } catch (e) {} }); if (SK.teleWarm) { try { SK.teleWarm.dispose(); } catch (e) {} SK.teleWarm = null; }
+    sgRestore();
+  }
+  function skMarkReady() { if (SK.loaded.stars) { PS_API.ready = true; var q = PS_API._q.splice(0); q.forEach(function (f) { try { f(PS_API); } catch (e) { skNote("onReady", e); } }); } }
+  // the big map: after the loading screen has gone (plus a moment), decoded off-thread, uploaded in two quiet frames, cross-faded in
+  function skLoadOff() { var L = document.getElementById("load"); return !L || L.classList.contains("off"); }
+  function skMapStep(now) {
+    if (SK.mapState === undefined) SK.mapState = 0;
+    // desktop: once the map is in, the telescope's programs are compiled in the background (a hidden view keeps them alive), so the
+    // first telescopeView() does not stall on shader links
+    if (SK.mapState === 4 && !SK.warm && SK.tier >= 1 && SK.pts && now - (SK.mapT0 || 0) > 12000) { SK.warm = 1; try { var W = new TeleView([0, 1, 0], 1, { live: false, size: 16 }); var wi = SK.tele.indexOf(W); if (wi >= 0) SK.tele.splice(wi, 1); SK.teleWarm = W;
+      (renderer.compileAsync ? renderer.compileAsync(W.scene, W.cam) : Promise.resolve(renderer.compile(W.scene, W.cam))).then(function () { renderer.compile(W.qs, W.qc); W.quad.material = W.scr; renderer.compile(W.qs, W.qc); W.quad.material = W.fin; SK.warmed = 1; }).catch(function (e) { skNote("tele warm", e); }); } catch (e) { skNote("tele warm", e); } }
+    if (SK.mapState === 0) { if (!skLoadOff()) { SK.offAt = 0; return; } if (!SK.offAt) SK.offAt = now; if (now - SK.offAt < 2500 && !SK.mapNow) return; SK.mapState = 1; SK.mapT0 = now;
+      Promise.all([skImage(SKDIR + "sky_l_" + SK.res + ".jpg"), skImage(SKDIR + "sky_c_" + SK.cres + ".jpg")]).then(function (r) { SK.mapImgs = r; SK.mapState = 2; }).catch(function (e) { skNote("map", e); SK.mapState = 9; });
+      return; }
+    if (SK.mapState === 2) { try { busyGuard(); } catch (e) { return; } SKT.L = skTex(SK.mapImgs[0], { red: true, aniso: SK.tier >= 2 ? 8 : SK.tier >= 1 ? 4 : 1 }); try { renderer.initTexture(SKT.L); } catch (e) { skNote("upload L", e); } SK.mapState = 3; return; }
+    if (SK.mapState === 3) { SKT.C = skTex(SK.mapImgs[1], { srgb: true }); try { renderer.initTexture(SKT.C); } catch (e) { skNote("upload C", e); }
+      var U = skyMat.uniforms; U.tSkyL.value = SKT.L; U.tSkyC.value = SKT.C; SK.mapWant = 1; SK.mapState = 4; SK.mapMs = Math.round(now - SK.mapT0);
+      SK.mapImgs.forEach(function (im) { try { if (im.close) im.close(); } catch (e) {} }); SK.mapImgs = null; PS_API.mapReady = true; }
+  }
+  // a heavy moment (a camera cut in the fly-in, an interior entry) postpones the upload by a frame
+  function busyGuard() { try { if (typeof FLY !== "undefined" && FLY.on && FLY.cutAt && performance.now() - FLY.cutAt < 1500) throw 0; } catch (e) { if (e === 0) throw e; } }
+
+  // ── the per-frame update (inside the client's updateSky, after the GFX sky): matrices, bodies, uniforms, the night key light ──
+  var SKC = { m3: null, v: null, frame: 0 };
+  function skUpdate(dt, el, S, nightK) {
+    var U = skyMat.uniforms; var now = performance.now(); var K = GX.K.sk; SKC.frame++;
+    var dtR = SKC.last ? clamp((now - SKC.last) / 1000, 0, 0.5) : 0; SKC.last = now;   // fades run on wall time (slow frames do not stretch them)
+    if (!SKC.m3) { SKC.m3 = new THREE.Matrix3(); SKC.v = new THREE.Vector3(); }
+    skMapStep(now);
+    // stargazing and time-lapse smoothing
+    var sg = SK.sg; var sgT = sg.on ? 1 : 0; var fade = Math.max(0.2, sg.opts.fade || 2.0); sg.k += clamp(sgT - sg.k, -dtR / fade, dtR / fade); var g = sstep(0, 1, sg.k);
+    skTimeLapse(dtR);
+    SK.mapK += clamp(SK.mapWant - SK.mapK, -dtR / 2.5, dtR / 2.5);
+    var conT = SK.conOn ? 1 : 0; SK.conK += clamp(conT - SK.conK, -dtR / 0.8, dtR / 0.8);
+    // time, matrices
+    var ms = skyMs(); var jd = skJD(ms); SK.jd = jd; SK.ms = ms;
+    var E2W = SK.E2W = skyMatrix(jd); var W2E = SK.W2E = m3t(E2W); setM3(U.uW2E.value, W2E);
+    // Sun, Moon (topocentric), planets
+    var sn = sunPos(jd), mo = moonPos(jd); var sunW = v3n(m3v(E2W, sn.eq));
+    var mg = m3v(E2W, mo.eq); var mtx = [mg[0] * mo.r, mg[1] * mo.r - 1, mg[2] * mo.r]; var mdist = Math.hypot(mtx[0], mtx[1], mtx[2]); var mt = [mtx[0] / mdist, mtx[1] / mdist, mtx[2] / mdist];
+    var elong = Math.acos(clamp(v3dot(sn.eq, mo.eq), -1, 1)); var illum = (1 - Math.cos(elong)) / 2; var ph = 180 - elong * R2D;
+    var eclN = [0, -SE, CE]; var waxing = v3dot(v3cross(sn.eq, mo.eq), eclN) > 0;
+    var mrad = 1737.4 / (mdist * 6378.14);
+    SK.moon = { dir: mt, illum: illum, radius: mrad, alt: Math.asin(clamp(mt[1], -1, 1)) * R2D, az: (Math.atan2(mt[0], -mt[2]) * R2D + 360) % 360, waxing: waxing, mag: -12.73 + 0.026 * Math.abs(ph) + 4e-9 * Math.pow(ph, 4), eq: mo.eq, dist: mdist };
+    SK.sunW = sunW; SK.sun = { dir: sunW, alt: Math.asin(clamp(sunW[1], -1, 1)) * R2D, eq: sn.eq };
+    if (SKC.frame % 3 === 1 || !SK.planets.length) { SK.planets = planetPos(jd); SK.moons = galilean(jd); }
+    var moonUp = sstep(-0.025, 0.06, mt[1]); var moonB = Math.pow(illum, 1.35) * sstep(-0.03, 0.3, mt[1]);
+    SK.moonBright = moonB;
+    // sky uniforms: the Moon
+    U.uMoonDir.value.fromArray(mt); U.uMoonSun.value.fromArray(sunW); var mn = m3v(E2W, eclN); U.uMoonN.value.fromArray(mn);
+    U.uMoonP.value.set(mrad * K.moonScale, illum, clamp(mix(0.5, 1, sstep(0.0, 0.4, nightK)) * moonUp, 0, 1), K.moonLit);
+    // the night: stars, map, moonlit sky, airglow
+    var dark = sstep(-0.1, -0.36, el) * sstep(0.05, 0.9, nightK); SK.dark = dark;
+    var vis = sstep(0.0, 0.3, nightK) * (1 - S);
+    U.uNightK.value.set(1 + 0.4 * g, moonB * nightK * (1 - S * 0.7) * K.moonSky, K.airglow, 1);
+    U.uMap.value.set(SK.mapK, K.mapBlack + 0.07 * moonB + 0.04 * (1 - sstep(0.3, 0.9, nightK)), K.mapGamma, K.mapGain * (1 + 0.35 * g) * (1 - 0.55 * moonB) * Math.pow(dark, 1.6));
+    U.uMap2.value.set(K.mapSat, SK.pts ? 0 : 1, K.mapShoulder, K.envNight * (0.5 + 0.5 * moonB));
+    var tw2 = SK.res === "8k" ? 8192 : SK.res === "4k" ? 4096 : 2048; U.uMap3.value.set(SK.tier >= 1 && SK.mapState === 4 ? 1 : 0, K.mapLocal, K.hpThresh, K.hpGain * (1 + 0.3 * g) * (1 - 0.7 * moonB) * dark); U.uMap4.value.set(tw2, tw2 / 2, K.dither, 0);
+    { var ph = 720; try { ph = renderer.domElement.height; } catch (e) {} var pxr = ph / (camera.fov * D2R); var cs = SK.tier >= 1 ? Math.pow(2, Math.round(Math.log2(pxr / K.grainPx))) : 0; U.uMap5.value.set(cs, K.grainBase, K.grainDens, K.grainGain * dark * (1 - 0.8 * moonB) * (1 + 0.3 * g)); }
+    // moonless nights are dark like the photo (only the warm pockets of artificial light), the grade's lift follows the Moon
+    GR.night[5] = mix(K.liftDark, 0.007, Math.max(moonB, 1 - nightK));
+    // the distant haze at night: the client's ramp keeps a purple dusk until 21:00; once it is dark the haze is the night sky's navy
+    try { var fh = SKC.fh || (SKC.fh = new THREE.Color()); fh.setRGB(mix(K.fogNight[0], K.fogMoon[0], moonB), mix(K.fogNight[1], K.fogMoon[1], moonB), mix(K.fogNight[2], K.fogMoon[2], moonB)); var fk = dark * (1 - S) * 0.9; scene.fog.color.lerp(fh, fk); if (typeof POST !== "undefined" && POST.hazeCol) POST.hazeCol.lerp(fh, fk); } catch (e) {}
+    try { var pk = mix(K.pebbleDark, 1, Math.max(moonB, 1 - nightK)); if (NEAR.pebbles) NEAR.pebbles.material.emissive.multiplyScalar(pk); if (NEAR.rocks) NEAR.rocks.material.emissive.multiplyScalar(pk); } catch (e) {}
+    // meteors
+    if (!SK.showerAt || now - SK.showerAt > 1000) { SK.shower = skShower(ms); SK.showerAt = now; }
+    skMeteors(dt, now, nightK, S, E2W, moonB);
+    // the catalogue stars, the planets, the satellites
+    if (SK.pts) {
+      var P = SK.pts.material.uniforms; setM3(P.uE2W.value, E2W);
+      P.uLim.value = mix(0.6, K.starLim - 1.5 * moonB + 0.45 * g, Math.pow(dark, 0.8)); P.uGain.value = K.starGain * (1 + 0.3 * g); P.uVis.value = vis; P.uTime.value = now / 1000;
+      try { P.uPR.value = renderer.getPixelRatio(); } catch (e) {}
+      P.uMoonDir.value.fromArray(mt); P.uMoon.value.set(mrad * K.moonScale, moonB * moonUp);
+      skSatellites(dt, now, el, nightK, W2E); skWriteMovers();
+      SK.pts.visible = vis > 0.001 || SK.tele.length > 0;
+    }
+    if (SK.con) {
+      var cu = SK.con.lines.material.uniforms, lu = SK.con.labels.material.uniforms; setM3(cu.uE2W.value, E2W);
+      var dw = renderer.domElement.width, dh = renderer.domElement.height; cu.uVP.value.set(dw, dh); var pr = 1; try { pr = renderer.getPixelRatio(); } catch (e) {}
+      cu.uW.value = 1.3 * pr; lu.uScale.value = pr; var ck = SK.conK * (0.25 + 0.75 * sstep(0.0, 0.5, nightK)) * (1 - 0.6 * S); cu.uK.value = ck * K.conLine; lu.uK.value = ck;
+      SK.con.lines.visible = SK.con.labels.visible = ck > 0.003;
+    }
+    if (SK.trails) skTrailUniforms(E2W);
+    // the night key light: the real Moon when it is up (scaled by its phase), a soft high sky light when it is down
+    SK.keyDir = null; SK.keyK = 1; SK.fillK = 1;
+    if (el < -0.02) {
+      var phaseK = K.starKey + (1 - K.starKey) * Math.pow(illum, 1.5); var up = sstep(0.0, 0.16, mt[1]);
+      var md = [mt[0], Math.max(mt[1], 0.12), mt[2]]; md = v3n(md); var skyD = v3n([0.22, 0.95, 0.2]);
+      var kd = v3n([mix(skyD[0], md[0], up), mix(skyD[1], md[1], up), mix(skyD[2], md[2], up)]);
+      SK.keyDir = kd; SK.keyK = mix(K.starKey, phaseK * K.moonKey, up); SK.fillK = mix(K.starFill, K.moonFill, up); var sc = K.starCol, mc = K.moonCol; SK.keyCol = [mix(sc[0], mc[0], up), mix(sc[1], mc[1], up), mix(sc[2], mc[2], up)];
+    }
+    try { var nf = sstep(0.1, 0.9, nightK) * K.fillNeutral; if (nf > 0) hemi.color.lerp(SKC.c || (SKC.c = new THREE.Color()), 0).lerp(SKC.c.setRGB(K.fillCol[0], K.fillCol[1], K.fillCol[2]), nf); } catch (e) {}
+    // stargazing: the world's artificial light, the bloom, the clouds
+    SK.lightK = 1 - (1 - (sg.opts.lights === undefined ? 0.35 : sg.opts.lights)) * g; PS_API.lightK = SK.lightK; skLights(SK.lightK);
+    if (CL) { var cu2 = CL.mesh.material.uniforms; if (cu2.uFadeK) cu2.uFadeK.value = (1 - g * (sg.opts.clouds === "keep" ? 0 : 1) * (1 - sstep(0.1, 0.5, S))) * mix(1, mix(K.nightCloud0, K.nightCloud1, moonB), nightK * (1 - S)); }
+    if (GX.post && GX.post.fin && POST.mFinal.uniforms.uBloomK) { var F = POST.mFinal.uniforms; F.uBloomK.value = 1 - (1 - (sg.opts.bloom === undefined ? 0.75 : sg.opts.bloom)) * g; F.uSkyGradeK.value = sstep(0.05, 0.6, nightK); F.uGSatSky.value = K.skySat * (1 + 0.08 * g); }
+    for (var ti = 0; ti < SK.tele.length; ti++) { var tv = SK.tele[ti]; if (tv.live) tv._due = true; }
+  }
+  // stargazing dims the world's artificial light: every emissive material, additive glow and point / spot light is scaled just
+  // for the frame's render and restored right after it (nothing compounds, other modules keep driving their own values)
+  var SGL = { mats: [], lights: [], at: 0, saved: null };
+  function sgScan() {
+    var mats = new Set(), lights = [];
+    scene.traverse(function (o) { if (o.isPointLight || o.isSpotLight) { lights.push(o); return; } var m = o.material; if (!m) return; var arr = Array.isArray(m) ? m : [m];
+      for (var i = 0; i < arr.length; i++) { var x = arr[i]; if (!x || x.isShaderMaterial) continue; if (x.emissive && x.emissiveIntensity > 0 && x.emissive.r + x.emissive.g + x.emissive.b > 0.02) mats.add(x); else if (x.isMeshBasicMaterial && x.blending === THREE.AdditiveBlending) mats.add(x); } });
+    SGL.mats = Array.from(mats); SGL.lights = lights; SGL.at = performance.now();
+  }
+  function sgApply(k) {
+    if (k >= 0.999) return; if (!SGL.at || performance.now() - SGL.at > 4000) { try { sgScan(); } catch (e) { skNote("stargaze scan", e); } }
+    var S = SGL.saved = [];
+    for (var i = 0; i < SGL.mats.length; i++) { var m = SGL.mats[i]; if (m.isMeshBasicMaterial) { S.push(m, 0, m.opacity); m.opacity *= k; } else { S.push(m, 1, m.emissiveIntensity); m.emissiveIntensity *= k; } }
+    for (var j = 0; j < SGL.lights.length; j++) { var l = SGL.lights[j]; S.push(l, 2, l.intensity); l.intensity *= k; }
+  }
+  function sgRestore() { var S = SGL.saved; if (!S) return; for (var i = 0; i < S.length; i += 3) { var o = S[i], t = S[i + 1]; if (t === 0) o.opacity = S[i + 2]; else if (t === 1) o.emissiveIntensity = S[i + 2]; else o.intensity = S[i + 2]; } SGL.saved = null; }
+  function skLights(k) { if (k < 0.999) { try { WIN.u.uNight.value *= k; } catch (e) {} } }
+
+  // ── meteors: sporadic ones now and then, many more during the real showers (radiating from the real radiant) ──
+  var SHOWERS = [["Quadrantids", 1, 3, 12, 28, 110, 230.1, 48.5, 1.2], ["Lyrids", 4, 22, 8, 8, 18, 271.4, 33.6, 2], ["Eta Aquariids", 5, 6, 17, 22, 50, 338, -1, 5], ["Delta Aquariids", 7, 30, 18, 24, 25, 340, -16, 6], ["Perseids", 8, 12, 26, 12, 100, 48.2, 58.1, 3],
+    ["Draconids", 10, 8, 2, 2, 10, 262, 54, 1], ["Orionids", 10, 21, 19, 17, 20, 95.3, 15.6, 5], ["Leonids", 11, 17, 11, 13, 15, 152.3, 21.6, 3], ["Geminids", 12, 14, 10, 6, 150, 113.2, 32.2, 2], ["Ursids", 12, 22, 5, 4, 10, 217, 75.3, 1.5]];
+  // [name, peak month, peak day, days active before, days after, ZHR, radiant RA, Dec, profile width (days)]
+  function skShower(ms) {
+    var best = null, bz = 0; var d = new Date(ms - 7 * 3600000); var y = d.getUTCFullYear();
+    SHOWERS.forEach(function (s) { [y - 1, y, y + 1].forEach(function (yy) { var pk = Date.UTC(yy, s[1] - 1, s[2], 12) + 7 * 3600000; var dd = (ms - pk) / 86400000; if (dd < -s[3] || dd > s[4]) return; var z = s[5] * Math.exp(-Math.abs(dd) / s[8]); if (z > bz) { bz = z; best = { name: s[0], zhr: z, peakZhr: s[5], ra: s[6], dec: s[7], days: dd }; } }); });
+    return best;
+  }
+  function skMeteors(dt, now, nightK, S, E2W, moonB) {
+    var U = skyMat.uniforms; var met = SK.met;
+    for (var i = 0; i < 2; i++) { var m = met[i]; var B = U.uMetB.value[i]; if (!m) { B.w = 0; continue; } var t = m.hold !== undefined ? m.hold : (now - m.t0) / 1000 / m.dur; if (t >= 1) { met[i] = null; B.w = 0; continue; }
+      U.uMetA.value[i].set(m.a[0], m.a[1], m.a[2], t); B.set(m.b[0], m.b[1], m.b[2], m.br * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.15)), 0.6)); }
+    if (!SK.metOn || nightK < 0.5 || S > 0.3) return;
+    if (!SK.metNext) SK.metNext = now + 5000 + Math.random() * 20000;
+    if (now < SK.metNext) return;
+    var sh = SK.shower; var radW = null, z = 0;
+    if (sh) { radW = v3n(m3v(E2W, radec(sh.ra, sh.dec))); z = sh.zhr * Math.max(0.12, radW[1]); }
+    var rate = (1 + z / 12) / 60 * (1 - 0.5 * moonB) * (SK.sg.on ? 1.3 : 1);   // per real second
+    SK.metNext = now + (-Math.log(1 - Math.random() * 0.999) / rate) * 1000;
+    var slot = met[0] ? (met[1] ? -1 : 1) : 0; if (slot < 0) return;
+    var useSh = radW && radW[1] > -0.05 && Math.random() < z / 12 / (1 + z / 12);
+    for (var tries = 0; tries < 12; tries++) {
+      var a, dir;
+      if (useSh) { var rho = (10 + Math.random() * 60) * D2R, pa = Math.random() * Math.PI * 2; var t1 = v3n(v3cross(radW, Math.abs(radW[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), t2 = v3cross(radW, t1);
+        var off = [t1[0] * Math.cos(pa) + t2[0] * Math.sin(pa), t1[1] * Math.cos(pa) + t2[1] * Math.sin(pa), t1[2] * Math.cos(pa) + t2[2] * Math.sin(pa)];
+        a = v3n([radW[0] * Math.cos(rho) + off[0] * Math.sin(rho), radW[1] * Math.cos(rho) + off[1] * Math.sin(rho), radW[2] * Math.cos(rho) + off[2] * Math.sin(rho)]); dir = v3n(v3cross(v3cross(radW, a), a)); dir = [-dir[0], -dir[1], -dir[2]];
+        if (v3dot(dir, v3n([a[0] - radW[0], a[1] - radW[1], a[2] - radW[2]])) < 0) dir = [-dir[0], -dir[1], -dir[2]]; }
+      else { var az = Math.random() * Math.PI * 2, alt = (22 + Math.random() * 60) * D2R; a = [Math.sin(az) * Math.cos(alt), Math.sin(alt), -Math.cos(az) * Math.cos(alt)]; var q = Math.random() * Math.PI * 2; var e1 = v3n(v3cross(a, [0, 1, 0])), e2 = v3cross(e1, a); dir = v3n([e1[0] * Math.cos(q) + e2[0] * Math.sin(q), e1[1] * Math.cos(q) + e2[1] * Math.sin(q) - 0.25, e1[2] * Math.cos(q) + e2[2] * Math.sin(q)]); }
+      var L = (4 + Math.random() * 16) * D2R; var b = v3n([a[0] * Math.cos(L) + dir[0] * Math.sin(L), a[1] * Math.cos(L) + dir[1] * Math.sin(L), a[2] * Math.cos(L) + dir[2] * Math.sin(L)]);
+      if (a[1] < 0.2 || b[1] < 0.1) continue;
+      var r = Math.random(); met[slot] = { a: a, b: b, t0: now, dur: 0.22 + L * R2D / 28 + Math.random() * 0.25, br: 0.5 + 3.4 * Math.pow(r, 6), shower: useSh ? sh.name : "" }; SK.metCount = (SK.metCount || 0) + 1; break;
+    }
+  }
+  // ── satellites: now and then a steady point crossing the early or late night sky, sometimes fading into the Earth's shadow ──
+  function skSatellites(dt, now, el, nightK, W2E) {
+    for (var i = 0; i < NSAT; i++) { var s = SK.sat[i]; if (!s) continue; var t = (now - s.t0) / 1000 * s.w; if (t > Math.PI) { SK.sat[i] = null; continue; }
+      var th = t - Math.PI / 2; var w = [s.c[0] * Math.cos(th) + s.tg[0] * Math.sin(th), s.c[1] * Math.cos(th) + s.tg[1] * Math.sin(th), s.c[2] * Math.cos(th) + s.tg[2] * Math.sin(th)];
+      s.eq = m3v(W2E, w); s.a = (1 - sstep(s.ecl - 0.06, s.ecl + 0.06, t / Math.PI)) * sstep(0, 0.04, t / Math.PI) * sstep(0.3, 0.6, nightK); }
+    if (!SK.satOn || nightK < 0.4 || el < -0.62) return;   // satellites shine in sunlight: the first and last hours of the night
+    if (!SK.satNext) SK.satNext = now + 15000 + Math.random() * 40000; if (now < SK.satNext) return; SK.satNext = now + 40000 + Math.random() * 70000;
+    var slot = !SK.sat[0] ? 0 : !SK.sat[1] ? 1 : -1; if (slot < 0) return;
+    var A0 = Math.random() * Math.PI * 2, hm = (20 + Math.random() * 65) * D2R; var c = [Math.sin(A0) * Math.cos(hm), Math.sin(hm), -Math.cos(A0) * Math.cos(hm)]; var tg = [Math.cos(A0), 0, Math.sin(A0)]; if (Math.random() < 0.5) tg = [-tg[0], 0, -tg[2]];
+    SK.sat[slot] = { c: c, tg: tg, t0: now, w: (0.6 + Math.random() * 0.6) * D2R, mag: 2.6 + Math.random() * 2, ecl: Math.random() < 0.55 ? 0.5 + Math.random() * 0.45 : 2, a: 0, eq: null };
+  }
+  // ── time-lapse: the sky turns faster for a while; star trails draw the arc it swept; afterwards the sky eases back to the clock ──
+  function skTimeLapse(dt) {
+    var T = SK.tl; var trK = 0;
+    if (T) {
+      var now = performance.now(); var active = !T.stopAt || now < T.stopAt;
+      if (active) { var add = dt * 1000 * (T.speed - 1) * 60; SK.tlOff += add; T.swept += add; T.k = Math.min(1, T.k + dt / 0.6); }
+      else if (!T.keep) { SK.tlOff *= Math.exp(-dt / 0.45); if (Math.abs(SK.tlOff) < 20000) SK.tlOff = 0; T.k = Math.max(0, T.k - dt / 1.6); if (T.k <= 0 && SK.tlOff === 0) SK.tl = null; }
+      else { T.k = Math.max(0, T.k - dt / 2.5); if (T.k <= 0) SK.tl = null; }
+      trK = T.trails ? T.k : 0; SK.trailAng = Math.min(T.swept / 86164090.5 * 2 * Math.PI, (T.maxHours || 3) / 23.934 * 2 * Math.PI);
+    }
+    SK.trailK = trK;
+  }
+  function skTrailUniforms(E2W) {
+    var u = SK.trails.material.uniforms; u.uK.value = SK.trailK * GX.K.sk.trailGain; SK.trails.visible = SK.trailK > 0.002 && SK.trailAng > 0.002;
+    if (!SK.trails.visible) return; var P = precess((SK.jd - 2451545.0) / 36525); u.uPole.value.set(P[6], P[7], P[8]).normalize(); u.uAng.value = SK.trailAng;
+  }
+
+  // ── telescope views: the sky re-rendered through a narrow field (the map at full resolution, crisp catalogue and procedural faint stars,
+  //    the Moon with the 2k LRO map, planets as lit discs, NASA/ESA images for the showcase deep-sky objects), tracked on the target ──
+  var DSO_IMG = {   // file, RA, Dec (image centre, deg), width, height (arcmin), north rotation (deg, + = image north left of vertical), black level, gain, mask
+    M42: ["tele_m42.jpg", 83.79054, -5.41398, 30.03, 30.03, 0, 0.1, 0.62, 0], M31: ["tele_m31.jpg", 10.75225, 41.26087, 362, 234.12, 1.9, 0.08, 0.8, 1], M13: ["tele_m13.jpg", 250.4198, 36.45978, 3.53, 3.53, 0, 0.03, 0.9, 0]
+  };
+  var PLEIADES = [[56.871, 24.105, 1.0], [57.291, 24.053, 0.45], [56.219, 24.113, 0.6], [56.457, 24.368, 0.7], [56.582, 23.948, 1.0], [56.302, 24.467, 0.35], [57.297, 24.137, 0.25]];
+  var DSO_VERT = "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
+  var DSO_FRAG = [
+    "uniform sampler2D tImg; uniform vec4 uP; uniform vec2 uAsp; uniform vec2 uSt[7]; uniform float uStW[7]; varying vec2 vUv;", GLSL_NOISE,
+    "void main(){ vec2 q = vUv * 2.0 - 1.0; vec3 c = vec3(0.0); float m = 1.0;",
+    "  if (uP.z < 1.5) { vec3 t = texture2D(tImg, vec2(vUv.x, 1.0 - vUv.y)).rgb; t = pow(t, vec3(2.2)); c = max(t - uP.x, 0.0) / (1.0 - uP.x); c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, 0.72);",
+    "    if (uP.z < 0.5) m = smoothstep(0.98, 0.62, length(q)); else { vec2 e = vec2(q.x * uAsp.x, q.y * uAsp.y); float a = radians(35.0 + 90.0); vec2 r = vec2(cos(a) * e.x - sin(a) * e.y, sin(a) * e.x + cos(a) * e.y); m = smoothstep(1.0, 0.55, length(r / vec2(1.75, 0.62))); }",
+    "  } else if (uP.z < 2.5) {",
+    // the Pleiades' blue reflection nebula: glow round the bright members, streaked
+    "    float s = 0.0; for (int i = 0; i < 7; i++) { vec2 d = q - uSt[i]; float r = length(d); s += uStW[i] * (exp(-r / 0.07) * 0.75 + exp(-r / 0.22) * 0.2); }",
+    "    float n = gNoise(vec2(q.x * 3.0 + q.y * 5.0, q.y * 2.0 - q.x * 1.5) * 4.0) * 0.6 + gNoise(q * 23.0) * 0.4; float str = 0.6 + 0.8 * smoothstep(0.3, 0.8, gNoise(vec2(q.x * 9.0 + q.y * 14.0, q.x * 2.0 - q.y * 3.0)));",
+    "    c = vec3(0.32, 0.5, 1.0) * s * n * str * 0.09; m = smoothstep(1.0, 0.7, length(q));",
+    "  } else { float r = length(q); c = vec3(1.0, 0.95, 0.86) * (exp(-r * r / 0.004) * 0.12 + exp(-r / 0.08) * 0.035 + exp(-r / 0.25) * 0.006);",
+    "    float px = fwidth(q.x); for (int k = 0; k < 2; k++) { float sc = k == 0 ? 90.0 : 180.0; vec2 g = q * sc; vec2 id = floor(g); float h = gHash(id + float(k) * 17.0); vec2 sp = (id + 0.2 + 0.6 * vec2(gHash(id + 3.1), gHash(id + 7.7))) / sc; float rs = length(sp);",
+    "      float dens = clamp(1.6 / (1.0 + pow(rs / 0.06, 2.0)) - 0.02, 0.0, 0.92) * (1.0 - smoothstep(0.55, 0.95, rs)); if (h < dens) { float d = length(q - sp); float sz = max(px * 0.8, 0.0015); float b = 0.25 + 0.75 * pow(gHash(id + 5.3), 3.0); c += mix(vec3(1.0, 0.86, 0.66), vec3(0.8, 0.88, 1.0), gHash(id + 9.9)) * b * exp(-d * d / (sz * sz)) * (k == 0 ? 1.0 : 0.55); } } }",
+    "  gl_FragColor = vec4(c * m * uP.y * uP.w, 1.0); }"
+  ].join("\n");
+  var PLA_FRAG = [
+    "uniform sampler2D tImg; uniform float uType; uniform vec3 uSunL; uniform float uObl; uniform float uSinB; uniform float uK; uniform float uR; varying vec2 vUv;", GLSL_NOISE,
+    "vec3 globe(vec2 q, out float a){ vec2 g = vec2(q.x, q.y / (1.0 - uObl)); float r2 = dot(g, g); a = 0.0; if (r2 >= 1.0) return vec3(0.0); float z = sqrt(1.0 - r2); vec3 n = vec3(g, z);",
+    "  float px = fwidth(q.x) * 1.5; a = smoothstep(1.0, 1.0 - 2.0 * px, sqrt(r2)); float mu = dot(n, normalize(uSunL)); float lit = smoothstep(-0.03, 0.06, mu) * (0.35 + 0.65 * pow(max(mu, 0.0), 0.5)); float limb = pow(z, 0.35); vec3 col;",
+    "  float lat = asin(clamp(g.y, -1.0, 1.0));",
+    "  if (uType < 0.5) col = vec3(0.62, 0.58, 0.54) * (0.8 + 0.3 * gNoise(g * 9.0));",
+    "  else if (uType < 1.5) col = vec3(0.98, 0.95, 0.86) * (0.95 + 0.05 * gNoise(g * 4.0));",
+    "  else if (uType < 2.5) { float lon = atan(g.x, z); float alb = gNoise(vec2(lon * 2.2 + 1.3, lat * 3.0)) * 0.6 + gNoise(vec2(lon * 6.0, lat * 7.0)) * 0.4; col = mix(vec3(0.78, 0.42, 0.24), vec3(0.42, 0.26, 0.18), smoothstep(0.45, 0.7, alb)); col = mix(col, vec3(0.95, 0.94, 0.92), smoothstep(1.2, 1.32, abs(lat))); }",
+    "  else if (uType < 3.5) { col = texture2D(tImg, vec2(0.5 + q.x * 0.4954, 0.5 - q.y * 0.4954)).rgb; col = pow(col, vec3(2.2)) * 1.25; limb = 1.0; }",
+    "  else { float b = sin(lat * 15.0) * 0.5 + 0.5; float b2 = sin(lat * 37.0 + 1.0) * 0.5 + 0.5; col = mix(vec3(0.86, 0.76, 0.56), vec3(0.74, 0.62, 0.44), b * 0.55 + b2 * 0.2); col = mix(col, vec3(0.62, 0.66, 0.68), smoothstep(1.05, 1.35, abs(lat)) * 0.6); }",
+    "  return col * lit * limb; }",
+    // Saturn's rings: C, B, the Cassini division, A with the Encke gap, at the real opening angle; in front of or behind the globe
+    "vec4 rings(vec2 q, out float zr){ zr = -1e3; float sb = uSinB; if (abs(sb) < 0.002) sb = 0.002 * sign(sb + 1e-6); float cb = sqrt(1.0 - sb * sb); float z = -q.y * cb / sb; float r = length(vec3(q, z)); zr = z;",
+    "  float px = fwidth(q.x) * 1.2 / max(abs(sb), 0.02); float A = smoothstep(2.03 - px, 2.03 + px, r) * smoothstep(2.27 + px, 2.27 - px, r) * (1.0 - 0.8 * exp(-pow((r - 2.214) / 0.008, 2.0))) * 0.62;",
+    "  float Bv = smoothstep(1.53 - px, 1.53 + px, r) * smoothstep(1.95 + px, 1.95 - px, r) * (0.85 + 0.15 * sin(r * 60.0)); float Cv = smoothstep(1.24, 1.26, r) * smoothstep(1.53, 1.51, r) * 0.16;",
+    "  float a = clamp(A + Bv + Cv, 0.0, 1.0); return vec4(vec3(0.92, 0.86, 0.72) * (A * 1.0 + Bv * 1.15 + Cv), a); }",
+    "void main(){ vec2 q = (vUv * 2.0 - 1.0) * uR; float ga; vec3 g = globe(q, ga); vec4 col = vec4(g, ga);",
+    "  if (uType > 3.5) { float zr; vec4 rg = rings(q, zr); float zg = ga > 0.0 ? sqrt(max(0.0, 1.0 - dot(vec2(q.x, q.y / (1.0 - uObl)), vec2(q.x, q.y / (1.0 - uObl))))) : -1e3; if (zr > zg || ga <= 0.0) col.rgb = mix(col.rgb, rg.rgb, rg.a); col.a = max(col.a, rg.a);",
+    "  }",
+    "  if (col.a < 0.01) discard; gl_FragColor = vec4(col.rgb * uK, col.a); }"
+  ].join("\n");
+  var TELE_FIN = [
+    "uniform sampler2D tCol; uniform float uExpo; uniform float uMask; varying vec2 vUv;",
+    "vec3 agx(vec3 v){ const mat3 inset = mat3(0.842479062253094, 0.0423282422610123, 0.0423756549057051, 0.0784335999999992, 0.878468636469772, 0.0784336, 0.0792237451477643, 0.0791661274605434, 0.879142973793104); const mat3 outset = mat3(1.19687900512017, -0.0528968517574562, -0.0529716355144438, -0.0980208811401368, 1.15190312990417, -0.0980434501171241, -0.0990297440797205, -0.0989611768448433, 1.15107367264116);",
+    "  v = inset * max(v, 0.0); v = clamp(log2(max(v, 1e-10)), -12.47393, 4.026069); v = (v + 12.47393) / (4.026069 + 12.47393); vec3 x2 = v * v, x4 = x2 * x2; v = 15.5 * x4 * x2 - 40.14 * x4 * v + 31.96 * x4 - 6.868 * x2 * v + 0.4298 * x2 + 0.1191 * v - 0.00232; v = outset * v; return pow(max(v, 0.0), vec3(2.2)); }",
+    "void main(){ vec3 c = texture2D(tCol, vUv).rgb; if (any(isnan(c)) || any(isinf(c))) c = vec3(0.0); c = agx(c * uExpo); float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, 0.92) * vec3(0.97, 0.98, 1.05);",
+    "  float r = length(vUv - 0.5) * 2.0; float m = uMask > 0.5 ? smoothstep(1.0, 0.975, r) : 1.0; c *= m * mix(1.0, 0.78, smoothstep(0.55, 1.0, r) * uMask); gl_FragColor = vec4(c, max(m, 1.0 - uMask)); }"
+  ].join("\n");
+  var TELE_SCREEN = "uniform sampler2D tCol; varying vec2 vUv; void main(){ vec4 c = texture2D(tCol, vUv); vec3 s = mix(c.rgb * 12.92, 1.055 * pow(c.rgb, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c.rgb)); gl_FragColor = vec4(s, c.a); }";
+  var TDEF = { Moon: 0.75, Mercury: 0.02, Venus: 0.05, Mars: 0.025, Jupiter: 0.15, Saturn: 0.045, M42: 0.6, M31: 3.4, M45: 1.7, M13: 0.3, "Milky Way core": 14, Polaris: 0.6 };
+  function skTeleImg(file) { if (SKT.img[file]) return SKT.img[file]; var t = new THREE.Texture(); t.colorSpace = THREE.NoColorSpace; SKT.img[file] = t; skImage(SKDIR + file).then(function (im) { t.image = im; t.flipY = false; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.needsUpdate = true; t.userData.ok = 1; }).catch(function (e) { skNote("tele " + file, e); }); return t; }
+  function quadBasis(obj, c, north, dist, w, h, rotDeg) {
+    var Z = [-c[0], -c[1], -c[2]]; var N = v3n([north[0] - c[0] * v3dot(north, c), north[1] - c[1] * v3dot(north, c), north[2] - c[2] * v3dot(north, c)]); var X = v3cross(c, N);
+    if (rotDeg) { var a = -rotDeg * D2R, ca = Math.cos(a), sa = Math.sin(a); var N2 = [N[0] * ca + X[0] * sa, N[1] * ca + X[1] * sa, N[2] * ca + X[2] * sa]; X = v3cross(c, N2); N = N2; }
+    var m = new THREE.Matrix4().makeBasis(new THREE.Vector3(X[0], X[1], X[2]), new THREE.Vector3(N[0], N[1], N[2]), new THREE.Vector3(Z[0], Z[1], Z[2]));
+    obj.matrixAutoUpdate = false; obj.matrix.copy(m).setPosition(c[0] * dist, c[1] * dist, c[2] * dist); obj.matrix.scale(new THREE.Vector3(2 * dist * Math.tan(w / 2), 2 * dist * Math.tan(h / 2), 1)); obj.matrixWorldNeedsUpdate = true;
+  }
+  function TeleView(target, fov, opts) {
+    var T = this; opts = opts || {}; T.opts = opts; T.size = opts.size || 512; T.live = opts.live !== false; T.mask = opts.mask !== false; T.up = opts.up || "north";
+    var HF = THREE.HalfFloatType; T.rt = new THREE.WebGLRenderTarget(T.size, T.size, { type: HF, depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    T.out = new THREE.WebGLRenderTarget(T.size, T.size, { colorSpace: THREE.SRGBColorSpace, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false }); T.texture = T.out.texture;
+    T.cam = new THREE.PerspectiveCamera(1, 1, 10, 200000); T.scene = new THREE.Scene();
+    var sky = new THREE.Mesh(new THREE.SphereGeometry(150000, 32, 16), skyMat); sky.frustumCulled = false; T.scene.add(sky); T.skyMesh = sky;
+    if (SK.pts) { T.pts = new THREE.Points(SK.pts.geometry, SK.pts.material); T.pts.frustumCulled = false; T.scene.add(T.pts); }
+    // Jupiter's moons (steady points) and the planet discs, the deep-sky showcases
+    var mg = new THREE.BufferGeometry(); mg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3)); mg.setAttribute("aCol", new THREE.BufferAttribute(new Float32Array([1, 0.98, 0.92, 1, 0.98, 0.92, 1, 0.96, 0.9, 1, 0.98, 0.95]), 3)); mg.setAttribute("aMag", new THREE.BufferAttribute(new Float32Array([2.6, 3, 1, 2.9, 3, 1, 2.3, 3, 1, 3.2, 3, 1]), 3));
+    if (SK.pts) { T.gm = new THREE.Points(mg, SK.pts.material); T.gm.frustumCulled = false; T.gm.visible = false; T.scene.add(T.gm); }
+    T.pl = PLAN_NAMES.map(function (nm, i) { var m = new THREE.ShaderMaterial({ uniforms: { tImg: { value: i === 3 ? skTeleImg("tele_jupiter.jpg") : px1([0, 0, 0]) }, uType: { value: i }, uSunL: { value: new THREE.Vector3(0, 0, 1) }, uObl: { value: PLAN_INFO[nm][5] }, uSinB: { value: 0.1 }, uK: { value: 1 }, uR: { value: i === 4 ? 2.35 : 1.02 } }, vertexShader: DSO_VERT, fragmentShader: PLA_FRAG, transparent: true, depthWrite: false, depthTest: false });
+      var q = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); q.frustumCulled = false; q.renderOrder = 5; q.visible = false; T.scene.add(q); return q; });
+    T.dso = [];
+    Object.keys(DSO_IMG).forEach(function (k) { var D = DSO_IMG[k]; var m = new THREE.ShaderMaterial({ uniforms: { tImg: { value: skTeleImg(D[0]) }, uP: { value: new THREE.Vector4(D[6], D[7], D[8], 0) }, uAsp: { value: new THREE.Vector2(1, D[4] / D[3]) }, uSt: { value: [] }, uStW: { value: [] } }, vertexShader: DSO_VERT, fragmentShader: DSO_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
+      for (var s = 0; s < 7; s++) { m.uniforms.uSt.value.push(new THREE.Vector2()); m.uniforms.uStW.value.push(0); }
+      var q = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); q.frustumCulled = false; q.renderOrder = 3; T.scene.add(q); T.dso.push({ k: k, q: q, D: D, eq: radec(D[1], D[2]) }); });
+    // the Pleiades' nebula and the unresolved light of M13 (procedural)
+    [["M45", 56.75, 24.12, 110, 2], ["M13g", 250.4235, 36.4613, 16, 3]].forEach(function (p) { var m = new THREE.ShaderMaterial({ uniforms: { tImg: { value: px1([0, 0, 0]) }, uP: { value: new THREE.Vector4(0, 1, p[4], 0) }, uAsp: { value: new THREE.Vector2(1, 1) }, uSt: { value: [] }, uStW: { value: [] } }, vertexShader: DSO_VERT, fragmentShader: DSO_FRAG, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending });
+      var c0 = radec(p[1], p[2]); for (var s = 0; s < 7; s++) { var st = PLEIADES[s]; var dra = (st[0] - p[1]) * Math.cos(p[2] * D2R), dde = st[1] - p[2]; m.uniforms.uSt.value.push(new THREE.Vector2(-dra / (p[3] / 120), dde / (p[3] / 120))); m.uniforms.uStW.value.push(st[2]); }
+      var q = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m); q.frustumCulled = false; q.renderOrder = 2; T.scene.add(q); T.dso.push({ k: p[0], q: q, D: [null, p[1], p[2], p[3], p[3], 0], eq: c0 }); });
+    T.fin = new THREE.ShaderMaterial({ uniforms: { tCol: { value: T.rt.texture }, uExpo: { value: 1 }, uMask: { value: T.mask ? 1 : 0 } }, vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }", fragmentShader: TELE_FIN, depthTest: false, depthWrite: false });
+    T.scr = new THREE.ShaderMaterial({ uniforms: { tCol: { value: T.out.texture } }, vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }", fragmentShader: TELE_SCREEN, transparent: true, depthTest: false, depthWrite: false });
+    T.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), T.fin); T.quad.frustumCulled = false; T.qs = new THREE.Scene(); T.qs.add(T.quad); T.qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    if (!SKT.moon2 && SK.tier >= 1) { SKT.moon2 = 1; skImage(SKDIR + "moon_2k.jpg").then(function (im) { SKT.moon2 = skTex(im, { srgb: false, clampS: true }); }).catch(function (e) { SKT.moon2 = null; skNote("moon 2k", e); }); }
+    T.set(target, fov); SK.tele.push(T);
+  }
+  TeleView.prototype.set = function (target, fov) {
+    var T = this; T.target = target; var nm = typeof target === "string" ? skResolve(target) : null; T.name = nm ? nm.name : null;
+    if (!nm && Array.isArray(target)) { T.fixedW = v3n(target); T.eqTrack = this.opts.track ? m3v(SK.W2E || m3t(SK.E2W), T.fixedW) : null; }
+    T.fov = fov || (T.name && TDEF[T.name]) || (nm && nm.kind === "star" ? 0.5 : 1.0); T.cam.fov = T.fov; T.cam.updateProjectionMatrix();
+    T.expo = this.opts.exposure || (T.name === "Moon" ? 0.75 : T.name === "Milky Way core" ? 0.85 : nm && nm.kind === "planet" ? 0.9 : nm && nm.kind === "dso" ? 2.4 : 1.4); T._due = true; return T;
+  };
+  TeleView.prototype.dir = function () { var T = this; if (T.name) { var d = skDirOf(T.name); if (d) return d; } if (T.eqTrack) return v3n(m3v(SK.E2W, T.eqTrack)); return T.fixedW || [0, 1, 0]; };
+  TeleView.prototype.render = function () {
+    var T = this; if (T.disposed || !GX.installed) return T; var U = skyMat.uniforms; var c = T.dir(); T.lastDir = c; var E2W = SK.E2W; var K = GX.K.sk;
+    var fovR = T.fov * D2R; var north = T.up === "zenith" ? [0, 1, 0] : v3n(m3v(E2W, [0, 0, 1]));
+    T.cam.position.set(0, 0, 0); T.cam.up.set(north[0], north[1], north[2]); if (Math.abs(v3dot(north, c)) > 0.999) T.cam.up.set(0, 0, -1); T.cam.lookAt(c[0], c[1], c[2]); T.cam.updateMatrixWorld();
+    // planets and Jupiter's moons
+    for (var i = 0; i < T.pl.length; i++) { var q = T.pl[i], p = SK.planets[i]; if (!p) { q.visible = false; continue; } var pw = v3n(m3v(E2W, p.eq)); var ang = Math.acos(clamp(v3dot(pw, c), -1, 1)); var R = p.radius; var span = i === 4 ? 2.35 : 1.02;
+      q.visible = ang < fovR * 0.75 + R * span && R * 2 / fovR > 0.004; if (!q.visible) continue; var pole = v3n(m3v(E2W, p.pole)); quadBasis(q, pw, pole, 50000, 2 * R * span, 2 * R * span, 0);
+      var Z = [-pw[0], -pw[1], -pw[2]]; var N = v3n([pole[0] - pw[0] * v3dot(pole, pw), pole[1] - pw[1] * v3dot(pole, pw), pole[2] - pw[2] * v3dot(pole, pw)]); var X = v3cross(pw, N); var sw = v3n(m3v(E2W, p.sun));
+      var u = q.material.uniforms; u.uSunL.value.set(v3dot(sw, X), v3dot(sw, N), v3dot(sw, Z)); u.uSinB.value = v3dot(pole, Z); u.uK.value = K.planetTele[i];
+      if (i === 3 && T.gm) { var G = SK.moons || [], P = T.gm.geometry.attributes.position, M2 = T.gm.geometry.attributes.aMag; var Eeq = v3n(m3v(SK.W2E, X)), Neq = v3n(m3v(SK.W2E, N)), ceq = p.eq;
+        for (var g = 0; g < 4; g++) { var mm = G[g]; if (!mm) continue; var dx = mm.x * R, dy = mm.y * R; P.array.set(v3n([ceq[0] + Eeq[0] * dx + Neq[0] * dy, ceq[1] + Eeq[1] * dx + Neq[1] * dy, ceq[2] + Eeq[2] * dx + Neq[2] * dy]), g * 3); M2.array[g * 3 + 2] = (mm.front || Math.abs(mm.x) > 1.05) ? 1 : 0; }
+        P.needsUpdate = true; M2.needsUpdate = true; T.gm.visible = true; } }
+    if (T.gm && !T.pl[3].visible) T.gm.visible = false;
+    for (var k = 0; k < T.dso.length; k++) { var o = T.dso[k], D = o.D; var dw = v3n(m3v(E2W, o.eq)); var a2 = Math.acos(clamp(v3dot(dw, c), -1, 1)); var wR = D[3] / 60 * D2R, hR = D[4] / 60 * D2R;
+      o.q.visible = a2 < fovR + Math.max(wR, hR) && wR / fovR > 0.02; if (!o.q.visible) continue; quadBasis(o.q, dw, north, 60000, wR, hR, D[5]); var img = o.q.material.uniforms.tImg.value; o.q.material.uniforms.uP.value.w = (D[0] && !(img.userData && img.userData.ok)) ? 0 : (o.k === "M13" ? sstep(0.4, 0.08, T.fov) : 1) * 1; }
+    // the sky in telescope mode
+    var sv = { tele: U.uTele.value.clone(), mp: U.uMoonP.value.clone(), mt: U.tMoon.value, env: U.uEnv ? U.uEnv.value : 0 }; var P2 = SK.pts && SK.pts.material.uniforms; var sv2 = P2 && P2.uTeleS.value.clone(); var svVis = P2 && P2.uVis.value;
+    var cell = 512 / Math.max(fovR, 1e-4) / 14; cell = T.fov < 0.25 ? 0 : Math.min(8192, Math.pow(2, Math.round(Math.log2(cell))));
+    U.uTele.value.set(1, fovR, cell, skTeleLod(fovR, T.size)); U.uMoonP.value.x = SK.moon ? SK.moon.radius : sv.mp.x; U.uMoonP.value.w = K.moonTele; if (SKT.moon2 && SKT.moon2.isTexture) U.tMoon.value = SKT.moon2;
+    var svMap = U.uMap.value.clone(); U.uMap.value.y = Math.min(0.6, svMap.y + K.teleBlack); U.uMap.value.w = svMap.w * K.teleMapGain;
+    if (P2) { P2.uTeleS.value.set(K.teleGain, K.teleLim, 1, 1); P2.uVis.value = Math.max(svVis, 0.15 * sstep(0.0, 0.3, U.kNight.value)); }
+    var r = renderer, prevT = r.getRenderTarget(), prevAC = r.autoClear; var cc = new THREE.Color(); r.getClearColor(cc); var ca = r.getClearAlpha();
+    try {
+      r.setRenderTarget(T.rt); r.setClearColor(0x000000, 1); r.autoClear = true; r.render(T.scene, T.cam);
+      T.fin.uniforms.uExpo.value = T.expo * (POST && POST.exposure ? POST.exposure / 0.7 : 1); T.quad.material = T.fin; r.setRenderTarget(T.out); r.render(T.qs, T.qc);
+    } catch (e) { skNote("tele render", e); }
+    finally { r.setRenderTarget(prevT); r.setClearColor(cc, ca); r.autoClear = prevAC; U.uTele.value.copy(sv.tele); U.uMap.value.copy(svMap); U.uMoonP.value.copy(sv.mp); U.tMoon.value = sv.mt; if (P2) { P2.uTeleS.value.copy(sv2); P2.uVis.value = svVis; } }
+    T._due = false; T.frames = (T.frames || 0) + 1; return T;
+  };
+  // draw the eyepiece on the game canvas after the frame (no read-back): rect in CSS pixels {x, y, size} (default: centred)
+  TeleView.prototype.show = function (rect) { this.screen = rect || {}; this.live = true; return this; };
+  TeleView.prototype.hide = function () { this.screen = null; return this; };
+  TeleView.prototype.drawScreen = function () {
+    var T = this; if (!T.screen) return; var r = renderer; var pr = r.getPixelRatio(); var W = r.domElement.width, H = r.domElement.height; var s = (T.screen.size || Math.min(W, H) / pr * 0.62) * pr;
+    var x = T.screen.x !== undefined ? T.screen.x * pr : (W - s) / 2, y = T.screen.y !== undefined ? H - T.screen.y * pr - s : (H - s) / 2;
+    var vp = new THREE.Vector4(); r.getViewport(vp); var sc = r.getScissorTest(); var prevT = r.getRenderTarget(), prevAC = r.autoClear;
+    try { r.setRenderTarget(null); r.autoClear = false; r.setViewport(x / pr, y / pr, s / pr, s / pr); T.quad.material = T.scr; r.render(T.qs, T.qc); }
+    catch (e) { skNote("tele screen", e); } finally { T.quad.material = T.fin; r.setViewport(vp); r.setScissorTest(sc); r.setRenderTarget(prevT); r.autoClear = prevAC; }
+  };
+  TeleView.prototype.toCanvas = function (cv) {
+    var T = this; var n = T.size; var buf = new Uint8Array(n * n * 4); renderer.readRenderTargetPixels(T.out, 0, 0, n, n, buf); cv = cv || document.createElement("canvas"); cv.width = cv.height = n; var x = cv.getContext("2d"); var id = x.createImageData(n, n);
+    for (var y = 0; y < n; y++) id.data.set(buf.subarray((n - 1 - y) * n * 4, (n - y) * n * 4), y * n * 4); x.putImageData(id, 0, 0); return cv;
+  };
+  TeleView.prototype.info = function () { var T = this; var d = T.lastDir || T.dir(); return { name: T.name, fov: T.fov, alt: Math.asin(clamp(d[1], -1, 1)) * R2D, az: (Math.atan2(d[0], -d[2]) * R2D + 360) % 360, frames: T.frames || 0 }; };
+  TeleView.prototype.dispose = function () { var T = this; if (T.disposed) return; T.disposed = true; var i = SK.tele.indexOf(T); if (i >= 0) SK.tele.splice(i, 1); T.rt.dispose(); T.out.dispose(); T.fin.dispose(); T.scr.dispose(); T.skyMesh.geometry.dispose(); T.pl.forEach(function (q) { q.geometry.dispose(); q.material.dispose(); }); T.dso.forEach(function (o) { o.q.geometry.dispose(); o.q.material.dispose(); }); if (T.gm) T.gm.geometry.dispose(); T.quad.geometry.dispose(); };
+
+  // ── names: the Moon, the planets, the showcase deep-sky objects, the Milky Way core, Polaris and the bright stars ──
+  var DSO_LIST = [["M42", "Orion Nebula", 83.8221, -5.3911, 65, 4.0], ["M31", "Andromeda Galaxy", 10.6847, 41.2690, 190, 3.4], ["M45", "Pleiades", 56.75, 24.12, 110, 1.6], ["M13", "Hercules Globular Cluster", 250.4235, 36.4613, 20, 5.8],
+    ["Milky Way core", "Galactic Center (Sagittarius)", 266.405, -28.936, 1200, 0], ["M8", "Lagoon Nebula", 270.9042, -24.3867, 90, 6.0], ["M44", "Beehive Cluster", 130.1, 19.67, 95, 3.7], ["M57", "Ring Nebula", 283.3963, 33.0292, 1.4, 8.8], ["M51", "Whirlpool Galaxy", 202.4696, 47.1952, 11, 8.4]];
+  var ALIAS = { "orion nebula": "M42", "great orion nebula": "M42", andromeda: "M31", "andromeda galaxy": "M31", pleiades: "M45", "seven sisters": "M45", m13: "M13", "hercules cluster": "M13", "hercules globular cluster": "M13", "great hercules cluster": "M13",
+    core: "Milky Way core", "milky way": "Milky Way core", "milky way core": "Milky Way core", "galactic center": "Milky Way core", "galactic centre": "Milky Way core", "lagoon nebula": "M8", "beehive": "M44", "ring nebula": "M57", "whirlpool": "M51", "north star": "Polaris", luna: "Moon" };
+  function skResolve(name) {
+    if (!name) return null; var s = String(name).trim(); var low = s.toLowerCase(); if (ALIAS[low]) { s = ALIAS[low]; low = s.toLowerCase(); }
+    if (low === "moon") return { name: "Moon", kind: "moon" };
+    for (var i = 0; i < PLAN_NAMES.length; i++) if (PLAN_NAMES[i].toLowerCase() === low) return { name: PLAN_NAMES[i], kind: "planet", i: i };
+    for (var j = 0; j < DSO_LIST.length; j++) { var D = DSO_LIST[j]; if (D[0].toLowerCase() === low || D[1].toLowerCase() === low) return { name: D[0], kind: "dso", eq: radec(D[2], D[3]), title: D[1], size: D[4], mag: D[5] }; }
+    for (var k = 0; k < STAR_NAMES.length; k++) if (STAR_NAMES[k][0].toLowerCase() === low) return { name: STAR_NAMES[k][0], kind: "star", eq: radec(STAR_NAMES[k][1], STAR_NAMES[k][2]) };
+    return null;
+  }
+  function skDirOf(name) {
+    var r = skResolve(name); if (!r) return null;
+    if (r.kind === "moon") return SK.moon ? SK.moon.dir.slice() : null;
+    if (r.kind === "planet") { var p = SK.planets[r.i]; return p ? v3n(m3v(SK.E2W, p.eq)) : null; }
+    return v3n(m3v(SK.E2W, r.eq));
+  }
+  function altaz(d) { return { alt: Math.asin(clamp(d[1], -1, 1)) * R2D, az: (Math.atan2(d[0], -d[2]) * R2D + 360) % 360 }; }
+  function raOf(eq) { return { ra: (Math.atan2(eq[1], eq[0]) * R2D + 360) % 360, dec: Math.asin(clamp(eq[2], -1, 1)) * R2D }; }
+  function skTargets() {
+    var out = []; function add(o, d, eq) { var h = altaz(d); var c = raOf(eq); o.alt = +h.alt.toFixed(2); o.az = +h.az.toFixed(2); o.dir = d.map(function (x) { return +x.toFixed(5); }); o.up = h.alt > 0; o.ra = +c.ra.toFixed(3); o.dec = +c.dec.toFixed(3); out.push(o); }
+    if (SK.moon) add({ name: "Moon", kind: "moon", mag: +SK.moon.mag.toFixed(1), illum: +SK.moon.illum.toFixed(3), phase: skPhaseName(), size: +(SK.moon.radius * 2 * R2D * 60).toFixed(1), fov: TDEF.Moon }, SK.moon.dir, SK.moon.eq);
+    SK.planets.forEach(function (p) { add({ name: p.name, kind: "planet", mag: +p.mag.toFixed(1), illum: +p.illum.toFixed(3), size: +(p.radius * 2 * R2D * 3600).toFixed(1), fov: TDEF[p.name], visible: SK.planetOn }, v3n(m3v(SK.E2W, p.eq)), p.eq); });
+    DSO_LIST.forEach(function (D) { var eq = radec(D[2], D[3]); add({ name: D[0], title: D[1], kind: "dso", mag: D[5], size: D[4], fov: TDEF[D[0]] || Math.max(0.3, D[4] / 60 * 1.6) }, v3n(m3v(SK.E2W, eq)), eq); });
+    STAR_NAMES.forEach(function (s) { var eq = radec(s[1], s[2]); add({ name: s[0], kind: "star", fov: 0.5 }, v3n(m3v(SK.E2W, eq)), eq); });
+    return out;
+  }
+  function skPhaseName() { var m = SK.moon; if (!m) return ""; var k = m.illum; if (k < 0.03) return "new moon"; if (k > 0.97) return "full moon"; if (Math.abs(k - 0.5) < 0.06) return m.waxing ? "first quarter" : "last quarter"; return (m.waxing ? "waxing " : "waning ") + (k < 0.5 ? "crescent" : "gibbous"); }
+
+  // ── window.PLAN_SKY: the stargazing API (see HANDOFF_R4_SKY.md) ──
+  PS_API.setStargaze = function (on, opts) { SK.sg.on = !!on; SK.sg.opts = opts || {}; if (on && opts && opts.constellations) SK.conOn = true; return SK.sg.on; };
+  PS_API.constellations = function (on) { if (on !== undefined) SK.conOn = !!on; return SK.conOn; };
+  PS_API.targets = function () { if (!SK.moon) return []; try { return skTargets(); } catch (e) { skNote("targets", e); return []; } };
+  PS_API.dirTo = function (name) { if (!SK.moon) return null; var d = skDirOf(name); return d ? d.slice() : null; };
+  PS_API.altAz = function (name) { if (!SK.moon) return null; var d = skDirOf(name); return d ? altaz(d) : null; };
+  PS_API.telescopeView = function (target, fov, opts) { if (!GX.installed) return null; try { var t = new TeleView(target, fov, opts); t.render(); return t; } catch (e) { skNote("telescopeView", e); return null; } };
+  PS_API.timeLapse = function (o) {
+    if (o === false || o === null || o === 0) { if (SK.tl) SK.tl.stopAt = performance.now(); return null; }
+    if (typeof o === "number") o = { speed: o }; o = o || {}; var now = performance.now();
+    SK.tl = { speed: Math.max(1, o.speed || 40), stopAt: o.seconds === 0 ? 0 : now + (o.seconds || 8) * 1000, trails: o.trails !== false, keep: !!o.keep, maxHours: o.maxHours || 3, swept: 0, k: SK.tl ? SK.tl.k : 0 };
+    return SK.tl;
+  };
+  PS_API.setDate = function (d) { if (d === null || d === undefined) SK.date = null; else { var t = typeof d === "string" ? Date.parse(d.length <= 10 ? d + "T00:00:00Z" : d) : +d; var dd = new Date(t); SK.date = Date.UTC(dd.getUTCFullYear(), dd.getUTCMonth(), dd.getUTCDate()); } return SK.date; };
+  PS_API.now = function () { var d = new Date(SK.ms || Date.now()); return { utc: d.toISOString(), local: new Date((SK.ms || Date.now()) - 7 * 3600000).toISOString().replace("Z", "-07:00"), jd: SK.jd, lstHours: ((SK.lst * R2D / 15) % 24 + 24) % 24, moon: SK.moon ? { illum: SK.moon.illum, phase: skPhaseName(), alt: SK.moon.alt, az: SK.moon.az } : null, shower: SK.shower || null, timeLapse: !!SK.tl }; };
+  PS_API.moon = function () { return SK.moon ? { dir: SK.moon.dir.slice(), illum: SK.moon.illum, phase: skPhaseName(), alt: SK.moon.alt, az: SK.moon.az, radiusDeg: SK.moon.radius * R2D } : null; };
+  PS_API.planets = function () { if (!SK.moon) return []; return SK.planets.map(function (p) { var d = v3n(m3v(SK.E2W, p.eq)); var h = altaz(d); return { name: p.name, dir: d, alt: h.alt, az: h.az, mag: p.mag, illum: p.illum, sizeArcsec: p.radius * 2 * R2D * 3600 }; }); };
+  // a meteor now: random (sporadic or from tonight's shower), or placed {az, alt, len, angle (deg, 0 = straight down), bright, hold (0..1 frozen)}
+  PS_API.meteor = function (o) { if (!o) { SK.metNext = performance.now(); return true; } var A = (o.az || 180) * D2R, E = (o.alt || 45) * D2R; var a = [Math.sin(A) * Math.cos(E), Math.sin(E), -Math.cos(A) * Math.cos(E)]; var e1 = v3n(v3cross(a, [0, 1, 0])), e2 = v3cross(e1, a); var q = (o.angle === undefined ? 30 : o.angle) * D2R; var dir = [e1[0] * Math.sin(q) - e2[0] * Math.cos(q), e1[1] * Math.sin(q) - e2[1] * Math.cos(q), e1[2] * Math.sin(q) - e2[2] * Math.cos(q)]; var L = (o.len || 12) * D2R;
+    var b = v3n([a[0] * Math.cos(L) + dir[0] * Math.sin(L), a[1] * Math.cos(L) + dir[1] * Math.sin(L), a[2] * Math.cos(L) + dir[2] * Math.sin(L)]); var slot = SK.met[0] ? 1 : 0; SK.met[slot] = { a: a, b: b, t0: performance.now(), dur: o.dur || 0.8, br: o.bright || 1.5, hold: o.hold, shower: "" }; return SK.met[slot]; };
+  PS_API.state = function () { return { ready: PS_API.ready, mapReady: !!PS_API.mapReady, res: SK.res, mapMs: SK.mapMs, stargaze: SK.sg.k, constellations: SK.conK, timeLapse: SK.tl ? SK.tl.k : 0, lightK: SK.lightK, tele: SK.tele.length, bytes: SK.bytes, meteors: SK.metCount || 0, stars: SK.starN, errs: SK.errs.length ? SK.errs : GX.errs.filter(function (e) { return /^sky /.test(e); }) }; };
+  PS_API.K = GX.K.sk;
+
+  // the night key light: the client points it at its own (fixed-path) moon; the real Moon (or the soft sky light) replaces the direction
+  function skKeyDir(kd) {
+    try {
+      if (CSMX.on && CSMX.csm) { CSMX.csm.lightDirection.set(-kd[0], -kd[1], -kd[2]); }
+      else if (typeof player !== "undefined" && player) { sun.position.copy(player.position).addScaledVector(TMP.v.set(kd[0], kd[1], kd[2]), 700); if (sun.position.y < player.position.y + 40) sun.position.y = player.position.y + 40; }
+      else { sun.position.set(kd[0] * 900, Math.max(30, kd[1] * 900), kd[2] * 900); }
+      var kc = SK.keyCol; if (kc) { if (CSMX.on && CSMX.csm) CSMX.csm.lights.forEach(function (l) { l.color.setRGB(kc[0], kc[1], kc[2]); }); else sun.color.setRGB(kc[0], kc[1], kc[2]); }
+    } catch (e) {}
+  }
+  // the map's level of detail in the eyepiece: native for wide fields (the dust lanes), only the smooth local glow for narrow ones
+  function skTeleLod(fovR, size) { var mapW = SK.res === "8k" ? 8192 : SK.res === "4k" ? 4096 : 2048; var tex = Math.max(1, fovR / (2 * Math.PI / mapW)); var fd = fovR * R2D; return mix(Math.max(0, Math.log2(tex / size)), Math.log2(tex) + GX.K.sk.teleMip, sstep(4, 0.8, fd)); }
+  function skBeforeRender() { for (var i = 0; i < SK.tele.length; i++) { var t = SK.tele[i]; if (t._due && (t.live || !t.frames)) t.render(); } sgApply(SK.lightK); }
+  function skAfterRender() { sgRestore(); for (var i = 0; i < SK.tele.length; i++) if (SK.tele[i].screen) SK.tele[i].drawScreen(); }
+
   // ═════════════════════════ install / uninstall ═════════════════════════
   function wrapGlobals() {
     if (!ORIG.updateSky) ORIG.updateSky = updateSky; if (!ORIG.renderFrame) ORIG.renderFrame = renderFrame; if (!ORIG.initPost) ORIG.initPost = initPost;
     var us = ORIG.updateSky, rf = ORIG.renderFrame, ip = ORIG.initPost;
     updateSky = function (dt) { us(dt); if (!GX.installed) return; try { afterSky(dt || 0); } catch (e) { if (!GX.skyErr) { GX.skyErr = 1; note("afterSky", e); } } };
-    renderFrame = function () { var sv = typeof POST !== "undefined" ? POST.sunVis : 0; try { beforeRender(); if (GX.storm.k > 0 && typeof POST !== "undefined") POST.sunVis = sv * (1 - GX.storm.k); } catch (e) { if (!GX.rfErr) { GX.rfErr = 1; note("beforeRender", e); } } try { rf(); } finally { if (typeof POST !== "undefined") POST.sunVis = sv; } };
+    renderFrame = function () { var sv = typeof POST !== "undefined" ? POST.sunVis : 0; try { beforeRender(); skBeforeRender(); if (GX.storm.k > 0 && typeof POST !== "undefined") POST.sunVis = sv * (1 - GX.storm.k); } catch (e) { if (!GX.rfErr) { GX.rfErr = 1; note("beforeRender", e); } } try { rf(); } finally { if (typeof POST !== "undefined") POST.sunVis = sv; } try { skAfterRender(); } catch (e) {} };
     initPost = function () { ip(); try { if (GX.installed) { installPost(); applyTier(); } } catch (e) { note("installPost", e); } };
   }
   function unwrapGlobals() { if (ORIG.updateSky) updateSky = ORIG.updateSky; if (ORIG.renderFrame) renderFrame = ORIG.renderFrame; if (ORIG.initPost) initPost = ORIG.initPost; }
