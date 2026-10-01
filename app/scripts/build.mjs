@@ -12,9 +12,11 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stampAssets } from "./asset_versions.mjs";
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const dist = resolve(app, "dist");
+// BUILD_OUT: build into another folder (a test build while wrangler dev holds dist/)
+const dist = process.env.BUILD_OUT ? resolve(process.env.BUILD_OUT) : resolve(app, "dist");
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
@@ -39,7 +41,8 @@ if (!result.success) {
 }
 
 await cp(resolve(app, "public"), resolve(dist, "client"), { recursive: true });
-// stamp the build so browsers never serve a stale client or stale models after a deploy
-{ const stamp = Date.now().toString(36); const idx = resolve(dist, "client/index.html"); let html = await Bun.file(idx).text(); html = html.replace('window.BUILD = "dev";', `window.BUILD = "${stamp}";`).replace(/\?v=dev\b/g, `?v=${stamp}`); await Bun.write(idx, html); console.log("build stamp", stamp); }
+// stamp the build: window.BUILD (client.js notices a new deploy) and a content hash per file (scripts/asset_versions.mjs),
+// so a deploy only makes browsers fetch the files whose bytes changed
+{ const stamp = Date.now().toString(36); const r = await stampAssets(resolve(dist, "client"), stamp); console.log("build stamp", stamp, "asset versions", r.files, "files,", (r.bytes / 1e6).toFixed(1), "MB hashed,", r.hashed, "index.html refs, manifest", r.manifestBytes, "bytes"); }
 
 console.log("built dist/worker/index.js + dist/client/");

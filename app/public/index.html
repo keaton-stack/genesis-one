@@ -325,6 +325,20 @@
     <script src="/lib/three-bundle.js"></script>
     <script src="/lib/smaa_tex.js"></script>
     <script>window.BUILD = "dev";</script>
+    <script>
+      // content-addressed asset URLs. A deploy ships /asset_v.js (window.ASSET_V: path -> short hash of the file's bytes, written by
+      // scripts/asset_versions.mjs). AV(url) puts that hash in the ?v= of a same-origin URL, so an unchanged file keeps its URL and the
+      // browser cache across deploys. Every three.js load (GLTF models and LODs, TextureLoader, KTX2 and its transcoder) passes through
+      // THREE.DefaultLoadingManager, whose URL modifier is AV. Unknown files, blob:/data: URLs and dev (no map, ?v=dev) pass unchanged.
+      window.AV = function (u) {
+        var V = window.ASSET_V; if (!V || typeof u !== "string") return u;
+        var m = u.match(/^(https?:\/\/[^\/?#]+)?(\/[^?#]*)(\?[^#]*)?(#.*)?$/); if (!m || (m[1] && m[1] !== location.origin)) return u;
+        var h = V[m[2]]; if (!h) return u;
+        var q = (m[3] || "").slice(1).split("&").filter(function (p) { return p && p.slice(0, 2) !== "v="; }); q.unshift("v=" + h);
+        return (m[1] || "") + m[2] + "?" + q.join("&") + (m[4] || "");
+      };
+      try { THREE.DefaultLoadingManager.setURLModifier(window.AV); } catch (e) { console.warn("asset versions: no URL modifier", e); }
+    </script>
     <script src="/arcade_games.js?v=dev"></script>
     <script src="/arcade_room.js?v=dev"></script>
     <script src="/plan_models.js?v=dev"></script>
@@ -346,6 +360,7 @@
     <script src="/plan_flight.js?v=dev"></script>
     <script src="/plan_interiors.js?v=dev"></script>
     <script src="/plan_gfx.js?v=dev"></script>
+    <script src="/plan_perf.js?v=dev"></script>
     <script src="/client.js?v=dev"></script>
   </body>
 </html>

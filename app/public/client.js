@@ -396,11 +396,18 @@ function addSway(mat, amount) {
   swayMats.push(mat);
 }
 addSway(M.scrub, 0.9);
+// P1A: the mobile tier reads its far LODs from models_m/lod (same simplified-further geometry, no real textures: only the LOD's
+// geometry is used, it is drawn with the main model's materials); a kind without a mobile LOD falls back to models/lod
+// kinds that never had a far LOD file (accessories and the arcade cabinets): skip the request instead of logging a 404
+const NO_LOD = new Set(["racer", "pinball", "claw", "cab", "acc_shades", "acc_shades_m", "acc_shades_f", "acc_cowboy", "acc_cowboy_m", "acc_cowboy_f", "acc_cap", "acc_cap_m", "acc_cap_f", "acc_beanie", "acc_beanie_m", "acc_beanie_f"]);
 function loadLod(loader, k) {
-  loader.load(`/models/lod/${k}.glb?v=${window.BUILD || 0}`, (g) => { const m = MODELS[k]; if (!m) return; const root = g.scene; root.updateMatrixWorld(true); const geos = []; root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(m.norm).multiply(o.matrixWorld)); sanitizeTangents(geo); geos.push(geo); }); if (!geos.length) return;
+  if (NO_LOD.has(k)) return;
+  const lodUrl = (dir) => `${dir}/${k}.glb?v=${window.BUILD || 0}`, mob = ASSET.tier === "m" && !(window.ASSET_V && !window.ASSET_V[`/models_m/lod/${k}.glb`]);
+  const onLod = (g) => { const m = MODELS[k]; if (!m) return; const root = g.scene; root.updateMatrixWorld(true); const geos = []; root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(m.norm).multiply(o.matrixWorld)); sanitizeTangents(geo); geos.push(geo); }); if (!geos.length) return;
     /* INT3: the far LOD goes through the main model's normalisation, so it must be the same model in the same frame. A mismatched pair (a main file fetched before a model swap and its LOD after it, or a stale cache) made a 17x giant, smeared restaurant in the sky: a LOD whose normalised bounds do not match the model is dropped (the main model is drawn at every distance instead). */
     { const bb = new THREE.Box3(); for (const q of geos) { q.computeBoundingBox(); bb.union(q.boundingBox); } const ls = new THREE.Vector3(), lc = new THREE.Vector3(); bb.getSize(ls); bb.getCenter(lc); const r = Math.max(m.sx, m.sz) / 2, ok = (a, b) => Math.abs(a - b) < 0.05 || (b > 0 && a / b > 0.6 && a / b < 1.6); if (!(ok(Math.max(ls.x, ls.z), Math.max(m.sx, m.sz)) && ok(Math.min(ls.x, ls.z), Math.min(m.sx, m.sz)) && ok(ls.y, m.height) && Math.abs(lc.x) < Math.max(0.6, r * 0.25) && Math.abs(lc.z) < Math.max(0.6, r * 0.25))) { console.warn("far LOD skipped, it does not match the model:", k, ls.toArray().map((v) => +v.toFixed(2)), [m.sx, m.height, m.sz].map((v) => +v.toFixed(2))); (window.LOD_SKIPPED = window.LOD_SKIPPED || []).push(k); for (const q of geos) q.dispose(); return; } }
-    m.lodGeos = geos; attachLod(k); }, undefined, () => {});
+    m.lodGeos = geos; attachLod(k); };
+  loader.load(lodUrl(mob ? "/models_m/lod" : "/models/lod"), onLod, undefined, () => { if (mob) loader.load(lodUrl("/models/lod"), onLod, undefined, () => {}); });
 }
 // D3: a third, cheap tier for far buildings (PLAN mode). The LOD glbs of most building kinds are about as heavy as the full
 // models (24k triangles), so a row of casitas a kilometre away cost as much as the one beside you. planFarGeo clusters the
@@ -1628,7 +1635,7 @@ function planPlazaShade() { const P = window.PLAN; const kinds = { pz_court: "fa
 
 async function buildWorld() {
   setLoad(0.03, "Reading the survey");
-  const [site, hbuf, region, rbuf, plan] = await Promise.all([fetch("/site.json").then((r) => r.json()), fetch("/height.bin").then((r) => r.arrayBuffer()), fetch("/region.json").then((r) => r.json()).catch(() => null), fetch("/region_height.bin").then((r) => r.arrayBuffer()).catch(() => null), fetch("/plan/plan.json?v=" + (window.BUILD || 0)).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+  const [site, hbuf, region, rbuf, plan] = await Promise.all([fetch("/site.json").then((r) => r.json()), fetch("/height.bin").then((r) => r.arrayBuffer()), fetch("/region.json").then((r) => r.json()).catch(() => null), fetch("/region_height.bin").then((r) => r.arrayBuffer()).catch(() => null), fetch((window.AV || String)("/plan/plan.json?v=" + (window.BUILD || 0))).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
   // the master plan: when plan.json loads the plan layout replaces the legacy one (PLAN mode); without it the legacy world builds as before
   window.PLAN = plan && plan.runway && Array.isArray(plan.buildings) && Array.isArray(plan.places) ? plan : null; PLAN_MODE = !!window.PLAN; if (PLAN_MODE) planIndex(); console.log(PLAN_MODE ? "plan mode: " + window.PLAN.buildings.length + " buildings, " + window.PLAN.roads.length + " roads, " + window.PLAN.promenades.length + " promenades" : "legacy layout (no plan.json)");
   SITE = site; T = site.terrain; H = new Float32Array(hbuf);
@@ -2170,20 +2177,21 @@ const MID     = [[0.00, C(0x070b18)], [0.21, C(0x10163a)], [0.26, C(0xd08aa0)], 
 const TOP     = [[0.00, C(0x04060e)], [0.21, C(0x0a1030)], [0.26, C(0x4a4a90)], [0.31, C(0x5f9ad8)], [0.40, C(0x3f86d2)], [0.62, C(0x3a80cc)], [0.72, C(0x6a6ab8)], [0.77, C(0x4a2a68)], [0.82, C(0x14122a)], [0.88, C(0x04060e)], [1.00, C(0x04060e)]];
 function rampAt(R, t) { for (let i = 0; i < R.length - 1; i++) if (t >= R[i][0] && t <= R[i + 1][0]) return R[i][1].clone().lerp(R[i + 1][1], (t - R[i][0]) / (R[i + 1][0] - R[i][0])); return R[0][1].clone(); }
 let night = 0; const KEY = { moon: new THREE.Color(0x9fb4ff) };
+const _SKYV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _SKYC = new THREE.Color();   // per-frame scratch (updateSky, updateFX): no allocations
 function updateSky(dt) {
   const t = dayT(), el = -Math.cos(t * 6.283), az = t * 6.283;
   const hor = rampAt(HORIZON, t), mid = rampAt(MID, t);
   const day = Math.max(0, Math.min(1, (el + 0.12) / 0.4)); night = 1 - day;
   const dusk = Math.max(0, 1 - Math.abs(el - 0.08) / 0.42);
   skyMat.uniforms.horizon.value.copy(hor); skyMat.uniforms.kDusk.value = Math.min(1, dusk * 1.4); skyMat.uniforms.kNight.value = Math.pow(Math.max(0, night - 0.25) / 0.75, 1.3); scene.fog.color.copy(hor).lerp(mid, 0.35);
-  const sdir = new THREE.Vector3(Math.cos(az), el, Math.sin(az) * 0.45).normalize();
+  const sdir = _SKYV[0].set(Math.cos(az), el, Math.sin(az) * 0.45).normalize();
   skyMat.uniforms.sunDir.value.copy(sdir); skyMat.uniforms.glow.value = el > -0.2 ? 1 : 0; skyMat.uniforms.sunCol.value.setHSL(0.08, 0.9, 0.55 + 0.25 * Math.min(1, Math.max(0, el)));
   if (player) { sun.target.position.copy(player.position); sun.position.copy(player.position).addScaledVector(sdir, 700); if (sun.position.y < player.position.y + 40) sun.position.y = player.position.y + 40;
     // shadow frustum: tight (sharp) at street level, widening as the camera climbs so the world keeps its shadows from a balloon, the jet or the tower
     { const above = camera.position.y - getH(camera.position.x, camera.position.z); const want = Math.max(92, Math.min(720, 92 + Math.max(0, above - 14) * 5.5)); const sc = sun.shadow.camera; if (Math.abs(sc.right - want) > 6) { sc.left = sc.bottom = -want; sc.right = sc.top = want; sc.updateProjectionMatrix(); renderer.shadowMap.needsUpdate = true; } } } else { sun.position.copy(sdir).multiplyScalar(900); sun.position.y = Math.max(sun.position.y, 30); }
   sun.intensity = 1.72 * day; sun.color.setHSL(0.09 - 0.03 * dusk, 0.55 + 0.35 * dusk, 0.55 + 0.35 * Math.min(1, Math.max(0, el)));
   // the shadow-casting key light is the sun while it is up and the moon once it sets, so there are shadows around the clock; it dips to nothing for a moment at the hand-over
-  { const useMoon = el < -0.02; const moonDir = new THREE.Vector3(-Math.cos(az) * 0.55, 0.62, -Math.sin(az) * 0.45).normalize(); const keyDir = useMoon ? moonDir : sdir.clone(); if (keyDir.y < 0.12) { keyDir.y = 0.12; keyDir.normalize(); } const sw = Math.min(1, Math.abs(el + 0.02) / 0.05); const keyI = (useMoon ? 0.62 * night : 1.72 * day) * sw; const keyCol = useMoon ? KEY.moon : sun.color; moon.intensity = 0;
+  { const useMoon = el < -0.02; const moonDir = _SKYV[1].set(-Math.cos(az) * 0.55, 0.62, -Math.sin(az) * 0.45).normalize(); const keyDir = useMoon ? moonDir : _SKYV[2].copy(sdir); if (keyDir.y < 0.12) { keyDir.y = 0.12; keyDir.normalize(); } const sw = Math.min(1, Math.abs(el + 0.02) / 0.05); const keyI = (useMoon ? 0.62 * night : 1.72 * day) * sw; const keyCol = useMoon ? KEY.moon : sun.color; moon.intensity = 0;
     if (CSMX.on) { const c = CSMX.csm; c.lightDirection.copy(keyDir).multiplyScalar(-1); for (const l of c.lights) { l.intensity = keyI; l.color.copy(keyCol); l.castShadow = true; } sun.intensity = 0; sun.castShadow = false; }
     else { sun.intensity = keyI; sun.color.copy(keyCol); sun.castShadow = keyI > 0.02; if (player) { sun.position.copy(player.position).addScaledVector(keyDir, 700); if (sun.position.y < player.position.y + 40) sun.position.y = player.position.y + 40; } else { sun.position.copy(keyDir).multiplyScalar(900); } } }
   hemi.intensity = 0.33 * day + 0.2; hemi.color.setHSL(0.6, 0.5, 0.52 + 0.36 * day);
@@ -2998,7 +3006,7 @@ function frame() {
   else if (FLY.on) { flyCamera(dt); }
   else if ($("#creator").classList.contains("on") && !riding) { const head = CRE.tab === "hair"; const dist = head ? 1.7 : 3.4, h = head ? 1.72 : 1.4, ty = head ? 1.6 : 0.95, off = head ? 0.3 : 0.8; if (!CRE.drag) CRE.ang += dt * 0.12; const ca = CRE.ang; camera.position.lerp(camTarget.set(px + Math.sin(ca) * dist, player.position.y + h, pz + Math.cos(ca) * dist), smoothK(dt, 14)); const rx = Math.cos(ca), rz = -Math.sin(ca); camLook(px + rx * off, player.position.y + ty, pz + rz * off, dt, 14); player.userData.walk.visible = true; }
   else if (towerView) { const tx = Math.sin(now * 0.00012) * 220, tz = Math.cos(now * 0.00012) * 220; camera.position.set(tx, getH(tx, tz) + 160, tz); camera.lookAt(px, gh + 20, pz); }
-  else if (riding) { const V = VEH[riding.id]; const isJet = riding.kind === "jet"; const dist = isJet ? 30 : 11, h = isJet ? 9 : 4; const back = new THREE.Vector3(-Math.sin(V.g.rotation.y) * dist, h, -Math.cos(V.g.rotation.y) * dist); camTarget.copy(V.g.position).add(back); camTarget.y = Math.max(camTarget.y, getH(camTarget.x, camTarget.z) + 1.5); camera.position.lerp(camTarget, smoothK(dt, isJet ? 8 : 16)); camLook(V.g.position.x, V.g.position.y + (isJet ? 2 : 1.2), V.g.position.z, dt, 30); }
+  else if (riding) { const V = VEH[riding.id]; const isJet = riding.kind === "jet"; const dist = isJet ? 30 : 11, h = isJet ? 9 : 4; camTarget.set(-Math.sin(V.g.rotation.y) * dist, h, -Math.cos(V.g.rotation.y) * dist).add(V.g.position); camTarget.y = Math.max(camTarget.y, getH(camTarget.x, camTarget.z) + 1.5); camera.position.lerp(camTarget, smoothK(dt, isJet ? 8 : 16)); camLook(V.g.position.x, V.g.position.y + (isJet ? 2 : 1.2), V.g.position.z, dt, 30); }
   else if (golf.playing) { const ang = golf.aim; const b = golf.ballMesh.position; const dist = golf.moving ? 14 : (golf.club === CLUBS.length - 1 ? 4.5 : 8); camTarget.set(b.x - Math.sin(ang) * dist, Math.max(getH(b.x - Math.sin(ang) * dist, b.z - Math.cos(ang) * dist) + 1.5, b.y + (golf.moving ? 5 : 2.6)), b.z - Math.cos(ang) * dist); camera.position.lerp(camTarget, smoothK(dt, golf.moving ? 4 : 10)); camLook(b.x, b.y + 0.3, b.z, dt, 20); }
   else if (FPV && !riding && !cartMode && !inside && !golf.playing) { fpvCamera(dt); }
   else if (inside && arcFrozen()) arcadeCam(dt);
@@ -4179,7 +4187,7 @@ function updateFX(dt, now) {
   if (FX.birds) for (const b of FX.birds) { b.a += b.w * dt; b.s.position.set(b.cx + Math.cos(b.a) * b.r, getH(b.cx, b.cz) + b.h + Math.sin(now * 0.001 + b.r) * 3, b.cz + Math.sin(b.a) * b.r); b.s.material.opacity = 0.9 - night * 0.8; }
   GRASS_T.value = now / 1000; for (const gm of GROUND_MATS) if (gm.userData.sh) gm.userData.sh.uniforms.uTime.value = now / 1000; if (POOL_MAT) { POOL_MAT.uniforms.uTime.value = now / 1000; POOL_MAT.uniforms.uNight.value = night; POOL_MAT.uniforms.uSun.value.copy(sun.position).sub(player ? player.position : new THREE.Vector3()).normalize(); POOL_MAT.uniforms.uSunCol.value.copy(sun.color).multiplyScalar(sun.intensity); POOL_MAT.uniforms.uSky.value.copy(scene.fog.color); }
   if (inside && inside.g.userData.bags) { const bags = inside.g.userData.bags, cx = -inside.half + 9, cz = -inside.half + 8; bags.forEach((b, k) => { const a = k / 6 * 6.283 + now * 0.0004; b.position.set(cx + Math.cos(a) * 5, 1.35, cz + Math.sin(a) * 5); b.rotation.y = -a; }); }
-  for (const pd of PONDS) if (pd.mat) { pd.mat.uniforms.uTime.value = now / 1000; pd.mat.uniforms.uNight.value = night; pd.mat.uniforms.uSun.value.copy(WATER.mat.uniforms.uSun.value); pd.mat.uniforms.uSunCol.value.copy(WATER.mat.uniforms.uSunCol.value); pd.mat.uniforms.uSkyC.value.copy(scene.fog.color).multiply(new THREE.Color(0.62, 0.8, 0.78)); }
+  for (const pd of PONDS) if (pd.mat) { pd.mat.uniforms.uTime.value = now / 1000; pd.mat.uniforms.uNight.value = night; pd.mat.uniforms.uSun.value.copy(WATER.mat.uniforms.uSun.value); pd.mat.uniforms.uSunCol.value.copy(WATER.mat.uniforms.uSunCol.value); pd.mat.uniforms.uSkyC.value.copy(scene.fog.color).multiply(_SKYC.setRGB(0.62, 0.8, 0.78)); }
   if (WATER) { for (const f of WATER.floats) { f.position.y = LAKE.level + (f.geometry.type === "BoxGeometry" ? 0.05 : 0.3) + Math.sin(now * 0.0016 + f.position.x) * 0.08; f.rotation.z = Math.sin(now * 0.0012 + f.position.z) * 0.06; } WATER.mat.uniforms.uTime.value = now / 1000; WATER.mat.uniforms.uNight.value = night; WATER.mat.uniforms.uSun.value.copy(sun.position).sub(player ? player.position : new THREE.Vector3()).normalize(); WATER.mat.uniforms.uSunCol.value.copy(sun.color).multiplyScalar(sun.intensity); }
 }
 

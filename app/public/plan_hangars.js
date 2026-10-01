@@ -42,7 +42,7 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
     chief: { name: "Stellar crew chief", role: "Stellar Aviation · hangar and line services", greet: ["Welcome to Stellar Aviation."], talk: [{ t: "Welcome to the hangar. Stellar Aviation looks after the hangars and ground services out here on the Flight Line.", o: [["Thanks", null]] }] }
   };
   function C() { return H.cfg || DEF; }
-  try { fetch("/plan/hangars.json?v=" + (window.BUILD || "0")).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && typeof j === "object") { H.cfg = Object.assign({}, DEF, j); try { refreshTalk(); } catch (e) {} try { if (EX.built && H.impl && H.api) H.api.rebuildAll(); } catch (e) { note("json late", e); } } }).catch(function (e) { note("json", e); }); } catch (e) { note("json", e); }
+  try { fetch((window.AV || String)("/plan/hangars.json?v=" + (window.BUILD || "0"))).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && typeof j === "object") { H.cfg = Object.assign({}, DEF, j); try { refreshTalk(); } catch (e) {} try { if (EX.built && H.impl && H.api) H.api.rebuildAll(); } catch (e) { note("json late", e); } } }).catch(function (e) { note("json", e); }); } catch (e) { note("json", e); }
 
   // ───────────────────────── model anchors (PLAN_MODEL_INFO.hangar_exec, else the measured defaults) ─────────────────────────
   function INFO() {
@@ -322,7 +322,11 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
       out.push([(x0 + x1 + 1) / 2 * cell, (z0 + z1 + 1) / 2 * cell, (x1 - x0 + 1) * cell, (z1 - z0 + 1) * cell]); }
     return (H.occ[key] = out);
   }
-  function buildInterior(h) {
+  function buildInterior(h) { var it = buildSteps(h), r; do { r = it.next(); } while (!r.done); return r.value; }
+  // a staged build that stopped half way (the player turned away): take its solids back out
+  function abortBuild(h) { var L = h && h.Lb; if (!L) return; L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); }); if (L.g.parent) L.g.parent.remove(L.g); h.Lb = null; }
+  // the same build in stages: plan_perf.js steps it inside a per-frame budget while the player is still on the way (R_STAGE)
+  function* buildSteps(h) {
     var t0 = performance.now(); var I = INFO(), M = mats(); var e = h.e, s = h.s; var K = new Kit();
     var g = new THREE.Group(); g.position.set(e[0], e[1], e[2]); g.rotation.y = e[3]; g.userData.noCull = true; g.userData.hgr = h; g.name = "hangar interior";
     var fy = h.fy; var W2 = I.size[0] / 2 * s, D2 = I.size[2] / 2 * s; var xL = -W2 + 0.42, xR = W2 - 0.42, zB = -D2 + 0.42, zF = I.wall_z * s - 0.42; var x0 = I.door.x0 * s, x1 = I.door.x1 * s, dTop = I.door.y1 * s, dz = I.door.z * s;
@@ -342,6 +346,7 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
     ln("lineY", 0.12, bz1 - bz0, bx0, (bz0 + bz1) / 2); ln("lineY", 0.12, bz1 - bz0, bx1, (bz0 + bz1) / 2); ln("lineY", bx1 - bx0, 0.12, (bx0 + bx1) / 2, bz0); ln("lineY", bx1 - bx0, 0.12, (bx0 + bx1) / 2, bz1);
     ln("lineW", 0.1, zF - zB - 7.2, xL + 1.05, (zB + 6.8 + zF - 5.4) / 2); ln("lineW", 0.1, zF - zB - 7.2, colX - 0.35, (zB + 6.8 + zF - 5.4) / 2);   // the walkway along the workshop
     var iz = (bz1 + dz) / 2, idm = cl(dz - bz1 - 0.4, 1.8, 3.2); K.quad("inlay", idm, idm, jx, fy + 0.012, iz, 0, -Math.PI / 2);
+    h.Lb = L; yield;
     // ── walls: insulated liner panels with a grey dado; the front wall round the opening
     var wallH = Hc + 0.6; var WT = [1.2, 1.0];
     K.quad("liner", zF - zB, wallH - 1.2, xL, 1.2 + (wallH - 1.2) / 2, (zB + zF) / 2, Math.PI / 2, 0, WT); K.quad("dado", zF - zB, 1.2, xL + 0.01, 0.6, (zB + zF) / 2, Math.PI / 2);
@@ -365,21 +370,21 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
     // ── the brand wall (back wall, over the parts racks)
     var bw = Math.min(8.5 * s, (xR - colX) * 0.62), bh = bw * 576 / 2048; K.box("stellar", bw + 0.3, bh + 0.3, 0.12, jx, 4.2 * s, zB + 0.07); K.quad("brand", bw, bh, jx, 4.2 * s, zB + 0.14, 0);
     // ── mezzanine: crew lounge, coffee bar and the flight planning office over the workshop, reached by a stair at the back
-    buildMezzanine(K, L, M);
+    yield; buildMezzanine(K, L, M);
     // ── workshop under the mezzanine, parts racks, fire stations
-    buildWorkshop(K, L, M);
+    yield; buildWorkshop(K, L, M);
     // ── the tower lobby: reception and the glass wall to the bay
-    buildLobby(K, L, M);
+    yield; buildLobby(K, L, M);
     // ── ground equipment: tug, GPU, chocks, cones
-    buildGSE(K, L, M);
+    yield; buildGSE(K, L, M);
     // ── merge
-    K.build(g, M);
+    yield; K.build(g, M); yield;
     // ── models: the aircraft, the office desk and chairs, the lobby planter
     if (jk) { var jet = makeModel(jk); jet.position.set(jx, fy, jz); jet.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.noSolid = true; } }); g.add(jet); L.jetG = jet;
       occBoxes(jk, 0.7, 2.05).forEach(function (b) { solid(jx + b[0], jz + b[1], b[2] + 0.1, b[3] + 0.1, fy - 0.2, fy + 2.1); }); }
-    placeModels(L, M);
+    yield; placeModels(L, M);
     g.traverse(function (o) { if (o.isMesh) { o.receiveShadow = true; } });
-    scene.add(g); try { renderer.shadowMap.needsUpdate = true; } catch (err) {}
+    scene.add(g); h.Lb = null; try { renderer.shadowMap.needsUpdate = true; } catch (err) {}
     h.L = L; H.n.lastBuildMs = Math.round(performance.now() - t0); H.n.builds = (H.n.builds || 0) + 1; H.n.solids = L.solids.length;
     return L;
   }
@@ -554,7 +559,7 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
   }
 
   // ───────────────────────── frame: which hangar is active, doors, entering, lights, sound ─────────────────────────
-  var R_BUILD = 46, R_DROP = 72, R_OPEN = 20, R_SHUT = 27;
+  var R_BUILD = 46, R_DROP = 100, R_OPEN = 20, R_SHUT = 27, R_STAGE = 80;   // R_STAGE: the staged build starts (plan_perf.js budget); R_BUILD: finished at once
   var AU = { hum: null, motor: null, t: 6 };
   function frame(dt) {
     if (H.off || !H.list.length || !player) return; var px = player.position.x, pz = player.position.z; var I = INFO();
@@ -564,7 +569,9 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
     H.near = best; H.nearD = bd;
     // interior: one at a time, built on approach (the open door shows it), dropped when you walk away
     var act = H.active; if (act && (Math.hypot(act.e[0] - px, act.e[2] - pz) - 12 * act.s > R_DROP || flying) && !(inside && inside.hgr === act)) { disposeInterior(act); H.active = act = null; }
-    if (best && !flying && bd < R_BUILD && act !== best && !(inside && inside.hgr)) { if (act) disposeInterior(act); try { buildInterior(best); H.active = best; chiefAt(best.L); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} H.active = null; } }
+    var SB = H.sb; if (SB && (SB.h !== best || flying || (inside && inside.hgr) || bd > R_STAGE + 12)) { try { abortBuild(SB.h); } catch (e) {} H.sb = SB = null; }
+    if (best && !flying && bd >= R_BUILD && bd < R_STAGE && act !== best && !(inside && inside.hgr) && window.PLAN_PERF && PLAN_PERF.step) { try { if (!SB) { if (act) { disposeInterior(act); H.active = act = null; } SB = H.sb = { h: best, it: buildSteps(best) }; } if (PLAN_PERF.step(SB.it).done) { H.sb = null; H.active = act = best; chiefAt(best.L); H.n.staged = (H.n.staged || 0) + 1; PLAN_PERF.warmGroup(best.L.g, { name: "hangar " + best.id }); } } catch (e) { note("stage " + best.id, e); H.sb = null; try { abortBuild(best); } catch (x) {} } }
+    if (best && !flying && bd < R_BUILD && act !== best && !(inside && inside.hgr)) { if (act) disposeInterior(act); try { if (SB && SB.h === best) { H.sb = null; while (!SB.it.next().done); } else buildInterior(best); H.active = best; chiefAt(best.L); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} H.active = null; } }
     // doors: open when you walk up to the front, shut when you leave; E overrides until you walk away
     for (var j = 0; j < H.list.length; j++) { var hh = H.list[j]; if (H.hold && H.hold[hh.id] !== undefined) { hh.open = hh.target = H.hold[hh.id]; setDoor(hh, hh.open); doorSolidOn(hh, hh.open < 0.62); continue; }   // tests: hold a door at an opening
       var near = hh === best && bd < R_SHUT + 10;

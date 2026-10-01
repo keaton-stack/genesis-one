@@ -43,7 +43,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   };
   function C() { return IN.cfg || DEF; }
   function sect(k) { var c = C(); return (c && c[k]) || DEF[k] || {}; }
-  try { fetch("/plan/interiors.json?v=" + (window.BUILD || "0")).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && typeof j === "object") { IN.cfg = j; try { refreshTalk(); } catch (e) { note("talk late", e); } } }).catch(function (e) { note("json", e); }); } catch (e) { note("json", e); }
+  try { fetch((window.AV || String)("/plan/interiors.json?v=" + (window.BUILD || "0"))).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && typeof j === "object") { IN.cfg = j; try { refreshTalk(); } catch (e) { note("talk late", e); } } }).catch(function (e) { note("json", e); }); } catch (e) { note("json", e); }
 
   // ───────────────────────── canvas and texture helpers ─────────────────────────
   var FT = { ui: "'Space Grotesk', 'Segoe UI', system-ui, sans-serif", serif: "'Fraunces', Georgia, 'Times New Roman', serif", cond: "'Anton', 'Oswald', 'Arial Narrow', Impact, sans-serif", hand: "'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive" };
@@ -329,11 +329,13 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   function doorFrame(L, key) { var D = L.T.door, K = L.K; var x0 = D.x0, x1 = D.x1, y0 = D.y0, y1 = D.y0 + D.h, z0 = D.zw - 0.02, z1 = D.z + 0.2;
     K.bb(key, x0 - 0.1, y0, z0, x0, y1 + 0.1, z1); K.bb(key, x1, y0, z0, x1 + 0.1, y1 + 0.1, z1); K.bb(key, x0 - 0.1, y1, z0, x1 + 0.1, y1 + 0.12, z1); K.bb("hearth", x0, y0 - 0.02, z0, x1, y0 + 0.012, z1); }
 
-  function buildInterior(h) {
+  function buildInterior(h) { var it = buildSteps(h), r; do { r = it.next(); } while (!r.done); return r.value; }
+  // the same build in stages: plan_perf.js steps it inside a per-frame budget while the player is still on the way (R_PREP)
+  function* buildSteps(h) {
     var t0 = performance.now(); var T = TYPES[h.kind], M = mats(); var L = makeL(h); h.L = L;
-    swapIn(h); doorLeaves(L);
-    try { T.build(h, L, L.K, M); } catch (err) { note("build " + h.kind + " " + h.id, err); }
-    L.K.build(L.g, M);
+    swapIn(h); doorLeaves(L); yield;
+    try { var sub = T.build(h, L, L.K, M); if (sub && typeof sub.next === "function") yield* sub; } catch (err) { note("build " + h.kind + " " + h.id, err); }
+    yield; L.K.build(L.g, M); yield;
     L.g.traverse(function (o) { if (o.isMesh) { o.receiveShadow = !(o.material && o.material.transparent); if (o.castShadow === undefined) o.castShadow = false; } });
     scene.add(L.g); try { LIGHTS.dirty = true; } catch (e) {} shellSet(h, true); IN.active = h;
     IN.n.builds++; IN.n.lastBuildMs = Math.round(performance.now() - t0); IN.n.solids = L.solids.length; IN.n.seats = L.seats.length; IN.n.hots = L.hots.length;
@@ -471,14 +473,15 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // [a0, a1, oy0, oy1, "glass" | "open" | "none", mullion spacing]; solids for everything that is not an open passage
   function wall(L, key, ax, c, a, b, y0, y1, t, open, frameKey) { var K = L.K; t = t || 0.2; open = (open || []).slice().sort(function (p, q) { return p[0] - q[0]; });
     var piece = function (p0, p1, q0, q1, solid) { if (p1 - p0 < 0.01 || q1 - q0 < 0.01) return; if (ax === "x") { K.bb(key, p0, q0, c - t / 2, p1, q1, c + t / 2); if (solid) L.solid((p0 + p1) / 2, c, p1 - p0, t, q0 - 0.2, q1); } else { K.bb(key, c - t / 2, q0, p0, c + t / 2, q1, p1); if (solid) L.solid(c, (p0 + p1) / 2, t, p1 - p0, q0 - 0.2, q1); } };
-    var cur = a; open.forEach(function (o) { piece(cur, o[0], y0, y1, true); piece(o[0], o[1], y0, o[2], true); piece(o[0], o[1], o[3], y1, false);
+    var cur = a; open.forEach(function (o) { if (o[4] !== "none" && o[4] !== "glass") (L.ports || (L.ports = [])).push([ax, c, o[0], o[1], o[2], o[3]]);   // openings, for plan_perf.js's indoor culling
+      piece(cur, o[0], y0, y1, true); piece(o[0], o[1], y0, o[2], true); piece(o[0], o[1], o[3], y1, false);
       if (o[4] === "glass") { glazing(L, ax, c, o[0], o[1], o[2], o[3], o[5] || 1.6, frameKey || "bronze"); if (ax === "x") L.solid((o[0] + o[1]) / 2, c, o[1] - o[0], t, o[2], o[3]); else L.solid(c, (o[0] + o[1]) / 2, t, o[1] - o[0], o[2], o[3]); }
       else if (o[4] === "none") piece(o[0], o[1], o[2], o[3], true);
       else if (o[4] === "open" && frameKey) { var fk = frameKey; if (ax === "x") { K.bb(fk, o[0] - 0.06, y0, c - t / 2 - 0.03, o[0], o[3] + 0.06, c + t / 2 + 0.03); K.bb(fk, o[1], y0, c - t / 2 - 0.03, o[1] + 0.06, o[3] + 0.06, c + t / 2 + 0.03); K.bb(fk, o[0] - 0.06, o[3], c - t / 2 - 0.03, o[1] + 0.06, o[3] + 0.08, c + t / 2 + 0.03); }
         else { K.bb(fk, c - t / 2 - 0.03, y0, o[0] - 0.06, c + t / 2 + 0.03, o[3] + 0.06, o[0]); K.bb(fk, c - t / 2 - 0.03, y0, o[1], c + t / 2 + 0.03, o[3] + 0.06, o[1] + 0.06); K.bb(fk, c - t / 2 - 0.03, o[3], o[0] - 0.06, c + t / 2 + 0.03, o[3] + 0.08, o[1] + 0.06); } }
       cur = o[1]; }); piece(cur, b, y0, y1, true); }
   // a glazed opening: glass pane with slim mullions every `sp` metres and a transom rail, in the wall plane
-  function glazing(L, ax, c, a0, a1, y0, y1, sp, fk) { var K = L.K, n = Math.max(1, Math.round((a1 - a0) / sp)), w = (a1 - a0) / n, m = 0.06;
+  function glazing(L, ax, c, a0, a1, y0, y1, sp, fk) { (L.ports || (L.ports = [])).push([ax, c, a0, a1, y0, y1]); var K = L.K, n =Math.max(1, Math.round((a1 - a0) / sp)), w = (a1 - a0) / n, m = 0.06;
     if (ax === "x") { K.quad("glass", a1 - a0, y1 - y0, (a0 + a1) / 2, (y0 + y1) / 2, c, 0); for (var i = 0; i <= n; i++) K.bb(fk, a0 + i * w - m / 2, y0, c - 0.05, a0 + i * w + m / 2, y1, c + 0.05); K.bb(fk, a0, y0 - 0.05, c - 0.07, a1, y0 + 0.02, c + 0.07); K.bb(fk, a0, y1 - 0.02, c - 0.07, a1, y1 + 0.05, c + 0.07); if (y1 - y0 > 3) K.bb(fk, a0, y0 + (y1 - y0) * 0.72 - 0.03, c - 0.05, a1, y0 + (y1 - y0) * 0.72 + 0.03, c + 0.05); }
     else { K.quad("glass", a1 - a0, y1 - y0, c, (y0 + y1) / 2, (a0 + a1) / 2, PI / 2); for (var j = 0; j <= n; j++) K.bb(fk, c - 0.05, y0, a0 + j * w - m / 2, c + 0.05, y1, a0 + j * w + m / 2); K.bb(fk, c - 0.07, y0 - 0.05, a0, c + 0.07, y0 + 0.02, a1); K.bb(fk, c - 0.07, y1 - 0.02, a0, c + 0.07, y1 + 0.05, a1); if (y1 - y0 > 3) K.bb(fk, c - 0.05, y0 + (y1 - y0) * 0.72 - 0.03, a0, c + 0.05, y0 + (y1 - y0) * 0.72 + 0.03, a1); } }
   // floor (with a solid under the whole rectangle) and ceiling
@@ -513,7 +516,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // glazed roof lounge (floor 6.36) over the lobby.
   var CB = { F: 0.83, C: 5.95, X0: -12.72, X1: 12.72, Z0: -12.15, Z1: 8.84, PZ: -3.8, PL: -4.5, PR: 3.4, RF: 6.36, RC: 9.35, rx0: -4.35, rx1: 4.5, rz0: -3.65, rz1: 3.55,
     st: { x0: -4.3, x1: -2.8, zb: 4.9, n: 30, run: 0.28 } };
-  function buildClub(h, L, K, M) { var B = CB; clubShell(L, B); clubStair(L, B); clubLobby(L, B, h); clubLounge(L, B); clubDining(L, B); clubShop(L, B); clubRoof(L, B); clubPeople(L, B, h);
+  function* buildClub(h, L, K, M) { var B = CB; clubShell(L, B); yield; clubStair(L, B); clubLobby(L, B, h); yield; clubLounge(L, B); yield; clubDining(L, B); clubShop(L, B); yield; clubRoof(L, B); yield; clubPeople(L, B, h);
     L.tip = "look around · the stair to the roof lounge is on the left of the lobby"; }
   function clubShell(L, B) { var K = L.K, F = B.F, C = B.C, X0 = B.X0, X1 = B.X1, Z0 = B.Z0, Z1 = B.Z1, S = B.st, zt = S.zb - (S.n - 1) * S.run;
     // floors: travertine lobby and pro shop, herringbone oak in the lounge and the Grill Room
@@ -657,7 +660,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     b0181: { name: "Launch Complex Food Hall", tagline: "Fuel for the night field", accent: "navy", menu: [["Countdown bowls", "rice, greens, choice of grill"], ["Wood fired flatbreads", "three toppings"], ["Orbit fries", "chile salt, aioli"], ["Night sky sundae", "dark chocolate, sea salt"]] },
     b0288: { name: "Outpost Mess Hall", tagline: "Hearty plates for the Outpost crews", accent: "rust", feature: "art", menu: [["Crew breakfast", "all day"], ["Red chile stew", "slow braised, tortillas"], ["Rover sandwiches", "smoked brisket, slaw"], ["Mission coffee", "strong and hot"]] } };
   function venueOf(h) { var v = (sect("restaurant").venues || {})[h.id] || VDEF[h.id] || { name: h.name || "Restaurant", tagline: "From the kitchen", accent: "tan", menu: [] }; if (!v.name) v.name = h.name || "Restaurant"; return v; }
-  function buildRest(h, L, K, M) { var B = RB, F = B.F, C = B.C, X0 = B.X0, X1 = B.X1, Z0 = B.Z0, Z1 = B.Z1, PK = B.PK, v = venueOf(h), acc = M[v.accent] ? v.accent : "tan"; L.v = v;
+  function* buildRest(h, L, K, M) { var B = RB, F = B.F, C = B.C, X0 = B.X0, X1 = B.X1, Z0 = B.Z0, Z1 = B.Z1, PK = B.PK, v = venueOf(h), acc = M[v.accent] ? v.accent : "tan"; L.v = v;
     // floors: terracotta in the room, slate in the kitchen; walls: sand plaster, a clay accent wall behind the bar; a timber ceiling
     floorRect(L, "terra", X0, PK, X1, Z1, F); floorRect(L, "slate", X0, Z0, X1, PK, F);
     wall(L, "sand", "x", Z0 - 0.1, X0 - 0.2, X1 + 0.2, F - 0.1, C + 0.05, 0.2); wall(L, "clay", "z", X0 - 0.1, Z0, Z1, F - 0.1, C + 0.05, 0.2, [[1.6, 4.6, F + 0.9, F + 3.2, "glass", 1.5]]);
@@ -669,7 +672,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     for (var pl = 0; pl < 5; pl++) { K.cyl("ceramic", 0.14, 0.12, 0.02, -2.4 + pl * 1.2, F + 1.08, PK + 0.1, 18); K.sph(pl % 2 ? "rust" : "sage", 0.06, -2.4 + pl * 1.2, F + 1.12, PK + 0.1, 0.6, 10); }
     // ceiling: oak boards between walnut beams, pendants later
     ceilRect(L, "oakP", X0, Z0, X1, Z1, C); for (var bx = -6.2; bx <= 6.3; bx += 2.45) K.bb("walnut", bx - 0.1, C - 0.28, Z0, bx + 0.1, C, Z1);
-    restBar(L, B, v); restDining(L, B, v, acc); restKitchen(L, B); restPeople(L, B, h, v);
+    yield; restBar(L, B, v); yield; restDining(L, B, v, acc); yield; restKitchen(L, B); yield; restPeople(L, B, h, v);
     L.tip = "look around · the bar is on the left, the booths on the right, the kitchen at the back"; }
   function restBar(L, B, v) { var K = L.K, F = B.F, C = B.C, X0 = B.X0;
     // back bar on the clay wall (lit bottles, a bronze mirror), the counter in walnut with a quilted front and a marble top, five stools
@@ -734,7 +737,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
       office: ["The Office", "A desk with a view of the bay", "A walnut desk faces the balustrade and the hangar bay, with bookcases along the side wall."],
       entry: ["The Entry Gallery", "Arrive by the front door", "The front door opens into a gallery along the hangar glass, so the first thing you see is the aircraft. The wine wall is on your right; a few steps lead down into the great room."] }[k];
     return { t: (r && r.t) || D[0], k: (r && r.k) || D[1], p: (r && r.p) || D[2] }; }
-  function buildHome(h, L, K, M) { var B = HB, F = B.F, FW = B.FW, X0 = B.X0, X1 = B.X1, Z0 = B.Z0, Z1 = B.Z1;
+  function* buildHome(h, L, K, M) { var B = HB, F = B.F, FW = B.FW, X0 = B.X0, X1 = B.X1, Z0 = B.Z0, Z1 = B.Z1;
     // floors: epoxy in the bay, polished concrete in the great room and the low end of the wing, oak in the raised wing
     floorRect(L, "epoxy", X0, B.GZ, X1, Z1, F); floorRect(L, "concrete", X0, Z0, X1, B.GZ, F); floorRect(L, "concrete", X1, B.WZ0, B.WX1, -1.2, F);
     K.flat("oak", X1, -0.3, B.WX1, B.WZ1, FW + 0.003, true, undefined, PI / 4); L.solid((X1 + B.WX1) / 2, (B.WZ1 - 0.3) / 2, B.WX1 - X1, B.WZ1 + 0.3, FW - 0.5, FW);
@@ -754,7 +757,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     // the gable front: solid either side of the hangar door, a glazed gable above it (to the ridge)
     wall(L, "plaster", "x", Z1 + 0.1, X0, X1, F - 0.1, 6.3, 0.2, [[-10.1, 6.0, F, 6.28, "open"]]);
     K.poly("glass", [[X0, 6.3], [X1, 6.3], [X1, hcy(X1)], [B.ridge, hcy(B.ridge)], [X0, hcy(X0)]], Z1 + 0.1, -1); for (var gm = X0 + 2.2; gm < X1; gm += 2.25) K.bb("steel", gm - 0.04, 6.3, Z1 + 0.05, gm + 0.04, hcy(gm), Z1 + 0.15); K.bb("steel", X0, 6.25, Z1 + 0.02, X1, 6.35, Z1 + 0.18);
-    homeBay(L, B); homeGreat(L, B); homeMezz(L, B); homeWing(L, B); L.tip = "open house · look around, the notes by each room tell you more"; }
+    yield; homeBay(L, B); yield; homeGreat(L, B); yield; homeMezz(L, B); yield; homeWing(L, B); L.tip = "open house · look around, the notes by each room tell you more"; }
   function homeBay(L, B) { var K = L.K, F = B.F, FW = B.FW, X0 = B.X0, X1 = B.X1, Z1 = B.Z1, M = mats();
     // the glazed hangar door: one glass leaf in a black steel frame, hinged at the header, lifting outward (walk up to it, or E)
     var piv = new THREE.Group(), dW = 16.0, dH = 6.18; piv.position.set(-2.05, 6.25, Z1 + 0.12); var parts = [], bx = function (w, hh, d, x, y, z) { var g = new THREE.BoxGeometry(w, hh, d); g.translate(x, y, z); parts.push(g); };
@@ -836,7 +839,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // @@REST@@
   // @@CLUB@@
 
-  var R_BUILD = 34, R_DROP = 62, R_PREP = 120;
+  var R_BUILD = 34, R_DROP = 95, R_PREP = 120, R_STAGE = 70;   // R_STAGE: the staged build starts (plan_perf.js budget); R_BUILD: finished at once
   function distTo(h, x, z) { return Math.hypot(h.e[0] - x, h.e[2] - z) - TYPES[h.kind].R * h.s; }
   function camInside(h) { var T = TYPES[h.kind], q = localP(h, camera.position.x, camera.position.z), cy = (camera.position.y - h.e[1]) / h.s; if (cy < -0.5 || cy > T.see[4]) return false; for (var i = 0; i < T.rooms.length; i++) { var r = T.rooms[i]; if (q[0] > r[0] && q[0] < r[2] && q[1] > r[1] && q[1] < r[3]) return true; } return false; }
   function frame(dt) {
@@ -845,8 +848,10 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     var best = null, bd = 1e9; for (var i = 0; i < IN.list.length; i++) { var h = IN.list[i]; var d = distTo(h, px, pz); if (d < bd) { bd = d; best = h; } } IN.near = best; IN.nearD = bd;
     if (bd < R_PREP && !IN.pref && LAZY.length) { IN.pref = true; try { if (window.PLAN_LOAD_KINDS) window.PLAN_LOAD_KINDS(LAZY).then(function (ks) { IN.n.lazy = ks; }); } catch (e) { note("prefetch", e); } }
     var act = IN.active; var inMine = !!(inside && inside.int3);
+    var SB = IN.sb; if (SB && (SB.h !== best || flying || inMine || bd > R_STAGE + 12)) { try { disposeInterior(SB.h); } catch (e) {} IN.sb = SB = null; }
     if (act && !inMine && (distTo(act, px, pz) > R_DROP || flying)) { disposeInterior(act); act = null; }
-    if (best && !flying && bd < R_BUILD && act !== best && !inMine) { if (act) disposeInterior(act); try { buildInterior(best); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} } act = IN.active; }
+    if (best && !flying && bd < R_BUILD && act !== best && !inMine) { if (act) disposeInterior(act); try { if (SB) { IN.sb = null; while (!SB.it.next().done); } else buildInterior(best); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} } act = IN.active; }
+    else if (best && !flying && bd < R_STAGE && act !== best && !inMine && window.PLAN_PERF && PLAN_PERF.step) { try { if (!SB) { if (act) { disposeInterior(act); act = null; } SB = IN.sb = { h: best, it: buildSteps(best) }; } if (PLAN_PERF.step(SB.it).done) { IN.sb = null; act = IN.active; IN.n.staged = (IN.n.staged || 0) + 1; if (best.L) PLAN_PERF.warmGroup(best.L.g, { name: "int3 " + best.id }); } } catch (e) { note("stage " + best.id, e); IN.sb = null; try { disposeInterior(best); } catch (x) {} } }
     if (!act || !act.L) return; var L = act.L, T = TYPES[act.kind], D = T.door;
     // the doors: open as you walk up (from either side), shut when you walk away; E overrides until you leave the porch
     var dw = doorW(act), dd = Math.hypot(dw[0] - px, dw[2] - pz), lvl = Math.abs(player.position.y - dw[1]) < 2.2; if (L.door.manual !== null && dd > 7) L.door.manual = null;
@@ -858,7 +863,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     else if (inside && inside.int3 === act && !inRooms(T, q[0], q[1], 0.35)) myLeave();
     if (inside && inside.int3 && inside.int3 !== act) myLeave();
     // drawn only while you are in, the door is open or (a hangar home) the bay shows through its glass; the shell's cut follows
-    var cin = camInside(act); var vis = !!(inside && inside.int3 === act) || L.door.open > 0.02 || !!L.hangar || cin; var U = shellU(act.kind).u;
+    var cin = camInside(act); var vis = !!(inside && inside.int3 === act) || L.door.open > 0.02 || (!!L.hangar && distTo(act, px, pz) < R_BUILD + 8) || cin; var U = shellU(act.kind).u;
     if (L.g.visible !== vis) { L.g.visible = vis; L.lights.forEach(function (l) { l.intensity = vis ? l.userData.k0 : 0; }); } U.uIntOn.value = vis ? 1 : 0; U.uIntCam.value = cin ? 1 : 0;
     if (!vis) return;
     var n = typeof night === "number" ? night : 0; if (IN.ao && Math.abs(n - (IN.aoN === undefined ? -1 : IN.aoN)) > 0.04) { IN.aoN = n; var av = Math.round((IN.aoK || 105) * (1 - 0.5 * n)); IN.ao.image.data[0] = IN.ao.image.data[1] = IN.ao.image.data[2] = av; IN.ao.needsUpdate = true; }

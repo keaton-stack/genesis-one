@@ -51,7 +51,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   API.close = function () { closePassport(); };
 
   // ───────────────────────── data ─────────────────────────
-  fetch("/plan/progress.json?v=" + (window.BUILD || "dev")).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (!d) { note("progress.json", "missing"); return; } setData(d); }).catch(function (e) { note("progress.json", e); });
+  fetch((window.AV || String)("/plan/progress.json?v=" + (window.BUILD || "dev"))).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (!d) { note("progress.json", "missing"); return; } setData(d); }).catch(function (e) { note("progress.json", e); });
   function setData(d) {
     S.data = d; S.stampIdx = {}; S.stampByN = {}; S.placeStamps = []; S.talkStamps = {}; S.awardBits = {}; S.bitAwards = {};
     (d.chapters || []).forEach(function (c) { (c.stamps || []).forEach(function (s) { s.chapter = c; S.stampIdx[s.id] = s; S.stampByN[s.n] = s; if (s.talk) S.talkStamps[s.talk] = s; else S.placeStamps.push(s); }); });

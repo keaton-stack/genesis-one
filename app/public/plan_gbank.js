@@ -32,7 +32,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ── copy (partners.json) ──
   var DATA = null;
   try {
-    fetch("/plan/partners.json?v=" + (window.BUILD || "dev")).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (!d) { note("partners.json", "missing"); return; } DATA = GB.data = window.PLAN_PARTNERS = d; }).catch(function (e) { note("partners.json", e); });
+    fetch((window.AV || String)("/plan/partners.json?v=" + (window.BUILD || "dev"))).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (!d) { note("partners.json", "missing"); return; } DATA = GB.data = window.PLAN_PARTNERS = d; }).catch(function (e) { note("partners.json", e); });
   } catch (e) { note("partners.json", e); }
   function D(path, dflt) { var o = DATA; if (!o) return dflt; var p = path.split("."); for (var i = 0; i < p.length; i++) { if (o == null) return dflt; o = o[p[i]]; } return o == null ? dflt : o; }
 
