@@ -37,13 +37,15 @@ var UPDATE_DUE = false;
 async function checkBuild() { try { if (!window.BUILD || window.BUILD === "dev" || UPDATE_DUE) return; const r = await fetch("/?b=" + Date.now(), { cache: "no-store" }); const t = await r.text(); const m = t.match(/window\.BUILD = "([^"]+)"/); if (m && m[1] !== window.BUILD) { UPDATE_DUE = true; const el = $("#status"); el.textContent = "Genesis One was updated \u00b7 click here to reload"; el.classList.add("err"); el.style.cursor = "pointer"; el.onclick = () => location.reload(); } } catch (e) {} }
 setInterval(checkBuild, 180000); document.addEventListener("visibilitychange", () => { if (!document.hidden) checkBuild(); });
 
+/* P3: the room keeps every player it has ever seen (up to 500); a player who is away has no avatar in the scene (see the avatar loop in frame) */
+const P3AV = !/[?&](pav|p3)=0\b/.test(location.search);
 const seen = new Map(); let introduced = false, riding = null; const chatSeen = new Map(); const SYNC = { at: 0 };
 function onState(msg) {
   connected = msg.connected || 1; $("#online").textContent = String(connected);
   if (!msg.view) return; view = msg.view; onView(view);
   const now = performance.now();
   for (const [id, p] of Object.entries(view.players)) {
-    const s = seen.get(id); if (!s || s.t !== p.t) seen.set(id, { t: p.t, at: now });
+    const s = seen.get(id); if (!s || s.t !== p.t) seen.set(id, { t: p.t, at: !s && P3AV && view.tick - p.t > 600 ? -1e9 : now });   /* P3: first seen far behind the room's clock: away from the start */
     if (p.say && p.sayTick && chatSeen.get(id) !== p.sayTick) { chatSeen.set(id, p.sayTick); if (introduced && player && (id === ME || Math.hypot(p.x - player.position.x, p.z - player.position.z) < 45)) logLine(p.name, p.say); }
   }
   if (!introduced && player) {
@@ -561,7 +563,21 @@ function updateCulling(force) { updateDetail();
         for (const inst of S.far2) { const arr = inst.instanceMatrix.array; for (let k = 0; k < nf2; k++) { const i = S.idxF2[k]; arr.set(S.mats.subarray(i * 16, i * 16 + 16), k * 16); } inst.count = nf2; inst.visible = nf2 > 0; inst.instanceMatrix.needsUpdate = true; } } } }
 }
 function makeModel(kind) { const m = MODELS[kind]; const g = new THREE.Group(); if (!m) return g; for (const part of (m.proxy ? m._pp : m.parts)) g.add(new THREE.Mesh(part.geometry, part.material)); if (m.proxy && window.PLAN_STREAM) PLAN_STREAM.track(kind, g); return g; }
-function collide(x, z, r) { if (inside) return [x, z]; for (const c of COLLIDERS) { const dx = x - c[0], dz = z - c[1], d = Math.hypot(dx, dz), min = c[2] + r; if (d < min && d > 0.001) { x = c[0] + dx / d * min; z = c[1] + dz / d * min; } } return [x, z]; }
+/* P3: COLLIDERS holds about 16,000 circles and every call scanned all of them with Math.hypot (0.2 ms a call: the player and every
+   moving animal, each frame). A 16 m grid answers from the one cell under the point: each circle is filed in every cell its radius
+   plus 4 m (the largest query radius) touches, in the list's own order, so the push-outs run in the same order as before. The grid
+   follows the list (appended circles are filed at once; a removal, a new list or, checked twice a second, an edited circle rebuilds
+   it). A point pushed into another cell, a larger radius, or ?p3=0 takes the full scan. */
+const CGRID = { cell: 16, pad: 4, map: null, arr: null, len: 0, last: null, sum: 0, at: 0, n: 0, off: /[?&]p3=0\b/.test(location.search) };
+function cgSum() { let s = 0; const L = COLLIDERS; for (let i = 0; i < L.length; i++) { const c = L[i]; s += c[0] * 1.37 + c[1] * 0.71 + c[2] * 3.13 + (i & 1023) * 0.001; } return s; }
+function cgAdd(c) { const G = CGRID, k = G.cell, R = c[2] + G.pad; if (!(isFinite(c[0]) && isFinite(c[1]) && isFinite(R))) return; const x0 = Math.floor((c[0] - R) / k), x1 = Math.floor((c[0] + R) / k), z0 = Math.floor((c[1] - R) / k), z1 = Math.floor((c[1] + R) / k); if ((x1 - x0 + 1) * (z1 - z0 + 1) > 20000) { G.full = true; return; } for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) { const key = ix * 100003 + iz; let l = G.map.get(key); if (!l) G.map.set(key, l = []); l.push(c); } }
+function cgBuild() { const G = CGRID, L = COLLIDERS; G.map = new Map(); G.full = false; for (let i = 0; i < L.length; i++) cgAdd(L[i]); G.arr = L; G.len = L.length; G.last = L.length ? L[L.length - 1] : null; G.sum = cgSum(); G.at = performance.now(); G.n++; }
+function cgFresh() { const G = CGRID, L = COLLIDERS; if (!G.map || L !== G.arr || L.length < G.len || (G.len && L[G.len - 1] !== G.last)) { cgBuild(); return; } if (L.length > G.len) { for (let i = G.len; i < L.length; i++) cgAdd(L[i]); G.len = L.length; G.last = L[L.length - 1]; G.sum = cgSum(); } const t = performance.now(); if (t - G.at > 500) { G.at = t; if (cgSum() !== G.sum) cgBuild(); } }
+function collideAll(x, z, r) { for (const c of COLLIDERS) { const dx = x - c[0], dz = z - c[1], d = Math.hypot(dx, dz), min = c[2] + r; if (d < min && d > 0.001) { x = c[0] + dx / d * min; z = c[1] + dz / d * min; } } return [x, z]; }
+function collide(x, z, r) { if (inside) return [x, z]; const G = CGRID; if (G.off || !(r <= G.pad)) return collideAll(x, z, r); cgFresh(); if (G.full) return collideAll(x, z, r);
+  const k = G.cell, key = Math.floor(x / k) * 100003 + Math.floor(z / k), l = G.map.get(key); if (!l) return [x, z]; const x0 = x, z0 = z;
+  for (let i = 0; i < l.length; i++) { const c = l[i], dx = x - c[0], dz = z - c[1], min = c[2] + r; if (dx * dx + dz * dz >= min * min) continue; const d = Math.hypot(dx, dz); if (d < min && d > 0.001) { x = c[0] + dx / d * min; z = c[1] + dz / d * min; if (Math.floor(x / k) * 100003 + Math.floor(z / k) !== key) return collideAll(x0, z0, r); } }
+  return [x, z]; }
 
 // ───────────────────────────── layout ─────────────────────────────
 const hotspots = [], zoneRings = []; let runwayMid, U, Nn, heading;
@@ -2448,12 +2464,16 @@ function pedalPose(g, speed, dt) { const u = g.userData; const P = u.pedal; cons
   for (const side of [1, -1]) { const up = side > 0 ? b.lt : b.rt, lo = side > 0 ? b.ls : b.rs, ft = side > 0 ? b.lf2 : b.rf2; if (up && lo && ft) { const ph = P.phase + (side === fwd ? Math.PI / 2 : -Math.PI / 2); PED.l.set(side * G.px, G.crank[0] + G.pr * Math.cos(ph) + 0.075, G.crank[1] + G.pr * Math.sin(ph) + 0.015); g.localToWorld(PED.t.copy(PED.l)); PED.pole.set(side * 0.2, 0.55, 1).applyQuaternion(g.getWorldQuaternion(IK.pq)); ik2(up, lo, ft, PED.t, PED.pole); }
     const ua = side > 0 ? b.la : b.ra, fa = side > 0 ? b.lf : b.rf, hd = side > 0 ? b.lh : b.rh; if (ua && fa && hd) { PED.l.set(side * G.grip[0] * 0.93, G.grip[1] + 0.035, G.grip[2] - 0.03); g.localToWorld(PED.t.copy(PED.l)); PED.pole.set(side * 0.7, -1, 0.15).applyQuaternion(g.getWorldQuaternion(IK.pq)); ik2(ua, fa, hd, PED.t, PED.pole); } } }
 const _npcWP = new THREE.Vector3();
+/* P3: an NPC outside the view (they cast no shadow) is animated at the far rate; each NPC has its own phase in the cadence so the
+   skipped frames spread evenly instead of every far NPC updating on the same frame */
+const _npcFr = new THREE.Frustum(), _npcPM = new THREE.Matrix4(), _npcSp = new THREE.Sphere(); let _npcFrN = -1; const P3NPC = !/[?&](pnpc|p3)=0\b/.test(location.search);
+function npcInView(p) { if (_npcFrN !== FRAME_N) { _npcFrN = FRAME_N; _npcPM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _npcFr.setFromProjectionMatrix(_npcPM); } _npcSp.center.copy(p); _npcSp.radius = 2.5; return _npcFr.intersectsSphere(_npcSp); }
 window.WALK_DROP_FIXED = true;   /* INT: the client seats walking feet itself (plan_terminal.js reads this) */
 function animateWalk(g, speed, dt) {
   const u = g.userData;
-  if (g !== player) { const d = camera.position.distanceTo(g.getWorldPosition(_npcWP)); const npc = !(view && view.players && view.players[u.id]); const far = d > (npc ? 200 : 320); if (u.lodHidden !== far) { u.lodHidden = far; g.traverse((o) => { if (o.isSkinnedMesh) o.visible = !far && (!u.lodOn || (o.material && (o.material.name || "").toLowerCase()) === "body"); }); for (const s of [u.label, u.blob]) { if (!s) continue; if (far) { s.userData.farWas = s.visible; s.visible = false; } else if (s.userData.farWas !== undefined) { s.visible = s.userData.farWas; s.userData.farWas = undefined; } } } if (far) return;
+  if (g !== player) { const d = camera.position.distanceTo(g.getWorldPosition(_npcWP)); const npc = !(view && view.players && view.players[u.id]); const far = d > (npc ? 200 : 320); if (u.lodHidden !== far) { u.lodHidden = far; g.traverse((o) => { if (o.isSkinnedMesh) o.visible = !far && (!u.lodOn || (o.material && (o.material.name || "").toLowerCase()) === "body"); }); for (const s of [u.label, u.blob]) { if (!s) continue; if (far) { s.userData.farWas = s.visible; s.visible = false; } else if (s.userData.farWas !== undefined) { s.visible = s.userData.farWas; s.userData.farWas = undefined; } } if (window.PLAN_PERF && PLAN_PERF.sleep) PLAN_PERF.sleep(g, far);   /* P3: a far person's parts are not walked or drawn */ } if (far) return;
     if (npc) { if (!u.npcSet) { u.npcSet = true; u.fullGeo = true; g.traverse((o) => { if (o.isSkinnedMesh) { o.castShadow = false; o.userData.fullGeo = o.geometry; } }); } const C = CHAR[u.body || "m"]; const wantLod = d > 22; if (C && C.lodGeo && u.fullGeo && u.lodOn !== wantLod) { u.lodOn = wantLod; /* far: the body slot draws the single-mesh LOD, the other slots hide; near: every slot gets its own geometry back */ g.traverse((o) => { if (!o.isSkinnedMesh || !o.userData.fullGeo) return; const body = (o.material && (o.material.name || "").toLowerCase()) === "body"; if (wantLod) { if (body) o.geometry = C.lodGeo; else o.visible = false; } else { o.geometry = o.userData.fullGeo; o.visible = true; } }); if (u.hairG) u.hairG.visible = !wantLod && !u.hairHat; } }
-    const k = npc ? (d > 120 ? 8 : d > 60 ? 4 : d > 20 ? 2 : 1) : (d > 110 ? 4 : d > 45 ? 2 : 1); if (k > 1 && (FRAME_N % k) !== 0) return; dt *= k; }
+    let k = npc ? (d > 120 ? 8 : d > 60 ? 4 : d > 20 ? 2 : 1) : (d > 110 ? 4 : d > 45 ? 2 : 1); if (P3NPC && npc && k < 8 && d > 4 && !npcInView(_npcWP)) k = 8; if (u.aph === undefined) u.aph = P3NPC ? (Math.random() * 8) | 0 : 0; if (k > 1 && ((FRAME_N + u.aph) % k) !== 0) return; dt *= k; }
   if (u.mixer) { u.mixer.update(dt); if (u.pedal && u.legBones) pedalPose(g, speed, dt); else if (u.sit && u.driveIK && u.legBones && u.w && u.w.sit > 0.6) cartPose(g); const A = u.acts; const air = !!u.air && !!A.jump; const k = Math.min(1, speed / 1.2); const run = A.run ? Math.max(0, Math.min(1, (speed - 5.2) / 2.5)) : 0;
     const sw = !!u.swim && !!A.swim; const gf = !!A.golf && u.golfT && u.golfT > performance.now(); const st = !!u.sit && !!A.sit; const pd = !!u.pedal; const jog = A.jog ? Math.max(0, Math.min(1, (speed - 5.2) / 1.6)) : 0; const want = { idle: air || sw || gf || st ? 0 : pd ? 1 : 1 - k, walk: air || sw || gf || st || pd ? 0 : k * (1 - run) * (1 - jog), jog: air || sw || gf || st || pd ? 0 : k * (1 - run) * jog, run: air || sw || gf || st || pd ? 0 : k * run, jump: air && !sw && !gf && !st ? 1 : 0, swim: sw ? 1 : 0, golf: gf ? 1 : 0, sit: st ? 1 : 0 }; const dn = u.dance && u.dance.until > performance.now() && A[u.dance.clip] ? u.dance.clip : null; if (dn) { for (const n in want) want[n] = 0; } for (const d of ["dance1", "dance2", "dance3", "dance4"]) if (A[d]) want[d] = dn === d ? 1 : 0; const w = u.w || (u.w = { idle: 1, walk: 0, jog: 0, run: 0, jump: 0, swim: 0, golf: 0, sit: 0, dance1: 0, dance2: 0, dance3: 0, dance4: 0 }); const rate = Math.min(1, dt * (gf ? 30 : 9));
     for (const n in want) { w[n] += (want[n] - w[n]) * rate; if (A[n]) A[n].setEffectiveWeight(w[n]); }
@@ -3035,6 +3055,8 @@ function frame() {
     for (const [id, p] of Object.entries(view.players)) {
       if (id === ME) { const nm = p.name + (p.xp >= 400 ? " · " + rankOf(p.xp) : ""); if (player.userData.name !== nm) setName(player, nm); if (!$("#creator").classList.contains("on")) syncLook(player, p); showEmote(player, p); setBubble(player, p); updateWallet(p); continue; }
       const s = seen.get(id); const stale = !s || now - s.at > 12000; let a = avatars.get(id);
+      /* P3: away (no update for 12 s): out of the scene and not animated, labelled or synced (they were all hidden, walked and animated every frame); back in when they move again */
+      if (stale && P3AV) { if (a && a.g.parent) { a.g.parent.remove(a.g); a.g.visible = false; } continue; } if (a && P3AV && !a.g.parent) scene.add(a.g);
       if (!a) { a = { g: avatar(id, p.name) }; a.g.position.set(p.x, getH(p.x, p.z), p.z); avatars.set(id, a); }
       a.g.visible = !stale; setName(a.g, p.name + (p.xp >= 400 ? " · " + rankOf(p.xp) : "")); syncLook(a.g, p); showEmote(a.g, p); setBubble(a.g, p);
       const pose = p.pose || null; const posed = !!pose && pose !== "dance" && !pose.startsWith("bike:");

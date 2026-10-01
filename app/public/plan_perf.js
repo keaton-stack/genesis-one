@@ -14,6 +14,9 @@
 //   - two fixes for whole-scene shader recompiles: a spare hemisphere light keeps the light count constant when a room or the
 //     fly-in cabin adds its fill light, and the key light keeps its shadow flag through the sun/moon hand-over.
 // ?perf=0 turns the module off; ?pcull=0, ?pwarm=0, ?ppre=0, ?pfix=0 switch single parts off (A/B tests).
+// P3 (1 Oct 2026, HANDOFF_P3.md): world matrices only where something moved (bones only after their mixer ran, far people asleep:
+// PLAN_PERF.sleep), the shadow cascades take turns, flat transparent double-sided planes in one pass, bone roots out of the render
+// walks. ?p3=0 turns every P3 part off (here, in client.js and in plan_stream.js); ?pmw=0, ?psh=0, ?pfs=0, ?pbv=0 single parts.
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
 (function () {
   "use strict";
@@ -28,6 +31,135 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   if (P.off) return;
   function G(name) { try { return eval(name); } catch (e) { return undefined; } }   // a client global that may not exist yet (TDZ before client.js runs)
   var now = function () { return performance.now(); };
+
+  // ───────────────────────── P3 (1 Oct 2026): world matrices only where something moved ─────────────────────────
+  // three recomputes the world matrix of every object in every render: the scene root auto-updates, which forces its whole tree
+  // (about 35,000 objects here, most of them the crowd's bones: 8 to 10 ms a frame on a fast desktop). Same results, less work: an
+  // object's local matrix is recomposed only when its position, rotation or scale changed (with matrixAutoUpdate off: when its
+  // matrix was edited), its world matrix only when that happened, when its parent's world matrix changed (a version number), or when
+  // asked (matrixWorldNeedsUpdate, force). A skinned mesh inverts its bind matrix only when its world matrix changed.
+  // ?pmw=0 keeps three's own methods.
+  // Most of the 35,000 objects are the crowd (about 730 rigged people, 42 objects each, 24 of them bones), and the cost is mostly
+  // the walk itself (about 250 ns an object), so two kinds of subtree are not walked when nothing in them can have moved:
+  //   - a skeleton's bones between two updates of the animation mixer that drives them (people further away update every 2nd to
+  //     8th frame); any mixer update, a bone's parent moving, something added under a bone, and a slow round (every 32nd frame)
+  //     walk them again;
+  //   - a far person (PLAN_PERF.sleep(g, true), called by the client when a person is beyond its 200 m draw range and hidden):
+  //     only the group's own matrix is kept current (its position is still read); what was still drawn inside (badges, hats,
+  //     a bike) is hidden until it wakes. On waking every part checks its own matrix again.
+  // The per-object caches live in typed arrays indexed by object id (no properties are added to the objects).
+  P.K.mw = !/[?&](pmw|p3)=0\b/.test(Q);
+  var MW = P.mw = { cap: 0, LC: null, WV: null, PV: null, BI: null, BR: null, AF: null, CF: null, SLP: null, MAN: new Map(), HID: new WeakMap(), MR: new WeakMap(), MU: 1, V: 1, fr: 0, sleeping: 0 };
+  function mwGrow(n) {
+    var cap = Math.max(65536, MW.cap || 0); while (cap <= n) cap *= 2; if (cap === MW.cap) return;
+    function g(Old, T, k, fill) { var a = new T(cap * k); if (fill !== undefined) a.fill(fill); if (Old) a.set(Old); return a; }
+    MW.LC = g(MW.LC, Float64Array, 10, NaN); MW.WV = g(MW.WV, Float64Array, 1); MW.PV = g(MW.PV, Float64Array, 1, -1); MW.BI = g(MW.BI, Float64Array, 1, -1);
+    MW.BR = g(MW.BR, Uint8Array, 1); MW.AF = g(MW.AF, Float64Array, 1); MW.CF = g(MW.CF, Float64Array, 1, -1); MW.SLP = g(MW.SLP, Uint8Array, 1); MW.cap = cap;
+  }
+  (function fastMatrices() {
+    if (!P.K.mw || !window.THREE || !THREE.Object3D || THREE.Object3D.prototype.__p3mw) return;
+    var O = THREE.Object3D.prototype; O.__p3mw = true; mwGrow(65535);
+    function local(o, id) {   // true when the local matrix changed since its last world update
+      if (o.matrixAutoUpdate === true) {
+        var p = o.position, q = o.quaternion, s = o.scale, L = MW.LC, b = id * 10;
+        if (L[b] === p.x && L[b + 1] === p.y && L[b + 2] === p.z && L[b + 3] === q._x && L[b + 4] === q._y && L[b + 5] === q._z && L[b + 6] === q._w && L[b + 7] === s.x && L[b + 8] === s.y && L[b + 9] === s.z) return false;
+        o.updateMatrix(); L[b] = p.x; L[b + 1] = p.y; L[b + 2] = p.z; L[b + 3] = q._x; L[b + 4] = q._y; L[b + 5] = q._z; L[b + 6] = q._w; L[b + 7] = s.x; L[b + 8] = s.y; L[b + 9] = s.z;
+        return true;
+      }
+      MW.LC[id * 10] = NaN;   // a matrix set by hand: compare the matrix itself
+      var e = o.matrix.elements, c = MW.MAN.get(id);
+      if (c !== undefined && c[0] === e[0] && c[1] === e[1] && c[2] === e[2] && c[3] === e[3] && c[4] === e[4] && c[5] === e[5] && c[6] === e[6] && c[7] === e[7] && c[8] === e[8] && c[9] === e[9] && c[10] === e[10] && c[11] === e[11] && c[12] === e[12] && c[13] === e[13] && c[14] === e[14] && c[15] === e[15]) return false;
+      if (c === undefined) MW.MAN.set(id, c = new Float64Array(16)); for (var i = 0; i < 16; i++) c[i] = e[i];
+      return true;
+    }
+    function world(o, id, par) { if (o.matrixWorldAutoUpdate === true) { if (par === null) o.matrixWorld.copy(o.matrix); else o.matrixWorld.multiplyMatrices(par.matrixWorld, o.matrix); } MW.WV[id] = ++MW.V; MW.PV[id] = par !== null ? MW.WV[par.id] : 0; }
+    var umw = function (force) {
+      var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) mwGrow(Math.max(id, par !== null ? par.id : 0));
+      var d = local(this, id) || force === true || this.matrixWorldNeedsUpdate === true || (par !== null && MW.PV[id] !== MW.WV[par.id]);
+      if (d) { world(this, id, par); this.matrixWorldNeedsUpdate = false; force = true; }
+      if (MW.SLP[id] === 1) return;   // a far person asleep: its own matrix only
+      if (MW.BR[id] === 1) { if (!d && MW.AF[id] <= MW.CF[id] && ((id + MW.fr) & 31) !== 0) return; MW.CF[id] = MW.MU; }   // bones: only after their mixer ran
+      var ch = this.children;
+      for (var i = 0, l = ch.length; i < l; i++) { var c = ch[i]; if (c.matrixWorldAutoUpdate === true || force === true) c.updateMatrixWorld(force); }
+    };
+    O.updateMatrixWorld = umw;
+    O.updateWorldMatrix = function (updateParents, updateChildren) {
+      var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) mwGrow(Math.max(id, par !== null ? par.id : 0));
+      if (updateParents === true && par !== null) par.updateWorldMatrix(true, false);
+      if (local(this, id) || MW.WV[id] === 0 || this.matrixWorldNeedsUpdate === true || (par !== null && MW.PV[id] !== MW.WV[par.id])) world(this, id, par);
+      if (updateChildren === true) { var ch = this.children; for (var i = 0, l = ch.length; i < l; i++) ch[i].updateWorldMatrix(false, true); }
+    };
+    var SM = THREE.SkinnedMesh && THREE.SkinnedMesh.prototype;
+    if (SM && Object.prototype.hasOwnProperty.call(SM, "updateMatrixWorld")) {
+      var AB = THREE.AttachedBindMode || "attached", DB = THREE.DetachedBindMode || "detached", smb = SM.bind;
+      SM.updateMatrixWorld = function (force) {
+        umw.call(this, force); var id = this.id; if (MW.BI[id] === MW.WV[id]) return; MW.BI[id] = MW.WV[id];
+        if (this.bindMode === AB) this.bindMatrixInverse.copy(this.matrixWorld).invert(); else if (this.bindMode === DB) this.bindMatrixInverse.copy(this.bindMatrix).invert();
+      };
+      SM.bind = function () { var r = smb.apply(this, arguments); if (this.id < MW.cap) MW.BI[this.id] = -1; return r; };
+    }
+    // every mixer update marks the root bones under its root as moved (any mixer, whoever drives it)
+    var AM = THREE.AnimationMixer && THREE.AnimationMixer.prototype;
+    if (AM && AM.update) { var mup = AM.update;
+      AM.update = function () { var r = mup.apply(this, arguments); var ids = MW.MR.get(this); if (ids === undefined) { ids = mixerRoots(this); MW.MR.set(this, ids); } MW.MU++; for (var i = 0; i < ids.length; i++) MW.AF[ids[i]] = MW.MU; return r; };
+    }
+    function mixerRoots(m) { var ids = [], root = null; try { root = m.getRoot(); } catch (e) {} if (root && root.traverse) root.traverse(function (o) { if (o.isBone && !(o.parent && o.parent.isBone)) { if (o.id >= MW.cap) mwGrow(o.id); MW.BR[o.id] = 1; MW.CF[o.id] = -1; ids.push(o.id); } }); return ids; }
+    P.n.mw = 1;
+  })();
+  // a far person: only its group's own matrix stays current; whatever was still drawn inside is hidden until it wakes
+  P.sleep = function (g, on) {
+    try { if (!P.K.mw || !MW.cap || !g || !g.isObject3D) return; var id = g.id; if (id >= MW.cap) mwGrow(id);
+      if (on) { if (MW.SLP[id] === 1) return; var hid = []; g.traverse(function (o) { if (o === g) return; if (o.isBone && !(o.parent && o.parent.isBone)) { if (o.visible) { o.visible = false; hid.push(o); } return; } if (o.visible && !o.isLight && (o.isMesh || o.isSprite || o.isPoints || o.isLine) && !o.isSkinnedMesh) { o.visible = false; hid.push(o); } });
+        MW.HID.set(g, hid); MW.SLP[id] = 1; MW.sleeping++; }
+      else { if (MW.SLP[id] !== 1) return; MW.SLP[id] = 0; MW.sleeping--; var h = MW.HID.get(g); MW.HID.delete(g); if (h) for (var i = 0; i < h.length; i++) if (h[i].visible === false && h[i].parent) h[i].visible = true; g.updateMatrixWorld(); }
+    } catch (e) { note("sleep", e); }
+  };
+  // P3: three draws a transparent double-sided material in two passes (back faces, then front faces), and each pass flips
+  // material.side and sets needsUpdate, so both draws resolve the shader program again (the crowd's 1,500 badge planes: about 60
+  // program look-ups and 30 extra draws a frame). For a flat mesh the one double-sided pass gives exactly the same pixels, so a
+  // material seen only on flat, plain (not instanced, skinned or morphed) meshes is drawn in one pass. ?pfs=0 or ?p3=0: off.
+  // (Tried and dropped: sorting opaque draws by program first cut program switches from about 490 to 230 a frame but made every
+  // session 10 to 20 per cent slower, so three's own order stays. No state is kept on materials either: the flags below live in
+  // WeakMaps.)
+  P.K.fs = !/[?&](pfs|p3)=0\b/.test(Q);
+  (function singlePassFlat() {
+    if (!P.K.fs || !window.THREE || !THREE.Material || THREE.Material.prototype.__p3fs) return;
+    var MP = THREE.Material.prototype, DS = THREE.DoubleSide, FLAT = new WeakMap(), FS = new WeakMap(), MINE = new WeakSet(), obr = MP.onBeforeRender, cpy = MP.copy; MP.__p3fs = true;
+    function flat(g) { var f = FLAT.get(g); if (f !== undefined) return f; f = false; try { if (!g.boundingBox) g.computeBoundingBox(); var b = g.boundingBox, x = b.max.x - b.min.x, y = b.max.y - b.min.y, z = b.max.z - b.min.z, mx = Math.max(x, y, z); f = mx > 0 && Math.min(x, y, z) <= mx * 1e-5; } catch (e) {} FLAT.set(g, f); return f; }
+    MP.onBeforeRender = function (r, s, c, geo, obj) {
+      if (this.transparent === true && this.side === DS) { var st = FS.get(this);
+        if (st !== 2 && st !== 3) {
+          if (st === undefined && this.forceSinglePass !== false) FS.set(this, 3);   // the author's own choice: hands off
+          else { var ok = !!obj && !obj.isInstancedMesh && !obj.isSkinnedMesh && !obj.morphTargetInfluences && !!geo && flat(geo);
+            if (ok && st === undefined) { this.forceSinglePass = true; FS.set(this, 1); MINE.add(this); P.n.singlePass = (P.n.singlePass || 0) + 1; }
+            else if (!ok) { if (st === 1) { this.forceSinglePass = false; MINE.delete(this); } FS.set(this, 2); } } } }
+      return obr.apply(this, arguments);
+    };
+    MP.copy = function (src) { var r = cpy.apply(this, arguments); if (src && MINE.has(src)) this.forceSinglePass = false; return r; };
+  })();
+  // P3: bones are never drawn, but the renderer walks them in every pass (the main view and each shadow cascade): the crowd's 17,500
+  // bones are half the scene. The root bone of a skeleton in the scene is taken out of those walks (visible = false) when nothing
+  // but bones hangs under it; skinning reads the bones' world matrices, which are updated whether a bone is visible or not. Anything
+  // later added under a bone shows its root again for good, and a copy of a hidden bone is visible. ?pbv=0 or ?p3=0: off.
+  P.K.bv = !/[?&](pbv|p3)=0\b/.test(Q);
+  var BV = { q: [], seen: new WeakSet(), hid: 0, st: new WeakMap(), tries: new WeakMap() };   // st: 1 hidden here, 2 has attachments
+  (function boneWalks() {
+    if (!P.K.bv || !window.THREE || !THREE.Bone || !THREE.SkinnedMesh) return;
+    var SMP = THREE.SkinnedMesh.prototype, bind0 = SMP.bind, BP = THREE.Bone.prototype, O = THREE.Object3D.prototype, add0 = O.add, copy0 = O.copy;
+    SMP.bind = function (sk) { var r = bind0.apply(this, arguments); try { if (sk && sk.bones && !BV.seen.has(sk)) { BV.seen.add(sk); BV.q.push(sk); } } catch (e) {} return r; };
+    BP.add = function () { var r = add0.apply(this, arguments); try { for (var i = 0; i < arguments.length; i++) { var o = arguments[i]; if (o && !o.isBone) { var p = this; while (p.parent && p.parent.isBone) p = p.parent; if (BV.st.get(p) === 1) { p.visible = true; BV.hid--; } BV.st.set(p, 2); if (MW.cap && p.id < MW.cap) MW.AF[p.id] = ++MW.MU; break; } } } catch (e) {} return r; };
+    BP.copy = function (src) { var r = copy0.apply(this, arguments); if (src && BV.st.get(src) === 1) this.visible = true; return r; };
+  })();
+  function onlyBones(root) { var ok = true; root.traverse(function (o) { if (!o.isBone) ok = false; }); return ok; }
+  function inScene(o) { while (o.parent) o = o.parent; return o === G("scene"); }
+  function boneStep() {
+    var q = BV.q; if (!q.length) return; var n = Math.min(q.length, 48);
+    for (var i = 0; i < n; i++) { var sk = q.shift(), B = sk.bones, wait = false;
+      for (var j = 0; j < B.length; j++) { var b = B[j]; if (!b) continue; var root = b; while (root.parent && root.parent.isBone) root = root.parent; if (BV.st.has(root)) continue;
+        if (!inScene(root)) { wait = true; continue; } if (onlyBones(root)) { root.visible = false; BV.st.set(root, 1); BV.hid++; } else BV.st.set(root, 2); }
+      if (wait) { var tr = (BV.tries.get(sk) || 0) + 1; BV.tries.set(sk, tr); if (tr < 400) q.push(sk); } }
+    P.n.boneRoots = BV.hid;
+  }
 
   // ───────────────────────── frame clock (own rAF: works with or without the plan hooks) ─────────────────────────
   var NB = 1024;
@@ -125,8 +257,41 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // the moon (and back), which recompiles every lit material twice a day. Keep the flag; the light is at zero there anyway.
   function sunFix() { if (!P.K.fix) return; try { if (CSMX.on) return; if (sun.parent && renderer.shadowMap.enabled && !sun.castShadow) sun.castShadow = true; } catch (e) {} }
   function preRender() {
-    hemiFix(); sunFix();
+    MW.fr++; hemiFix(); sunFix();
     if (IC.kind && P.K.shadowEveryIn > 1 && !FLY.on && renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = (FRAME_N % P.K.shadowEveryIn) === 0;   // indoors: the outside's shadows at a steady quarter rate
+    try { shadowTurns(); } catch (e) { note("shadow turns", e); }
+    try { boneStep(); } catch (e) { note("bones", e); }
+  }
+  // P3: on the cascaded tiers outdoors the cascades take turns. The client drew all three every second frame (the far cascade alone
+  // draws about as much as the main pass); now the near cascade is drawn every second frame as before and the middle and far ones
+  // every fourth, one cascade a frame. While the client wants shadows every frame (rides, ultra) the near cascade is drawn every
+  // frame and the others in turn. A cascade that is not redrawn keeps its own light matrix, so its shadows stay exactly where they
+  // were drawn (static casters are exact; a moving caster's shadow in the middle and far range lags by up to three frames). A camera
+  // jump (fast travel, a cut) redraws all of them. Other shadow-casting lights keep the client's cadence. Indoors plan_perf's quarter
+  // rate applies to the whole set. ?psh=0: the client's cadence.
+  P.K.shTurns = !/[?&](psh|p3)=0\b/.test(Q);
+  var SHT = { f: -1, want: true, due: [], keep: [], cam: null, far: 0 };
+  function shadowTurns() {
+    var c = G("CSMX"), csm = c && c.csm, sm = renderer.shadowMap; if (!csm) return;
+    var L = csm.lights, n = L.length, i; SHT.f = FRAME_N; SHT.want = sm.needsUpdate || sm.autoUpdate; SHT.on = false;
+    if (!P.K.shTurns || !sm.enabled || IC.kind || n < 2) { for (i = 0; i < n; i++) L[i].shadow.autoUpdate = true; return; }
+    var every = 2; try { every = (FLY.on || SITES.ride || SITES.bride) ? 1 : (QUAL.q.shadowEvery || 1); } catch (e) {}
+    var cp = camera.position; if (!SHT.cam) SHT.cam = cp.clone();
+    var all = SHT.cam.distanceToSquared(cp) > 400 || c.lastFar !== SHT.far; SHT.cam.copy(cp); SHT.far = c.lastFar;
+    var f = FRAME_N, due = SHT.due;
+    for (i = 0; i < n; i++) due[i] = all;
+    if (every <= 1) { due[0] = true; due[1 + f % (n - 1)] = true; }
+    else { var slot = f % (2 * (n - 1)); if (slot % 2 === 0) due[0] = true; else due[1 + (slot >> 1)] = true; }
+    for (i = 0; i < n; i++) { var s = L[i].shadow; L[i].__p3csm = true; s.autoUpdate = false; if (due[i]) s.needsUpdate = true; }
+    sm.needsUpdate = true; SHT.on = true;
+  }
+  // the client's own cadence for the other shadow-casting lights (the gate is now open every frame)
+  function wrapShadowMap() {
+    var sm = renderer.shadowMap; if (sm.__p3) return; sm.__p3 = true; var SR0 = sm.render;
+    sm.render = function (lights, sc, cam) {
+      if (SHT.on && SHT.f === FRAME_N && !SHT.want && lights.length) { var keep = SHT.keep; keep.length = 0; for (var i = 0; i < lights.length; i++) if (lights[i].__p3csm) keep.push(lights[i]); if (keep.length !== lights.length) return SR0.call(this, keep, sc, cam); }
+      return SR0.call(this, lights, sc, cam);
+    };
   }
 
   // ───────────────────────── idle-time work queue: GPU warm-up in small slices ─────────────────────────
@@ -296,7 +461,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (P.installed) return; P.installed = true;
     try { hemiInit(); } catch (e) { note("hemi", e); }
     try { wrapRender(); } catch (e) { note("wrap render", e); }
-    try { wrapLazy(); } catch (e) { note("wrap lazy", e); }
+    try { wrapShadowMap(); } catch (e) { note("wrap shadow map", e); }    try { wrapLazy(); } catch (e) { note("wrap lazy", e); }
     try { wrapCulling(); } catch (e) { note("wrap culling", e); }
     try { watchLoad(); } catch (e) { note("watch load", e); }
     try { if (typeof warmCabin === "function" && !warmCabin.perf) { var wc = warmCabin; warmCabin = function () { if (P.hemi) P.hemi.visible = false; try { return wc.apply(this, arguments); } finally { hemiFix(); } }; warmCabin.perf = true; } } catch (e) { note("wrap cabin", e); }

@@ -24,6 +24,19 @@
     st: {}, leaks: {}, errs: [], ms: {}, order: [], drift: {}
   };
   function note(w, e) { try { PS.errs.push(w + ": " + (e && e.message || e)); if (PS.errs.length > 40) PS.errs.shift(); console.warn("plan_stream " + w, e); } catch (x) {} }
+  // P3: the meshopt decoding of every model (boot set and stream) runs in workers instead of on the main thread (one decode of a
+  // large model was a 20 to 200 ms long task). The bundle's own decoder cannot start workers (it builds the worker's source from
+  // function names its minifier renamed, so the workers never answer), so the unminified decoder of three r170
+  // (lib/meshopt_decoder.module.js, same wasm) runs them, and the bundle's decoder hands every async decode to it once it is up
+  // (until then, and if it fails, decoding stays on the main thread as before). ?pdw=0 or ?p3=0: off.
+  try { var MD = window.MeshoptDecoder; if (MD && MD.decodeGltfBufferAsync && !MD.p3w && !/[?&](pdw|p3)=0\b/.test(location.search)) {
+    var nw = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 2)), DW = null, dec0 = MD.decodeGltfBufferAsync; MD.p3w = true;
+    MD.decodeGltfBufferAsync = function (count, stride, source, mode, filter) { return DW ? DW.decodeGltfBufferAsync(count, stride, source, mode, filter) : dec0.apply(MD, arguments); };
+    import((window.AV || String)("/lib/meshopt_decoder.module.js?v=" + (window.BUILD || 0))).then(function (m) { var D = m && m.MeshoptDecoder; if (!D || !D.supported || !D.useWorkers) return; return D.ready.then(function () { D.useWorkers(nw);
+      // the workers must answer (a test decode resolves or rejects) before any model is handed to them
+      var probe = new Promise(function (res) { D.decodeGltfBufferAsync(1, 4, new Uint8Array([0xa0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), "ATTRIBUTES", "NONE").then(function () { res(true); }, function () { res(true); }); setTimeout(function () { res(false); }, 4000); });
+      return probe.then(function (ok) { if (ok) { DW = D; PS.n.decodeWorkers = nw; } else note("decode workers", "no answer"); }); }); }).catch(function (e) { note("decode workers", e); });
+  } } catch (e) { note("decode workers", e); }
 
   // kinds that something reads in full outside the instancing (makeModel, parts, the fly-in jets, rides, the boot room
   // builders): they load in full at boot. A miss is caught by the parts getter below (PS.leaks) and fetched at once.
