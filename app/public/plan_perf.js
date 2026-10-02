@@ -17,6 +17,9 @@
 // P3 (1 Oct 2026, HANDOFF_P3.md): world matrices only where something moved (bones only after their mixer ran, far people asleep:
 // PLAN_PERF.sleep), the shadow cascades take turns, flat transparent double-sided planes in one pass, bone roots out of the render
 // walks. ?p3=0 turns every P3 part off (here, in client.js and in plan_stream.js); ?pmw=0, ?psh=0, ?pfs=0, ?pbv=0 single parts.
+// R5 (1 Oct 2026, HANDOFF_R5_STABILITY.md, the section at the end of this file): no frame ever waits for a shader link (the 10 to 45 s
+// "page unresponsive" freezes), a stability watchdog in the F3 overlay and the summary (long tasks, heap trend, GPU memory, links,
+// context), WebGL context loss handling. ?r5=0 turns R5 off, ?pns=0 only the link guard.
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
 (function () {
   "use strict";
@@ -49,16 +52,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   //     a bike) is hidden until it wakes. On waking every part checks its own matrix again.
   // The per-object caches live in typed arrays indexed by object id (no properties are added to the objects).
   P.K.mw = !/[?&](pmw|p3)=0\b/.test(Q);
-  var MW = P.mw = { cap: 0, LC: null, WV: null, PV: null, BI: null, BR: null, AF: null, CF: null, SLP: null, MAN: new Map(), HID: new WeakMap(), MR: new WeakMap(), MU: 1, V: 1, fr: 0, sleeping: 0 };
+  var MW = P.mw = { cap: 0, LC: null, WV: null, PV: null, BI: null, BR: null, AF: null, CF: null, SLP: null, LIM: 524288, MAN: new WeakMap(), HID: new WeakMap(), MR: new WeakMap(), MU: 1, V: 1, fr: 0, sleeping: 0 };
   function mwGrow(n) {
-    var cap = Math.max(65536, MW.cap || 0); while (cap <= n) cap *= 2; if (cap === MW.cap) return;
+    var cap = Math.max(65536, MW.cap || 0); while (cap <= n) cap *= 2; if (cap > MW.LIM) cap = MW.LIM; if (cap <= MW.cap) return;   /* R5: ids are never reused, so the caches stop at MW.LIM ids (64 MB); later objects take three's own methods */
     function g(Old, T, k, fill) { var a = new T(cap * k); if (fill !== undefined) a.fill(fill); if (Old) a.set(Old); return a; }
     MW.LC = g(MW.LC, Float64Array, 10, NaN); MW.WV = g(MW.WV, Float64Array, 1); MW.PV = g(MW.PV, Float64Array, 1, -1); MW.BI = g(MW.BI, Float64Array, 1, -1);
     MW.BR = g(MW.BR, Uint8Array, 1); MW.AF = g(MW.AF, Float64Array, 1); MW.CF = g(MW.CF, Float64Array, 1, -1); MW.SLP = g(MW.SLP, Uint8Array, 1); MW.cap = cap;
   }
   (function fastMatrices() {
     if (!P.K.mw || !window.THREE || !THREE.Object3D || THREE.Object3D.prototype.__p3mw) return;
-    var O = THREE.Object3D.prototype; O.__p3mw = true; mwGrow(65535);
+    var O = THREE.Object3D.prototype; O.__p3mw = true; mwGrow(65535); var umw0 = O.updateMatrixWorld, uwm0 = O.updateWorldMatrix;
     function local(o, id) {   // true when the local matrix changed since its last world update
       if (o.matrixAutoUpdate === true) {
         var p = o.position, q = o.quaternion, s = o.scale, L = MW.LC, b = id * 10;
@@ -67,14 +70,14 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         return true;
       }
       MW.LC[id * 10] = NaN;   // a matrix set by hand: compare the matrix itself
-      var e = o.matrix.elements, c = MW.MAN.get(id);
+      var e = o.matrix.elements, c = MW.MAN.get(o);   /* R5: keyed by the object (WeakMap): a removed object's entry goes with it */
       if (c !== undefined && c[0] === e[0] && c[1] === e[1] && c[2] === e[2] && c[3] === e[3] && c[4] === e[4] && c[5] === e[5] && c[6] === e[6] && c[7] === e[7] && c[8] === e[8] && c[9] === e[9] && c[10] === e[10] && c[11] === e[11] && c[12] === e[12] && c[13] === e[13] && c[14] === e[14] && c[15] === e[15]) return false;
-      if (c === undefined) MW.MAN.set(id, c = new Float64Array(16)); for (var i = 0; i < 16; i++) c[i] = e[i];
+      if (c === undefined) MW.MAN.set(o, c = new Float64Array(16)); for (var i = 0; i < 16; i++) c[i] = e[i];
       return true;
     }
     function world(o, id, par) { if (o.matrixWorldAutoUpdate === true) { if (par === null) o.matrixWorld.copy(o.matrix); else o.matrixWorld.multiplyMatrices(par.matrixWorld, o.matrix); } MW.WV[id] = ++MW.V; MW.PV[id] = par !== null ? MW.WV[par.id] : 0; }
     var umw = function (force) {
-      var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) mwGrow(Math.max(id, par !== null ? par.id : 0));
+      var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) { mwGrow(Math.max(id, par !== null ? par.id : 0)); if (id >= MW.cap || (par !== null && par.id >= MW.cap)) return umw0.call(this, force); }
       var d = local(this, id) || force === true || this.matrixWorldNeedsUpdate === true || (par !== null && MW.PV[id] !== MW.WV[par.id]);
       if (d) { world(this, id, par); this.matrixWorldNeedsUpdate = false; force = true; }
       if (MW.SLP[id] === 1) return;   // a far person asleep: its own matrix only
@@ -84,15 +87,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     };
     O.updateMatrixWorld = umw;
     O.updateWorldMatrix = function (updateParents, updateChildren) {
-      var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) mwGrow(Math.max(id, par !== null ? par.id : 0));
+      var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) { mwGrow(Math.max(id, par !== null ? par.id : 0)); if (id >= MW.cap || (par !== null && par.id >= MW.cap)) return uwm0.call(this, updateParents, updateChildren); }
       if (updateParents === true && par !== null) par.updateWorldMatrix(true, false);
       if (local(this, id) || MW.WV[id] === 0 || this.matrixWorldNeedsUpdate === true || (par !== null && MW.PV[id] !== MW.WV[par.id])) world(this, id, par);
       if (updateChildren === true) { var ch = this.children; for (var i = 0, l = ch.length; i < l; i++) ch[i].updateWorldMatrix(false, true); }
     };
     var SM = THREE.SkinnedMesh && THREE.SkinnedMesh.prototype;
     if (SM && Object.prototype.hasOwnProperty.call(SM, "updateMatrixWorld")) {
-      var AB = THREE.AttachedBindMode || "attached", DB = THREE.DetachedBindMode || "detached", smb = SM.bind;
+      var AB = THREE.AttachedBindMode || "attached", DB = THREE.DetachedBindMode || "detached", smb = SM.bind, smw0 = SM.updateMatrixWorld;
       SM.updateMatrixWorld = function (force) {
+        if (this.id >= MW.cap) return smw0.call(this, force);
         umw.call(this, force); var id = this.id; if (MW.BI[id] === MW.WV[id]) return; MW.BI[id] = MW.WV[id];
         if (this.bindMode === AB) this.bindMatrixInverse.copy(this.matrixWorld).invert(); else if (this.bindMode === DB) this.bindMatrixInverse.copy(this.bindMatrix).invert();
       };
@@ -103,12 +107,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (AM && AM.update) { var mup = AM.update;
       AM.update = function () { var r = mup.apply(this, arguments); var ids = MW.MR.get(this); if (ids === undefined) { ids = mixerRoots(this); MW.MR.set(this, ids); } MW.MU++; for (var i = 0; i < ids.length; i++) MW.AF[ids[i]] = MW.MU; return r; };
     }
-    function mixerRoots(m) { var ids = [], root = null; try { root = m.getRoot(); } catch (e) {} if (root && root.traverse) root.traverse(function (o) { if (o.isBone && !(o.parent && o.parent.isBone)) { if (o.id >= MW.cap) mwGrow(o.id); MW.BR[o.id] = 1; MW.CF[o.id] = -1; ids.push(o.id); } }); return ids; }
+    function mixerRoots(m) { var ids = [], root = null; try { root = m.getRoot(); } catch (e) {} if (root && root.traverse) root.traverse(function (o) { if (o.isBone && !(o.parent && o.parent.isBone)) { if (o.id >= MW.cap) mwGrow(o.id); if (o.id >= MW.cap) return; MW.BR[o.id] = 1; MW.CF[o.id] = -1; ids.push(o.id); } }); return ids; }
     P.n.mw = 1;
   })();
   // a far person: only its group's own matrix stays current; whatever was still drawn inside is hidden until it wakes
   P.sleep = function (g, on) {
-    try { if (!P.K.mw || !MW.cap || !g || !g.isObject3D) return; var id = g.id; if (id >= MW.cap) mwGrow(id);
+    try { if (!P.K.mw || !MW.cap || !g || !g.isObject3D) return; var id = g.id; if (id >= MW.cap) mwGrow(id); if (id >= MW.cap) return;
       if (on) { if (MW.SLP[id] === 1) return; var hid = []; g.traverse(function (o) { if (o === g) return; if (o.isBone && !(o.parent && o.parent.isBone)) { if (o.visible) { o.visible = false; hid.push(o); } return; } if (o.visible && !o.isLight && (o.isMesh || o.isSprite || o.isPoints || o.isLine) && !o.isSkinnedMesh) { o.visible = false; hid.push(o); } });
         MW.HID.set(g, hid); MW.SLP[id] = 1; MW.sleeping++; }
       else { if (MW.SLP[id] !== 1) return; MW.SLP[id] = 0; MW.sleeping--; var h = MW.HID.get(g); MW.HID.delete(g); if (h) for (var i = 0; i < h.length; i++) if (h[i].visible === false && h[i].parent) h[i].visible = true; g.updateMatrixWorld(); }
@@ -207,6 +211,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       "load " + (P.loadMs ? (P.loadMs / 1000).toFixed(1) + " s" : "-") + "   pre " + (P.n.preMs ? (P.n.preMs / 1000).toFixed(1) + " s" : "-") + "   tier " + (G("QUAL") ? G("QUAL").level : "?"),
       "queue " + WQ.length + (IC.kind ? "   in " + IC.kind + ": -" + IC.nObj + " obj -" + IC.nInst + " inst" : "")
     ];
+    try { if (P.r5 && P.r5.lines) lines = lines.concat(P.r5.lines()); } catch (e) {}
     OV.txt.textContent = lines.filter(Boolean).join("\n");
   }
 
@@ -218,7 +223,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     return { v: 1, sid: SID, at: new Date().toISOString().slice(0, 19), build: window.BUILD || null, secs: P.readyAt ? Math.round((now() - P.readyAt) / 1000) : 0, frames: FT.cnt,
       fps: FT.sum ? +(1000 * FT.cnt / FT.sum).toFixed(1) : 0, avgMs: FT.cnt ? +(FT.sum / FT.cnt).toFixed(2) : 0, p95: pct(0.95), p99: pct(0.99), long: FT.long, hitch: FT.hitch, worst: Math.round(FT.worst),
       loadMs: P.loadMs ? Math.round(P.loadMs) : null, preMs: P.n.preMs || null, tier: q ? q.level : null, gpu: gpuName(), mobile: /Android|iPhone|iPad/i.test(navigator.userAgent), cores: navigator.hardwareConcurrency || null,
-      w: innerWidth, h: innerHeight, dpr: +(devicePixelRatio || 1).toFixed(2), programs: (typeof renderer !== "undefined" && renderer.info.programs) ? renderer.info.programs.length : null };
+      w: innerWidth, h: innerHeight, dpr: +(devicePixelRatio || 1).toFixed(2), programs: (typeof renderer !== "undefined" && renderer.info.programs) ? renderer.info.programs.length : null, r5: P.r5 && P.r5.summary ? P.r5.summary() : null };
   };
   P.sessions = function () { try { return JSON.parse(localStorage.getItem("g1:perf") || "[]"); } catch (e) { return []; } };
   function save(final) {
@@ -238,7 +243,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     renderFrame = function () {
       try { preRender(); } catch (e) { note("pre-render", e); }
       var inf = renderer.info, ar = inf.autoReset; inf.autoReset = false; inf.reset();
-      try { return orig.apply(this, arguments); } finally { RI.calls = inf.render.calls; RI.tri = inf.render.triangles; inf.autoReset = ar; }
+      P.inFrame = (P.inFrame || 0) + 1; try { return orig.apply(this, arguments); } finally { P.inFrame--; RI.calls = inf.render.calls; RI.tri = inf.render.triangles; inf.autoReset = ar; }
     };
   }
   // the client's rooms and the fly-in cabin each carry a fill HemisphereLight: adding one changes the scene's hemisphere light count,
@@ -338,7 +343,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var sv = [], anc = [];
     for (var i = 0; i < list.length; i++) { var m = list[i]; var root = m; while (root.parent) root = root.parent; if (root !== scene) continue; sv.push([m, m.layers.mask, m.frustumCulled, m.visible]); m.layers.enable(30); m.frustumCulled = false; m.visible = true; for (var p = m.parent; p && p !== scene; p = p.parent) if (!p.visible) { anc.push(p); p.visible = true; } }
     var su = renderer.shadowMap.autoUpdate, sn = renderer.shadowMap.needsUpdate, bg = scene.background, prt = renderer.getRenderTarget(), ar = renderer.info.autoReset;
-    try { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; scene.background = null; renderer.info.autoReset = true; hemiFix(); renderer.setRenderTarget(WR.rt); if (sv.length) renderer.render(scene, WR.cam); }
+    try { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; scene.background = null; renderer.info.autoReset = true; hemiFix(); renderer.setRenderTarget(WR.rt); P.inFrame = (P.inFrame || 0) + 1; try { if (sv.length) renderer.render(scene, WR.cam); } finally { P.inFrame--; } }   /* R5: a mesh whose program is still linking is uploaded at its first real draw instead of waiting here */
     finally { renderer.setRenderTarget(prt); scene.background = bg; renderer.shadowMap.autoUpdate = su; renderer.shadowMap.needsUpdate = sn; renderer.info.autoReset = ar;
       for (var j = 0; j < sv.length; j++) { var s = sv[j]; s[0].layers.mask = s[1]; s[0].frustumCulled = s[2]; s[0].visible = s[3]; } for (var k = 0; k < anc.length; k++) anc[k].visible = false; if (added) scene.remove(attach); }
     for (var q = 0; q < list.length; q++) GEOW.add(list[q].geometry); P.n.geoWarm = (P.n.geoWarm || 0) + list.length;
@@ -417,7 +422,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     P.n.preModules = n; P.n.preModulesMs = Math.round(now() - t0);
   }
   function sampleCabin() { try { if (FLY.warm || FLY.on || typeof warmCabin !== "function") return; if (P.hemi) P.hemi.visible = false; warmCabin(); } catch (e) { note("pre cabin", e); } hemiFix(); }
-  async function runPre(hold) {
+  async function runPre(hold) { P.inFrame = (P.inFrame || 0) + 1; try { return await runPre0(hold); } finally { P.inFrame--; } }   /* R5: the pre-compile renders never wait for a link either */
+  async function runPre0(hold) {
     var t0 = now(), msg = document.getElementById("loadmsg"), deadline = t0 + P.K.preHold;
     var say = function (s) { if (hold && msg) msg.textContent = s; };
     var c0 = renderer.info.programs.length; say("Preparing the graphics"); await nextFrame();
@@ -427,6 +433,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     try { collectLights(); } catch (e) {}
     try { compileGroup(scene, false); } catch (e) { note("pre scene", e); }
     P.n.preIssued = renderer.info.programs.length - c0;
+    if (P.r5 && P.r5.on && P.r5.ns && P.r5.ns.par) deadline = Math.max(deadline, now() + 45000);   /* R5: nothing blocks now, so the loading screen waits (animated) while the driver links, up to 45 s */
     for (;;) { var left = finishSome(now() + 40); var tot = renderer.info.programs.length; say("Preparing the graphics " + Math.round(100 * (tot - left) / Math.max(1, tot)) + "%"); if (!left || now() > deadline) break; await sleep(left ? 16 : 0); }
     P.n.preMs = Math.round(now() - t0); P.n.prePrograms = renderer.info.programs.length; pinPrograms();
     if (finishSome(0) > 0) P.queue(function () { return finishSome(now() + 3) === 0 ? true : "later"; });
@@ -616,4 +623,167 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var C = camera.position; if ((C.distanceToSquared(IC.cam) > 0.1225 && t - IC.at > 1000 / P.K.cullHz) || t - IC.at > 1000) { IC.at = t; IC.cam.copy(C); IC.all = !buildPlanes(C); updateObjects(); try { updateCulling(false); } catch (e) { note("cull update", e); } }
   }
   P.cullStats = function () { return { kind: IC.kind, rects: IC.nRects || 0, planes: IC.np, all: IC.all, cands: IC.cands.length, hiddenObjects: IC.nObj, hiddenInstances: IC.nInst }; };
+})();
+
+// ───────────────────────── R5 (1 Oct 2026, HANDOFF_R5_STABILITY.md): stability ─────────────────────────
+// 1. No shader stalls. three.js links a shader program the first time something is drawn with it, and that first use waits on the
+//    main thread until the driver has compiled it. On Windows (ANGLE over D3D11) with hundreds of programs queued behind it (the boot
+//    pre-compile, the warm-up queue, a new area), one first use froze the page for 10 to 45 s ("page unresponsive"). With
+//    KHR_parallel_shader_compile a draw of the main frame whose program is still linking is now skipped (that object appears a moment
+//    later, when its program is ready); the main frame never waits for a link. Renders outside the frame (probes, PMREM) and nested
+//    renders keep three's behaviour. ?pns=0 turns this part off.
+// 2. Watchdog for the F3 overlay and the session summary: long tasks over 200 ms (with the script the browser blames), the JS heap and
+//    its trend, an estimate of the GPU memory the page holds (every WebGL buffer, texture and renderbuffer allocation is counted as it
+//    happens, and freed ones are taken off), shader programs still linking and the slowest links, draws skipped, the WebGL context
+//    state. PLAN_PERF.r5.hist keeps one sample a minute (4 hours).
+// 3. WebGL context loss: a short notice while three.js restores the context and uploads everything again; the client's environment
+//    map and the shadow maps are redrawn. If the context does not come back, a Reload button (after a second loss: Low quality too).
+// ?r5=0 turns every R5 part off (here and in client.js).
+(function () {
+  "use strict";
+  var P = window.PLAN_PERF; if (!P || P.off || P.r5) return;
+  var Q = location.search;
+  var W = P.r5 = { on: !/[?&]r5=0\b/.test(Q), n: { skips: 0, lost: 0, restored: 0, long200: 0, long1s: 0, worstLong: 0, worstWho: "", nrMax: 0, firstMax: 0, firstSlow: 0, upMax: 0, upSlow: 0, upWho: "" }, longs: [], hist: [], last: null,
+    gl: { buf: 0, tex: 0, rb: 0, nb: 0, nt: 0, nr: 0, peak: 0 }, links: { n: 0, done: 0, pend: 0, max: 0, slow: [] } };
+  if (!W.on) return;
+  var now = function () { return performance.now(); };
+  function note(tag, e) { try { if (P.note) P.note("r5 " + tag, e); } catch (x) {} }
+  function G(name) { try { return (0, eval)(name); } catch (e) { return undefined; } }
+  var MB = 1048576;
+
+  // ── GPU memory: every WebGL allocation counted as it happens (the browser has no API for it) ──
+  var LP = new Map();
+  (function glTrack() {
+    var C = window.WebGL2RenderingContext; if (!C || !C.prototype || C.prototype.__r5gl) return; var PR = C.prototype; PR.__r5gl = true;
+    var M = W.gl, recs = new WeakMap(), lv = new WeakMap();
+    var FR = typeof FinalizationRegistry === "function" ? new FinalizationRegistry(function (r) { M[r.k] -= r.b; M["n" + r.k.charAt(0)]--; }) : null;
+    function setB(o, k, b) { if (!o) return; var r = recs.get(o); if (!r) { r = { k: k, b: 0 }; recs.set(o, r); M["n" + k.charAt(0)]++; if (FR) FR.register(o, r, r); } M[k] += b - r.b; r.b = b; var t = M.buf + M.tex + M.rb; if (t > M.peak) M.peak = t; }
+    function del(o, k) { var r = o && recs.get(o); if (!r) return; M[k] -= r.b; r.b = 0; recs.delete(o); if (FR) FR.unregister(r); M["n" + k.charAt(0)]--; }
+    var BPP = { 0x8058: 4, 0x8C43: 4, 0x8051: 4, 0x8C41: 4, 0x881A: 8, 0x8814: 16, 0x881B: 8, 0x8815: 16, 0x8229: 1, 0x822B: 2, 0x822D: 2, 0x822E: 4, 0x822F: 4, 0x8230: 8, 0x81A6: 4, 0x81A5: 2, 0x8CAC: 4, 0x88F0: 4, 0x8CAD: 8, 0x1908: 4, 0x1907: 4, 0x1909: 1, 0x190A: 2, 0x1906: 1, 0x8C3A: 4, 0x8059: 4, 0x8056: 2, 0x8D62: 2, 0x8057: 2,
+      0x83F0: 0.5, 0x83F1: 0.5, 0x83F2: 1, 0x83F3: 1, 0x8C4C: 0.5, 0x8C4D: 0.5, 0x8C4E: 1, 0x8C4F: 1, 0x8E8C: 1, 0x8E8D: 1, 0x8E8E: 1, 0x8E8F: 1, 0x9274: 0.5, 0x9275: 0.5, 0x9278: 1, 0x9279: 1, 0x8D64: 0.5, 0x93B0: 1, 0x93D0: 1, 0x8DBB: 0.5, 0x8DBD: 1 };
+    function bpp(f, ty) { if (f === 0x1908 && ty === 0x1406) return 16; if (f === 0x1908 && (ty === 0x140B || ty === 0x8D61)) return 8; return BPP[f] || 4; }
+    var BB = { 0x8892: 0x8894, 0x8893: 0x8895, 0x8A11: 0x8A28, 0x8F36: 0x8F36, 0x8F37: 0x8F37, 0x88EB: 0x88ED, 0x88EC: 0x88EF, 0x8C8E: 0x8C8F };
+    function texOf(gl, t) { return gl.getParameter((t >= 0x8515 && t <= 0x851A) || t === 0x8513 ? 0x8514 : t === 0x806F ? 0x806A : t === 0x8C1A ? 0x8C1D : 0x8069); }
+    function after(name, fn) { var o = PR[name]; if (typeof o !== "function") return; PR[name] = function () { var r = o.apply(this, arguments); try { fn.call(this, arguments); } catch (e) {} return r; }; }
+    function before(name, fn) { var o = PR[name]; if (typeof o !== "function") return; PR[name] = function () { try { fn.call(this, arguments); } catch (e) {} return o.apply(this, arguments); }; }
+    before("deleteBuffer", function (a) { del(a[0], "buf"); }); before("deleteTexture", function (a) { del(a[0], "tex"); }); before("deleteRenderbuffer", function (a) { del(a[0], "rb"); });
+    before("deleteProgram", function (a) { LP.delete(a[0]); });
+    after("bufferData", function (a) { var d = a[1], b = typeof d === "number" ? d : d ? (a[4] ? a[4] * (d.BYTES_PER_ELEMENT || 1) : d.byteLength - (a[3] || 0) * (d.BYTES_PER_ELEMENT || 1)) : 0; setB(this.getParameter(BB[a[0]] || 0x8894), "buf", b); });
+    after("texStorage2D", function (a) { var b = 0; for (var l = 0; l < a[1]; l++) b += Math.max(1, a[3] >> l) * Math.max(1, a[4] >> l) * bpp(a[2]); if (a[0] === 0x8513) b *= 6; setB(texOf(this, a[0]), "tex", b); });
+    after("texStorage3D", function (a) { var b = 0; for (var l = 0; l < a[1]; l++) b += Math.max(1, a[3] >> l) * Math.max(1, a[4] >> l) * bpp(a[2]) * (a[0] === 0x806F ? Math.max(1, a[5] >> l) : a[5]); setB(texOf(this, a[0]), "tex", b); });
+    function level(gl, a, b) { var t = texOf(gl, a[0]); if (!t) return; var m = lv.get(t); if (!m) { m = new Map(); lv.set(t, m); } m.set(a[0] * 32 + a[1], b); var s = 0; m.forEach(function (v) { s += v; }); setB(t, "tex", s); }
+    after("texImage2D", function (a) { var w, h, ty; if (a.length >= 8) { w = a[3]; h = a[4]; ty = a[7]; } else { var s = a[5]; ty = a[4]; w = s ? (s.videoWidth || s.naturalWidth || s.width || s.displayWidth || 0) : 0; h = s ? (s.videoHeight || s.naturalHeight || s.height || s.displayHeight || 0) : 0; } level(this, a, w * h * bpp(a[2], ty)); });
+    after("texImage3D", function (a) { level(this, a, a[3] * a[4] * a[5] * bpp(a[2], a[8])); });
+    after("compressedTexImage2D", function (a) { var d = a[6]; level(this, a, d && d.byteLength ? (a[8] || d.byteLength - (a[7] || 0)) : a[3] * a[4]); });
+    after("renderbufferStorage", function (a) { setB(this.getParameter(0x8CA7), "rb", a[2] * a[3] * bpp(a[1])); });
+    after("renderbufferStorageMultisample", function (a) { setB(this.getParameter(0x8CA7), "rb", a[3] * a[4] * bpp(a[2]) * Math.max(1, a[1])); });
+    after("linkProgram", function (a) { W.links.n++; LP.set(a[0], now()); });
+    ["texImage2D", "texSubImage2D", "compressedTexSubImage2D", "texImage3D", "texSubImage3D"].forEach(function (name) { var o = PR[name]; if (typeof o !== "function") return; PR[name] = function () { var t = now(); try { return o.apply(this, arguments); } finally { var d = now() - t; if (d > 30) { W.n.upSlow++; if (d > W.n.upMax) { W.n.upMax = Math.round(d); var a = arguments, s = a.length === 6 ? a[5] : a.length === 9 && name === "texImage2D" ? a[8] : null; W.n.upWho = name + " " + (s && (s.width || s.naturalWidth) ? (s.width || s.naturalWidth) + "x" + (s.height || s.naturalHeight) + " " + String(s.src || s.constructor && s.constructor.name || "").split("/").pop().slice(0, 30) : (a[3] || "") + "x" + (a[4] || "")); } } } }; });
+  })();
+  // link times (non-blocking COMPLETION_STATUS polls): the slowest programs are named in the overlay
+  function pollLinks(gl) {
+    var L = W.links; if (!LP.size) { L.pend = 0; return; } var t = now();
+    LP.forEach(function (t0, p) { var v = null; try { v = gl.getProgramParameter(p, 0x91B1); } catch (e) {} if (v === null) { LP.delete(p); return; } if (!v) return; LP.delete(p); L.done++; var ms = Math.round(t - t0); if (ms > L.max) L.max = ms;
+      if (ms >= 400) { L.slow.push({ p: p, ms: ms, at: Math.round(t0) }); L.slow.sort(function (a, b) { return b.ms - a.ms; }); if (L.slow.length > 8) L.slow.length = 8; } });
+    L.pend = LP.size;
+  }
+  function progName(p) { try { var ps = renderer.info.programs; for (var i = 0; i < ps.length; i++) if (ps[i].program === p) return ps[i].name || ps[i].type || "?"; } catch (e) {} return "?"; }
+
+  // ── no shader stalls ──
+  var NS = W.ns = { on: !/[?&]pns=0\b/.test(Q), par: false, depth: 0, arr: null, NR: { r5: "program linking" }, fs: 0 };
+  function guard(p) {
+    if (!p || p.__r5g || typeof p.isReady !== "function" || typeof p.getUniforms !== "function") return; p.__r5g = true;
+    var gu = p.getUniforms, ok = false, t0 = 0;
+    p.getUniforms = function () { if (!ok) { if (NS.on && NS.depth === 1 && P.inFrame > 0 && !p.isReady() && !pmremTarget()) { if (!t0) t0 = now(); if (now() - t0 < 60000) throw NS.NR; } ok = true; var t1 = now(), u = gu.apply(this, arguments), d = now() - t1; if (d > W.n.firstMax) W.n.firstMax = Math.round(d); if (d > 50) W.n.firstSlow++; return u; } return gu.apply(this, arguments); };   // after a minute (a driver that never reports completion) three's own wait applies
+  }
+  // PMREM (environment maps) renders once into its cube-UV targets: those keep three's wait, a skipped draw there would stay
+  function pmremTarget() { try { var rt = renderer.getRenderTarget(); return !!(rt && rt.texture && rt.texture.mapping === THREE.CubeUVReflectionMapping); } catch (e) { return false; } }
+  function nsInstall(R) {
+    if (!R || !R.info || !R.extensions) return; var arr = R.info.programs; if (!arr || arr === NS.arr) return;
+    try { NS.par = !!R.extensions.has("KHR_parallel_shader_compile"); } catch (e) { NS.par = false; } if (!NS.par) return;   // without the extension every program is "ready": nothing to do
+    NS.arr = arr; var push0 = Array.prototype.push;
+    arr.push = function () { for (var i = 0; i < arguments.length; i++) guard(arguments[i]); return push0.apply(this, arguments); };
+    for (var i = 0; i < arr.length; i++) guard(arr[i]);
+    if (!R.__r5rbd) { var rbd = R.renderBufferDirect; R.__r5rbd = rbd;
+      R.renderBufferDirect = function () { if (NS.depth === 0 && this.info.programs !== NS.arr) nsInstall(this);   /* a restored context has a new program list: guard it before its first draw */
+        NS.depth++; try { return rbd.apply(this, arguments); } catch (e) { if (e === NS.NR) { W.n.skips++; NS.fs++; return; } throw e; } finally { NS.depth--; } }; }
+  }
+
+  // ── long tasks (with the script the browser blames, where Long Animation Frames are available) ──
+  function addLong(t, d, who) {
+    if (!P.readyAt || t < P.readyAt) return; W.n.long200++; if (d >= 1000) W.n.long1s++; if (d > W.n.worstLong) { W.n.worstLong = Math.round(d); W.n.worstWho = who || ""; }
+    W.longs.push({ t: Math.round(t), d: Math.round(d), who: who || "" }); if (W.longs.length > 30) W.longs.shift();
+  }
+  var LOAF = false;
+  try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.duration < 200) return; var s = (e.scripts || []).slice().sort(function (a, b) { return b.duration - a.duration; })[0]; var who = s ? ((s.sourceFunctionName || s.invoker || "?") + " " + String(s.sourceURL || "").split("/").pop().split("?")[0] + ":" + (s.sourceCharPosition || 0)) : "render/GPU"; addLong(e.startTime, e.duration, who); }); }).observe({ type: "long-animation-frame", buffered: false }); LOAF = true; } catch (e) {}
+  if (!LOAF) { try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.duration >= 200) addLong(e.startTime, e.duration, ""); }); }).observe({ type: "longtask", buffered: false }); } catch (e) {} }
+
+  // ── sampler: every 2 s (links, programs still linking), one stored sample a minute ──
+  var lastMin = 0;
+  function sample() {
+    var R = G("renderer"); if (!R) return; nsInstall(R);
+    // a program's first use reads its info logs to report shader errors: two more round trips to the GPU process per program, each
+    // waiting behind whatever the driver is busy with. Off in deployed builds (three's advice for production), on in dev; ?shadercheck=0/1
+    if (!W.csSet && R.debug) { W.csSet = true; var dev = !window.BUILD || window.BUILD === "dev"; if (/[?&]shadercheck=0\b/.test(Q) || (!dev && !/[?&]shadercheck=1\b/.test(Q))) R.debug.checkShaderErrors = false; W.n.shaderCheck = R.debug.checkShaderErrors; }
+    try { var F = G("frame"); if (typeof F === "function" && !F.__r5) { var w = function () { P.inFrame = (P.inFrame || 0) + 1; try { return F.apply(this, arguments); } finally { P.inFrame--; } }; w.__r5 = true; (0, eval)("frame") === F && (window.frame = w); } } catch (e) { note("frame wrap", e); }   /* the whole client frame (its hooks render probes too) */
+    var gl = null; try { gl = R.getContext(); } catch (e) {}
+    if (gl && NS.par) pollLinks(gl);
+    var nr = 0; try { var ps = R.info.programs; for (var i = 0; i < ps.length; i++) if (ps[i].isReady && !ps[i].isReady()) nr++; } catch (e) {} if (nr > W.n.nrMax) W.n.nrMax = nr;
+    var heap = 0; try { heap = performance.memory ? performance.memory.usedJSHeapSize / MB : 0; } catch (e) {}
+    var lost = false; try { lost = gl ? gl.isContextLost() : false; } catch (e) {}
+    var s = { t: Math.round(now() / 1000), heap: Math.round(heap), gpu: Math.round((W.gl.buf + W.gl.tex + W.gl.rb) / MB), geo: 0, tex: 0, prog: 0, nr: nr, skips: W.n.skips, lost: lost, long: W.n.long200 };
+    try { s.geo = R.info.memory.geometries; s.tex = R.info.memory.textures; s.prog = R.info.programs.length; } catch (e) {}
+    W.last = s;
+    if (now() - lastMin >= 60000) { lastMin = now(); W.hist.push(s); if (W.hist.length > 240) W.hist.shift(); }
+  }
+  setInterval(function () { try { sample(); } catch (e) { note("sample", e); } }, 2000);
+  function trend() { var h = W.hist; if (h.length < 3) return null; var a = h[Math.max(0, h.length - 6)], b = h[h.length - 1]; var dt = (b.t - a.t) / 60; return dt > 0 ? (b.heap - a.heap) / dt : null; }
+
+  W.lines = function () {
+    var s = W.last; if (!s) return [];
+    var tr = trend(), L = W.links, out = [];
+    out.push("gpu ~" + (s.gpu >= 1024 ? (s.gpu / 1024).toFixed(2) + " GB" : s.gpu + " MB") + "   heap " + s.heap + " MB" + (tr !== null ? " (" + (tr >= 0 ? "+" : "") + tr.toFixed(0) + "/min)" : ""));
+    out.push("long>200ms " + W.n.long200 + (W.n.worstLong ? "   worst " + (W.n.worstLong / 1000).toFixed(1) + " s" : "") + (W.n.worstWho ? "  " + W.n.worstWho.slice(0, 34) : ""));
+    out.push("shaders linking " + s.nr + "   skipped draws " + W.n.skips + (L.max >= 400 ? "   slowest " + (L.max / 1000).toFixed(1) + " s" : ""));
+    if (W.n.firstSlow || W.n.upSlow) out.push("slow first use " + W.n.firstSlow + " (max " + W.n.firstMax + " ms)   uploads " + W.n.upSlow + " (max " + W.n.upMax + " ms)");
+    out.push("context " + (s.lost ? "LOST" : "ok") + (W.n.lost ? "   losses " + W.n.lost + " restored " + W.n.restored : ""));
+    return out;
+  };
+  W.summary = function () { var s = W.last || {}; return { heapMB: s.heap || null, gpuMB: s.gpu || null, gpuPeakMB: Math.round(W.gl.peak / MB), long200: W.n.long200, long1s: W.n.long1s, worstLongMs: W.n.worstLong, worstLongWho: W.n.worstWho.slice(0, 80), lost: W.n.lost, restored: W.n.restored, skips: W.n.skips, linkMaxMs: W.links.max, linking: s.nr || 0, linkingMax: W.n.nrMax, firstUseMaxMs: W.n.firstMax, firstUseSlow: W.n.firstSlow, uploadMaxMs: W.n.upMax, uploadSlow: W.n.upSlow, uploadWho: W.n.upWho, heapTrend: trend() }; };
+  W.slowLinks = function () { return W.links.slow.map(function (x) { return { ms: x.ms, at: x.at, name: progName(x.p) }; }); };
+
+  // ── WebGL context loss: a notice, three.js restores, the client's environment map and shadows are redrawn; else a Reload button ──
+  var CX = W.cx = { el: null, timer: 0, lostAt: 0 };
+  function banner(html, buttons) {
+    if (!document.body) return; var d = CX.el;
+    if (!d) { d = CX.el = document.createElement("div"); d.id = "r5ctx"; d.style.cssText = "position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100000;max-width:440px;padding:16px 20px;background:rgba(8,13,8,0.94);color:#f5f1e6;border:1px solid rgba(77,222,111,0.55);border-radius:10px;font:14px/1.45 'Space Grotesk',system-ui,sans-serif;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.5)"; document.body.appendChild(d); }
+    d.innerHTML = html; d.style.display = "";
+    (buttons || []).forEach(function (b) { var x = document.createElement("button"); x.textContent = b[0]; x.style.cssText = "margin:12px 6px 0;padding:7px 16px;border-radius:6px;border:1px solid #4DDE6F;background:" + (b[2] ? "#4DDE6F;color:#0a1610" : "transparent;color:#4DDE6F") + ";font:600 13px 'Space Grotesk',system-ui,sans-serif;cursor:pointer"; x.onclick = b[1]; d.appendChild(x); });
+  }
+  function hideBanner() { if (CX.el) CX.el.style.display = "none"; }
+  function reload() { try { if (P.save) P.save(true); } catch (e) {} location.reload(); }
+  function onLost() {
+    W.n.lost++; CX.lostAt = now(); clearTimeout(CX.timer);
+    banner("<b>Graphics paused</b><br>The graphics driver reset the 3D view. Restoring it now, this takes a few seconds.");
+    CX.timer = setTimeout(function () {
+      var gl = null; try { gl = renderer.getContext(); } catch (e) {} if (gl && !gl.isContextLost()) return;
+      var btn = [["Reload", reload, true]]; if (W.n.lost >= 2) btn.push(["Low quality and reload", function () { try { localStorage.setItem("g1:quality", "low"); } catch (e) {} reload(); }]);
+      banner("<b>The 3D view could not be restored</b><br>Reload to continue. You come back where you were.", btn);
+    }, 15000);
+  }
+  function onRestored() {
+    W.n.restored++; clearTimeout(CX.timer);
+    try { var R = renderer; setTimeout(function () { try { nsInstall(R); } catch (e) {} }, 0); R.shadowMap.needsUpdate = true; } catch (e) { note("restore", e); }   // three re-creates its program list after this listener
+    try { (0, eval)("envAt = -1e9"); } catch (e) {}   // the client's sky probe is redrawn on the next frame
+    setTimeout(function () {   // the one-time room probes (hangars, walk-in interiors) are drawn again; the FBO's on its next check
+      try { if (window.PLAN_HANGARS && PLAN_HANGARS.restoreEnv) PLAN_HANGARS.restoreEnv(); } catch (e) { note("restore hangars env", e); }
+      try { if (window.PLAN_INTERIORS && PLAN_INTERIORS.restoreEnv) PLAN_INTERIORS.restoreEnv(); } catch (e) { note("restore interiors env", e); }
+      try { if (window.PLAN_TERMINAL) PLAN_TERMINAL.envNight = -9; } catch (e) {}
+    }, 500);
+    try { if (P.pinPrograms) setTimeout(function () { try { P.pinPrograms(); } catch (e) {} }, 3000); } catch (e) {}
+    banner("<b>Graphics restored</b><br>Some objects may take a moment to reappear."); CX.timer = setTimeout(hideBanner, 4000);
+  }
+  function hookCanvas() { var c = document.getElementById("gl"); if (!c || c.__r5cx) return !!c; c.__r5cx = true; c.addEventListener("webglcontextlost", function () { try { onLost(); } catch (e) { note("lost", e); } }, false); c.addEventListener("webglcontextrestored", function () { try { onRestored(); } catch (e) { note("restored", e); } }, false); return true; }
+  if (!hookCanvas()) addEventListener("DOMContentLoaded", hookCanvas);
+  W.test = function (ms) { var x = renderer.getContext().getExtension("WEBGL_lose_context"); if (!x) return "no WEBGL_lose_context"; x.loseContext(); setTimeout(function () { x.restoreContext(); }, ms || 2000); return "lost; restoring in " + (ms || 2000) + " ms"; };
 })();

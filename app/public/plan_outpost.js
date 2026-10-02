@@ -23,7 +23,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function sstep(a, b, v) { var t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
   var seedN = 20260924; function rr() { seedN = (seedN * 1664525 + 1013904223) >>> 0; return seedN / 4294967296; }   // our own random: never disturbs the engine's rnd() sequence
   function hsh(n) { var s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
-  function note(where, e) { var m = where + ": " + ((e && e.message) || e); OP.err.push(m); if (OP.err.length < 12) console.warn("plan_outpost " + m); }
+  function note(where, e) { var m = where + ": " + ((e && e.message) || e); if (OP.err.length < 40) OP.err.push(m); if (OP.err.length < 12) console.warn("plan_outpost " + m); }
   function safe(name, fn) { try { fn(); OP.n[name] = OP.n[name] || 1; } catch (e) { note(name, e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : e); } }
   function place(id) { try { return planPlace(id); } catch (e) { return null; } }
   function prom(id) { try { var r = PLAN_IDX.prom.get(id); return r || null; } catch (e) { return null; } }

@@ -23,7 +23,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var PT = window.PLAN_TERMINAL = window.PLAN_TERMINAL || {};
   PT.v = "r2t-1"; PT.errs = PT.errs || []; PT.n = PT.n || {}; PT.tx = PT.tx || {};
   var TAU = Math.PI * 2, F = 0.05, HALF = 27, DROP = 0.1;
-  function note(where, e) { if (PT.errs.length < 30) PT.errs.push(where + ": " + (e && e.message ? e.message : e)); try { console.warn("plan_terminal " + where, e); } catch (x) {} }
+  function note(where, e) { if (PT.errs.length < 30) PT.errs.push(where + ": " + (e && e.message ? e.message : e)); PT.nWarn = (PT.nWarn || 0) + 1; if (PT.nWarn <= 40) try { console.warn("plan_terminal " + where, e); } catch (x) {} }   // R5: at most 40 console lines a session
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function rng(seed) { var s = seed | 0; return function () { s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   var RND = rng(1928);

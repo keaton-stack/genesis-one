@@ -24,7 +24,7 @@ if (window.PLAN_MODEL_NEEDS.indexOf("stone_pillar") < 0) window.PLAN_MODEL_NEEDS
   const ACC = { walk: 7, cart: 8.5, veh: 8.5, jet: 4 };                 // the ease: braking the outward speed, m/s2
   const PILLAR_SP = 24, BAY = 3.0, CHUNK = 520, DS = 0.25;
   const FALLBACK_RING = [[-487.4, -627.6], [27.9, -627.4], [319.6, -627.3], [763.4, -627.2], [1026.0, -627.1], [1126.6, -627.0], [1125.9, 183.7], [1125.2, 994.4], [318.9, 991.2], [-365.6, 987.0], [-484.5, 986.3], [-484.7, 820.6], [-485.6, 178.5], [-485.7, 98.3]];
-  function err(where, e) { B.errs.push(where + ": " + ((e && e.message) || e)); if (B.errs.length <= 4) console.error("plan_bounds " + where + ":", (e && e.stack) || e); }
+  function err(where, e) { if (B.errs.length < 40) B.errs.push(where + ": " + ((e && e.message) || e)); if (B.errs.length <= 4) console.error("plan_bounds " + where + ":", (e && e.stack) || e); }
 
   // ───────────────────────── the section ring and the signed distance ─────────────────────────
   function sectionRing() {

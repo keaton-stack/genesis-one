@@ -16,7 +16,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var NEEDS = window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   ["rover", "stagecoach"].forEach(function (k) { if (NEEDS.indexOf(k) < 0) NEEDS.push(k); });
   var PR = window.PLAN_RIDES = { lines: [], err: [], n: {}, ride: null, built: false, conflicts: [], ribbons: [], debug: {} };
-  function note(where, e) { var m = where + ": " + ((e && e.message) || e); PR.err.push(m); if (PR.err.length < 10) console.warn("plan_rides " + m, e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : ""); }
+  function note(where, e) { var m = where + ": " + ((e && e.message) || e); if (PR.err.length < 40) PR.err.push(m); if (PR.err.length < 10) console.warn("plan_rides " + m, e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : ""); }
   function safe(name, fn) { try { fn(); } catch (e) { note(name, e); } }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function sstep(a, b, v) { var t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }

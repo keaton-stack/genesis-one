@@ -4,7 +4,7 @@
 // storage). The page, the scripts and asset_v.js are network first: never served stale while the network answers.
 // Updates: a deploy changes only the hashes of the files whose bytes changed; the page posts its manifest once the world has
 // streamed and every cached entry whose hash is no longer current is dropped. A new sw.js activates at once.
-const ASSETS = "g1-assets-v1", PAGES = "g1-pages-v1";
+const ASSETS = "g1-assets-v1", PAGES = "g1-pages-v2";   // v2: path-keyed pages (activate drops v1 with its piled-up /?b= copies)
 const HASHED = /[?&]v=[0-9a-f]{10}(?:&|$)/;
 const FRESH = /(?:^\/$|\.html$|\/(?:client|asset_v|sw|plan_[a-z0-9_]+|arcade_[a-z_]+)\.js$)/;
 
@@ -13,9 +13,12 @@ self.addEventListener("activate", (ev) => {
   ev.waitUntil((async () => { const keys = await caches.keys(); await Promise.all(keys.filter((k) => /^g1-/.test(k) && k !== ASSETS && k !== PAGES).map((k) => caches.delete(k))); await self.clients.claim(); })());
 });
 
+// the offline copy is keyed by path alone (R5): the build check fetches /?b=<time> every few minutes, and keying by the full URL
+// stored a new copy of the page each time, never pruned
 async function networkFirst(req) {
-  try { const res = await fetch(req); if (res && res.ok && res.type === "basic") { const c = await caches.open(PAGES); c.put(req, res.clone()).catch(() => {}); } return res; }
-  catch (e) { const hit = await caches.match(req, { cacheName: PAGES }); if (hit) return hit; throw e; }
+  const u = new URL(req.url), key = u.origin + u.pathname;
+  try { const res = await fetch(req); if (res && res.ok && res.type === "basic") { const c = await caches.open(PAGES); c.put(key, res.clone()).catch(() => {}); } return res; }
+  catch (e) { const c = await caches.open(PAGES); const hit = (await c.match(key)) || (await c.match(req)); if (hit) return hit; throw e; }
 }
 async function cacheFirst(ev, req) {
   const c = await caches.open(ASSETS); const hit = await c.match(req); if (hit) return hit;

@@ -18,7 +18,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var NEEDS = window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   KINDS.forEach(function (k) { if (NEEDS.indexOf(k) < 0) NEEDS.push(k); });
   var SC = window.PLAN_SHOWCASE = window.PLAN_SHOWCASE || { v: "r3m-1", errs: [], n: {}, at: {}, rigs: {}, extras: null };
-  function note(w, e) { var m = w + ": " + (e && e.message ? e.message : e); SC.errs.push(m); if (SC.errs.length <= 6) console.warn("[showcase] " + m); }
+  function note(w, e) { var m = w + ": " + (e && e.message ? e.message : e); if (SC.errs.length < 40) SC.errs.push(m); if (SC.errs.length <= 6) console.warn("[showcase] " + m); }
   function INFO(k) { var I = window.PLAN_MODEL_INFO; return I && I[k] ? I[k] : null; }
   var TAU = Math.PI * 2;
 

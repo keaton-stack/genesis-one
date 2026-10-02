@@ -25,7 +25,7 @@
     for (let i = 1; i <= 8; i++) want.push("ph_boulder_" + i, "ph_rock_" + i); for (let i = 1; i <= 8; i++) want.push("ph_moonrock_" + i, "ph_shrub_" + i); for (let i = 1; i <= 3; i++) want.push("ph_succulent_" + i);
     for (const k of want) if (N.indexOf(k) < 0) N.push(k); }
   const L = window.PLAN_LAND = { v: 1, errs: [], n: {}, t: {}, hills: [], craters: [], vign: [], feats: [], lights: [], festoons: [], beds: [], fires: [], seats: [], spurs: [], golf: {}, zones: [], uplights: [] };
-  const err = (where, e) => { L.errs.push(where + ": " + ((e && e.message) || e)); if (L.errs.length <= 8) console.warn("plan_land " + where + " failed:", (e && e.stack) || e); };
+  const err = (where, e) => { if (L.errs.length < 40) L.errs.push(where + ": " + ((e && e.message) || e)); if (L.errs.length <= 8) console.warn("plan_land " + where + " failed:", (e && e.stack) || e); };
   const cnt = (k, n) => { L.n[k] = (L.n[k] || 0) + (n === undefined ? 1 : n); };
 
   // ───────────── small maths ─────────────

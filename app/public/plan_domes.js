@@ -1,6 +1,9 @@
 // R4 DOMES (1 Oct 2026): the Dome Suites (geodesic glamping domes with a glass front, remade from the old "dome" model at the
-// Club Lodges, the Commons glamping loop and South Ridge) and the Grand Vault Domes (squared vaults of soft white panels with
-// glazed arched ends: a dining room, an event and wedding hall and a wellness studio at The Commons). Classic script, loaded
+// Club Lodges, the Commons glamping loop and South Ridge) and the Grand Vault Domes (R5: flattened domes of soft white panels
+// over a near square floor, both ends cut into great glazed arches under a white rim, arched window bands down the sides: a
+// dining room, an event and wedding hall and a wellness studio at Pavilion Green). R5 also: furniture built from rounded,
+// cushioned, turned and draped pieces (and the game's own lounge_chair and cab_divan), warm fresh decking, warm venue light
+// after dark, name labels and chat bubbles hidden behind walls, CM8 back in the Commons loop. Classic script, loaded
 // before client.js; hooks into window.PLAN_HOOKS { terrain, world, defer, frame, interior }. All names, copy, sizes and positions:
 // plan/domes.json (the user can rename, move or resize anything there).
 //   - every suite: a procedural 4V geodesic dome (white membrane panels, crisp struts, a glass front of triangular panes with a
@@ -18,7 +21,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   var DM = window.PLAN_DOMES = window.PLAN_DOMES || {};
-  DM.errs = DM.errs || []; DM.n = DM.n || { builds: 0, disposes: 0, vbuilds: 0, vdisposes: 0 };
+  DM.errs = DM.errs || []; DM.n = DM.n || { builds: 0, disposes: 0, vbuilds: 0, vdisposes: 0 }; DM.ver = "r5";
   if (/[?&]domes=0\b/.test(location.search)) { DM.off = true; return; }
   var PI = Math.PI, TAU = PI * 2;
   function note(tag, e) { try { if (DM.errs.length < 50) DM.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (DM.errs.length <= 6) console.warn("plan_domes " + tag, e); } catch (x) {} }
@@ -107,6 +110,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       this.m[k].forEach(function (g0) { var g = m4 ? g0.clone().applyMatrix4(m4) : g0.clone(); if (T0 && T0[2]) flipGeo(g); if (col) { var cnt = g.attributes.position.count, ca = new Float32Array(cnt * 3); for (var i = 0; i < cnt; i++) { ca[i * 3] = col[0]; ca[i * 3 + 1] = col[1]; ca[i * 3 + 2] = col[2]; } g.setAttribute("color", new THREE.BufferAttribute(ca, 3)); } arr.push(g); }); } return out; };
   function mergeBased(groups) { var r = {}; for (var b in groups) { var g = mergeAll(groups[b]); if (g) r[b] = g; } return r; }
   // build merged meshes per base into a group (bases: base name -> material)
+  function* buildBasedSteps(K, grp, tints, bases, out) { var groups = K.based(tints); yield 1; for (var b in groups) { var geo = mergeAll(groups[b]); var mt = bases[b]; if (!geo) continue; if (!mt) { note("base mat", b); continue; } var me = new THREE.Mesh(geo, mt); me.name = "dm " + b; me.castShadow = false; me.receiveShadow = !mt.transparent; me.userData.shSet = true; if (mt.transparent) me.renderOrder = mt.blending === THREE.AdditiveBlending ? 2 : 3; grp.add(me); out.push(me); yield 1; } }
   function buildBased(K, grp, tints, bases, opts) { opts = opts || {}; var geos = mergeBased(K.based(tints)); var out = []; for (var b in geos) { var mt = bases[b]; if (!mt) { note("base mat", b); continue; } var me = new THREE.Mesh(geos[b], mt); me.name = "dm " + b; me.castShadow = !!opts.cast && !mt.transparent; me.receiveShadow = !mt.transparent; me.userData.shSet = true; if (mt.transparent) me.renderOrder = mt.blending === THREE.AdditiveBlending ? 2 : 3; grp.add(me); out.push(me); } return out; }
   function uvBox(g, w, h, d, t) { var uv = g.attributes.uv; var dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]]; for (var f = 0; f < 6; f++) for (var k = 0; k < 4; k++) { var i = f * 4 + k; uv.setXY(i, uv.getX(i) * dims[f][0] / t, uv.getY(i) * dims[f][1] / t); } }
   function V3(x, y, z) { return new THREE.Vector3(x, y, z); }
@@ -128,7 +132,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       x.strokeStyle = "rgba(255,255,255,0.35)"; x.lineWidth = 1; for (var k2 = -W; k2 < W * 2; k2 += s) { x.beginPath(); x.moveTo(k2 + 2, 0); x.lineTo(k2 + H + 2, H); x.stroke(); } }, true); }
   // a vault panel (uv 0..1 per panel): white with a soft welded seam round the edge and a little pillow shading
   function vaultTex() { return panel("vault", 256, 256, function (x, W, H) { var g = x.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W * 0.72); g.addColorStop(0, "#ffffff"); g.addColorStop(0.75, "#f3f1ec"); g.addColorStop(1, "#dedad2"); x.fillStyle = g; x.fillRect(0, 0, W, H); noise(x, W, H, 2500, 0.02, 1, 2, 47);
-      x.strokeStyle = "rgba(150,145,135,0.55)"; x.lineWidth = 3; x.strokeRect(1.5, 1.5, W - 3, H - 3); x.strokeStyle = "rgba(255,255,255,0.7)"; x.lineWidth = 1; x.strokeRect(5, 5, W - 10, H - 10); }, false); }
+      x.strokeStyle = "rgba(150,145,135,0.36)"; x.lineWidth = 2.5; x.strokeRect(1.25, 1.25, W - 2.5, H - 2.5); x.strokeStyle = "rgba(255,255,255,0.6)"; x.lineWidth = 1; x.strokeRect(4.5, 4.5, W - 9, H - 9); }, false); }
   function fabricTex() { return panel("fabric", 256, 256, function (x, W, H) { x.fillStyle = "#c9b79a"; x.fillRect(0, 0, W, H); for (var i = 0; i < W; i += 3) { x.fillStyle = "rgba(0,0,0,0.05)"; x.fillRect(i, 0, 1, H); x.fillRect(0, i, W, 1); } noise(x, W, H, 2500, 0.04, 1, 2, 7); }, true); }
   // a near white woven fabric (cushions, linen, tablecloths take their colour as a tint)
   function fabricTexW() { return panel("fabricW", 256, 256, function (x, W, H) { x.fillStyle = "#f4f1ea"; x.fillRect(0, 0, W, H); for (var i = 0; i < W; i += 3) { x.fillStyle = "rgba(0,0,0,0.035)"; x.fillRect(i, 0, 1, H); x.fillRect(0, i, W, 1); } noise(x, W, H, 2500, 0.03, 1, 2, 9); }, true); }
@@ -138,12 +142,41 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       for (var i = 0; i < 340; i++) { var lt = R() < 0.5; x.strokeStyle = (lt ? light : dark).replace("A", (0.04 + R() * 0.12).toFixed(3)); x.lineWidth = 0.5 + R() * 1.6; x.beginPath(); var px = R() * W, ph = R() * 6; x.moveTo(px, 0); for (var y = 0; y <= H; y += 24) x.lineTo(px + Math.sin(y * 0.008 + ph) * 5 + Math.sin(y * 0.031 + ph * 2) * 1.5, y); x.stroke(); }
       for (var k2 = 0; k2 < 14; k2++) { var kx = R() * W, ky = R() * H; var gk = x.createRadialGradient(kx, ky, 0, kx, ky, 10 + R() * 12); gk.addColorStop(0, dark.replace("A", "0.35")); gk.addColorStop(1, dark.replace("A", "0")); x.fillStyle = gk; x.beginPath(); x.ellipse(kx, ky, 8, 18, 0, 0, TAU); x.fill(); }
       if (n > 1) { for (var q = 0; q < n; q++) { x.fillStyle = "rgba(20,12,6,0.45)"; x.fillRect(q * pw, 0, 2, H); var jy = R() * H; x.fillRect(q * pw, jy, pw, 2); x.fillRect(q * pw, (jy + H * 0.5) % H, pw, 2); } } }, true); }
+  // fresh decking (R5): warm ipe and cedar boards, tight grain, staggered end joints and dark gaps (the game's own wood is weathered
+  // grey); eight boards across the width of the image, the boards running along v. Its normal map rounds the board edges.
+  function deckTex() { return panel("deckW", 512, 1024, function (x, W, H) { var R = rng(91), n = 8, bw = W / n; x.fillStyle = "#2a1d14"; x.fillRect(0, 0, W, H);
+      var tones = [[152, 122, 96], [142, 113, 89], [160, 128, 100], [134, 106, 84], [154, 124, 97], [146, 117, 92], [128, 101, 81]];
+      for (var b = 0; b < n; b++) { var y0 = -Math.floor(R() * H * 0.7); while (y0 < H) { var L = H * (0.42 + R() * 0.5), tn = tones[Math.floor(R() * tones.length)], k = 0.92 + R() * 0.16;
+          x.fillStyle = "rgb(" + Math.round(tn[0] * k) + "," + Math.round(tn[1] * k) + "," + Math.round(tn[2] * k) + ")"; x.fillRect(b * bw + 2, y0 + 2, bw - 4, L - 3);
+          var gr = x.createLinearGradient(b * bw, 0, b * bw + bw, 0); gr.addColorStop(0, "rgba(40,18,8,0.18)"); gr.addColorStop(0.15, "rgba(255,220,180,0.06)"); gr.addColorStop(0.85, "rgba(255,220,180,0.04)"); gr.addColorStop(1, "rgba(40,18,8,0.2)"); x.fillStyle = gr; x.fillRect(b * bw + 2, y0 + 2, bw - 4, L - 3);
+          for (var i = 0; i < 24; i++) { var lt = R() < 0.45; x.strokeStyle = lt ? "rgba(255,206,160," + (0.05 + R() * 0.09).toFixed(3) + ")" : "rgba(70,30,12," + (0.06 + R() * 0.12).toFixed(3) + ")"; x.lineWidth = 0.6 + R() * 1.5; x.beginPath(); var px = b * bw + 5 + R() * (bw - 10), ph = R() * 6; x.moveTo(px, y0 + 3); for (var y = y0 + 3; y <= y0 + L - 3; y += 18) x.lineTo(px + Math.sin(y * 0.012 + ph) * 2.5, y); x.stroke(); }
+          y0 += L; } }
+      noise(x, W, H, 5000, 0.025, 1, 2, 93); }, true); }
+  function deckNTex() { return panel("deckN", 256, 512, function (x, W, H) { x.fillStyle = "rgb(128,128,255)"; x.fillRect(0, 0, W, H); var bw = W / 8; for (var b = 0; b < 8; b++) { x.fillStyle = "rgb(60,128,215)"; x.fillRect(b * bw, 0, 2, H); x.fillStyle = "rgb(96,128,245)"; x.fillRect(b * bw + 2, 0, 2, H); x.fillStyle = "rgb(196,128,215)"; x.fillRect(b * bw + bw - 2, 0, 2, H); x.fillStyle = "rgb(160,128,245)"; x.fillRect(b * bw + bw - 4, 0, 2, H); } }, true, true); }
   function marbleTex() { return panel("marble", 1024, 1024, function (x, W, H) { var R = rng(5); x.fillStyle = "#efece6"; x.fillRect(0, 0, W, H); for (var v = 0; v < 26; v++) { x.strokeStyle = "rgba(" + (105 + R() * 40 | 0) + "," + (108 + R() * 40 | 0) + "," + (114 + R() * 40 | 0) + "," + (0.1 + R() * 0.3) + ")"; x.lineWidth = 0.6 + R() * 2.2; x.beginPath(); var px = R() * W, py = R() * H; x.moveTo(px, py); for (var s2 = 0; s2 < 14; s2++) { px += (R() - 0.3) * 130; py += (R() - 0.5) * 90; x.lineTo(px, py); } x.stroke(); } noise(x, W, H, 4000, 0.02, 1, 3, 9); }, true); }
   function weaveTex(key, a, b, border) { return panel("weave:" + key, 256, 256, function (x, W, H) { x.fillStyle = a; x.fillRect(0, 0, W, H); for (var i = 0; i < W; i += 4) for (var j = 0; j < H; j += 4) { if (((i + j) / 4) % 2) { x.fillStyle = b; x.fillRect(i, j, 4, 2); } } if (border) { x.strokeStyle = border; x.lineWidth = 10; x.strokeRect(14, 14, W - 28, H - 28); x.lineWidth = 3; x.strokeRect(30, 30, W - 60, H - 60); } noise(x, W, H, 1500, 0.04, 1, 2, 3); }, !border); }
   // a kilim style rug for the living room (one image, not repeated)
   function kilimTex() { return panel("kilim", 512, 512, function (x, W, H) { x.fillStyle = "#b8a184"; x.fillRect(0, 0, W, H); var R = rng(77); x.fillStyle = "#8c5a3c"; x.fillRect(18, 18, W - 36, H - 36); x.fillStyle = "#d9c8ad"; x.fillRect(34, 34, W - 68, H - 68);
       for (var r = 0; r < 5; r++) for (var c = 0; c < 4; c++) { var cx = 90 + c * 110, cy = 70 + r * 92; x.fillStyle = (r + c) % 2 ? "#a46a45" : "#6f7f66"; x.beginPath(); x.moveTo(cx, cy - 30); x.lineTo(cx + 34, cy); x.lineTo(cx, cy + 30); x.lineTo(cx - 34, cy); x.closePath(); x.fill(); x.fillStyle = "#e9dcc5"; x.beginPath(); x.moveTo(cx, cy - 12); x.lineTo(cx + 13, cy); x.lineTo(cx, cy + 12); x.lineTo(cx - 13, cy); x.closePath(); x.fill(); }
       for (var i = 0; i < W; i += 3) { x.fillStyle = "rgba(0,0,0,0.04)"; x.fillRect(i, 0, 1, H); } noise(x, W, H, 3000, 0.05, 1, 2, 79); }, false); }
+  // the rug atlas (R5, 2 x 2): 0 the kilim, 1 a Persian medallion, 2 a Moroccan lattice on cream, 3 a striped flatweave; quad q is
+  // drawn at column q % 2, row q >> 1 counted from the bottom (the texture's uv origin)
+  function rugAtlasTex() { return panel("rugs", 1024, 1024, function (x, W, H) { var Q = 512;
+      var at = function (q, fn) { x.save(); x.translate((q % 2) * Q, (1 - (q >> 1)) * Q); x.beginPath(); x.rect(0, 0, Q, Q); x.clip(); fn(); x.restore(); };
+      at(0, function () { x.fillStyle = "#b8a184"; x.fillRect(0, 0, Q, Q); x.fillStyle = "#8c5a3c"; x.fillRect(16, 16, Q - 32, Q - 32); x.fillStyle = "#d9c8ad"; x.fillRect(30, 30, Q - 60, Q - 60);
+        for (var r = 0; r < 5; r++) for (var c = 0; c < 4; c++) { var cx = 88 + c * 112, cy = 66 + r * 95; x.fillStyle = (r + c) % 2 ? "#a46a45" : "#6f7f66"; x.beginPath(); x.moveTo(cx, cy - 32); x.lineTo(cx + 36, cy); x.lineTo(cx, cy + 32); x.lineTo(cx - 36, cy); x.closePath(); x.fill(); x.fillStyle = "#e9dcc5"; x.beginPath(); x.moveTo(cx, cy - 13); x.lineTo(cx + 14, cy); x.lineTo(cx, cy + 13); x.lineTo(cx - 14, cy); x.closePath(); x.fill(); }
+        for (var i = 0; i < Q; i += 3) { x.fillStyle = "rgba(0,0,0,0.04)"; x.fillRect(i, 0, 1, Q); } });
+      at(1, function () { x.fillStyle = "#7a2b25"; x.fillRect(0, 0, Q, Q); x.fillStyle = "#1f2a44"; x.fillRect(10, 10, Q - 20, Q - 20); x.fillStyle = "#c9a46a"; x.fillRect(34, 34, Q - 68, Q - 68); x.fillStyle = "#8a2f27"; x.fillRect(44, 44, Q - 88, Q - 88);
+        var R = rng(12); for (var i2 = 0; i2 < 70; i2++) { x.fillStyle = ["#1f2a44", "#c9a46a", "#e8dcc4", "#4a6a5a"][i2 % 4]; var px = 50 + R() * (Q - 100), py = 50 + R() * (Q - 100); x.beginPath(); x.arc(px, py, 3 + R() * 5, 0, TAU); x.fill(); }
+        [[150, "#1f2a44"], [120, "#e8dcc4"], [96, "#7a2b25"], [70, "#c9a46a"], [44, "#1f2a44"], [20, "#e8dcc4"]].forEach(function (m) { x.fillStyle = m[1]; x.beginPath(); for (var k = 0; k < 16; k++) { var a = k / 16 * TAU, rr = m[0] * (k % 2 ? 0.78 : 1); x.lineTo(Q / 2 + Math.cos(a) * rr, Q / 2 + Math.sin(a) * rr * 1.25); } x.closePath(); x.fill(); });
+        [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (q) { x.fillStyle = "#1f2a44"; x.beginPath(); x.arc(44 + q[0] * (Q - 88), 44 + q[1] * (Q - 88), 70, 0, TAU); x.fill(); x.fillStyle = "#c9a46a"; x.beginPath(); x.arc(44 + q[0] * (Q - 88), 44 + q[1] * (Q - 88), 46, 0, TAU); x.fill(); });
+        noise(x, Q, Q, 6000, 0.06, 1, 2, 13); });
+      at(2, function () { x.fillStyle = "#efe7d8"; x.fillRect(0, 0, Q, Q); x.strokeStyle = "rgba(40,36,34,0.85)"; x.lineWidth = 6; var R2 = rng(21), s2 = 74;
+        for (var a2 = -Q; a2 < Q * 2; a2 += s2) { x.beginPath(); for (var y = 0; y <= Q; y += 16) x.lineTo(a2 + y * 0.62 + (R2() - 0.5) * 4, y); x.stroke(); x.beginPath(); for (var y2 = 0; y2 <= Q; y2 += 16) x.lineTo(a2 + Q * 0.62 - y2 * 0.62 + (R2() - 0.5) * 4, y2); x.stroke(); }
+        noise(x, Q, Q, 9000, 0.05, 1, 3, 23); x.fillStyle = "rgba(255,255,255,0.18)"; for (var t = 0; t < 900; t++) x.fillRect(R2() * Q, R2() * Q, 2, 2); });
+      at(3, function () { x.fillStyle = "#cdb48e"; x.fillRect(0, 0, Q, Q); var bands = [[30, 16, "#3a3430"], [60, 34, "#b4643e"], [104, 10, "#3a3430"], [Q - 114, 10, "#3a3430"], [Q - 94, 34, "#b4643e"], [Q - 46, 16, "#3a3430"]]; bands.forEach(function (b) { x.fillStyle = b[2]; x.fillRect(0, b[0], Q, b[1]); });
+        for (var i3 = 0; i3 < Q; i3 += 4) { x.fillStyle = "rgba(0,0,0,0.07)"; x.fillRect(0, i3, Q, 1); } noise(x, Q, Q, 7000, 0.05, 1, 2, 31); });
+    }, false); }
   // the chalkboard menu, the stage backdrop and the cluster welcome signs (text from the JSON)
   function signTex(key, l1, l2, l3) { return panel("sign:" + key, 2048, 768, function (x, W, H) { x.clearRect(0, 0, W, H);
       // a small geodesic mark over the name
@@ -158,7 +191,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ───────────────────────── materials (made in the defer hook, when the client's textures exist) ─────────────────────────
   var MX = DM.mx = DM.old ? {} : (DM.mx || {});
   var SHV = DM.old ? "_" + Math.random().toString(36).slice(2, 7) : "";   // a hot reload compiles fresh shader programs
-  var U = DM.u = DM.u || { uNight: { value: 0 }, uTime: { value: 0 }, uDim: { value: 1 } };
+  var U = DM.u = DM.u || { uNight: { value: 0 }, uTime: { value: 0 }, uDim: { value: 1 } }; U.uWarm = U.uWarm || { value: 0 };
   function std(o) { return new THREE.MeshStandardMaterial(o); }
   function tex(name) { try { return TEX[name] || null; } catch (e) { return null; } }
   function mats() {
@@ -177,7 +210,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     MX.liner.customProgramCacheKey = function () { return "dm_liner" + SHV; };
 
     // the base materials every merged part draws with (its own colour is a vertex colour): one draw per base per cluster
-    MX.wood = std({ map: wm, normalMap: wn, color: 0xffffff, roughness: 0.8, vertexColors: true });
+    MX.wood = std({ map: deckTex(), normalMap: deckNTex(), normalScale: new THREE.Vector2(0.9, 0.9), color: 0xffffff, roughness: 0.62, vertexColors: true });
     MX.dark = std({ color: 0xffffff, roughness: 0.5, metalness: 0.35, vertexColors: true });
     MX.bright = std({ color: 0xffffff, roughness: 0.26, metalness: 0.9, vertexColors: true });
     MX.paint = std({ color: 0xffffff, roughness: 0.42, metalness: 0.25, vertexColors: true });
@@ -204,9 +237,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     };
     MX.glass.customProgramCacheKey = function () { return "dm_glass" + SHV; };
     MX.frost = std({ color: 0xdfe3e2, roughness: 0.3, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide, emissive: glowC, emissiveIntensity: 0.0 });
-    MX.deck = std({ map: wm, normalMap: wn, color: 0x9a7252, roughness: 0.8 });
-    MX.timber = std({ map: wm, normalMap: wn, color: 0x6a4a34, roughness: 0.84 });
-    MX.post = std({ map: wm, color: 0x3d2c20, roughness: 0.9 });
+    MX.deck = std({ map: deckTex(), normalMap: deckNTex(), color: 0xffffff, roughness: 0.62 });
+    MX.timber = std({ map: deckTex(), normalMap: deckNTex(), color: 0xd8b49c, roughness: 0.66 });
+    MX.post = std({ map: deckTex(), color: 0x8a6a54, roughness: 0.8 });
     MX.metal = std({ color: 0x0b0b0c, roughness: 0.55, metalness: 0.2 });
     MX.steel = std({ color: 0xa6abb0, roughness: 0.25, metalness: 0.9 });
     MX.cedar = std({ map: grainTex("cedar", "#9b5b36", "rgba(222,160,110,A)", "rgba(70,30,12,A)", 23, 8), color: 0xffffff, roughness: 0.72 });
@@ -250,8 +283,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     MX.far.customProgramCacheKey = function () { return "dm_far" + SHV; };
     waterMat(); fireMat(); MX.steam = new THREE.SpriteMaterial({ map: glowTex(), color: 0xdfe8ee, transparent: true, opacity: 0.0, depthWrite: false });
     // the vaults: panelled white skin, its liner, the white ribs inside
-    MX.vskin = std({ map: vaultTex(), color: 0xffffff, roughness: 0.6, envMapIntensity: 0.9, emissive: 0xffa860, emissiveMap: vaultTex(), emissiveIntensity: 0 });
-    MX.vliner = std({ map: vaultTex(), color: 0xf4f1ea, roughness: 0.9, side: THREE.BackSide, emissive: 0xffb870, emissiveMap: vaultTex(), emissiveIntensity: 0 });
+    MX.vskin = std({ map: vaultTex(), color: 0xffffff, roughness: 0.6, envMapIntensity: 0.9, emissive: 0xff9a4a, emissiveMap: vaultTex(), emissiveIntensity: 0 });
+    MX.vliner = std({ map: vaultTex(), color: 0xf4f1ea, roughness: 0.9, side: THREE.BackSide, emissive: 0xff9644, emissiveMap: vaultTex(), emissiveIntensity: 0 });
+    // after dark (R5): the skin and liner lose most of the moonlight and glow amber from the lamps inside, most on the low walls
+    [[MX.vskin, 0.55, "dm_vskin"], [MX.vliner, 0.5, "dm_vliner"]].forEach(function (q) { var m = q[0], k = q[1]; m.onBeforeCompile = function (sh) { sh.uniforms.uNight = U.uNight;
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying float vNy;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvNy = normalize(mat3(modelMatrix) * objectNormal).y;");
+      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uNight; varying float vNy;").replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n diffuseColor.rgb *= 1.0 - " + k.toFixed(2) + " * uNight; totalEmissiveRadiance *= 0.45 + 0.9 * (1.0 - clamp(abs(vNy), 0.0, 1.0));"); }; m.customProgramCacheKey = function () { return q[2] + SHV; }; });
     MX.rib = std({ color: 0xf2f0ea, roughness: 0.4, metalness: 0.3 });
     for (var k in MX) { var m = MX[k]; if (m && m.isMaterial) m.name = "dm_" + k; }
     return MX;
@@ -295,14 +332,18 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     for (var k in Mt) { var m = Mt[k]; if (m && m.isMaterial && !m.name) m.name = "dm_" + k; } return Mt; }
   // the interiors draw with a few textured bases too (oak grain, linen, boucle, the kilim, marble, leather, metals, paint, glass, light)
   function intBases() { var Mt = intMats(); if (IN.bases) return IN.bases; var ao = IN.ao; var B = IN.bases = {};
-    var mk = function (o, useAo) { var m = std(Object.assign({ vertexColors: true, color: 0xffffff }, o)); if (useAo && ao) { m.aoMap = ao; m.aoMapIntensity = 1; } return m; };
+    var warm = function (sh) { sh.uniforms.uWarm = U.uWarm; sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uWarm;").replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * vec3(1.0, 0.6, 0.28) * uWarm;"); };
+    var mk = function (o, useAo) { var m = std(Object.assign({ vertexColors: true, color: 0xffffff }, o)); if (useAo && ao) { m.aoMap = ao; m.aoMapIntensity = 1; } if (!o.transparent) { m.onBeforeCompile = warm; m.customProgramCacheKey = function () { return "dm_iwarm" + SHV; }; } return m; };
     B.iwood = mk({ map: grainTex("oak", "#b88d5f", "rgba(236,204,160,A)", "rgba(92,60,30,A)", 29, 6), roughness: 0.5 }, true);
     B.iwalnut = mk({ map: grainTex("walnut", "#4b3324", "rgba(150,110,75,A)", "rgba(22,12,6,A)", 17, 1), roughness: 0.45 }, true);
-    B.ifabric = mk({ map: fabricTexW(), roughness: 0.93 }, true); B.isofa = mk({ map: weaveTex("boucle", "#ebe3d4", "#ddd3c1"), roughness: 0.97 }, true); B.irug = mk({ map: kilimTex(), roughness: 1 }, true);
-    B.imarble = mk({ map: marbleTex(), roughness: 0.22 }, true); B.ileather = mk({ roughness: 0.58 }, true); B.idark = mk({ roughness: 0.55, metalness: 0.3 }, true); B.ibright = mk({ roughness: 0.2, metalness: 0.92 }, false);
+    B.ifabric = mk({ map: fabricTexW(), roughness: 0.93 }, true); B.isofa = mk({ map: weaveTex("boucle", "#ebe3d4", "#ddd3c1"), roughness: 0.97 }, true); B.irug = mk({ map: rugAtlasTex(), roughness: 1 }, true);
+    B.imarble = mk({ map: marbleTex(), roughness: 0.22 }, true); B.ileather = mk({ roughness: 0.58 }, true); B.idark = mk({ roughness: 0.55, metalness: 0.3 }, true); B.ibright = mk({ roughness: 0.3, metalness: 0.62 }, false);
     B.ipaint = mk({ roughness: 0.4, metalness: 0.05 }, true); B.isoft = mk({ roughness: 0.82 }, true); B.ifrost = mk({ roughness: 0.32, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }, false); B.iglass = mk({ roughness: 0.05, transparent: true, opacity: 0.38, depthWrite: false }, false);
     B.iemit = std({ color: 0x1a1410, emissive: 0xffffff, emissiveIntensity: 1.2, vertexColors: true }); B.iemit.onBeforeCompile = MX.emit.onBeforeCompile; B.iemit.customProgramCacheKey = function () { return "dm_iemit" + SHV; };
     B.icurtain = mk({ map: fabricTexW(), roughness: 0.95, side: THREE.DoubleSide }, true); B.chrome = Mt.chrome; B.fire = MX.fire;
+    B.ibottle = std({ color: 0xffffff, roughness: 0.1, metalness: 0.05, vertexColors: true, emissive: 0xffffff, emissiveIntensity: 0.32 }); B.ibottle.onBeforeCompile = MX.emit.onBeforeCompile; B.ibottle.customProgramCacheKey = function () { return "dm_ibottle" + SHV; };
+    B.iglow = new THREE.MeshBasicMaterial({ map: glowTex(), color: 0xffffff, vertexColors: true, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: true });
+    IN.fairy = std({ color: 0x3a2c18, emissive: 0xffa449, emissiveIntensity: 1.5, roughness: 0.3 }); IN.fairy.name = "dm_fairy";
     for (var k in B) { var m = B[k]; if (m && m.isMaterial && !m.name) m.name = "dm_" + k; } return B; }
   function aoFrame(n) { if (!IN.ao) return; var v = Math.round(255 * lerp(0.8, 0.3, n)); if (Math.abs(v - IN.aoV) < 4) return; IN.aoV = v; IN.ao.image.data[0] = IN.ao.image.data[1] = IN.ao.image.data[2] = v; IN.ao.needsUpdate = true; }
 
@@ -493,17 +534,19 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var SITE = DM.site = DM.site || null;
   function l2w(P, lx, lz) { var c = Math.cos(P.rot), s = Math.sin(P.rot); return [P.x + lx * c + lz * s, P.z - lx * s + lz * c]; }
   function w2l(P, x, z) { var dx = x - P.x, dz = z - P.z, c = Math.cos(P.rot), s = Math.sin(P.rot); return [dx * c - dz * s, dx * s + dz * c]; }
-  function vaultDims(w) { var sh = C("vaults.shape", {}), dk = C("vaults.deck", {}); var W = w, L = w, H = W * (sh.heightK || 0.44) + (sh.heightAdd || 0.3); var q = sh.endQ || 2.2, p = sh.sideP || 2.6;
-    var k = Math.max(sh.endK || 0.53, (sh.endMin || 3.1) / H), cut = Math.pow(1 - k * k, 1 / q), b = (L / 2) / cut;
-    return { W: W, L: L, H: H, a: W / 2, b: b, p: p, q: q, cut: cut, k: k, recess: sh.recess || 0.55, dH: dk.height || 0.75, xL: -W / 2 - (dk.side || 2.2), xR: W / 2 + (dk.side || 2.2), zB: -L / 2 - (dk.back || 1.8), zF: L / 2 + W * (dk.frontK || 0.38) + (dk.frontAdd || 1.0) }; }
+  // the vault's size from its width (vaults.shape): H = heightK W + heightAdd, the plan radius b = lenK a along, the ends cut at
+  // c = cutK b (or nearer the middle, so the arch at the cut stands at least endMin high); the deck round it (vaults.deck)
+  function vaultDims(w) { var sh = C("vaults.shape", {}), dk = C("vaults.deck", {}); var W = w, a = W / 2, H = W * (sh.heightK || 0.39) + (sh.heightAdd || 0.5), p = sh.planP || 2.8, m = sh.crownM || 2.6, n = sh.skirtN || 2, b = a * (sh.lenK || 1.18);
+    var k = Math.min(sh.cutK || 0.78, Math.pow(Math.max(0.05, 1 - Math.pow(Math.min(0.95, (sh.endMin || 2.9) / H), n)), 1 / m)), c = k * b;
+    return { W: W, L: 2 * c, H: H, a: a, b: b, p: p, m: m, n: n, c: c, k: k, recess: sh.recess || 0.6, dH: dk.height || 0.75, xL: -a - (dk.side || 2.2), xR: a + (dk.side || 2.2), zB: -c - (dk.back || 1.8), zF: c + W * (dk.frontK || 0.38) + (dk.frontAdd || 1.0) }; }
   function resolveSite() {
     if (SITE) return SITE; var c = cfg(); if (!c) return null;
     var S = { clusters: [], suites: [], vaults: [], c: c, byId: {} };
     (c.clusters || []).forEach(function (cl, ci) { var CL = { i: ci, id: cl.id, name: cl.name, short: cl.short || cl.name, zone: cl.zone, kicker: cl.kicker, hub: cl.hub, status: cl.status || "guest", suites: [] };
-      (cl.suites || []).forEach(function (s) { var sz = C("sizes." + s.size, null) || C("sizes.M", { d: 8.2 }); var R = (sz.d || 8.2) / 2; var P = { id: s.id, from: s.from, cl: CL, size: s.size in { S: 1, M: 1, L: 1 } ? s.size : "M", R: R, pool: !!s.pool, model: !!s.model, x: s.x, z: s.z, rot: (s.rot || 0) * PI / 180, G: 0, D: 0, door: null, L: null };
+      (cl.suites || []).forEach(function (s) { var sz = C("sizes." + s.size, null) || C("sizes.M", { d: 8.2 }); var R = (sz.d || 8.2) / 2; var P = { id: s.id, from: s.from, cl: CL, size: s.size in { S: 1, M: 1, L: 1 } ? s.size : "M", R: R, pool: !!s.pool, model: !!s.model, garden: !!s.garden, x: s.x, z: s.z, rot: (s.rot || 0) * PI / 180, G: 0, D: 0, door: null, L: null };
         P.dd = deckDims(P.size, R, P.pool); P.key = P.size + (P.pool ? "p" : ""); CL.suites.push(P); S.suites.push(P); S.byId[P.id] = P; });
       S.clusters.push(CL); });
-    var vs = C("vaults", {}); (vs.venues || []).forEach(function (v, i) { var V = { i: i, id: v.id, use: v.use, name: v.name, tag: v.tag, w: v.w || 13, x: v.x, z: v.z, rot: (v.rot || 0) * PI / 180, staff: v.staff, G: 0, D: 0, L: null, vault: true }; V.vd = vaultDims(V.w); S.vaults.push(V); S.byId[V.id] = V; });
+    var vs = C("vaults", {}); (vs.venues || []).forEach(function (v, i) { var V = { i: i, id: v.id, use: v.use, name: v.name, tag: v.tag, w: v.w || 13, x: v.x, z: v.z, rot: (v.rot || 0) * PI / 180, staff: v.staff, wins: (v.sideWin || []).filter(function (k) { return k === 1 || k === -1; }), G: 0, D: 0, L: null, vault: true }; V.vd = vaultDims(V.w); S.vaults.push(V); S.byId[V.id] = V; });
     S.vhub = vs.hub || null; return (SITE = DM.site = S);
   }
   // a deck's footprint (with a margin) in world, for keep-outs, clearing and grading
@@ -599,6 +642,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var put1 = function (k, x, z, sc) { if (!ok(x, z)) return false; put(k, x, z, R() * TAU, sc); var L = PLACE[k]; if (L && L.length) L[L.length - 1].dm = 1; n++; return true; };
     allPlaces().forEach(function (P) { var d = P.vault ? P.vd : P.dd, per = P.vault ? 16 : 10; for (var i = 0; i < per; i++) { var side = R(), lx, lz; if (side < 0.34) { lx = (R() < 0.5 ? d.xL - 1.4 - R() * 2.6 : d.xR + 1.4 + R() * 2.6); lz = d.zB + R() * (d.zF - d.zB); } else if (side < 0.62) { lx = d.xL + R() * (d.xR - d.xL); lz = d.zB - 1.4 - R() * 3; } else { lx = (R() < 0.5 ? -1 : 1) * (1.6 + R() * ((d.xR - d.xL) / 2)); lz = d.zF + 1.4 + R() * 2.6; }
         var w = l2w(P, lx, lz); var k = R() < 0.8 ? near[Math.floor(R() * near.length)] : (far[Math.floor(R() * far.length)] || near[0]); put1(k, w[0], w[1], 0.75 + R() * 0.5); } });
+    allPlaces().forEach(function (P) { if (!P.garden) return; var d = P.dd; for (var i = 0; i < 34; i++) { var side = R(), lx, lz, o = 1.5 + R() * 3.6; if (side < 0.3) { lx = R() < 0.5 ? d.xL - o : d.xR + o; lz = d.zB + R() * (d.zF - d.zB); } else if (side < 0.55) { lx = d.xL - 2 + R() * (d.xR - d.xL + 4); lz = d.zB - o; } else { lx = (R() < 0.5 ? -1 : 1) * (2.4 + R() * ((d.xR - d.xL) / 2)); lz = d.zF + o; }
+        var w = l2w(P, lx, lz); var k = R() < 0.72 ? near[Math.floor(R() * near.length)] : (far[Math.floor(R() * far.length)] || near[0]); put1(k, w[0], w[1], 0.8 + R() * 0.5); } });
     DM.n.planted = n;
   }
 
@@ -609,29 +654,23 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     K.flat("rug", P.rug.x - P.rug.w / 2, P.rug.z - P.rug.d / 2, P.rug.x + P.rug.w / 2, P.rug.z + P.rug.d / 2, 0.03, true, 99);
     // the bathroom pod (oak clad box), and in L the sleeping loft on it
     var pc = Math.cos(P.pod.yaw), ps = Math.sin(P.pod.yaw); K.box("podWall", P.pod.w, P.pod.h, P.pod.d, P.pod.x, P.pod.h / 2, P.pod.z, P.pod.yaw, 1);
-    if (P.loft) { K.box("linen", 1.5, 0.22, 1.9, P.pod.x - ps * 0.1, P.pod.h + 0.18, P.pod.z - pc * 0.1, P.pod.yaw, 1); }
-    // the bed: platform, mattress, throw, headboard, pillows; nightstands with glowing lamps
-    var b = P.bed, bw = bedW;
-    K.box("walnut", b.w + 0.1, 0.3, b.l + 0.05, b.x, 0.15, b.z, b.yaw, 1); K.box("linen", b.w, 0.26, b.l - 0.1, b.x, 0.43, b.z, b.yaw, 1);
-    var tw = bw(P, 0, b.l / 2 - 0.4); K.box("throw", b.w + 0.04, 0.05, 0.55, tw[0], 0.585, tw[1], b.yaw, 1);
-    var hb = bw(P, 0, -b.l / 2 - 0.02); K.box("sofa", b.w + 0.2, 1.05, 0.1, hb[0], 0.52, hb[1], b.yaw, 1);
-    [-0.5, 0.5].forEach(function (o) { var pw = bw(P, o, -b.l / 2 + 0.3); K.box("linen", 0.62, 0.16, 0.38, pw[0], 0.63, pw[1], b.yaw, 1, 0.35); });
-    [-1, 1].forEach(function (sd) { var nw = bw(P, sd * (b.w / 2 + 0.32), -b.l / 2 + 0.25); K.box("walnut", 0.45, 0.5, 0.4, nw[0], 0.25, nw[1], b.yaw, 1); K.cyl("lampShade", 0.11, 0.14, 0.22, nw[0], 0.75, nw[1], 12); });
-    // the sofa (bed), armchairs, coffee table
-    var sf = P.sofa; K.box("sofa", sf.l, 0.42, 0.92, sf.x, 0.21, sf.z, 0, 1); K.box("sofa", sf.l, 0.5, 0.22, sf.x, 0.6, sf.z - 0.35, 0, 1); [-1, 1].forEach(function (sd) { K.box("sofa", 0.22, 0.6, 0.92, sf.x + sd * (sf.l / 2 - 0.11), 0.3, sf.z, 0, 1); }); [-0.45, 0.45].forEach(function (o) { K.box("linen", sf.l / 2 - 0.25, 0.14, 0.62, sf.x + o * (sf.l / 2), 0.48, sf.z + 0.08, 0, 1); });
-    K.box("walnut", 1.1, 0.06, 0.6, P.table.x, 0.38, P.table.z, 0, 1); K.box("walnut", 0.9, 0.34, 0.45, P.table.x, 0.18, P.table.z, 0, 1);
-    P.arms.forEach(function (a) { K.box("sofa", 0.82, 0.42, 0.82, a.x, 0.21, a.z, a.yaw, 1); var bk = [a.x - Math.sin(a.yaw) * 0.32, a.z - Math.cos(a.yaw) * 0.32]; K.box("sofa", 0.82, 0.48, 0.18, bk[0], 0.62, bk[1], a.yaw, 1); });
-    // the stove (with a glowing window), the kitchenette counter, a round table, plants, a floor lamp, the curtains
-    var st = P.stove; K.box("stove", 0.55, 0.62, 0.45, st.x, 0.5, st.z, st.yaw, 1); var sw = [st.x + Math.sin(st.yaw) * 0.23, st.z + Math.cos(st.yaw) * 0.23]; K.box("ember", 0.3, 0.24, 0.02, sw[0], 0.52, sw[1], st.yaw); K.disc("stone", 0.62, st.x, 0.02, st.z, 20, 1);
+    if (P.loft) { FP(K, P.pod.x - ps * 0.1, P.pod.z - pc * 0.1, P.pod.yaw).rb("linen", 1.5, 0.22, 1.9, 0.06, 0, P.pod.h + 0.18, 0); }
+    // the bed (rounded, low detail): platform, mattress, duvet, headboard, nightstands with glowing lamps
+    bedK(K, P.bed, { lo: true });
+    // the sofa (bed), armchairs, coffee table (rounded, low detail)
+    sofaK(K, P.sofa.x, P.sofa.z, 0, { len: P.sofa.l, mat: "sofa", lo: true });
+    FP(K, P.table.x, P.table.z, 0).rb("walnut", 1.1, 0.06, 0.6, 0.02, 0, 0.38, 0); K.box("walnut", 0.9, 0.34, 0.45, P.table.x, 0.18, P.table.z, 0, 1);
+    P.arms.forEach(function (a) { armK(K, a.x, a.z, a.yaw, { mat: "throw", lo: true }); });
+    // the stove (with a glowing window), the kitchenette counter, a round table and chairs, plants, a floor lamp, the curtains
+    var st = P.stove; FP(K, st.x, st.z, st.yaw).rb("stove", 0.56, 0.62, 0.45, 0.05, 0, 0.5, 0); var sw = [st.x + Math.sin(st.yaw) * 0.23, st.z + Math.cos(st.yaw) * 0.23]; K.box("ember", 0.3, 0.24, 0.02, sw[0], 0.52, sw[1], st.yaw); K.disc("stone", 0.62, st.x, 0.02, st.z, 20, 1);
     var kt = P.kitchen; K.box("walnut", kt.l, 0.88, 0.6, kt.x, 0.44, kt.z, kt.yaw, 1); K.box("coping", kt.l + 0.04, 0.04, 0.64, kt.x, 0.9, kt.z, kt.yaw, 1);
     var dn = P.dining; K.cyl("walnut", 0.5, 0.5, 0.04, dn.x, 0.74, dn.z, 24); K.cyl("walnut", 0.06, 0.08, 0.72, dn.x, 0.36, dn.z, 8);
-    dn.chairs.forEach(function (a) { var r = a * PI / 180, cx = dn.x + Math.sin(r) * 0.75, cz = dn.z + Math.cos(r) * 0.75; K.box("walnut", 0.44, 0.45, 0.44, cx, 0.225, cz, r, 1); K.box("walnut", 0.44, 0.45, 0.05, cx + Math.sin(r) * 0.2, 0.68, cz + Math.cos(r) * 0.2, r, 1); });
-    if (P.daybed) { var db = P.daybed; K.box("sofa", 2.0, 0.42, 0.85, db.x, 0.21, db.z, db.yaw, 1); K.box("linen", 1.9, 0.1, 0.78, db.x, 0.47, db.z, db.yaw, 1); }
-    P.plants.forEach(function (p, i) { K.cyl("pot", 0.24, 0.19, 0.46, p.x, 0.23, p.z, 12); K.sph("leaf", 0.42, p.x, 0.95 + (i % 2) * 0.2, p.z, 1.5, 8); });
+    dn.chairs.forEach(function (a) { var r = a * PI / 180, cx = dn.x + Math.sin(r) * 0.75, cz = dn.z + Math.cos(r) * 0.75; var f = FP(K, cx, cz, r + PI); f.rb("walnut", 0.44, 0.04, 0.42, 0.012, 0, 0.46, 0); f.rb("rattan", 0.38, 0.02, 0.36, 0.008, 0, 0.485, 0); f.rb("walnut", 0.44, 0.07, 0.03, 0.012, 0, 0.84, -0.2); f.bar("walnut", [-0.18, 0.5, -0.2], [0.18, 0.8, -0.2], 0.035, 0.02); f.bar("walnut", [0.18, 0.5, -0.195], [-0.18, 0.8, -0.195], 0.035, 0.02); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { f.box("walnut", 0.04, q[1] < 0 ? 0.88 : 0.46, 0.04, q[0] * 0.2, q[1] < 0 ? 0.44 : 0.23, q[1] * 0.19); }); });
+    if (P.daybed) { var db = P.daybed; FP(K, db.x, db.z, db.yaw).rb("sofa", 2.0, 0.42, 0.85, 0.08, 0, 0.21, 0); FP(K, db.x, db.z, db.yaw).rb("linen", 1.9, 0.1, 0.78, 0.04, 0, 0.47, 0); }
+    P.plants.forEach(function (p, i) { K.cyl("pot", 0.24, 0.19, 0.46, p.x, 0.23, p.z, 12); K.sph(i % 2 ? "olive" : "leaf", 0.42, p.x, 0.95 + (i % 2) * 0.2, p.z, 1.5, 8); });
     K.cyl("metal", 0.015, 0.015, 1.5, P.lamp.x, 0.75, P.lamp.z, 6); K.cyl("lampShade", 0.17, 0.22, 0.28, P.lamp.x, 1.55, P.lamp.z, 14);
     P.curtains.forEach(function (c) { for (var i = 0; i < 5; i++) { var off = (i - 2) * 0.12; var cx = c.x + Math.cos(c.yaw) * off, cz = c.z - Math.sin(c.yaw) * off; var g = new THREE.CylinderGeometry(0.06, 0.08, c.h, 6, 1, true); g.translate(cx, c.h / 2 + 0.03, cz); K.add("curtain", g); } });
   }
-
   // ───────────────────────── the exterior of every cluster, instanced: one draw per part and material ─────────────────────────
   var EX = DM.ex = DM.old ? { meshes: [], lights: [], cl: [] } : (DM.ex || { meshes: [], lights: [], cl: [] });
   var _M = new THREE.Matrix4(), _M2 = new THREE.Matrix4(), _Q = new THREE.Quaternion(), _P = new THREE.Vector3(), _S1 = new THREE.Vector3(1, 1, 1), _SV = new THREE.Vector3(), _Y = new THREE.Vector3(0, 1, 0), _ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -640,7 +679,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function instMesh(geo, mat, n, name, shadow) { var m = new THREE.InstancedMesh(geo, mat, Math.max(1, n)); m.name = "dm " + name; m.castShadow = !!shadow; m.receiveShadow = !mat.transparent; m.userData.shSet = true; m.userData.dm = true; m.count = n; EX.meshes.push(m); return m; }
   function finish(m) { m.instanceMatrix.needsUpdate = true; try { m.computeBoundingSphere(); m.computeBoundingBox(); } catch (e) {} return m; }
   // every exterior part's base material and colour (one draw per base: see Kit.based)
-  var EXT = { deck: ["wood", "#9a7252"], timber: ["wood", "#6a4a34"], post: ["wood", "#3d2c20"], teak: ["wood", "#8a6440"], cedar: ["cedarB", "#ffffff"], oak: ["wood", "#c9a170"], walnut: ["wood", "#5a3d2a"], podWall: ["wood", "#caa274"],
+  var EXT = { deck: ["wood", "#ffffff"], timber: ["wood", "#e2c4ae"], post: ["wood", "#8c6c56"], teak: ["wood", "#f4d6b8"], cedar: ["cedarB", "#ffffff"], oak: ["wood", "#f2dcc0"], walnut: ["wood", "#7a5a46"], podWall: ["wood", "#f0d8bc"],
     metal: ["dark", "#0b0b0c"], strutD: ["dark", "#26282b"], band: ["dark", "#2c2d30"], wire: ["dark", "#141414"], stove: ["dark", "#151517"], beads: ["dark", "#1a1a1c"], tubIn: ["dark", "#3b5560", 1], black: ["dark", "#0c0c0d"], speaker: ["dark", "#18181a"],
     steel: ["bright", "#a6abb0"], chrome: ["bright", "#dadde0"], hub: ["bright", "#9ea2a6"], brass: ["bright", "#c9a24e"], inox: ["bright", "#b9bcbf"],
     coping: ["stoneV", "#f6ead8"], concrete: ["stoneV", "#c2bbb0"], corten: ["stoneV", "#7a4022"], stone: ["stoneV", "#f2dcc0"], poolIn: ["stoneV", "#3d9ab4", 1],
@@ -648,7 +687,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     cushion: ["soft", "#e9dfcc"], fabric: ["soft", "#f2e6d0"], leaf: ["soft", "#56703f"], pot: ["soft", "#9a6a48"], linen: ["soft", "#f7f3ea"], throw: ["soft", "#8a6f4e"], sofa: ["soft", "#ebe3d4"], rug: ["soft", "#b89c78"], curtain: ["soft", "#f3ead9"], cloth: ["soft", "#fbf8f2"], flower: ["soft", "#f3e9e0"], rose: ["soft", "#d7a1a0"],
     bulb: ["emit", "#ffd59a"], lens: ["emit", "#ffb468"], lampShade: ["emit", "#ffcf8a"], ember: ["emit", "#ff6a1c"], lamp: ["emit", "#ffd9a0"],
     glowWarm: ["glowV", "#ffc983"], glowBlue: ["glowV", "#38c8ff"], glowFire: ["glowV", "#ff8a3a"], glowAmber: ["glowV", "#ffb468"],
-    membrane: ["membrane", "#ffffff"], strutW: ["membrane", "#e2dfd8"], doorGlass: ["glass", "#ffffff"], glassB: ["glass", "#ffffff"], glass: ["glass", "#ffffff"], rib: ["paint", "#f2f0ea"], chairW: ["paint", "#f5f2ec"] };
+    membrane: ["membrane", "#ffffff"], strutW: ["membrane", "#e2dfd8"], doorGlass: ["glass", "#ffffff"], glassB: ["glass", "#ffffff"], glass: ["glass", "#ffffff"], rib: ["paint", "#f2f0ea"], chairW: ["paint", "#f5f2ec"],
+    parquet: ["wood", "#d8a878"], mat: ["soft", "#7d8c6f"], mat2: ["soft", "#b7856a"], cord: ["wood", "#3a2a20"], jute2: ["soft", "#d8c7ac"], drapeF: ["soft", "#f6ecdc"], charcoalF: ["soft", "#4a4744"], rattan: ["soft", "#c9a273"], cork: ["soft", "#b98d5e"], jute: ["soft", "#c8ad84"], ivory: ["soft", "#f5efe3"], blush: ["soft", "#e8c9c0"], napkin: ["soft", "#ece4d6"], drape: ["soft", "#f6ecdc"], velvetS: ["soft", "#7d8c69"], velvetT: ["soft", "#a85f42"], velvetN: ["soft", "#334055"],
+    cream: ["soft", "#f4ede1"], oat: ["soft", "#d8c7ac"], charcoal: ["soft", "#5d5955"], terracotta: ["soft", "#b4643e"], olive: ["soft", "#7f8c5c"], olive2: ["soft", "#9aa47a"], leafO: ["soft", "#5e6b45"], leafD: ["soft", "#3f5a32"], soil: ["soft", "#3b2b20"], bark: ["wood", "#7a5e4a"],
+    paper: ["paint", "#efe7d6"], mirror: ["dark", "#6e7378"], copper: ["bright", "#c07a46"], gold: ["bright", "#c9a24e"], wine: ["emit", "#5a1420"], gin: ["emit", "#a8ccc4"], glassB2: ["emit", "#c8d6d2"], bottle: ["emit", "#3a5a3a"], amber: ["emit", "#8a4a14"], ledStrip: ["emit", "#ffc27a"], uplight: ["glowV", "#ffb35c"], washW: ["glowV", "#ffd9a8"] };
   var SHADOW = { membrane: 1, wood: 1 };
   // the outdoor set (decks, tubs, furniture, festoons, path lights, the sign body) and the vaults: steel and chrome go dark (one draw fewer)
   var OUT_T = Object.assign({}, EXT, { steel: ["dark", "#8f9499"], chrome: ["dark", "#b8bcc0"], brass: ["dark", "#9a7a3a"], inox: ["dark", "#a0a4a8"], hub: ["dark", "#8c9094"], glassB: ["emit", "#ffd59a"] });
@@ -693,7 +735,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var GK = new Kit(), pl = function (key, s1, s2, lx, ly, lz) { var q2 = new THREE.PlaneGeometry(s1, s2); q2.rotateX(-PI / 2); q2.translate(lx, ly, lz); GK.add(key, q2); }; var d = P.dd;
       pl("glowBlue", 3.4, 3.4, d.tub[0], 0.02, d.tub[1]); pl("glowFire", 3.6, 3.6, d.fire[0], 0.022, d.fire[1]); pl("glowWarm", d.xR - d.xL + 2, d.zF - P.R + 3.5, (d.xL + d.xR) / 2, 0.018, (P.R + d.zF) / 2 + 0.2); GK.based(EXT, m4, smG); });
     wK.based(EXT, null, stG); for (var bk in smG) (stG[bk] || (stG[bk] = [])).push.apply(stG[bk], smG[bk]);
-    try { addBollards(S, (S.paths || []).filter(function (p) { return !p.P.vault && p.P.cl === CL; }), OUT_T, stG); addSignBodies((S.signs || []).filter(function (sg) { return sg.cl === CL; }), OUT_T, stG); } catch (e) { note("bollards", e); }
+    try { addGardenLights(list, OUT_T, stG); addBollards(S, (S.paths || []).filter(function (p) { return !p.P.vault && p.P.cl === CL; }), OUT_T, stG); addSignBodies((S.signs || []).filter(function (sg) { return sg.cl === CL; }), OUT_T, stG); } catch (e) { note("bollards", e); }
     for (var bk2 in stG) stG[bk2].forEach(function (g0) { if (!g0.attributes.color) return; }); staticMeshes(remap(stG, OUT_T), near, { wood: 1 });
     // the far version: a plain dome and a deck slab per suite
     var fgeo = buildShell("L", 4.7).far; E.far = new THREE.Group(); E.far.name = "domes_far_" + CL.id; E.far.visible = false; g.add(E.far); var n = list.length;
@@ -709,6 +751,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // the path lights of a set of paths and the welcome sign bodies, added to a merged set (no draws of their own)
   function bollardPts(S, paths) { var sp = C("light.bollardSpacing", 6.5), pts = []; paths.forEach(function (p, pi) { var acc = sp * 0.4, side = pi % 2 ? 1 : -1;
       for (var i = 0; i < p.pts.length - 1; i++) { var a = p.pts[i], b = p.pts[i + 1]; var L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (!L) continue; var dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L; var t = 0; while (acc + (L - t) >= sp) { t += sp - acc; acc = 0; var x = a[0] + dx * t - dz * side * (p.w / 2 + 0.35), z = a[1] + dz * t + dx * side * (p.w / 2 + 0.35); side = -side; if (!S.suites.concat(S.vaults).some(function (Q) { return inPoly(deckPoly(Q, 0.2), x, z); })) pts.push([x, z]); } acc += L - t; } }); return pts; }
+  function gardenPts(P) { var d = P.dd, m = 1.8, pts = [], rect = [[d.xL - m, d.zB - m], [d.xR + m, d.zB - m], [d.xR + m, d.zF + m], [d.xL - m, d.zF + m]];
+    for (var i = 0; i < 4; i++) { var a = rect[i], b = rect[(i + 1) % 4], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(L / 4.4)); for (var k = 0; k < n; k++) { var t = k / n, lx = a[0] + (b[0] - a[0]) * t, lz = a[1] + (b[1] - a[1]) * t; if (lz > d.zF - 0.5 && Math.abs(lx) < 2.4) continue; var w = l2w(P, lx, lz); if ((P.pathPts || []).some(function (q) { return Math.hypot(q[0] - w[0], q[1] - w[1]) < 1.6; })) continue; pts.push(w); } } return pts; }
+  function addGardenLights(list, tints, G) { list.forEach(function (P) { if (!P.garden) return; gardenPts(P).forEach(function (p) { var y = planGroundAt(p[0], p[1]); var K = new Kit(); bollardKit(K); var q = new THREE.PlaneGeometry(1.8, 1.8); q.rotateX(-PI / 2); q.translate(0, 0.07, 0); K.add("glowAmber", q); K.based(tints, _M.makeTranslation(p[0], y - 0.02, p[1]), G); DM.n.gardenLights = (DM.n.gardenLights || 0) + 1; }); }); }
   function addBollards(S, paths, tints, G) { var pts = bollardPts(S, paths); pts.forEach(function (p) { var y = planGroundAt(p[0], p[1]); var K = new Kit(); bollardKit(K); var q = new THREE.PlaneGeometry(1.8, 1.8); q.rotateX(-PI / 2); q.translate(0, 0.07, 0); K.add("glowAmber", q); K.based(tints, _M.makeTranslation(p[0], y - 0.02, p[1]), G); }); DM.n.bollards = (DM.n.bollards || 0) + pts.length; }
   function addSignBodies(signs, tints, G) { signs.forEach(function (sg) { var y = planGroundAt(sg.x, sg.z); var m4 = new THREE.Matrix4().compose(V3(sg.x, y, sg.z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), sg.rot), V3(1, 1, 1)); var K = new Kit(); K.box("stone", 3.4, 0.5, 0.75, 0, 0.25, 0, 0, 1); K.box("corten", 3.0, 1.25, 0.1, 0, 1.12, 0, 0, 1); K.box("metal", 3.1, 0.06, 0.16, 0, 1.78, 0, 0); var gq = new THREE.PlaneGeometry(4, 4); gq.rotateX(-PI / 2); gq.translate(0, 0.04, 0); K.add("glowWarm", gq); K.based(tints, m4, G); }); }
   function remap(G, tints) { var mv = { bright: "dark" }; for (var a in mv) if (G[a]) { (G[mv[a]] || (G[mv[a]] = [])).push.apply(G[mv[a]], G[a]); delete G[a]; } if (tints === OUT_T && G.glass) { (G.emit || (G.emit = [])).push.apply(G.emit, G.glass); delete G.glass; } return G; }
@@ -729,104 +774,145 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var ss = addSolid(sg.x, sg.z, sg.rot, 3.4, 0.75, y - 0.2, y + 1.8, "domes"); if (ss) DM.sol.push(ss); });
   }
 
-  // ───────────────────────── the Grand Vault Dome: a squared vault of soft white panels, both ends glazed in a great arch ─────────────────────────
-  // The skin is y = H sqrt(1 - |x/a|^p) sqrt(1 - |z/b|^q) over the square floor, cut by the planes z = ±L/2: the crown is high in
-  // the middle and bulges forward over each end, where the arch is as wide as the vault and low, like a pillow. Panels follow an even grid on it (each a soft pillow with a welded seam),
-  // a cream liner inside on white steel ribs. The glazing stands a little inside each end: dark mullions, a transom, double doors.
-  function vSec(V, z) { var s2 = Math.max(1e-4, 1 - Math.pow(Math.abs(z) / V.b, V.q)); return { ax: V.a, hy: V.H * Math.sqrt(s2) }; }
-  function vPt(V, th, z) { var c = Math.cos(th), sec = vSec(V, z); var X = (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 2 / V.p); return V3(sec.ax * X, sec.hy * Math.sin(th), z); }
-  function vNrm(V, p) { var hz = vSec(V, p.z).hy, ax = Math.abs(p.x) / V.a; var gx = V.p * Math.pow(ax, V.p - 1) / V.a * (p.x < 0 ? -1 : 1), gy = 2 * p.y / (hz * hz); var s2 = Math.max(1e-4, 1 - Math.pow(Math.abs(p.z) / V.b, V.q)); var dS = -0.5 * V.q * Math.pow(Math.abs(p.z) / V.b, V.q - 1) / V.b * (p.z < 0 ? -1 : 1) / s2; var gz = -2 * p.y * p.y / (hz * hz) * dS; return V3(gx, gy, gz).normalize(); }
-  // arc-length parameters across the section (n panels), so the panels come out even
-  function vThetas(V, n) { var N = 400, acc = [0], prev = vPt(V, 0, 0); for (var i = 1; i <= N; i++) { var p = vPt(V, i / N * PI, 0); acc.push(acc[i - 1] + p.distanceTo(prev)); prev = p; } var tot = acc[N], out = []; var j = 0; for (var k = 0; k <= n; k++) { var want = Math.min(tot, tot * k / n); while (j < N - 1 && acc[j + 1] < want) j++; var f = (want - acc[j]) / Math.max(1e-9, acc[j + 1] - acc[j]); out.push((j + clamp(f, 0, 1)) / N * PI); } return { th: out, len: tot }; }
-  // the arch outline at z: points from the right foot over the crown to the left foot
-  function vArch(V, z, n) { var pts = []; for (var i = 0; i <= n; i++) pts.push(vPt(V, i / n * PI, z)); return pts; }
-  function archY(V, z, x) { var sec = vSec(V, z); var X = Math.abs(x) / sec.ax; if (X >= 1) return 0; return sec.hy * Math.sqrt(1 - Math.pow(X, V.p)); }
+  // ───────────────────────── the Grand Vault Dome: a flattened dome over a square floor, both ends glazed in a great arch ─────────────────────────
+  // The skin is the superellipsoid S^(m/p) + (y/H)^n = 1 with S = |x/a|^p + |z/b|^p: p squares the plan, m broadens the crown and
+  // n = 2 brings the skirt down near vertical to the deck (a squashed half sphere over a near square, about 0.4 of its width high).
+  // The planes z = ±c cut its two ends into wide arches with a white rolled rim; the glazing stands under the hood of each arch
+  // (vaults.shape.recess): a dark frame, mullions, a transom, glass double doors at the front. The long sides are solid membrane,
+  // with a big arched window band on the sides each venue names (vaults.venues[].sideWin). Panels follow an even arc-length grid,
+  // each a soft pillow with a welded seam; a cream liner inside on white steel ribs; a low white curb where the skirt meets the deck.
+  function vF(V, x, y, z) { var S = Math.pow(Math.abs(x) / V.a, V.p) + Math.pow(Math.abs(z) / V.b, V.p); return Math.pow(S, V.m / V.p) + Math.pow(Math.max(0, y) / V.H, V.n) - 1; }
+  function vNrm(V, q) { var ax = Math.abs(q.x) / V.a, az = Math.abs(q.z) / V.b, S = Math.pow(ax, V.p) + Math.pow(az, V.p), k = S > 1e-9 ? V.m * Math.pow(S, V.m / V.p - 1) : 0;
+    return V3(k * Math.pow(ax, V.p - 1) / V.a * (q.x < 0 ? -1 : 1), V.n * Math.pow(Math.max(0, q.y) / V.H, V.n - 1) / V.H, k * Math.pow(az, V.p - 1) / V.b * (q.z < 0 ? -1 : 1)).normalize(); }
+  // the skin's height over (x, z), and its half width at height y in the section z (0 where the skin is lower)
+  function vRoof(V, x, z) { var S = Math.pow(Math.abs(x) / V.a, V.p) + Math.pow(Math.abs(z) / V.b, V.p); return S >= 1 ? 0 : V.H * Math.pow(1 - Math.pow(S, V.m / V.p), 1 / V.n); }
+  function vHalf(V, z, y) { var S = Math.pow(Math.max(0, 1 - Math.pow(clamp(y / V.H, 0, 1), V.n)), V.p / V.m) - Math.pow(Math.abs(z) / V.b, V.p); return S > 0 ? V.a * Math.pow(S, 1 / V.p) : 0; }
+  // the skin point of the section z seen from the floor centre at angle al (0 = the +x foot, PI / 2 = the crown), by bisection
+  function vRay(V, z, al) { var c = Math.cos(al), s = Math.sin(al), lo = 0, hi = Math.max(V.a, V.H) * 1.02; for (var i = 0; i < 22; i++) { var md = (lo + hi) / 2; if (vF(V, md * c, md * s, z) < 0) lo = md; else hi = md; } return V3(lo * c, lo * s, z); }
+  // n + 1 points at even arc length across the section z, from the +x foot over the crown to the -x foot
+  function vSection(V, z, n) { var N = 96, pts = [], acc = [0]; for (var i = 0; i <= N; i++) { var q = vRay(V, z, i / N * PI); pts.push(q); if (i) acc.push(acc[i - 1] + q.distanceTo(pts[i - 1])); } var tot = acc[N], out = [], j = 0;
+    for (var k = 0; k <= n; k++) { var want = tot * k / n; while (j < N - 1 && acc[j + 1] < want) j++; var f = clamp((want - acc[j]) / Math.max(1e-9, acc[j + 1] - acc[j]), 0, 1); out.push(pts[j].clone().lerp(pts[j + 1], f)); } return { pts: out, len: tot }; }
+  // an outline in the plane of a glazed end (points from the +x foot over the top): its height over x, its half width at y
+  function arcY(arc, x) { for (var i = 0; i < arc.length - 1; i++) { var a = arc[i], b = arc[i + 1]; if ((a.x - x) * (b.x - x) <= 0 && a.x !== b.x) return a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x); } return 0; }
+  function arcX(arc, y) { for (var i = 0; i < (arc.length >> 1); i++) { var a = arc[i], b = arc[i + 1]; if ((a.y - y) * (b.y - y) <= 0 && a.y !== b.y) return a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y); } return 0; }
+  // the side window band: a low wide arch on the skin, in (z, y); its outline counter-clockwise (over the top, then the sill)
+  function vWinTop(W, z) { var t = Math.abs(z) / W.zw; return t >= 1 ? W.yb : W.yb + W.h * Math.pow(1 - Math.pow(t, 2.4), 1 / 2.4); }
+  function vWinPoly(W) { var pts = [], N = 22; for (var i = 0; i <= N; i++) { var t = i / N * PI, c = Math.cos(t), s = Math.sin(t); pts.push([W.zw * (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 2 / 2.4), W.yb + W.h * Math.pow(s, 2 / 2.4)]); } return pts; }
+  function vLerpV(A, B, t) { return { p: A.p.clone().lerp(B.p, t), n: A.n.clone().lerp(B.n, t).normalize(), u: [A.u[0] + (B.u[0] - A.u[0]) * t, A.u[1] + (B.u[1] - A.u[1]) * t] }; }
+  // a convex polygon split by the line A -> B in (z, y): [left part (inside), right part]
+  function vSplit(poly, A, B) { var ins = [], outs = [], side = function (v) { return (B[0] - A[0]) * (v.p.y - A[1]) - (B[1] - A[1]) * (v.p.z - A[0]); };
+    for (var i = 0; i < poly.length; i++) { var P = poly[i], Q = poly[(i + 1) % poly.length], sp = side(P), sq = side(Q); if (sp >= 0) ins.push(P); else outs.push(P); if ((sp >= 0) !== (sq >= 0)) { var X = vLerpV(P, Q, sp / (sp - sq)); ins.push(X); outs.push(X); } } return [ins, outs]; }
+  function vClipWin(poly, wp) { var outs = [], cur = poly; for (var i = 0; i < wp.length && cur.length >= 3; i++) { var r = vSplit(cur, wp[i], wp[(i + 1) % wp.length]); if (r[1].length >= 3) outs.push(r[1]); cur = r[0]; } return { inside: cur.length >= 3 ? cur : null, outs: outs }; }
   var VGEO = DM.vgeo = DM.old ? {} : (DM.vgeo || {});
-  function buildVaultGeo(w) {
-    var key = "v" + w; if (VGEO[key]) return VGEO[key]; var d = vaultDims(w); var V = { a: d.a, b: d.b, p: d.p, q: d.q, H: d.H, L: d.L, W: d.W }; var K = new Kit(), z0 = -d.L / 2, z1 = d.L / 2;
-    var nu = Math.max(8, Math.round(vThetas(V, 8).len / 1.75)), nv = Math.max(4, Math.round(d.L / 1.75)); var TH = vThetas(V, nu).th;
-    var P = [], N = [], Uv = [], Pl = [], Nl = [], Ul = [];
-    var pushT = function (A, B, Cc, ua, ub, uc, nrmA, nrmB, nrmC) { P.push(A.x, A.y, A.z, B.x, B.y, B.z, Cc.x, Cc.y, Cc.z); N.push(nrmA.x, nrmA.y, nrmA.z, nrmB.x, nrmB.y, nrmB.z, nrmC.x, nrmC.y, nrmC.z); Uv.push(ua[0], ua[1], ub[0], ub[1], uc[0], uc[1]); };
-    var pushL = function (A, B, Cc, nrmA, nrmB, nrmC) { Pl.push(A.x, A.y, A.z, B.x, B.y, B.z, Cc.x, Cc.y, Cc.z); Nl.push(nrmA.x, nrmA.y, nrmA.z, nrmB.x, nrmB.y, nrmB.z, nrmC.x, nrmC.y, nrmC.z); Ul.push(0, 0, 1, 0, 0.5, 1); };
-    for (var j = 0; j < nv; j++) { var za = z0 + (z1 - z0) * j / nv, zb = z0 + (z1 - z0) * (j + 1) / nv;
-      for (var i = 0; i < nu; i++) { var A = vPt(V, TH[i], za), B = vPt(V, TH[i + 1], za), Cc = vPt(V, TH[i + 1], zb), Dd = vPt(V, TH[i], zb);
-        var ctr = A.clone().add(B).add(Cc).add(Dd).multiplyScalar(0.25), cn = vNrm(V, ctr), e = A.distanceTo(Cc); var lift = e * 0.02; var M0 = ctr.clone().addScaledVector(cn, lift);
-        var nA = vNrm(V, A), nB = vNrm(V, B), nC = vNrm(V, Cc), nD = vNrm(V, Dd); var blend = function (n) { return n.clone().multiplyScalar(0.6).add(cn.clone().multiplyScalar(0.4)).normalize(); };
-        // outward winding: (A, D, M) ... check with the normal
-        var t = [[A, B, M0, [0, 0], [1, 0], [0.5, 0.5], nA, nB], [B, Cc, M0, [1, 0], [1, 1], [0.5, 0.5], nB, nC], [Cc, Dd, M0, [1, 1], [0, 1], [0.5, 0.5], nC, nD], [Dd, A, M0, [0, 1], [0, 0], [0.5, 0.5], nD, nA]];
-        t.forEach(function (q) { var x0 = q[0], x1 = q[1]; var nn = new THREE.Vector3().subVectors(x1, x0).cross(new THREE.Vector3().subVectors(M0, x0)); var flip = nn.dot(cn) < 0; if (flip) pushT(x1, x0, M0, q[4], q[3], q[5], blend(q[7]), blend(q[6]), cn); else pushT(x0, x1, M0, q[3], q[4], q[5], blend(q[6]), blend(q[7]), cn);
-          var li = function (v, n) { return v.clone().addScaledVector(n, -0.14); }; if (flip) pushL(li(x1, q[7]), li(x0, q[6]), li(M0, cn).addScaledVector(cn, -lift), q[7], q[6], cn); else pushL(li(x0, q[6]), li(x1, q[7]), li(M0, cn).addScaledVector(cn, -lift), q[6], q[7], cn); }); } }
-    var sk = new THREE.BufferGeometry(); sk.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); sk.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3)); sk.setAttribute("uv", new THREE.Float32BufferAttribute(Uv, 2)); K.add("vskin", sk);
-    var ln = new THREE.BufferGeometry(); ln.setAttribute("position", new THREE.Float32BufferAttribute(Pl, 3)); ln.setAttribute("normal", new THREE.Float32BufferAttribute(Nl, 3)); ln.setAttribute("uv", new THREE.Float32BufferAttribute(Ul, 2)); K.add("vliner", ln);
-    // the rim round each arched end (a white rolled edge) and the ribs inside at every seam across
-    [z0, z1].forEach(function (z) { var arc = vArch(V, z, 48); for (var i = 0; i < arc.length - 1; i++) { var a = arc[i].clone(), b = arc[i + 1].clone(); var na = vNrm(V, a), nb = vNrm(V, b); a.addScaledVector(na, -0.04); b.addScaledVector(nb, -0.04); K.tube("rib", a, b, 0.11, 8); } });
-    for (var jj = 1; jj < nv; jj++) { var z = z0 + (z1 - z0) * jj / nv; var arc2 = vArch(V, z, 32); for (var k = 0; k < arc2.length - 1; k++) { var p0 = arc2[k], p1 = arc2[k + 1]; var n0 = vNrm(V, p0), n1 = vNrm(V, p1); K.beam("rib", p0.clone().addScaledVector(n0, -0.24), p1.clone().addScaledVector(n1, -0.24), 0.09, 0.16, n0); } }
-    // the base: a white sill along both sides at the floor
-    for (var s = 0; s < 24; s++) { var za2 = z0 + (z1 - z0) * s / 24, zb2 = z0 + (z1 - z0) * (s + 1) / 24; [-1, 1].forEach(function (sd) { var A2 = V3(sd * vSec(V, za2).ax + sd * 0.02, 0.09, za2), B2 = V3(sd * vSec(V, zb2).ax + sd * 0.02, 0.09, zb2); K.beam("rib", A2, B2, 0.18, 0.08, V3(sd, 0, 0)); }); }
-    // the glazing at both ends, set in by the recess: glass, dark frame round the arch, mullions, a transom, double doors (front)
-    var zg = d.L / 2 - d.recess, info = { key: key, d: d, V: V, zg: zg, doorHW: 1.05, doorH: 2.62, transom: 2.75 };
-    [-1, 1].forEach(function (sd) { var z = sd * zg; var arc = vArch(V, z, 40); var shape = arc.map(function (p) { return new THREE.Vector2(p.x, p.y); });
-      var tri = THREE.ShapeUtils.triangulateShape(shape, []); var gl = []; tri.forEach(function (t) { gl.push([V3(shape[t[0]].x, shape[t[0]].y, z), V3(shape[t[1]].x, shape[t[1]].y, z), V3(shape[t[2]].x, shape[t[2]].y, z)]); }); K.tris("glass", gl, 2);
-      for (var i = 0; i < arc.length - 1; i++) K.beam("strutD", arc[i].clone().add(V3(0, 0, -sd * 0.01)), arc[i + 1].clone().add(V3(0, 0, -sd * 0.01)), 0.1, 0.12, V3(0, 0, sd));
-      var aw = vSec(V, z).ax; var nm = Math.max(4, Math.round((2 * aw) / 1.3)); for (var m = 1; m < nm; m++) { var x = -aw + 2 * aw * m / nm; if (Math.abs(x) < info.doorHW + 0.25) continue; var yt = archY(V, z, x) - 0.03; if (yt < 0.3) continue; K.box("strutD", 0.08, yt, 0.12, x, yt / 2, z, 0); }
-      var tw = 0; var yT = info.transom; var xT = vSec(V, z).ax * Math.pow(Math.max(0, 1 - Math.pow(yT / vSec(V, z).hy, 2)), 1 / V.p); K.box("strutD", 2 * xT - 0.05, 0.1, 0.12, 0, yT, z, 0);
-      [-info.doorHW, info.doorHW].forEach(function (x) { K.box("strutD", 0.1, yT, 0.14, x, yT / 2, z, 0); }); K.box("strutD", 2 * info.doorHW + 0.1, 0.05, 0.16, 0, 0.025, z, 0);
+  function buildVaultGeo(w, wins) {
+    wins = wins || []; var key = "v" + w + "w" + wins.join("_"); if (VGEO[key]) return VGEO[key]; var d = vaultDims(w); var V = { a: d.a, b: d.b, p: d.p, m: d.m, n: d.n, H: d.H, c: d.c }; var K = new Kit(), c = d.c, zg = c - d.recess;
+    // seams across at the cut ends, at both glazing planes (a narrow hood row at each end: the skin lies on the true curve where
+    // the glazing frame meets it) and evenly between
+    var nu = Math.max(10, Math.round(vSection(V, 0, 8).len / 1.85)), ni = Math.max(2, Math.round(2 * zg / 1.8)), zs = [-c]; for (var j = 0; j <= ni; j++) zs.push(-zg + 2 * zg * j / ni); zs.push(c);
+    var nv = zs.length - 1, rows = zs.map(function (z) { return vSection(V, z, nu).pts; });
+    var WIN = wins.map(function (sd) { var Wn = { sd: sd, zw: Math.min(c * C("vaults.shape.winLen", 0.72), c - 1.3), yb: 0.34 }; Wn.h = Math.max(1.4, d.H * C("vaults.shape.winTop", 0.6) - Wn.yb); Wn.poly = vWinPoly(Wn); return Wn; });
+    // the skin and its liner (pillowed quads, four triangles round a raised centre), the side windows cut out exactly
+    var SK = { P: [], N: [], U: [] }, LN = { P: [], N: [], U: [] }, GL = [];
+    var emit = function (T, list) { list.forEach(function (v) { T.P.push(v.p.x, v.p.y, v.p.z); T.N.push(v.n.x, v.n.y, v.n.z); T.U.push(v.u[0], v.u[1]); }); };
+    var lin = function (v) { return { p: v.p.clone().addScaledVector(v.n, -0.14), n: v.n, u: v.u }; };
+    var poly = function (pl, glass) { for (var i = 1; i < pl.length - 1; i++) { var t = [pl[0], pl[i], pl[i + 1]]; if (glass) GL.push(t.map(function (v) { return v.p.clone().addScaledVector(v.n, -0.05); })); else { emit(SK, t); emit(LN, t.map(lin)); } } };
+    for (var jj = 0; jj < nv; jj++) for (var ii = 0; ii < nu; ii++) {
+      var A = rows[jj][ii], B = rows[jj][ii + 1], Cc = rows[jj + 1][ii + 1], Dd = rows[jj + 1][ii];
+      var ctr = A.clone().add(B).add(Cc).add(Dd).multiplyScalar(0.25), cn = vNrm(V, ctr), lift = A.distanceTo(Cc) * 0.022, M0 = ctr.clone().addScaledVector(cn, lift);
+      var bl = function (q) { return vNrm(V, q).multiplyScalar(0.6).add(cn.clone().multiplyScalar(0.4)).normalize(); };
+      var vA = { p: A, n: bl(A), u: [0, 0] }, vB = { p: B, n: bl(B), u: [1, 0] }, vC = { p: Cc, n: bl(Cc), u: [1, 1] }, vD = { p: Dd, n: bl(Dd), u: [0, 1] }, vM = { p: M0, n: cn, u: [0.5, 0.5] };
+      var Wn = null; WIN.forEach(function (W0) { if (ctr.x * W0.sd > 0.4 && Math.abs(ctr.z) < W0.zw + 2.4 && ctr.y < W0.yb + W0.h + 2.4) Wn = W0; });
+      [[vA, vB], [vB, vC], [vC, vD], [vD, vA]].forEach(function (e) { var t = [e[0], e[1], vM]; var nn = new THREE.Vector3().subVectors(t[1].p, t[0].p).cross(new THREE.Vector3().subVectors(t[2].p, t[0].p)); if (nn.dot(cn) < 0) t = [e[1], e[0], vM];
+        if (!Wn) { poly(t, false); return; } var r = vClipWin(t, Wn.poly); r.outs.forEach(function (o) { poly(o, false); }); if (r.inside) poly(r.inside, true); });
+    }
+    var mk = function (T) { var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(T.P, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(T.N, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(T.U, 2)); return g; };
+    K.add("vskin", mk(SK)); K.add("vliner", mk(LN)); if (GL.length) K.tris("glass", GL, 2);
+    // the white rolled rim round each arch (over the cut edge of skin and liner), the ribs inside at every seam across, the base curb
+    var n2d = function (q) { var n = vNrm(V, q); n.z = 0; return n.normalize(); };
+    [-c, c].forEach(function (z) { var arc = []; for (var i = 0; i <= 48; i++) { var q = vRay(V, z, i / 48 * PI); arc.push(q.addScaledVector(n2d(q), -0.065)); } for (var i2 = 0; i2 < 48; i2++) K.tube("rib", arc[i2], arc[i2 + 1], 0.115, 10); });
+    var ribs = []; for (var r1 = 2; r1 < nv - 1; r1++) { var row = rows[r1], rp = row.map(function (q) { return q.clone().addScaledVector(vNrm(V, q), -0.23); }); for (var k = 0; k < rp.length - 1; k++) K.beam("rib", rp[k], rp[k + 1], 0.07, 0.13, vNrm(V, row[k])); ribs.push(rp); }
+    for (var s = 0; s < 28; s++) { var za = -c + 2 * c * s / 28, zb = -c + 2 * c * (s + 1) / 28; [-1, 1].forEach(function (sd) { K.beam("rib", V3(sd * (vHalf(V, za, 0.09) + 0.035), 0.09, za), V3(sd * (vHalf(V, zb, 0.09) + 0.035), 0.09, zb), 0.18, 0.1, V3(sd, 0, 0)); }); }
+    // the side windows: a dark frame round the arch, a sill, mullions, a transom (all on the skin, through to the liner)
+    WIN.forEach(function (Wn) { var sd = Wn.sd; var onS = function (z, y) { var q = V3(sd * vHalf(V, z, y), y, z); return q.addScaledVector(vNrm(V, q), -0.03); };
+      var seg = function (z0, y0, z1, y1, wd) { var A2 = onS(z0, y0), B2 = onS(z1, y1); K.beam("strutD", A2, B2, wd, 0.2, vNrm(V, A2)); };
+      for (var i = 0; i < Wn.poly.length - 1; i++) seg(Wn.poly[i][0], Wn.poly[i][1], Wn.poly[i + 1][0], Wn.poly[i + 1][1], 0.1);
+      for (var i3 = 0; i3 < 12; i3++) seg(-Wn.zw + 2 * Wn.zw * i3 / 12, Wn.yb, -Wn.zw + 2 * Wn.zw * (i3 + 1) / 12, Wn.yb, 0.14);
+      var nm = Math.max(3, Math.round(2 * Wn.zw / 1.15)); for (var m = 1; m < nm; m++) { var zm = -Wn.zw + 2 * Wn.zw * m / nm, yt = vWinTop(Wn, zm); for (var k2 = 0; k2 < 6; k2++) seg(zm, Wn.yb + (yt - Wn.yb) * k2 / 6, zm, Wn.yb + (yt - Wn.yb) * (k2 + 1) / 6, 0.06); }
+      var yT = Wn.yb + Math.min(2.3, Wn.h * 0.66), zT = Wn.zw * Math.pow(Math.max(0, 1 - Math.pow((yT - Wn.yb) / Wn.h, 2.4)), 1 / 2.4); for (var k3 = 0; k3 < 10; k3++) seg(-zT + 2 * zT * k3 / 10, yT, -zT + 2 * zT * (k3 + 1) / 10, yT, 0.06); Wn.yT = yT; });
+    // the glazing at both ends, under the hood of the arch: glass, a dark frame round it, mullions, a transom and transom panes,
+    // the double doors at the front (their leaves are their own meshes) and a fixed pair at the back
+    var info = { key: key, d: d, V: V, zg: zg, c: c, doorHW: 1.05, doorH: 2.62, transom: 2.75, wins: WIN, rows: rows, nu: nu, nv: nv, ribs: ribs };
+    [-1, 1].forEach(function (sd) { var z = sd * zg; var arc = []; for (var i = 0; i <= 40; i++) { var q = vRay(V, z, i / 40 * PI); arc.push(q.addScaledVector(n2d(q), -0.21)); } arc[0].y = 0; arc[40].y = 0; info[sd > 0 ? "arcF" : "arcB"] = arc;
+      var shape = arc.map(function (q) { return new THREE.Vector2(q.x, q.y); }); var tri = THREE.ShapeUtils.triangulateShape(shape, []); var gl = []; tri.forEach(function (t) { gl.push([V3(shape[t[0]].x, shape[t[0]].y, z), V3(shape[t[1]].x, shape[t[1]].y, z), V3(shape[t[2]].x, shape[t[2]].y, z)]); }); K.tris("glass", gl, 2);
+      for (var i4 = 0; i4 < arc.length - 1; i4++) K.beam("strutD", arc[i4].clone().add(V3(0, 0, -sd * 0.01)), arc[i4 + 1].clone().add(V3(0, 0, -sd * 0.01)), 0.13, 0.16, V3(0, 0, sd));
+      var aw = arc[0].x, top = arcY(arc, 0); var nm2 = Math.max(4, Math.round((2 * aw) / 1.3)); for (var m2 = 1; m2 < nm2; m2++) { var x = -aw + 2 * aw * m2 / nm2; if (Math.abs(x) < info.doorHW + 0.25) continue; var yt = arcY(arc, x) - 0.03; if (yt < 0.3) continue; K.box("strutD", 0.08, yt, 0.12, x, yt / 2, z, 0); }
+      var yT = info.transom, xT = arcX(arc, yT); K.box("strutD", 2 * xT - 0.05, 0.1, 0.12, 0, yT, z, 0); if (top - yT > 1.5) { var yT2 = yT + (top - yT) * 0.48, xT2 = arcX(arc, yT2); K.box("strutD", 2 * xT2 - 0.05, 0.07, 0.11, 0, yT2, z, 0); }
+      [-info.doorHW, info.doorHW].forEach(function (x2) { K.box("strutD", 0.1, yT, 0.14, x2, yT / 2, z, 0); }); K.box("strutD", 2 * info.doorHW + 0.1, 0.05, 0.16, 0, 0.025, z, 0);
       if (sd < 0) { [-0.5, 0.5].forEach(function (o) { K.box("strutD", 0.06, info.doorH, 0.06, o * 2 * info.doorHW, info.doorH / 2, z - sd * 0.02, 0); }); } });
     // the deck: boards, fascia, posts, steps, the cable railing round it (a gap for the steps), string light posts
-    var dH = d.dH, xL = d.xL, xR = d.xR, zB = d.zB, zF = d.zF, Wd = xR - xL, Dd = zF - zB, xc = (xL + xR) / 2, zc = (zB + zF) / 2;
-    K.box("deck", Wd, 0.05, Dd, xc, -0.025, zc, 0, 1.6); K.box("timber", Wd + 0.04, 0.34, 0.05, xc, -0.2, zB - 0.02, 0, 1); K.box("timber", Wd + 0.04, 0.34, 0.05, xc, -0.2, zF + 0.02, 0, 1); K.box("timber", 0.05, 0.34, Dd, xL - 0.02, -0.2, zc, 0, 1); K.box("timber", 0.05, 0.34, Dd, xR + 0.02, -0.2, zc, 0, 1);
-    var nx = Math.ceil(Wd / 2.4), nz = Math.ceil(Dd / 2.4); for (var jz = 0; jz <= nz; jz++) { var zz = zB + 0.15 + (Dd - 0.3) * jz / nz; K.box("post", Wd - 0.2, 0.22, 0.12, xc, -0.48, zz, 0, 1); for (var ix = 0; ix <= nx; ix++) { var xx = xL + 0.15 + (Wd - 0.3) * ix / nx; K.box("post", 0.16, dH, 0.16, xx, -0.37 - dH / 2, zz, 0, 1); } }
+    var dH = d.dH, xL = d.xL, xR = d.xR, zB = d.zB, zF = d.zF, Wd = xR - xL, Dp = zF - zB, xc = (xL + xR) / 2, zc = (zB + zF) / 2;
+    K.box("deck", Wd, 0.05, Dp, xc, -0.025, zc, 0, 1.6); K.box("timber", Wd + 0.04, 0.34, 0.05, xc, -0.2, zB - 0.02, 0, 1); K.box("timber", Wd + 0.04, 0.34, 0.05, xc, -0.2, zF + 0.02, 0, 1); K.box("timber", 0.05, 0.34, Dp, xL - 0.02, -0.2, zc, 0, 1); K.box("timber", 0.05, 0.34, Dp, xR + 0.02, -0.2, zc, 0, 1);
+    var nx = Math.ceil(Wd / 2.4), nz = Math.ceil(Dp / 2.4); for (var jz = 0; jz <= nz; jz++) { var zz = zB + 0.15 + (Dp - 0.3) * jz / nz; K.box("post", Wd - 0.2, 0.22, 0.12, xc, -0.48, zz, 0, 1); for (var ix = 0; ix <= nx; ix++) { var xx = xL + 0.15 + (Wd - 0.3) * ix / nx; K.box("post", 0.16, dH, 0.16, xx, -0.37 - dH / 2, zz, 0, 1); } }
     var rail = function (ax, az, bx, bz) { var L2 = Math.hypot(bx - ax, bz - az); if (L2 < 0.05) return; var ry = Math.atan2(bx - ax, bz - az), mx = (ax + bx) / 2, mz = (az + bz) / 2; K.box("timber", 0.12, 0.05, L2 + 0.06, mx, 1.0, mz, ry, 1); [0.25, 0.47, 0.69].forEach(function (y) { K.box("steel", 0.012, 0.012, L2, mx, y, mz, ry); }); var n = Math.max(1, Math.ceil(L2 / 1.6)); for (var k = 0; k <= n; k++) { var t = k / n; K.box("metal", 0.06, 1.0, 0.06, ax + (bx - ax) * t, 0.5, az + (bz - az) * t, ry); } };
     var e = 0.03, sg = 1.7; rail(xL + e, zB + e, xR - e, zB + e); rail(xL + e, zB + e, xL + e, zF - e); rail(xR - e, zB + e, xR - e, zF - e); rail(xL + e, zF - e, -sg, zF - e); rail(sg, zF - e, xR - e, zF - e);
     var rise = (dH - 0.18) / 5, run = 0.3; for (var st = 1; st <= 4; st++) K.box("timber", 2 * sg - 0.1, 0.05, run + 0.02, 0, -rise * st - 0.025, zF + run * (st - 0.5), 0, 1); [-1, 1].forEach(function (sd) { K.beam("timber", V3(sd * (sg - 0.06), -0.05, zF), V3(sd * (sg - 0.06), -dH + 0.05, zF + run * 4.2), 0.05, 0.22, V3(sd, 0, 0)); K.tube("metal", V3(sd * (sg - 0.06), 1.0, zF), V3(sd * (sg - 0.06), -dH + 0.95, zF + run * 4), 0.025, 6); K.box("metal", 0.05, 0.95, 0.05, sd * (sg - 0.06), -dH + 0.47, zF + run * 4); });
-    var posts = [[xL + 0.12, zF - 0.12], [xR - 0.12, zF - 0.12], [xL + 0.12, (zc + zF) / 2 - 1], [xR - 0.12, (zc + zF) / 2 - 1], [-sg - 0.12, zF - 0.12], [sg + 0.12, zF - 0.12]]; posts.forEach(function (pp) { K.box("metal", 0.1, 3.4, 0.1, pp[0], 1.7, pp[1], 0); });
+    var posts = [[xL + 0.12, zF - 0.12], [xR - 0.12, zF - 0.12], [xL + 0.12, (c + zF) / 2 - 0.6], [xR - 0.12, (c + zF) / 2 - 0.6], [-sg - 0.12, zF - 0.12], [sg + 0.12, zF - 0.12]]; posts.forEach(function (pp) { K.box("metal", 0.1, 3.4, 0.1, pp[0], 1.7, pp[1], 0); });
     // the festoons: from the front posts up to the arch rim and across the front, sagging
-    var bulbs = [], WK = new Kit(); var run2 = function (a, b, sag) { var L2 = a.distanceTo(b), n = Math.max(2, Math.round(L2 / 0.6)); var prev = null; for (var i = 0; i <= n; i++) { var t = i / n; var p = a.clone().lerp(b, t); p.y -= sag * 4 * t * (1 - t); if (prev) WK.tube("wire", prev, p, 0.008, 4); prev = p; if (i > 0 && i < n) bulbs.push(p.clone().add(V3(0, -0.07, 0))); } };
-    var rimF = function (th) { var p = vPt(V, th, z1); return p.add(V3(0, 0, 0.1)); };
+    var bulbs = [], WK = new Kit(); var clear = function (a, b, sag) { for (var t = 0.05; t < 0.93; t += 0.04) { var p = a.clone().lerp(b, t); p.y -= sag * 4 * t * (1 - t); if (vF(V, p.x, p.y, p.z) < 0.06) return false; } return true; };
+    var run2 = function (a, b, sag) { if (!clear(a, b, sag)) return false; var L2 = a.distanceTo(b), n = Math.max(2, Math.round(L2 / 0.6)); var prev = null; for (var i = 0; i <= n; i++) { var t = i / n; var p = a.clone().lerp(b, t); p.y -= sag * 4 * t * (1 - t); if (prev) WK.tube("wire", prev, p, 0.008, 4); prev = p; if (i > 0 && i < n) bulbs.push(p.clone().add(V3(0, -0.07, 0))); } return true; };
+    var rimF = function (th) { var q = vRay(V, c, th); return q.addScaledVector(n2d(q), 0.06).add(V3(0, 0, 0.12)); };
     run2(V3(xL + 0.12, 3.3, zF - 0.12), V3(-sg - 0.12, 3.3, zF - 0.12), 0.35); run2(V3(sg + 0.12, 3.3, zF - 0.12), V3(xR - 0.12, 3.3, zF - 0.12), 0.35);
-    [[xL + 0.12, zF - 0.12, 0.62 * PI], [xR - 0.12, zF - 0.12, 0.38 * PI], [-sg - 0.12, zF - 0.12, 0.55 * PI], [sg + 0.12, zF - 0.12, 0.45 * PI], [xL + 0.12, (zc + zF) / 2 - 1, 0.8 * PI], [xR - 0.12, (zc + zF) / 2 - 1, 0.2 * PI]].forEach(function (q) { run2(V3(q[0], 3.3, q[1]), rimF(q[2]), 0.45); });
+    [[xL + 0.12, zF - 0.12, 0.66 * PI], [xR - 0.12, zF - 0.12, 0.34 * PI], [-sg - 0.12, zF - 0.12, 0.56 * PI], [sg + 0.12, zF - 0.12, 0.44 * PI]].forEach(function (q) { run2(V3(q[0], 3.3, q[1]), rimF(q[2]), 0.45); });
+    [[xL + 0.12, (c + zF) / 2 - 0.6, xL + 0.12], [xR - 0.12, (c + zF) / 2 - 0.6, xR - 0.12]].forEach(function (q) { if (!run2(V3(q[0], 3.3, q[1]), rimF(q[0] < 0 ? 0.86 * PI : 0.14 * PI), 0.45)) run2(V3(q[0], 3.3, q[1]), V3(q[2], 3.3, zF - 0.12), 0.32); });
     bulbs.forEach(function (b) { WK.sph("bulb", 0.05, b.x, b.y, b.z, 1, 8); }); info.K = K; info.WK = WK; info.bulbs = bulbs; info.tris = Math.round(K.count() + WK.count());
     // the door leaves (front, a pair, each hinged at its outer post, closed in the plane z = 0, opening outward)
     var LK = new Kit(), lw = info.doorHW - 0.02, lh = info.doorH; info.LK = LK; LK.box("doorGlass", lw - 0.1, lh - 0.1, 0.02, lw / 2, lh / 2, 0, 0); LK.box("strutD", 0.06, lh, 0.06, 0.03, lh / 2, 0); LK.box("strutD", 0.06, lh, 0.06, lw - 0.03, lh / 2, 0); LK.box("strutD", lw, 0.08, 0.06, lw / 2, 0.05, 0); LK.box("strutD", lw, 0.06, 0.06, lw / 2, lh - 0.03, 0); LK.box("chrome", 0.03, 1.1, 0.03, lw - 0.15, 1.15, 0.06); LK.box("chrome", 0.03, 1.1, 0.03, lw - 0.15, 1.15, -0.06); info.leaf = LK.geos(); info.leafW = lw;
-    // the floor polygon (the footprint at the floor)
-    var fl = []; for (var f = 0; f <= 24; f++) { var zf = -zg + 2 * zg * f / 24; fl.push([vSec(V, zf).ax - 0.06, zf]); } for (var f2 = 24; f2 >= 0; f2--) { var zf2 = -zg + 2 * zg * f2 / 24; fl.push([-vSec(V, zf2).ax + 0.06, zf2]); } info.floor = fl;
+    // the floor polygon (the footprint at the floor, between the glazed ends)
+    var fl = []; for (var f = 0; f <= 28; f++) { var zf = -zg + 2 * zg * f / 28; fl.push([vHalf(V, zf, 0.01) - 0.06, zf]); } for (var f2 = 28; f2 >= 0; f2--) { var zf2 = -zg + 2 * zg * f2 / 28; fl.push([-vHalf(V, zf2, 0.01) + 0.06, zf2]); } info.floor = fl;
     return (VGEO[key] = info);
   }
-  // the decks' outdoor pieces, fitted to each use: dining tables under market umbrellas, a floral wedding arch and cocktail
-  // tables, planters and a bench at the studio (merged per venue, with their seats and solids)
+  // the decks' outdoor pieces, fitted to each use: teak tables with cross-back chairs under market umbrellas at the dining room,
+  // a floral wedding arch and dressed cocktail tables at the hall, stone planters of agave and a teak bench at the studio (merged
+  // per venue, with their seats and solids)
   function vaultDeck(Vn, G) {
     var Mt = mats(), VG = Vn.VG, d = VG.d, L2 = d.L / 2, K = new Kit(), use = Vn.use, D = Vn.D;
     var sol = function (lx, lz, w, dd, y0, y1, ry) { return pSolid(Vn, lx, lz, w, dd, D + y0, D + y1, ry); };
     var seat = function (lx, lz, w, dd, y, face) { var sd = pSolid(Vn, lx, lz, w, dd, D + y - 0.4, D + y); if (sd) { sd.seat = true; sd.face = Vn.rot + face; } return sd; };
+    var umbrella = function (x, z) { var f = FP(K, x, z, 0); f.rod("teak", [0, 0, 0], [0, 2.55, 0], 0.024, 8); f.lathe("fabric", [[1.5, 2.2], [1.1, 2.38], [0.5, 2.55], [0.04, 2.66]], 10, 0, 0, 0); f.lathe("fabric", [[0.04, 2.655], [0.5, 2.545], [1.1, 2.375], [1.5, 2.195]], 10, 0, 0, 0); f.cyl("teak", 0.03, 0.03, 0.12, 0, 2.7, 0, 8); for (var r = 0; r < 8; r++) { var a = r / 8 * TAU; f.rod("teak", [0, 2.3, 0], [Math.sin(a) * 1.45, 2.21, Math.cos(a) * 1.45], 0.008, 4); } };
     if (use === "restaurant") {
-      [[-4.2, L2 + 2.4, 1], [4.2, L2 + 2.4, 1], [-6.9, L2 + 4.6, 0], [6.9, L2 + 4.6, 0], [-4.2, L2 + 5.2, 0], [4.2, L2 + 5.2, 1]].forEach(function (t) { var x = t[0], z = t[1]; if (Math.abs(x) + 1.2 > d.xR || z + 1.1 > d.zF) return; K.box("teak", 0.9, 0.04, 0.9, x, 0.74, z, 0, 0.5); K.box("metal", 0.06, 0.72, 0.06, x, 0.36, z, 0); sol(x, z, 0.9, 0.9, 0, 0.76);
-        [0, PI / 2, PI, -PI / 2].forEach(function (a) { var cx = x + Math.sin(a) * 0.7, cz = z + Math.cos(a) * 0.7; K.box("teak", 0.44, 0.04, 0.42, cx, 0.45, cz, a, 0.5); K.box("teak", 0.44, 0.36, 0.03, cx + Math.sin(a) * 0.2, 0.66, cz + Math.cos(a) * 0.2, a, 0.5); [[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]].forEach(function (l) { var c = Math.cos(a), s2 = Math.sin(a); K.box("metal", 0.03, 0.45, 0.03, cx + l[0] * c + l[1] * s2, 0.225, cz - l[0] * s2 + l[1] * c, a); }); seat(cx, cz, 0.44, 0.42, 0.48, a + PI); });
-        if (t[2]) { K.cyl("metal", 0.025, 0.025, 2.5, x, 1.25, z, 8); var cn = new THREE.ConeGeometry(1.45, 0.55, 8, 1, true); K.geo("fabric", cn, x, 2.55, z); K.cyl("fabric", 0.05, 0.05, 0.12, x, 2.86, z, 8); } else { K.cyl("lampShade", 0.05, 0.05, 0.1, x, 0.81, z, 10); } });
+      [[-4.2, L2 + 2.4, 1], [4.2, L2 + 2.4, 1], [-6.9, L2 + 4.6, 0], [6.9, L2 + 4.6, 0], [-4.2, L2 + 5.2, 0], [4.2, L2 + 5.2, 1]].forEach(function (t) { var x = t[0], z = t[1]; if (Math.abs(x) + 1.2 > d.xR || z + 1.1 > d.zF) return; tableK(K, x, z, { s: 0.86, top: "teak", leg: "teak" }); sol(x, z, 0.9, 0.9, 0, 0.76);
+        [0, PI / 2, PI, -PI / 2].forEach(function (a) { var cx = x + Math.sin(a) * 0.68, cz = z + Math.cos(a) * 0.68; crossChairP(K, cx, cz, a + PI, { wood: "teak", seat: "rattan" }); seat(cx, cz, 0.44, 0.42, 0.48, a + PI); });
+        if (t[2]) umbrella(x, z); else { var f = FP(K, x, z, 0); candleK(f, 0, 0, 0.752); } });
     } else if (use === "hall") {
       // the wedding arch over the aisle in front of the doors: timber posts, a beam, white drapes, flowers
       var az = L2 + 3.4; [-1.25, 1.25].forEach(function (x) { K.box("timber", 0.14, 2.6, 0.14, x, 1.3, az, 0, 1); sol(x, az, 0.2, 0.2, 0, 2.6); }); K.box("timber", 3.0, 0.14, 0.18, 0, 2.62, az, 0, 1);
-      [-1, 1].forEach(function (sd) { var pts = []; for (var i = 0; i <= 8; i++) { var t2 = i / 8; pts.push(V3(sd * (1.25 - 0.9 * t2), 2.55 - 0.5 * Math.sin(t2 * PI) * 0.6, az + 0.12)); } for (var j = 0; j < 8; j++) K.tube("cloth", pts[j], pts[j + 1], 0.06, 6); K.box("cloth", 0.32, 2.4, 0.03, sd * 1.25, 1.25, az + 0.14, 0); });
-      for (var f = 0; f < 26; f++) { var a2 = f / 26, fx = -1.35 + 2.7 * a2, fy = 2.7 + Math.sin(a2 * PI * 3) * 0.06; K.sph(f % 3 ? "flower" : "rose", 0.09 + (f % 4) * 0.015, fx, fy, az + (f % 2) * 0.1, 1, 6); if (f % 2) K.sph("leaf", 0.1, fx + 0.05, fy - 0.06, az + 0.08, 0.6, 6); } [-1.25, 1.25].forEach(function (x) { for (var f2 = 0; f2 < 6; f2++) K.sph(f2 % 2 ? "flower" : "leaf", 0.1, x + (f2 % 2 ? 0.08 : -0.06), 0.6 + f2 * 0.32, az + 0.1, 1, 6); });
-      [[-5.6, L2 + 2.2], [5.6, L2 + 2.2], [-6.4, L2 + 5.4], [6.4, L2 + 5.4]].forEach(function (t) { if (Math.abs(t[0]) + 0.6 > d.xR) return; K.cyl("cloth", 0.36, 0.42, 1.08, t[0], 0.54, t[1], 18); K.cyl("cloth", 0.36, 0.36, 0.02, t[0], 1.09, t[1], 18); K.cyl("glassB", 0.04, 0.03, 0.14, t[0], 1.17, t[1], 8); K.cyl("lamp", 0.03, 0.03, 0.07, t[0] + 0.12, 1.13, t[1], 8); sol(t[0], t[1], 0.8, 0.8, 0, 1.1); });
+      [-1, 1].forEach(function (sd) { var pts = []; for (var i = 0; i <= 8; i++) { var t2 = i / 8; pts.push(V3(sd * (1.25 - 0.9 * t2), 2.55 - 0.5 * Math.sin(t2 * PI) * 0.6, az + 0.12)); } for (var j = 0; j < 8; j++) K.tube("ivory", pts[j], pts[j + 1], 0.06, 6); FP(K, sd * 1.3, az + 0.16, 0).geo("ivory", drapeGeo(0.36, 2.45, 0.09, 0.03), 0, 0.02, 0); });
+      for (var f2 = 0; f2 < 30; f2++) { var a2 = f2 / 30, fx = -1.4 + 2.8 * a2, fy = 2.72 + Math.sin(a2 * PI * 3) * 0.06; K.sph(f2 % 3 ? "flower" : (f2 % 2 ? "rose" : "blush"), 0.085 + (f2 % 4) * 0.014, fx, fy, az + (f2 % 2) * 0.1, 1, 8); if (f2 % 2) K.sph("leaf", 0.1, fx + 0.05, fy - 0.07, az + 0.08, 0.55, 6); } [-1.25, 1.25].forEach(function (x) { for (var f3 = 0; f3 < 7; f3++) K.sph(f3 % 2 ? "flower" : "leaf", 0.1, x + (f3 % 2 ? 0.08 : -0.06), 0.5 + f3 * 0.3, az + 0.1, 1, 6); });
+      [[-5.6, L2 + 2.2], [5.6, L2 + 2.2], [-6.4, L2 + 5.4], [6.4, L2 + 5.4]].forEach(function (t) { if (Math.abs(t[0]) + 0.6 > d.xR || t[1] + 0.6 > d.zF) return; var f = FP(K, t[0], t[1], 0); f.geo("ivory", clothGeo(0.36, 1.08, 7, t[0]), 0, 0, 0); f.lathe("glassB", [[0, 0], [0.035, 0], [0.004, 0.012], [0.004, 0.1], [0.03, 0.12], [0.036, 0.17], [0.03, 0.2]], 10, 0.1, 1.085, 0); candleK(f, -0.08, 0.05, 1.085); sol(t[0], t[1], 0.8, 0.8, 0, 1.1); });
     } else {
-      [[-d.W / 2 - 1.2, L2 + 1.2], [d.W / 2 + 1.2, L2 + 1.2], [-d.W / 2 - 1.2, -L2 + 0.5], [d.W / 2 + 1.2, -L2 + 0.5], [-3.2, d.zF - 0.8], [3.2, d.zF - 0.8]].forEach(function (p, i) { K.cyl("concrete", 0.35, 0.3, 0.6, p[0], 0.3, p[1], 16); plantKit(K, p[0], p[1], i % 2 ? 1.3 : 1.7, true); sol(p[0], p[1], 0.7, 0.7, 0, 0.9); });
-      K.box("teak", 2.2, 0.06, 0.5, 0, 0.45, L2 + 2.6, 0, 0.5); [-0.9, 0.9].forEach(function (o) { K.box("metal", 0.06, 0.43, 0.42, o, 0.215, L2 + 2.6, 0); }); [-0.6, 0, 0.6].forEach(function (o) { seat(o, L2 + 2.6, 0.6, 0.48, 0.48, 0); });
+      [[-d.W / 2 - 1.2, L2 + 1.2], [d.W / 2 + 1.2, L2 + 1.2], [-d.W / 2 - 1.2, -L2 + 0.5], [d.W / 2 + 1.2, -L2 + 0.5], [-3.2, d.zF - 0.8], [3.2, d.zF - 0.8]].forEach(function (p, i) { var f = FP(K, p[0], p[1], i * 0.9); f.rb("concrete", 0.95, 0.62, 0.95, 0.04, 0, 0.31, 0); f.cyl("soil", 0.4, 0.4, 0.02, 0, 0.6, 0, 12); for (var a = 0; a < 11; a++) { var lf = new THREE.ConeGeometry(0.055, 0.66, 5); lf.scale(1, 1, 0.45); lf.translate(0, 0.33, 0); lf.rotateZ(0.45 + (a % 3) * 0.2); lf.rotateY(a / 11 * TAU); f.geo(a % 2 ? "leaf" : "olive2", lf, 0, 0.6, 0); } [[0.28, 0.2], [-0.25, -0.22]].forEach(function (q) { f.sph("green", 0.09, q[0], 0.68, q[1], 1, 0.9, 1, 8); }); sol(p[0], p[1], 1.0, 1.0, 0, 0.9); });
+      var bf = FP(K, 0, L2 + 2.6, 0); for (var sl = 0; sl < 5; sl++) bf.rb("teak", 2.2, 0.05, 0.085, 0.012, 0, 0.45, -0.2 + sl * 0.1); [-0.9, 0.9].forEach(function (o) { bf.rb("concrete", 0.14, 0.43, 0.46, 0.015, o, 0.215, 0); });
+      [-0.6, 0, 0.6].forEach(function (o) { seat(o, L2 + 2.6, 0.6, 0.48, 0.48, 0); });
     }
     return K;
   }
-  // the furnished look of each vault from outside (simple, merged; it goes when the real interior stands)
+  // the furnished look of each vault from outside (simple and merged; it goes while the real interior stands)
   function vaultFakeKit(Vn) { var VG = Vn.VG, V = VG.V, zg = VG.zg, K = new Kit(), use = Vn.use;
-    var hw = function (z, y) { return vSec(V, z).ax * Math.pow(Math.max(0, 1 - Math.pow(y / vSec(V, z).hy, 2)), 1 / V.p) - 0.35; };
-    if (use === "restaurant") { [-1.2, 1.5, 4.1].forEach(function (x) { [-zg + 2.4, -zg + 5.0, 1.6].forEach(function (z) { if (Math.abs(x) > hw(z, 1) - 1) return; K.cyl("walnut", 0.45, 0.45, 0.05, x, 0.74, z, 12); K.cyl("black", 0.06, 0.06, 0.72, x, 0.36, z, 6); [-0.7, 0.7].forEach(function (o) { K.box("leather", 0.44, 0.85, 0.42, x + o, 0.43, z, 0); }); K.sph("lamp", 0.12, x, 2.3, z, 1, 8); }); });
-      var bx = -hw(0, 1.2) + 1.55; K.box("walnut", 0.6, 1.05, zg + 1.4 - 2.4, bx, 0.53, (-zg + 2.4 + 1.4) / 2, 0); K.box("walnut", 0.4, 2.3, zg - 2.6, -hw(0, 2.4) + 0.3, 1.15, (-zg + 2.4 + 1.4) / 2, 0); K.box("walnut", 2 * hw(-zg + 1.1, 1) - 2.6, 1.05, 0.6, 0.6, 0.53, -zg + 1.6, 0); }
-    else if (use === "hall") { K.box("walnut", 7.4, 0.45, 2.2, 0, 0.23, -zg + 1.5, 0); [[-4.7, -3.4], [4.7, -3.4], [-5.3, -0.4], [5.3, -0.4], [-4.6, 2.6], [4.6, 2.6], [-1.8, 3.9], [1.8, 3.9]].forEach(function (t) { var x = t[0], z = t[1]; var h2 = hw(z, 1); if (Math.abs(x) + 1.6 > h2) x = Math.sign(x) * (h2 - 1.6); K.cyl("cloth", 0.9, 0.92, 0.74, x, 0.37, z, 14); for (var c = 0; c < 8; c++) { var a = c / 8 * TAU + PI / 8; K.box("chairW", 0.42, 0.9, 0.42, x + Math.sin(a) * 1.28, 0.45, z + Math.cos(a) * 1.28, a); } K.sph("flower", 0.16, x, 0.92, z, 1, 6); }); }
-    else { [-0.6, 1.4].forEach(function (z, ri) { for (var m = 0; m < 4; m++) { var x = -2.4 + m * 1.6 + (ri ? 0.8 : 0); if (Math.abs(x) > hw(z, 0.5) - 0.5) continue; K.box(m % 2 ? "sofa" : "rug", 0.62, 0.02, 1.85, x, 0.02, z, 0); } }); var tx = -hw(1, 1) + 0.75; K.box("oak", 0.55, 0.92, 3.6, tx, 0.46, 0.2, 0); [[hw(-2, 1) - 0.5, -2.2], [hw(1, 1) - 0.5, 1.0], [-hw(-2.6, 1) + 0.5, -2.6], [1.6, -zg + 0.7], [-1.6, -zg + 0.7]].forEach(function (q) { K.cyl("pot", 0.26, 0.2, 0.46, q[0], 0.23, q[1], 10); K.sph("leaf", 0.5, q[0], 1.15, q[1], 1.4, 8); }); }
+    var hw = function (z, y) { return vHalf(V, z, y) - 0.35; }, chair = function (x, z, a, key) { var f = FP(K, x, z, a); f.rb(key, 0.44, 0.05, 0.42, 0.015, 0, 0.47, 0); f.rb(key, 0.44, 0.42, 0.04, 0.015, 0, 0.7, -0.19); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { f.box(key, 0.035, 0.45, 0.035, q[0] * 0.18, 0.225, q[1] * 0.17); }); };
+    if (use === "restaurant") { [[-1.2, -1.9, 4], [-1.2, 0.5, 4], [-1.2, 2.9, 2], [1.3, -1.9, 2], [1.3, 0.5, 4], [1.3, 2.9, 4], [3.8, -1.9, 4], [3.8, 0.5, 2], [3.8, 2.9, 4]].forEach(function (t) { var x = t[0], z = t[1]; FP(K, x, z, 0).rb("walnut", t[2] === 4 ? 0.86 : 0.76, 0.05, t[2] === 4 ? 0.86 : 0.76, 0.02, 0, 0.74, 0); K.cyl("black", 0.05, 0.06, 0.72, x, 0.36, z, 6); (t[2] === 4 ? [0, PI / 2, PI, -PI / 2] : [PI / 2, -PI / 2]).forEach(function (a) { chair(x + Math.sin(a) * 0.66, z + Math.cos(a) * 0.66, a + PI, "walnut"); }); K.sph("lamp", 0.11, x, 2.25, z, 1, 8); });
+      var bx = -3.9, bz = -0.75; FP(K, bx, bz, PI / 2).rb("walnut", 4.2, 1.05, 0.6, 0.02, 0, 0.53, 0); var bbx = -(vHalf(V, bz, 2.45) - 0.3); FP(K, bbx, bz, PI / 2).rb("walnut", 4.0, 0.9, 0.5, 0.02, 0, 0.45, 0); FP(K, bbx, bz, PI / 2).box("ledStrip", 3.8, 1.2, 0.04, 0, 1.6, -0.2);
+      var kz = -zg + 1.6; FP(K, 0.5, kz, 0).rb("inox", 6.2, 1.05, 0.6, 0.02, 0, 0.53, 0); FP(K, -3.75, 3.45, PI / 2).rb("leather", 2.1, 0.75, 0.8, 0.12, 0, 0.38, 0); [[-2.7, 2.8], [-2.7, 4.1]].forEach(function (q) { FP(K, q[0], q[1], -PI / 2).rb("leather", 0.8, 0.8, 0.8, 0.15, 0, 0.4, 0); });
+      [[5.15, -3.2], [-3.7, -3.5], [5.3, 3.85]].forEach(function (q) { K.cyl("pot", 0.28, 0.22, 0.5, q[0], 0.25, q[1], 10); K.sph("olive", 0.55, q[0], 1.45, q[1], 1.25, 8); }); }
+    else if (use === "hall") { var szc = -zg + 1.3; FP(K, 0, szc, 0).rb("walnut", 7.4, 0.45, 2.1, 0.02, 0, 0.225, 0); FP(K, 0, -zg + 0.23, 0, 0.45).geo("drape", drapeGeo(7.0, Math.min(3.8, arcY(VG.arcB, 3.5) - 0.65), 0.32, 0.07), 0, 0, 0);
+      [[-5.2, -2.0], [5.2, -2.0], [-5.2, 1.4], [5.2, 1.4], [-3.3, 4.4], [3.3, 4.4]].forEach(function (t) { K.cyl("ivory", 0.92, 0.96, 0.76, t[0], 0.38, t[1], 18); K.sph("rose", 0.16, t[0], 0.95, t[1], 1, 6); for (var c2 = 0; c2 < 8; c2++) { var a = c2 / 8 * TAU + PI / 8; chair(t[0] + Math.sin(a) * 1.25, t[1] + Math.cos(a) * 1.25, a + PI, "gold"); } }); K.flat("parquet", -2.7, -3.5, 2.7, 1.1, 0.025, true, 0.6); K.sph("lamp", 0.3, 0, 4.4, -1.2, 0.3, 8); }
+    else { [[-0.45, 0], [1.55, 1]].forEach(function (rw) { for (var m = 0; m < 4; m++) { var x = (rw[1] ? -1.47 : -2.2) + m * 1.47; FP(K, x, rw[0], 0).rb(["velvetS", "mat2", "oat", "velvetT"][(m + rw[1]) % 4], 0.61, 0.01, 1.83, 0.004, 0, 0.012, 0); K.cyl("linen", 0.1, 0.1, 0.5, x, 0.11, rw[0] + 0.66, 8, false, 0, 0, PI / 2); } });
+      var tbx = -(hw(0.2, 1.6) - 0.05); FP(K, tbx, 0.1, PI / 2).rb("oak", 3.0, 0.92, 0.55, 0.02, 0, 0.46, 0); [[3.5, -2.3], [3.65, 0.55], [-3.5, -2.45], [1.9, -zg + 0.45], [3.55, 2.6]].forEach(function (q, i) { K.cyl("pot", 0.24, 0.19, 0.42, q[0], 0.21, q[1], 10); K.sph(i % 2 ? "leafD" : "leaf", 0.4, q[0], 1.05 + (i % 2) * 0.2, q[1], 1.5, 8); }); [[-1.2, 0.6], [1.2, 0.6], [0, -1.6]].forEach(function (q) { K.sph("lamp", 0.2, q[0], 2.4, q[1], 1, 8); }); }
     return K; }
   var LEAF_T = Object.assign({}, EXT, { chrome: ["dark", "#a2a6aa"] });
   function buildVaults(S) {
     var Mt = mats(); if (!S.vaults.length) return; var g = new THREE.Group(); g.name = "domes_vaults"; g.userData.noCull = true; S.vg = g; var small = new THREE.Group(); small.name = "domes_vaults_small"; g.add(small); S.vsmall = small; EX.vlights = [];
     var stG = {}, smG = {}, ft = { restaurant: ["floorV", "#ffffff"], hall: ["floorV", "#d6a676"], studio: ["floorV", "#f2deb4"] };
-    S.vaults.forEach(function (Vn) { var VG = buildVaultGeo(Vn.w); Vn.VG = VG; var m4 = sMatrix(Vn);
+    S.vaults.forEach(function (Vn) { var VG = buildVaultGeo(Vn.w, Vn.wins); Vn.VG = VG; var m4 = sMatrix(Vn);
       VG.K.based(EXT, m4, stG); VG.WK.based(EXT, m4, smG);
       // the floor (oak, a parquet in the hall, bamboo in the studio), the warm light under the string lights
       var shp = new THREE.Shape(VG.floor.map(function (p) { return new THREE.Vector2(p[0], -p[1]); })); var fg = toNonIndexed(new THREE.ShapeGeometry(shp)); fg.rotateX(-PI / 2); var uv = fg.attributes.uv, pa = fg.attributes.position; for (var i = 0; i < uv.count; i++) uv.setXY(i, pa.getX(i) / 1.4, pa.getZ(i) / 1.4); fg.translate(0, 0.012, 0);
@@ -882,16 +968,193 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function doorSolidOn(P, on) { var sd = P.doorSolid; if (!sd) return; var i = SOLIDS.indexOf(sd); if (on && i < 0) SOLIDS.push(sd); else if (!on && i >= 0) SOLIDS.splice(i, 1); }
   function vaultSolids(Vn) {
-    var VG = Vn.VG, d = VG.d, V = VG.V, D = Vn.D, rh = D + 1.05, sg = 1.7;
+    var VG = Vn.VG, d = VG.d, V = VG.V, D = Vn.D, rh = D + 1.05, sg = 1.7, zg = VG.zg, c = VG.c;
     pSolid(Vn, (d.xL + d.xR) / 2, (d.zB + d.zF) / 2, d.xR - d.xL, d.zF - d.zB, D - 0.6, D);
     for (var s = 1; s <= 4; s++) pSolid(Vn, 0, d.zF + 0.3 * (s - 0.5), 2 * sg - 0.1, 0.32, D - d.dH - 0.3, D - (d.dH - 0.18) / 5 * s);
     pSolid(Vn, (d.xL + d.xR) / 2, d.zB + 0.03, d.xR - d.xL, 0.12, D, rh); pSolid(Vn, d.xL + 0.03, (d.zB + d.zF) / 2, 0.12, d.zF - d.zB, D, rh); pSolid(Vn, d.xR - 0.03, (d.zB + d.zF) / 2, 0.12, d.zF - d.zB, D, rh);
     pSolid(Vn, (d.xL - sg) / 2, d.zF - 0.03, -sg - d.xL, 0.12, D, rh); pSolid(Vn, (d.xR + sg) / 2, d.zF - 0.03, d.xR - sg, 0.12, D, rh);
-    // the vault's sides (a run of boxes inside the skin at head height) and the glazed ends (the front door gap is the door)
-    var n = 12; for (var i = 0; i < n; i++) { var za = -VG.zg + 2 * VG.zg * i / n, zb = -VG.zg + 2 * VG.zg * (i + 1) / n, zm = (za + zb) / 2; var ax = Math.min(vSec(V, za).ax, vSec(V, zb).ax) * Math.pow(1 - Math.pow(2.2 / vSec(V, zm).hy, 2), 1 / V.p) - 0.3; [-1, 1].forEach(function (sd) { pSolid(Vn, sd * (ax + 0.15), zm, 0.3, zb - za + 0.1, D, D + 2.6); }); }
-    [-1, 1].forEach(function (sd) { var aw = vSec(V, sd * VG.zg).ax; if (sd < 0) pSolid(Vn, 0, -VG.zg, 2 * aw, 0.2, D, D + 2.6); else { [-1, 1].forEach(function (s2) { var x0 = VG.doorHW + 0.05, x1 = aw; pSolid(Vn, s2 * (x0 + x1) / 2, VG.zg, x1 - x0, 0.2, D, D + 2.6); }); } });
-    Vn.doorSolid = pSolid(Vn, 0, VG.zg + 0.02, 2 * VG.doorHW, 0.16, D, D + 2.6);
+    // the dome's sides: a run of boxes from inside the skin at head height out to the skirt (no walking into the membrane from
+    // either side); under the hoods, the low corners of each arch; the glazed ends (the front door gap is the door)
+    var n = 14; for (var i = 0; i < n; i++) { var za = -c + 2 * c * i / n, zb = -c + 2 * c * (i + 1) / n, zm = (za + zb) / 2, hood = Math.abs(zm) > zg;
+      var xi = hood ? vHalf(V, c, 1.25) - 0.15 : Math.min(vHalf(V, za, 2.2), vHalf(V, zb, 2.2)) - 0.3, xo = Math.max(vHalf(V, za, 0), vHalf(V, zb, 0)) + 0.05; if (xo - xi < 0.1) continue;
+      [-1, 1].forEach(function (sd) { pSolid(Vn, sd * (xi + xo) / 2, zm, xo - xi, zb - za + 0.06, D, D + 2.6); }); }
+    var aw = vHalf(V, zg, 0.3); pSolid(Vn, 0, -zg, 2 * aw, 0.2, D, D + 2.6); [-1, 1].forEach(function (s2) { var x0 = VG.doorHW + 0.05; pSolid(Vn, s2 * (x0 + aw) / 2, zg, aw - x0, 0.2, D, D + 2.6); });
+    Vn.doorSolid = pSolid(Vn, 0, zg + 0.02, 2 * VG.doorHW, 0.16, D, D + 2.6);
   }
+  // ───────────────────────── furniture (R5): rounded, cushioned, turned and draped pieces, merged by base like everything else ─────────────────────────
+  var RBC = DM.rbc = DM.old ? {} : (DM.rbc || {}), LTC = {}, CLT = {};
+  // a rounded box (every edge and corner rounded with radius r, seg steps a quarter), uvs projected per face (t metres a repeat);
+  // bulge pillows the two largest faces (a cushion: the middle rises, the edges stay tight)
+  function rboxGeo(w, h, d, r, seg, bulge, t) {
+    seg = seg || 1; r = Math.max(0.001, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)); bulge = bulge || 0; t = t || 0.5;
+    var key = [w, h, d, r, bulge].map(function (v) { return v.toFixed(3); }).join(",") + "," + seg + "," + t; var hit = RBC[key]; if (hit) return hit.clone();
+    var n = 2 * seg + 1, g = new THREE.BoxGeometry(1, 1, 1, n, n, n), pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
+    var co = function (hh) { var a = []; for (var k = 0; k <= seg; k++) a.push(-hh + r - r * Math.cos(k / seg * PI / 2)); for (var k2 = 0; k2 <= seg; k2++) a.push(hh - r + r * Math.sin(k2 / seg * PI / 2)); return a; };
+    var CX = co(w / 2), CY = co(h / 2), CZ = co(d / 2), hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+    for (var i = 0; i < pa.count; i++) { var x = CX[Math.round((pa.getX(i) + 0.5) * n)], y = CY[Math.round((pa.getY(i) + 0.5) * n)], z = CZ[Math.round((pa.getZ(i) + 0.5) * n)];
+      var qx = clamp(x, -hx, hx), qy = clamp(y, -hy, hy), qz = clamp(z, -hz, hz), vx = x - qx, vy = y - qy, vz = z - qz, L = Math.sqrt(vx * vx + vy * vy + vz * vz), nx = na.getX(i), ny = na.getY(i), nz = na.getZ(i);
+      if (L > 1e-6) { nx = vx / L; ny = vy / L; nz = vz / L; x = qx + nx * r; y = qy + ny * r; z = qz + nz * r; }
+      if (bulge) { var fx = clamp(x / (w / 2), -1, 1), fz = clamp(z / (d / 2), -1, 1), k3 = (1 - fx * fx) * (1 - fz * fz); y += bulge * k3 * (y / (h / 2)); if (Math.abs(ny) > 0.5) { var sg = ny > 0 ? 1 : -1; nx += sg * 4 * bulge * fx / w * (1 - fz * fz); nz += sg * 4 * bulge * fz / d * (1 - fx * fx); var l2 = Math.sqrt(nx * nx + ny * ny + nz * nz); nx /= l2; ny /= l2; nz /= l2; } }
+      pa.setXYZ(i, x, y, z); na.setXYZ(i, nx, ny, nz);
+      var ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz); if (ay >= ax && ay >= az) ua.setXY(i, x / t, z / t); else if (ax >= az) ua.setXY(i, z / t, y / t); else ua.setXY(i, x / t, y / t); }
+    var out = g.toNonIndexed(); g.dispose(); RBC[key] = out; return out.clone();
+  }
+  // a turned shape from a profile [[r, y], ...] listed bottom to top (faces outward; top to bottom faces inward, a lining)
+  function latheGeo(prof, seg) { var key = (seg || 16) + ":" + prof.map(function (q) { return q[0].toFixed(3) + "," + q[1].toFixed(3); }).join(";"); var hit = LTC[key]; if (hit) return hit.clone();
+    var g = new THREE.LatheGeometry(prof.map(function (q) { return new THREE.Vector2(Math.max(0, q[0]), q[1]); }), seg || 16); var out = g.toNonIndexed(); g.dispose(); LTC[key] = out; return out.clone(); }
+  // floor-length linen on a round table: the top, a soft roll over the edge, folds that deepen toward the floor
+  function clothGeo(R, h, folds, seed) { var key = [R, h, folds, seed].join(","); if (CLT[key]) return CLT[key].clone(); var seg = 72, T = [0, 0.03, 0.09, 0.2, 0.36, 0.56, 0.78, 1], P = [], U = [], idx = [];
+    for (var r = 0; r < T.length; r++) { var t = T[r], y = r === 0 ? h : h - 0.02 - (h - 0.03) * (t - 0.03) / 0.97; for (var i = 0; i <= seg; i++) { var th = i / seg * TAU, amp = r === 0 ? 0 : Math.pow(t, 1.25) * (0.03 + 0.024 * Math.sin(folds * th + seed) + 0.012 * Math.sin(folds * 2.3 * th + seed * 1.7)), rr = R + (r === 0 ? 0.004 : 0.022 + t * 0.03) + amp;
+        P.push(Math.sin(th) * rr, y, Math.cos(th) * rr); U.push(th * R / 0.5, y / 0.5); } }
+    for (var r2 = 0; r2 < T.length - 1; r2++) for (var i2 = 0; i2 < seg; i2++) { var a = r2 * (seg + 1) + i2, b = a + 1, cc = a + seg + 1, dd = cc + 1; idx.push(a, cc, b, b, cc, dd); }
+    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2)); g.setIndex(idx); g.computeVertexNormals();
+    var top = new THREE.CircleGeometry(R + 0.004, seg); top.rotateX(-PI / 2); top.translate(0, h + 0.003, 0); var out = mergeGeos([g.toNonIndexed(), top.toNonIndexed()]); g.dispose(); top.dispose(); CLT[key] = out; return out.clone(); }
+  // a pleated curtain in the x-y plane (its face +z), w wide and h tall, pleats every p metres
+  function drapeGeo(w, h, p, amp) { var nx = Math.max(8, Math.round(w / p * 6)), ny = 5, P = [], U = [], idx = [];
+    for (var j = 0; j <= ny; j++) { var y = h * j / ny; for (var i = 0; i <= nx; i++) { var x = -w / 2 + w * i / nx; P.push(x, y, amp * Math.sin(x / p * TAU) * (0.75 + 0.25 * j / ny)); U.push(x / 0.6, y / 0.6); } }
+    for (var j2 = 0; j2 < ny; j2++) for (var i2 = 0; i2 < nx; i2++) { var a = j2 * (nx + 1) + i2, b = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, b, c2, b, d2, c2); }
+    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2)); g.setIndex(idx); g.computeVertexNormals(); var out = g.toNonIndexed(); g.dispose(); return out; }
+  // one piece in its own frame (x across, z toward its front, y up from y0), placed into a kit in the room frame
+  function FP(K, x, z, yaw, y0) { yaw = yaw || 0; y0 = y0 || 0; var c = Math.cos(yaw), s = Math.sin(yaw); var f = { K: K, x: x, z: z, yaw: yaw, y0: y0 };
+    f.w = function (lx, lz) { return [x + lx * c + lz * s, z - lx * s + lz * c]; };
+    f.geo = function (key, g, lx, ly, lz, ry, rx, rz) { var p = f.w(lx, lz); return K.place(key, g, p[0], y0 + ly, p[1], yaw + (ry || 0), rx || 0, rz || 0); };
+    f.box = function (key, w, h, d, lx, ly, lz, ry, rx, rz) { var g = new THREE.BoxGeometry(w, h, d); uvBox(g, w, h, d, 0.5); return f.geo(key, g, lx, ly, lz, ry, rx, rz); };
+    f.rb = function (key, w, h, d, r, lx, ly, lz, o) { o = o || {}; return f.geo(key, rboxGeo(w, h, d, r, o.seg || 1, o.bulge || 0, o.t), lx, ly, lz, o.ry, o.rx, o.rz); };
+    f.cyl = function (key, r0, r1, h, lx, ly, lz, seg, rx, rz, ry) { return f.geo(key, new THREE.CylinderGeometry(r0, r1, h, seg || 12, 1, false), lx, ly, lz, ry || 0, rx || 0, rz || 0); };
+    f.lathe = function (key, prof, seg, lx, ly, lz, rx, rz) { return f.geo(key, latheGeo(prof, seg), lx, ly, lz, 0, rx || 0, rz || 0); };
+    f.sph = function (key, r, lx, ly, lz, sx, sy, sz, seg) { var g = new THREE.SphereGeometry(r, seg || 10, Math.max(5, (seg || 10) >> 1)); if (sx || sy || sz) g.scale(sx || 1, sy || 1, sz || 1); return f.geo(key, g, lx, ly, lz); };
+    f.rod = function (key, A, B, r, seg) { var a = f.w(A[0], A[2]), b = f.w(B[0], B[2]); return K.tube(key, V3(a[0], y0 + A[1], a[1]), V3(b[0], y0 + B[1], b[1]), r, seg || 6); };
+    f.bar = function (key, A, B, wd, dp, nl) { var a = f.w(A[0], A[2]), b = f.w(B[0], B[2]), nn = nl || [0, 0, 1]; return K.beam(key, V3(a[0], y0 + A[1], a[1]), V3(b[0], y0 + B[1], b[1]), wd, dp, V3(nn[0] * c + nn[2] * s, nn[1], -nn[0] * s + nn[2] * c)); };
+    return f; }
+  // a registered model's parts merged into the kit under its own materials (base "m:kind:i" added to the bases), scaled to height h
+  function modelK(K, B, kind, x, z, yaw, h, y0) { var m = null; try { m = MODELS[kind]; } catch (e) {} if (!m || m.proxy || !m.parts || !m.parts.length) return false; var s = h / Math.max(0.05, m.height || 1);
+    if (K.inst) { (K.mi[kind] || (K.mi[kind] = [])).push(new THREE.Matrix4().compose(V3(x, y0 || 0, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), yaw || 0), V3(s, s, s))); return s; }
+    var M4 = new THREE.Matrix4().compose(V3(x, y0 || 0, z), new THREE.Quaternion().setFromAxisAngle(V3(0, 1, 0), yaw || 0), V3(s, s, s));
+    m.parts.forEach(function (part, i) { var key = "m:" + kind + ":" + i; B[key] = part.material; var g = part.geometry.clone(); for (var a in g.attributes) if (a !== "position" && a !== "normal" && a !== "uv") g.deleteAttribute(a); g.applyMatrix4(M4); K.add(key, g); }); return s; }
+
+  function instKit() { var K = new Kit(); K.inst = true; K.mi = {}; return K; }
+  function modelMeshes(K, g) { var n = 0; for (var kind in (K.mi || {})) { var m = MODELS[kind], list = K.mi[kind]; if (!m || !m.parts) continue; m.parts.forEach(function (part) { var im = new THREE.InstancedMesh(part.geometry, part.material, list.length); list.forEach(function (M4, i) { im.setMatrixAt(i, M4); }); im.name = "dm model " + kind; im.castShadow = false; im.receiveShadow = true; im.userData.noDispose = true; g.add(finish(im)); n++; }); } return n; }
+  // a sofa (len across) facing +z: a plinth on tapered legs, rolled arms, a back, plump seat and back cushions, throw pillows
+  function sofaK(K, x, z, yaw, o) { o = o || {}; var f = FP(K, x, z, yaw, o.y0), L = o.len || 2.2, Dp = o.d || 0.92, m = o.mat || "sofa", sg = o.lo ? 1 : 2, lg = o.leg === undefined ? 0.1 : o.leg, aw = o.arms === false ? 0 : (o.aw || 0.2), ih = L - 2 * aw, b0 = lg;
+    f.rb(m, L, 0.2, Dp, 0.05, 0, b0 + 0.1, 0, { seg: sg });
+    if (aw) [-1, 1].forEach(function (s) { f.rb(m, aw, 0.4, Dp, 0.085, s * (L / 2 - aw / 2), b0 + 0.36, 0, { seg: sg }); });
+    f.rb(m, L - 0.02, 0.44, 0.2, 0.08, 0, b0 + 0.41, -Dp / 2 + 0.1, { seg: sg });
+    var n = o.n || (ih > 1.7 ? 3 : ih > 1.0 ? 2 : 1), cw = ih / n; for (var i = 0; i < n; i++) { var cx = -ih / 2 + cw * (i + 0.5);
+      f.rb(m, cw - 0.012, 0.15, Dp - 0.25, 0.06, cx, b0 + 0.275, 0.1, { seg: sg, bulge: 0.02 });
+      f.rb(m, cw - 0.02, 0.16, 0.44, 0.07, cx, b0 + 0.6, -Dp / 2 + 0.27, { seg: sg, bulge: 0.028, rx: PI / 2 - 0.17 }); }
+    if (!o.lo) (o.pil || ["throw", "linen"]).forEach(function (k, j) { var s = j % 2 ? 1 : -1; f.rb(k, 0.42, 0.13, 0.4, 0.06, s * (ih / 2 - 0.25), b0 + 0.56, -Dp / 2 + 0.43, { bulge: 0.035, rx: PI / 2 - 0.38, ry: s * 0.16 }); });
+    if (lg > 0) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { f.cyl(o.legMat || "walnut", 0.024, 0.015, lg, q[0] * (L / 2 - 0.08), lg / 2, q[1] * (Dp / 2 - 0.08), 8); });
+    return f; }
+  function armK(K, x, z, yaw, o) { o = Object.assign({ len: 0.9, n: 1, aw: 0.17, pil: o && o.pil ? o.pil : ["throw"] }, o || {}); return sofaK(K, x, z, yaw, o); }
+  // a dining chair with a cross back (oak or walnut, a woven rattan seat) facing +z
+  var PREFAB = DM.prefab = DM.old ? {} : (DM.prefab || {});
+  function prefab(name, build) { if (PREFAB[name]) return PREFAB[name]; var K0 = new Kit(); build(K0); var out = {}; for (var k in K0.m) out[k] = mergeGeos(K0.m[k]); return (PREFAB[name] = out); }
+  function putPrefab(K, pf, x, z, yaw, y0) { _e.set(0, yaw || 0, 0, "YXZ"); _q.setFromEuler(_e); _m4.compose(_v1.set(x, y0 || 0, z), _q, _v2.set(1, 1, 1)); var M = _m4.clone(); for (var k in pf) K.add(k, pf[k].clone().applyMatrix4(M)); }
+  function crossChairP(K, x, z, yaw, o) { o = o || {}; var w = o.wood || "oak", st = o.seat || "rattan"; putPrefab(K, prefab("cross:" + w + ":" + st, function (K0) { crossChairK(K0, 0, 0, 0, { wood: w, seat: st }); }), x, z, yaw); }
+  function chiavariP(K, x, z, yaw) { putPrefab(K, prefab("chiavari", function (K0) { chiavariK(K0, 0, 0, 0, {}); }), x, z, yaw); }
+  function stoolP(K, x, z, yaw, o) { o = o || {}; var st = o.seat || "leather"; putPrefab(K, prefab("stool:" + (o.back ? 1 : 0) + ":" + st, function (K0) { stoolK(K0, 0, 0, 0, { back: !!o.back, seat: st }); }), x, z, yaw); }
+  function crossChairK(K, x, z, yaw, o) { o = o || {}; var f = FP(K, x, z, yaw), w = o.wood || "oak", sw = 0.45, sd = 0.44, sh = 0.46, zb = -sd / 2 + 0.01;
+    [-1, 1].forEach(function (s) { f.box(w, 0.04, sh, 0.04, s * (sw / 2 - 0.025), sh / 2, sd / 2 - 0.025); f.box(w, 0.04, 0.9, 0.04, s * (sw / 2 - 0.025), 0.45, -sd / 2 + 0.035, 0, -0.05); f.box(w, 0.02, 0.06, sd - 0.07, s * (sw / 2 - 0.03), sh - 0.055, 0); f.box(w, 0.018, 0.022, sd - 0.07, s * (sw / 2 - 0.025), 0.15, 0); });
+    f.rb(w, sw, 0.035, sd, 0.012, 0, sh, 0); f.rb(o.seat || "rattan", sw - 0.08, 0.025, sd - 0.08, 0.01, 0, sh + 0.018, 0.005);
+    f.box(w, sw - 0.06, 0.06, 0.02, 0, sh - 0.055, sd / 2 - 0.035); f.box(w, sw - 0.06, 0.06, 0.02, 0, sh - 0.055, -sd / 2 + 0.045); f.box(w, sw - 0.06, 0.022, 0.018, 0, 0.15, 0);
+    f.rb(w, sw + 0.01, 0.075, 0.03, 0.012, 0, 0.84, zb - 0.03, { rx: -0.05 }); f.box(w, sw - 0.06, 0.035, 0.022, 0, sh + 0.085, zb);
+    f.bar(w, [-sw / 2 + 0.05, sh + 0.1, zb - 0.002], [sw / 2 - 0.05, 0.81, zb - 0.022], 0.034, 0.018); f.bar(w, [sw / 2 - 0.05, sh + 0.1, zb + 0.006], [-sw / 2 + 0.05, 0.81, zb - 0.014], 0.034, 0.018);
+    return f; }
+  // a Chiavari chair (gilded, slender splayed legs, stretchers, a spindle back) with an ivory seat pad, facing +z
+  function chiavariK(K, x, z, yaw, o) { o = o || {}; var f = FP(K, x, z, yaw), m = o.mat || "gold", sh = 0.45, kz = function (y) { return -0.165 - Math.max(0, y - sh) * 0.07; };
+    [-1, 1].forEach(function (s) { f.rod(m, [s * 0.185, 0, 0.18], [s * 0.172, sh, 0.165], 0.012, 6); f.rod(m, [s * 0.18, 0, -0.18], [s * 0.168, sh, kz(sh)], 0.012, 6); f.rod(m, [s * 0.168, sh, kz(sh)], [s * 0.16, 0.93, kz(0.93)], 0.011, 6); });
+    [0.17, 0.31].forEach(function (y) { f.rod(m, [-0.178, y, 0.172], [0.178, y, 0.172], 0.006, 5); [-1, 1].forEach(function (s) { f.rod(m, [s * 0.178, y, 0.172], [s * 0.175, y, -0.172], 0.006, 5); }); }); f.rod(m, [-0.176, 0.24, -0.174], [0.176, 0.24, -0.174], 0.006, 5);
+    f.rb(m, 0.39, 0.024, 0.36, 0.01, 0, sh, 0); f.rb(o.cush || "ivory", 0.37, 0.045, 0.34, 0.018, 0, sh + 0.032, 0.008, { bulge: 0.01 });
+    [[0.6, 0.008], [0.72, 0.008], [0.92, 0.012]].forEach(function (q) { f.rod(m, [-0.162, q[0], kz(q[0])], [0.162, q[0], kz(q[0])], q[1], 6); });
+    for (var i = -2; i <= 2; i++) { f.rod(m, [i * 0.054, 0.6, kz(0.6)], [i * 0.054, 0.72, kz(0.72)], 0.0055, 4); f.rod(m, [i * 0.054, 0.72, kz(0.72)], [i * 0.054, 0.92, kz(0.92)], 0.0055, 4); }
+    return f; }
+  // a bar stool: a padded round seat on four splayed legs with a foot ring (and a low back)
+  function stoolK(K, x, z, yaw, o) { o = o || {}; var f = FP(K, x, z, yaw), h = o.h || 0.76, m = o.frame || "brass";
+    f.lathe(o.seat || "leather", [[0, 0], [0.18, 0], [0.2, 0.015], [0.205, 0.05], [0.185, 0.072], [0.1, 0.082], [0, 0.084]], 20, 0, h - 0.07, 0);
+    [[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(function (q) { f.rod(m, [q[0] * 0.12, h - 0.07, q[1] * 0.12], [q[0] * 0.19, 0, q[1] * 0.19], 0.013, 6); });
+    var tg = new THREE.TorusGeometry(0.225, 0.011, 6, 24); tg.rotateX(PI / 2); f.geo(m, tg, 0, 0.3, 0);
+    if (o.back) { f.rb(o.seat || "leather", 0.36, 0.05, 0.2, 0.02, 0, h + 0.2, -0.17, { rx: PI / 2 - 0.12, bulge: 0.01 }); [-1, 1].forEach(function (s) { f.rod(m, [s * 0.12, h - 0.05, -0.14], [s * 0.13, h + 0.14, -0.18], 0.01, 5); }); }
+    return f; }
+  // a round table (walnut top, pedestal) or a square one on four legs; a setting on it
+  function tableK(K, x, z, o) { o = o || {}; var f = FP(K, x, z, o.yaw || 0), h = o.h || 0.75, top = o.top || "walnut";
+    if (o.round) { var r = o.r || 0.4; f.lathe(top, [[0, h - 0.04], [r - 0.012, h - 0.04], [r, h - 0.025], [r, h - 0.01], [r - 0.012, h], [0, h]], 32, 0, 0, 0); f.cyl(o.leg || "black", 0.035, 0.05, h - 0.04, 0, (h - 0.04) / 2, 0, 10); f.lathe(o.leg || "black", [[0, 0], [0.24, 0], [0.24, 0.012], [0.2, 0.03], [0, 0.035]], 20, 0, 0, 0); }
+    else { var s = o.s || 0.9; f.rb(top, s, 0.045, o.d || s, 0.012, 0, h - 0.022, 0); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { f.box(o.leg || top, 0.05, h - 0.045, 0.05, q[0] * (s / 2 - 0.07), (h - 0.045) / 2, q[1] * ((o.d || s) / 2 - 0.07)); }); f.box(o.leg || top, s - 0.16, 0.07, 0.025, 0, h - 0.08, (o.d || s) / 2 - 0.07); f.box(o.leg || top, s - 0.16, 0.07, 0.025, 0, h - 0.08, -(o.d || s) / 2 + 0.07); }
+    return f; }
+  function settingK(f, lx, lz, y, face, R, wine) { var sx = Math.sin(face), sz = Math.cos(face); var px = lx + sx * 0.0, pz = lz;
+    f.lathe("ceramic", [[0, 0], [0.11, 0], [0.135, 0.012], [0.14, 0.016], [0, 0.008]], 20, px, y, pz); f.box("napkin", 0.05, 0.012, 0.18, px + Math.cos(face) * 0.17, y + 0.008, pz - Math.sin(face) * 0.17, face);
+    if (wine) f.lathe("glassB", [[0, 0], [0.035, 0], [0.004, 0.012], [0.004, 0.1], [0.03, 0.12], [0.036, 0.17], [0.03, 0.2]], 10, px - Math.cos(face) * 0.12 - sx * 0.1, y, pz + Math.sin(face) * 0.12 - sz * 0.1); }
+  function candleK(f, lx, lz, y) { f.lathe("glassB", [[0, 0], [0.032, 0], [0.034, 0.08], [0.03, 0.085]], 10, lx, y, lz); f.cyl("lamp", 0.02, 0.02, 0.03, lx, y + 0.02, lz, 8); }
+  function budVaseK(f, lx, lz, y, R) { f.lathe("glassB", [[0, 0], [0.025, 0], [0.03, 0.04], [0.012, 0.11], [0.014, 0.13]], 10, lx, y, lz); f.rod("leaf", [lx, y + 0.1, lz], [lx + 0.02, y + 0.22, lz], 0.003, 3); f.sph(R() < 0.5 ? "rose" : "flower", 0.03, lx + 0.02, y + 0.23, lz, 1, 0.8, 1, 8); }
+  // a floor-length dressed round table (the linen reaches the floor), a centrepiece of flowers and candles, eight settings
+  function weddingTableK(K, x, z, R, n, o) { o = o || {}; var f = FP(K, x, z, 0), h = 0.76, rnd = rng(Math.round(x * 31 + z * 97)); f.geo(o.cloth || "ivory", clothGeo(R, h, 9, x + z), 0, 0, 0);
+    for (var i = 0; i < n; i++) { var a = i / n * TAU + PI / n; settingK(f, Math.sin(a) * (R - 0.2), Math.cos(a) * (R - 0.2), h + 0.006, a + PI, rnd, true); }
+    f.lathe("gold", [[0, 0], [0.09, 0], [0.06, 0.02], [0.03, 0.09], [0.08, 0.12], [0, 0.12]], 14, 0, h, 0);
+    for (var k = 0; k < 11; k++) { var a2 = k / 11 * TAU; f.sph(k % 3 ? "flower" : (k % 2 ? "rose" : "blush"), 0.06 + (k % 3) * 0.01, Math.cos(a2) * 0.1, h + 0.2 + (k % 2) * 0.05, Math.sin(a2) * 0.1, 1, 0.85, 1, 8); }
+    for (var k2 = 0; k2 < 6; k2++) { var a3 = k2 / 6 * TAU + 0.3, lf = new THREE.SphereGeometry(1, 6, 4); lf.scale(0.03, 0.008, 0.11); lf.rotateX(-0.3); lf.rotateY(a3); f.geo("leaf", lf, Math.sin(a3) * 0.2, h + 0.15, Math.cos(a3) * 0.2); }
+    [-1, 1].forEach(function (s) { candleK(f, s * 0.28, 0.14, h + 0.004); candleK(f, s * 0.3, -0.16, h + 0.004); }); return f; }
+  // a bar counter (len along x) facing +z: a fluted walnut front, a stone top with an eased edge, a brass foot rail, a lit lip,
+  // shelves on the bartender's side
+  function barK(K, x, z, yaw, len, o) { o = o || {}; var f = FP(K, x, z, yaw), h = 1.06, dp = 0.6;
+    f.box("walnut", len, h - 0.12, 0.05, 0, (h - 0.12) / 2 + 0.07, dp / 2 - 0.09); [-1, 1].forEach(function (s) { f.box("walnut", 0.05, h - 0.06, dp - 0.06, s * (len / 2 - 0.025), (h - 0.06) / 2, -0.03); }); f.box("black", len - 0.02, 0.07, 0.04, 0, 0.035, dp / 2 - 0.11);
+    var nf = Math.max(8, Math.floor(len / 0.064)); for (var i = 0; i < nf; i++) f.cyl("walnut", 0.029, 0.029, h - 0.2, -len / 2 + 0.06 + i * (len - 0.12) / (nf - 1), 0.1 + (h - 0.2) / 2, dp / 2 - 0.05, 8);
+    f.rb(o.top || "marble", len + 0.12, 0.05, dp + 0.16, 0.02, 0, h, 0.03); f.box("ledStrip", len - 0.12, 0.012, 0.02, 0, h - 0.04, dp / 2 + 0.05);
+    f.rod("brass", [-len / 2 + 0.1, 0.2, dp / 2 + 0.17], [len / 2 - 0.1, 0.2, dp / 2 + 0.17], 0.024, 10); var nb = Math.max(1, Math.ceil(len / 1.2)); for (var b = 0; b <= nb; b++) { var bx = -len / 2 + 0.15 + (len - 0.3) * b / nb; f.rod("brass", [bx, 0.2, dp / 2 + 0.17], [bx, 0.2, dp / 2 - 0.04], 0.012, 6); }
+    f.box("inox", len - 0.12, 0.03, dp - 0.2, 0, 0.84, -0.06); f.box("walnut", len - 0.12, 0.03, dp - 0.2, 0, 0.32, -0.06); f.box("black", len - 0.12, 0.02, dp - 0.15, 0, 0.02, -0.06);
+    var R = rng(len * 100); for (var g2 = 0; g2 < Math.floor(len / 0.35); g2++) { var gx = -len / 2 + 0.25 + g2 * 0.33; f.lathe("glassB", [[0, 0], [0.035, 0], [0.04, 0.09], [0.042, 0.1]], 10, gx, 0.855, -0.12 + (g2 % 2) * 0.1); }
+    if (o.dressing !== false) { f.lathe("inox", [[0, 0], [0.04, 0], [0.045, 0.14], [0.03, 0.18], [0.018, 0.2], [0, 0.21]], 12, len / 2 - 0.4, h + 0.025, -0.05); f.lathe("ceramic", [[0, 0], [0.06, 0], [0.12, 0.06], [0.125, 0.065]], 16, -len / 2 + 0.5, h + 0.025, 0.0); for (var l = 0; l < 6; l++) f.sph("green", 0.03, -len / 2 + 0.47 + (l % 3) * 0.03, h + 0.07 + (l >> 2) * 0.02, -0.02 + (l % 2) * 0.04, 1, 1, 1, 6); }
+    return f; }
+  var BOT = [[[0, 0], [0.037, 0], [0.038, 0.02], [0.038, 0.2], [0.03, 0.24], [0.013, 0.27], [0.012, 0.31], [0, 0.31]], [[0, 0], [0.042, 0], [0.043, 0.02], [0.043, 0.18], [0.036, 0.22], [0.015, 0.24], [0.015, 0.28], [0, 0.28]],
+    [[0, 0], [0.032, 0], [0.05, 0.05], [0.05, 0.11], [0.03, 0.16], [0.012, 0.18], [0.012, 0.22], [0, 0.22]], [[0, 0], [0.045, 0], [0.047, 0.02], [0.047, 0.14], [0.03, 0.17], [0.014, 0.19], [0.014, 0.23], [0, 0.23]], [[0, 0], [0.03, 0], [0.031, 0.02], [0.031, 0.25], [0.02, 0.28], [0.01, 0.3], [0.01, 0.34], [0, 0.34]]];
+  var BOTK = ["amber", "bottle", "wine", "gin", "amber", "glassB2", "amber", "wine"];
+  function bottleK(f, lx, y, lz, R) { var i = Math.floor(R() * BOT.length), pr = BOT[i]; f.lathe(BOTK[Math.floor(R() * BOTK.length)], pr, 10, lx, y, lz); if (R() < 0.75) f.box("paper", pr[3][0] * 1.3, 0.06 + R() * 0.03, 0.004, lx, y + 0.06 + R() * 0.04, lz + pr[3][0] + 0.002); }
+  // the back bar (len along x, its face +z): cabinets with brass pulls, a stone top, a lit mirror wall with glass shelves of bottles
+  function backBarK(K, x, z, yaw, len, hTop) { var f = FP(K, x, z, yaw), dp = 0.5, H2 = Math.min(hTop || 2.4, 2.5), R = rng(Math.round(len * 77));
+    f.rb("walnut", len, 0.86, dp, 0.015, 0, 0.43, 0); var nd = Math.max(2, Math.round(len / 0.6)); for (var i = 0; i < nd; i++) { var dx = -len / 2 + len * (i + 0.5) / nd; f.rb("walnut", len / nd - 0.03, 0.72, 0.024, 0.006, dx, 0.45, dp / 2 + 0.006); f.box("brass", 0.012, 0.16, 0.02, dx + (i % 2 ? -1 : 1) * (len / nd / 2 - 0.08), 0.62, dp / 2 + 0.026); }
+    f.rb("marble", len + 0.04, 0.04, dp + 0.04, 0.01, 0, 0.88, 0); f.box("mirror", len - 0.1, H2 - 0.95, 0.02, 0, 0.9 + (H2 - 0.95) / 2, -dp / 2 + 0.03);
+    [-1, 0, 1].forEach(function (k) { f.box("walnut", 0.05, H2 - 0.9, 0.3, k * (len / 2 - 0.03), 0.9 + (H2 - 0.9) / 2, -dp / 2 + 0.17); }); f.rb("walnut", len + 0.04, 0.09, 0.34, 0.02, 0, H2, -dp / 2 + 0.17);
+    [1.28, 1.66, 2.04].filter(function (y) { return y < H2 - 0.25; }).forEach(function (y) { f.box("glassB", len - 0.12, 0.02, 0.26, 0, y, -dp / 2 + 0.17); f.box("ledStrip", len - 0.14, 0.01, 0.014, 0, y - 0.016, -dp / 2 + 0.29);
+      var nb = Math.floor((len - 0.2) / 0.105); for (var b = 0; b < nb; b++) { var bx = -len / 2 + 0.12 + b * (len - 0.24) / Math.max(1, nb - 1); if (Math.abs(bx) < 0.06) continue; bottleK(f, bx, y + 0.012, -dp / 2 + 0.16, R); } });
+    for (var b2 = 0; b2 < 9; b2++) bottleK(f, -len / 2 + 0.3 + b2 * 0.12 + (b2 > 4 ? len - 1.4 : 0), 0.9, -0.05, R);
+    return f; }
+  // pendant lights: a cord from the roof, a brass dome (lit inside), a rattan bell, or a glass globe
+  function pendantK2(K, x, z, top, y, o) { o = o || {}; var f = FP(K, x, z, 0), st = o.style || "dome", m = o.mat || "brass"; if (top - y > 0.05) f.rod("cord", [0, top, 0], [0, y + 0.02, 0], 0.005, 4);
+    if (st === "dome") { f.cyl(m, 0.025, 0.025, 0.06, 0, y, 0, 10); f.lathe(m, [[0.226, -0.24], [0.216, -0.19], [0.17, -0.1], [0.09, -0.03], [0.02, 0.0]], 20, 0, y, 0); f.lathe("lampShade", [[0.012, -0.012], [0.084, -0.042], [0.162, -0.105], [0.206, -0.19], [0.215, -0.235]], 20, 0, y, 0); f.sph("lamp", 0.045, 0, y - 0.17, 0); }
+    else if (st === "globe") { f.cyl(m, 0.03, 0.03, 0.05, 0, y, 0, 10); f.sph("lamp", 0.13, 0, y - 0.15, 0, 1, 1, 1, 14); }
+    else { var bell = []; for (var q = 0; q <= 9; q++) { var ph = q / 9 * PI / 2; bell.push([0.03 + 0.235 * Math.cos(ph), -0.34 + 0.34 * Math.sin(ph)]); } f.lathe("rattan", bell, 24, 0, y, 0); f.lathe("lampShade", bell.slice().reverse().map(function (p) { return [p[0] * 0.95, p[1] - 0.006]; }), 24, 0, y, 0); var rim = new THREE.TorusGeometry(0.262, 0.012, 6, 28); rim.rotateX(PI / 2); f.geo("rattan", rim, 0, y - 0.34, 0); f.sph("lamp", 0.05, 0, y - 0.22, 0); }
+    return f; }
+  function floorLampK(K, x, z, o) { o = o || {}; var f = FP(K, x, z, 0); f.lathe("black", [[0, 0], [0.16, 0], [0.165, 0.02], [0.03, 0.035], [0, 0.04]], 18, 0, 0, 0); f.rod(o.mat || "brass", [0, 0.03, 0], [0, 1.4, 0], 0.012, 6);
+    f.lathe("linen", [[0.22, 1.32], [0.18, 1.62]], 22, 0, 0, 0); f.lathe("lampShade", [[0.175, 1.615], [0.214, 1.325]], 22, 0, 0, 0); f.sph("lamp", 0.04, 0, 1.4, 0); return f; }
+  function tableLampK(K, x, z, y, o) { o = o || {}; var f = FP(K, x, z, 0, y); f.lathe(o.base || "ceramic", [[0, 0], [0.06, 0], [0.08, 0.06], [0.07, 0.16], [0.03, 0.22], [0.012, 0.24], [0, 0.24]], 16, 0, 0, 0); f.rod("brass", [0, 0.24, 0], [0, 0.32, 0], 0.006, 4);
+    f.lathe("linen", [[0.14, 0.27], [0.11, 0.45]], 18, 0, 0, 0); f.lathe("lampShade", [[0.105, 0.445], [0.135, 0.275]], 18, 0, 0, 0); return f; }
+  // rugs: one atlas of four designs (0 kilim, 1 a Persian medallion, 2 a Moroccan lattice, 3 a striped flatweave), laid flat
+  function rugK(K, quad, w, d, x, z, yaw, y) { var g = new THREE.PlaneGeometry(w, d); g.rotateX(-PI / 2); var uv = g.attributes.uv, u0 = (quad % 2) * 0.5 + 0.006, v0 = (quad >> 1) * 0.5 + 0.006; for (var i = 0; i < uv.count; i++) uv.setXY(i, u0 + uv.getX(i) * 0.488, v0 + uv.getY(i) * 0.488); K.place("rug", g, x, y || 0.016, z, yaw || 0); }
+  // pots and plants: a turned pot (terracotta, white glaze, a woven basket or stone) with soil; an olive, a fiddle leaf fig, a bird of
+  // paradise, a snake plant
+  function potK(f, kind, r, h, lx, lz) { var key = kind === "white" ? "ceramic" : kind === "basket" ? "rattan" : kind === "stone" ? "concrete" : kind === "black" ? "black" : "terracotta";
+    f.lathe(key, [[0, 0], [r * 0.76, 0], [r * 0.84, h * 0.08], [r, h * 0.9], [r * 1.05, h * 0.92], [r * 1.05, h], [r * 0.95, h], [r * 0.93, h * 0.9], [0, h * 0.9]], 18, lx, 0, lz); f.cyl("soil", r * 0.92, r * 0.92, 0.01, lx, h * 0.905, lz, 14); }
+  function oliveK(K, x, z, h, o) { o = o || {}; var f = FP(K, x, z, 0), R = rng(Math.round(x * 131 + z * 17) + 7), pr = o.pr || 0.3, ph = o.ph || 0.55, tt = h * 0.5; potK(f, o.pot || "terra", pr, ph, 0, 0);
+    [[0.03, 0.01, 0.1, 0.02], [-0.03, -0.02, -0.12, -0.05]].forEach(function (t, i) { f.rod("bark", [t[0], ph * 0.9, t[1]], [t[2], tt, t[3]], 0.035 - i * 0.01, 6); f.rod("bark", [t[2], tt, t[3]], [t[2] * 1.6, tt + 0.35, t[3] * 2], 0.02, 5); });
+    for (var c = 0; c < 9; c++) { var a = c / 9 * TAU + R() * 0.5, rr = 0.18 + R() * 0.26, cy = tt + 0.3 + R() * Math.max(0.1, h - tt - 0.5); f.rod("bark", [Math.cos(a) * 0.05, tt + 0.25, Math.sin(a) * 0.05], [Math.cos(a) * rr, cy, Math.sin(a) * rr], 0.012, 4);
+      for (var b = 0; b < 9; b++) { var g2 = new THREE.SphereGeometry(0.055 + R() * 0.05, 6, 4); g2.scale(1.5, 0.55, 1); g2.rotateY(R() * PI); g2.rotateZ((R() - 0.5) * 0.7); f.geo(["olive", "olive2", "leafO"][b % 3], g2, Math.cos(a) * rr + (R() - 0.5) * 0.3, cy + (R() - 0.5) * 0.24, Math.sin(a) * rr + (R() - 0.5) * 0.3); } }
+    return f; }
+  function figK(K, x, z, h, o) { o = o || {}; var f = FP(K, x, z, 0), R = rng(Math.round(x * 71 + z * 29) + 3), pr = o.pr || 0.24, ph = o.ph || 0.44; potK(f, o.pot || "white", pr, ph, 0, 0); f.rod("bark", [0, ph * 0.9, 0], [0.03, h * 0.92, 0.02], 0.02, 5);
+    for (var i = 0; i < 18; i++) { var t = 0.3 + 0.7 * i / 18, a = i * 2.4, y = ph + (h - ph) * t, L = 0.16 + 0.07 * (1 - t) + R() * 0.04, g = new THREE.SphereGeometry(1, 8, 5); g.scale(L * 0.68, 0.012, L); g.rotateX(-0.45 + R() * 0.4); g.rotateY(a); f.geo(i % 3 ? "leaf" : "leafD", g, Math.sin(a) * (0.03 + L * 0.8), y, Math.cos(a) * (0.03 + L * 0.8)); }
+    return f; }
+  function paradiseK(K, x, z, h, o) { o = o || {}; var f = FP(K, x, z, 0), R = rng(Math.round(x * 53 + z * 41) + 5), pr = o.pr || 0.27, ph = o.ph || 0.48; potK(f, o.pot || "basket", pr, ph, 0, 0);
+    for (var i = 0; i < 10; i++) { var a = i * 2.5 + R(), tl = 0.15 + R() * 0.35, sl = (h - ph) * (0.45 + R() * 0.3), top = [Math.sin(a) * Math.sin(tl) * sl, ph + Math.cos(tl) * sl, Math.cos(a) * Math.sin(tl) * sl]; f.rod("leafD", [0, ph * 0.9, 0], top, 0.011, 4);
+      var g = new THREE.SphereGeometry(1, 8, 6); g.scale(0.1, 0.008, 0.3); g.rotateX(-PI / 2 + tl + 0.25); g.rotateY(a); f.geo("leaf", g, top[0] + Math.sin(a) * Math.sin(tl) * 0.28, top[1] + 0.27, top[2] + Math.cos(a) * Math.sin(tl) * 0.28); }
+    return f; }
+  function snakeK(K, x, z, h, o) { o = o || {}; var f = FP(K, x, z, 0), R = rng(Math.round(x * 23 + z * 61) + 9), pr = o.pr || 0.17, ph = o.ph || 0.32; potK(f, o.pot || "black", pr, ph, 0, 0);
+    for (var i = 0; i < 11; i++) { var a = R() * TAU, r0 = R() * pr * 0.6, L = (h - ph) * (0.6 + R() * 0.4), g = new THREE.ConeGeometry(0.035, L, 4); g.scale(1, 1, 0.28); g.translate(0, L / 2, 0); g.rotateY(R() * PI); g.rotateZ((R() - 0.5) * 0.25); g.rotateX((R() - 0.5) * 0.25); f.geo(i % 2 ? "leaf" : "leafD", g, Math.cos(a) * r0, ph * 0.9, Math.sin(a) * r0); }
+    return f; }
+  function plantPick(K, kind, x, z, h, o) { return kind === "olive" ? oliveK(K, x, z, h, o) : kind === "fig" ? figK(K, x, z, h, o) : kind === "paradise" ? paradiseK(K, x, z, h, o) : snakeK(K, x, z, h, o); }
+  // books on a table or shelf, a tray, a candle
+  function booksK(f, lx, ly, lz, n, R, ry) { var y = ly; for (var i = 0; i < n; i++) { var w = 0.2 + R() * 0.08, d = 0.15 + R() * 0.05, t = 0.025 + R() * 0.02; f.rb(["linen", "throw", "velvetS", "paper", "velvetT"][Math.floor(R() * 5)], w, t, d, 0.004, lx + (R() - 0.5) * 0.03, y + t / 2, lz + (R() - 0.5) * 0.03, { ry: (ry || 0) + (R() - 0.5) * 0.3 }); y += t; } return y; }
+  // a coffee table: a round walnut drum or an oval stone top on a plinth, with books, a bowl and a candle
+  function coffeeK(K, x, z, yaw, o) { o = o || {}; var f = FP(K, x, z, yaw), R = rng(Math.round(x * 17 + z * 7)), h = o.h || 0.4;
+    if (o.round) { var r = o.r || 0.45; f.lathe(o.mat || "walnut", [[0, 0], [r * 0.7, 0], [r * 0.72, h - 0.05], [r, h - 0.04], [r, h - 0.01], [r - 0.01, h], [0, h]], 32, 0, 0, 0); }
+    else { var w = o.w || 1.15, d = o.d || 0.6; f.rb(o.mat || "walnut", w, 0.05, d, 0.02, 0, h - 0.025, 0, { seg: 2 }); f.rb(o.mat || "walnut", w - 0.3, h - 0.05, d - 0.25, 0.02, 0, (h - 0.05) / 2, 0); }
+    booksK(f, -0.18, h, 0.02, 3, R, 0.2); f.lathe("ceramic", [[0, 0], [0.05, 0], [0.12, 0.05], [0.13, 0.06]], 16, 0.2, h, -0.04); candleK(f, 0.05, 0.14, h); return f; }
 
   // ───────────────────────── the walk-in Model Suite (built near, disposed far; one layout for every size, from suitePlan) ─────────────────────────
   // the interiors' parts by base (the textured interior bases; the colour is a vertex tint)
@@ -899,35 +1162,49 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     linen: ["ifabric", "#f7f3ea"], throw: ["ifabric", "#8a6f4e"], cloth: ["ifabric", "#fbf8f2"], towel: ["ifabric", "#f2efe8"], cushion: ["ifabric", "#e9dfcc"], fabric: ["ifabric", "#f2e6d0"], curtain: ["icurtain", "#f3ead9"],
     sofa: ["isofa", "#ffffff"], mat: ["isoft", "#7d8c6f"], mat2: ["isoft", "#b7856a"], rug: ["irug", "#ffffff"], marble: ["imarble", "#ffffff"], leather: ["ileather", "#6b4128"],
     black: ["idark", "#0c0c0d"], stove: ["idark", "#151517"], basalt: ["idark", "#2a2a2c"], speaker: ["idark", "#18181a"], metal: ["idark", "#0b0b0c"], strutD: ["idark", "#26282b"], wire: ["idark", "#141414"],
-    chrome: ["ibright", "#dadde0"], inox: ["ibright", "#b9bcbf"], brass: ["ibright", "#c9a24e"], gold: ["ibright", "#c9a24e"], steel: ["ibright", "#a6abb0"],
+    chrome: ["ibright", "#dadde0"], inox: ["ibright", "#b9bcbf"], brass: ["ibright", "#d6a84e"], gold: ["ibright", "#dcb25a"], steel: ["ibright", "#a6abb0"],
     white: ["ipaint", "#f2f2ee"], ceramic: ["ipaint", "#f4f4f2"], chairW: ["ipaint", "#f5f2ec"], rib: ["ipaint", "#f2f0ea"],
     pot: ["isoft", "#9a6a48"], leaf: ["isoft", "#4f6a3a"], green: ["isoft", "#5f7a4a"], flower: ["isoft", "#f3e9e0"], rose: ["isoft", "#d7a1a0"],
     frostPane: ["ifrost", "#c8d0ce"], glassB: ["iglass", "#cfe0e6"], bottle: ["iglass", "#3a5a3a"], amber: ["iglass", "#7a4a14"],
     stone: ["isoft", "#d8ccba"], concrete: ["isoft", "#c2bbb0"], coping: ["isoft", "#efe4d2"], timber: ["iwood", "#8a6a4a"], deck: ["iwood", "#b08860"], post: ["iwood", "#5a4030"], cedar: ["iwood", "#c07a50"], corten: ["isoft", "#7a4022"], hub: ["ibright", "#9ea2a6"], band: ["idark", "#2c2d30"], beads: ["idark", "#1a1a1c"],
-    lamp: ["iemit", "#ffd9a0"], ledStrip: ["iemit", "#ffc27a"], ember: ["iemit", "#ff5a14"], lampShade: ["iemit", "#ffcf8a"], bulb: ["iemit", "#ffd59a"] };
+    lamp: ["iemit", "#ffc27a"], ledStrip: ["iemit", "#ffb460"], ember: ["iemit", "#ff5a14"], lampShade: ["iemit", "#ffb868"], bulb: ["iemit", "#ffc27a"],
+    rattan: ["isoft", "#b08452"], cork: ["isoft", "#b98d5e"], jute: ["ifabric", "#c8ad84"], ivory: ["ifabric", "#f5efe3"], blush: ["ifabric", "#e8c9c0"], napkin: ["ifabric", "#ece4d6"], drape: ["icurtain", "#f6ecdc"], drapeF: ["ifabric", "#f6ecdc"], cord: ["iwalnut", "#3a2a20"], charcoalF: ["ifabric", "#4a4744"], jute2: ["ifabric", "#d8c7ac"],
+    velvetS: ["isoft", "#7d8c69"], velvetT: ["isoft", "#a85f42"], velvetN: ["isoft", "#334055"], cream: ["isofa", "#f4ede1"], oat: ["isofa", "#d8c7ac"], charcoal: ["isofa", "#5d5955"],
+    terracotta: ["isoft", "#b4643e"], olive: ["isoft", "#7f8c5c"], olive2: ["isoft", "#9aa47a"], leafO: ["isoft", "#5e6b45"], leafD: ["isoft", "#3f5a32"], soil: ["isoft", "#3b2b20"], bark: ["iwalnut", "#9a7a60"],
+    paper: ["ipaint", "#efe7d6"], mirror: ["ibright", "#6e7378"], copper: ["ibright", "#c87a46"], wine: ["iemit", "#4a1018"], gin: ["iemit", "#6a8a84"], glassB2: ["iemit", "#8a9a96"], uplight: ["iglow", "#ffb35c"], washW: ["iglow", "#ffd9a8"] };
+  INT.bottle = ["iemit", "#24402a"]; INT.amber = ["iemit", "#6a3a10"];
   var R_STAGE = 70, R_BUILD = 38, R_DROP = 95;
-  function sofaKit(K, Mt, x, z, yaw, len, mat) { mat = mat || "sofa"; var c = Math.cos(yaw), s = Math.sin(yaw); var W = function (lx, lz) { return [x + lx * c + lz * s, z - lx * s + lz * c]; };
-    var b = W(0, 0); K.box(mat, len, 0.26, 0.92, b[0], 0.2, b[1], yaw, 1); var bk = W(0, -0.36); K.box(mat, len, 0.5, 0.2, bk[0], 0.58, bk[1], yaw, 1);
-    [-1, 1].forEach(function (sd) { var a = W(sd * (len / 2 - 0.1), 0); K.box(mat, 0.2, 0.56, 0.92, a[0], 0.33, a[1], yaw, 1); });
-    var nS = len > 1.6 ? 3 : 2, cw = (len - 0.4) / nS; for (var i = 0; i < nS; i++) { var o = -len / 2 + 0.2 + cw * (i + 0.5); var sc = W(o, 0.06); K.box(mat, cw - 0.03, 0.16, 0.68, sc[0], 0.41, sc[1], yaw, 1); var bc = W(o, -0.24); var bg = new THREE.BoxGeometry(cw - 0.05, 0.42, 0.16); bg.rotateX(-0.18); K.geo(mat, bg, bc[0], 0.68, bc[1], yaw); }
-    [-1, 1].forEach(function (sd) { var p = W(sd * (len / 2 - 0.42), -0.12); var pg = new THREE.BoxGeometry(0.42, 0.38, 0.12); pg.rotateX(-0.25); pg.rotateZ(sd * 0.15); K.geo(sd < 0 ? "throw" : "linen", pg, p[0], 0.66, p[1], yaw); });
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { var l = W(q[0] * (len / 2 - 0.08), q[1] * 0.38); K.box("walnut", 0.05, 0.08, 0.05, l[0], 0.04, l[1], yaw); }); }
-  function armchairKit(K, x, z, yaw) { var c = Math.cos(yaw), s = Math.sin(yaw); var W = function (lx, lz) { return [x + lx * c + lz * s, z - lx * s + lz * c]; };
-    var b = W(0, 0); K.box("sofa", 0.8, 0.24, 0.8, b[0], 0.22, b[1], yaw, 1); var sc = W(0, 0.05); K.box("sofa", 0.56, 0.14, 0.62, sc[0], 0.4, sc[1], yaw, 1); var bk = W(0, -0.32); var bg = new THREE.BoxGeometry(0.8, 0.5, 0.16); bg.rotateX(-0.15); K.geo("sofa", bg, bk[0], 0.6, bk[1], yaw);
-    [-1, 1].forEach(function (sd) { var a = W(sd * 0.33, 0); K.box("sofa", 0.14, 0.34, 0.78, a[0], 0.46, a[1], yaw, 1); }); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { var l = W(q[0] * 0.34, q[1] * 0.34); K.box("walnut", 0.04, 0.12, 0.04, l[0], 0.06, l[1], yaw); }); }
-  function plantKit(K, x, z, h, big) { K.cyl("pot", big ? 0.28 : 0.2, big ? 0.22 : 0.16, big ? 0.5 : 0.36, x, big ? 0.25 : 0.18, z, 16); var R = rng(Math.round(x * 100 + z * 7)); K.cyl("walnut", 0.025, 0.035, h * 0.55, x, h * 0.3, z, 6);
-    for (var i = 0; i < (big ? 22 : 12); i++) { var a = R() * TAU, y = h * (0.45 + R() * 0.55), r = 0.12 + R() * 0.3; var lf = new THREE.SphereGeometry(big ? 0.16 : 0.11, 6, 4); lf.scale(1.6, 0.35, 1); lf.rotateY(a); lf.rotateZ((R() - 0.5) * 0.8); K.geo("leaf", lf, x + Math.cos(a) * r, y, z + Math.sin(a) * r); } }
+  // the wood stove (R5): a rounded black steel body on short legs, a framed glass door onto the fire, a cast top plate and collar, a
+  // round stone hearth with an eased edge, a steel hoop of split logs beside it (its frame: the door faces +z)
+  function stoveK(K, x, z, yaw) { var f = FP(K, x, z, yaw);
+    f.lathe("stone", [[0, 0], [0.66, 0], [0.7, 0.02], [0.7, 0.045], [0.68, 0.06], [0, 0.06]], 36, 0, 0, 0.05);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { f.cyl("stove", 0.025, 0.02, 0.2, q[0] * 0.22, 0.16, q[1] * 0.16, 8); });
+    f.rb("stove", 0.56, 0.6, 0.42, 0.05, 0, 0.56, -0.02, { seg: 2 }); f.rb("stove", 0.64, 0.04, 0.5, 0.015, 0, 0.88, -0.02); f.cyl("stove", 0.09, 0.1, 0.18, 0, 0.98, -0.02, 16);
+    f.box("black", 0.36, 0.28, 0.005, 0, 0.58, 0.192); f.box("ember", 0.32, 0.06, 0.012, 0, 0.47, 0.196); [[0, 0.745, 0.46, 0.05], [0, 0.415, 0.46, 0.05]].forEach(function (q) { f.box("stove", q[2], q[3], 0.03, q[0], q[1], 0.205); }); [-1, 1].forEach(function (s2) { f.box("stove", 0.05, 0.28, 0.03, s2 * 0.205, 0.58, 0.205); });
+    f.box("glassB", 0.36, 0.28, 0.006, 0, 0.58, 0.214); f.rod("chrome", [0.2, 0.5, 0.235], [0.2, 0.66, 0.235], 0.008, 6); f.rb("stove", 0.5, 0.05, 0.05, 0.015, 0, 0.32, 0.17);
+    for (var lg = 0; lg < 5; lg++) { var row = lg < 3 ? 0 : 1, k = row ? lg - 3 : lg; f.cyl("bark", 0.045, 0.045, 0.36, 0.62 + (k - (row ? 0.5 : 1)) * 0.095, 0.105 + row * 0.08, 0.02, 8, PI / 2); }
+    return f; }
+  // the king bed (R5) in the bed frame (head at -z): a walnut platform on a shadow plinth, a deep mattress, a plump duvet folded
+  // back, a throw at the foot, pillows and cushions, a channel-tufted headboard; nightstands with turned lamps
+  function bedK(K, B, o) { o = o || {}; var f = FP(K, B.x, B.z, B.yaw), w = B.w, l = B.l, lo = !!o.lo;
+    f.box("black", w - 0.3, 0.08, l - 0.3, 0, 0.04, 0); f.rb("walnut", w + 0.12, 0.24, l + 0.06, 0.02, 0, 0.2, 0, { seg: lo ? 1 : 2 }); f.rb("linen", w, 0.22, l - 0.12, 0.05, 0, 0.42, -0.02, { seg: lo ? 1 : 2 });
+    f.rb("cloth", w + 0.08, 0.1, l - 0.62, 0.05, 0, 0.56, 0.24, { seg: lo ? 1 : 2, bulge: 0.025 }); f.rb("cloth", w + 0.08, 0.08, 0.32, 0.04, 0, 0.6, -l / 2 + 0.78, { seg: 1, bulge: 0.02 });
+    f.rb("throw", w + 0.14, 0.035, 0.52, 0.015, 0, 0.625, l / 2 - 0.4, { seg: 1 });
+    var hb = lo ? 1 : 6; for (var i = 0; i < hb; i++) { var pw = (w + 0.3) / hb; f.rb(o.head || "oat", pw - 0.01, 1.12, 0.12, lo ? 0.03 : 0.05, -(w + 0.3) / 2 + pw * (i + 0.5), 0.58, -l / 2 - 0.05, { seg: lo ? 1 : 2 }); }
+    if (!lo) { [-0.47, 0.47].forEach(function (x) { f.rb("linen", 0.72, 0.16, 0.48, 0.07, x, 0.74, -l / 2 + 0.3, { seg: 2, bulge: 0.05, rx: 0.95 }); f.rb(x < 0 ? "velvetT" : "oat", 0.5, 0.13, 0.34, 0.06, x * 0.85, 0.7, -l / 2 + 0.55, { seg: 1, bulge: 0.04, rx: 0.75 }); }); f.rb("velvetS", 0.42, 0.12, 0.3, 0.05, 0, 0.68, -l / 2 + 0.72, { bulge: 0.035, rx: 0.6 }); }
+    [-1, 1].forEach(function (sd) { var nx = sd * (w / 2 + 0.33), nz = -l / 2 + 0.25; f.rb("walnut", 0.46, 0.52, 0.4, 0.02, nx, 0.26, nz); if (!lo) { f.box("black", 0.4, 0.008, 0.005, nx, 0.36, nz + 0.2); f.box("brass", 0.1, 0.015, 0.02, nx, 0.42, nz + 0.205); var lw = f.w(nx, nz); tableLampK(K, lw[0], lw[1], 0.52, {}); } else f.cyl("lampShade", 0.11, 0.14, 0.22, nx, 0.75, nz, 12); });
+    return f; }
   function* buildSteps(P) {
-    var Mt = intMats(), R = P.R, PL = suitePlan(P.size, R), SH = buildShell(P.size, R); var g = new THREE.Group(); g.name = "domes_interior " + P.id; g.position.set(P.x, P.D, P.z); g.rotation.y = P.rot; g.userData.noCull = true; g.userData.interior = true;
-    var L = { P: P, g: g, solids: [], lights: [], hots: [], recl: [], seats: [] }; var K = new Kit();
+    var Mt = intMats(), Bs = intBases(), R = P.R, PL = suitePlan(P.size, R), SH = buildShell(P.size, R); var g = new THREE.Group(); g.name = "domes_interior " + P.id; g.position.set(P.x, P.D, P.z); g.rotation.y = P.rot; g.userData.noCull = true; g.userData.interior = true;
+    var L = { P: P, g: g, solids: [], lights: [], hots: [], recl: [], seats: [] }; var K = instKit(), rnd = rng(P.x * 13 + P.z * 7);
     var so = function (lx, lz, w, d, y0, y1, ry) { var sd = pSolid(P, lx, lz, w, d, P.D + y0, P.D + y1, ry, L.solids); return sd; };
     var seat = function (lx, lz, w, d, y, face) { var sd = so(lx, lz, w, d, y - 0.4, y); if (sd) { sd.seat = true; sd.face = P.rot + face; L.seats.push(sd); } return sd; };
     var light = function (col, k, dist, lx, ly, lz, flick) { k *= 4.0; dist *= 1.3; var l = new THREE.PointLight(col, 0, dist, 1.4); l.position.set(lx, ly, lz); l.userData.k0 = k; l.userData.flick = !!flick; g.add(l); L.lights.push(l); return l; };
     var hot = function (lx, ly, lz, r, kind, d) { var w = l2w(P, lx, lz); var o = { x: w[0], y: P.D + ly, z: w[1], r: r, kind: kind, d: d || {} }; L.hots.push(o); return o; };
     var at = function (o, lx, lz) { var c = Math.cos(o.yaw), s = Math.sin(o.yaw); return [o.x + lx * c + lz * s, o.z - lx * s + lz * c]; };
-    // ── the floor: wide oak boards, the kilim under the living room, a wool rug by the bed ──
-    K.disc("oak", R - 0.05, 0, 0.02, 0, 48, 1.3); K.flat("rug", PL.rug.x - PL.rug.w / 2, PL.rug.z - PL.rug.d / 2, PL.rug.x + PL.rug.w / 2, PL.rug.z + PL.rug.d / 2, 0.028, true, 99);
-    var bf = at(PL.bed, 0, PL.bed.l / 2 + 0.55); K.disc("throw", 0.8, bf[0], 0.026, bf[1], 28);
+    // ── the floor: wide oak boards, the kilim under the living room, a Moroccan lattice rug at the foot of the bed ──
+    K.disc("oak", R - 0.05, 0, 0.02, 0, 48, 1.3); rugK(K, 0, PL.rug.w, PL.rug.d, PL.rug.x, PL.rug.z, 0, 0.026);
+    var bf = at(PL.bed, 0, PL.bed.l / 2 + 0.55); rugK(K, 2, 1.7, 1.2, bf[0], bf[1], PL.bed.yaw, 0.026);
     yield 1;
     // ── the bathroom pod: oak-clad walls with a frosted door, a rain shower, a stone basin on a walnut vanity, a WC ──
     var pd = PL.pod, ph = pd.h, pw = pd.w, pdd = pd.d; var pW = function (lx, lz) { return at(pd, lx, lz); };
@@ -936,12 +1213,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var dh = pW(fx, pdd / 2); K.box("podWall", dw, ph - 2.05, 0.08, dh[0], 2.05 + (ph - 2.05) / 2, dh[1], pd.yaw, 1); var dg = pW(fx, pdd / 2 + 0.01); K.box("frostPane", dw - 0.06, 2.0, 0.03, dg[0], 1.02, dg[1], pd.yaw); so(dg[0], dg[1], dw, 0.1, 0, 2.05, pd.yaw);
     var rf = pW(0, 0); K.box("white", pw + 0.04, 0.06, pdd + 0.04, rf[0], ph + 0.03, rf[1], pd.yaw, 1);
     var sh = pW(-pw / 2 + 0.5, -0.1); K.box("basalt", 0.85, 0.05, 0.9, sh[0], 0.04, sh[1], pd.yaw, 1); var sr = pW(-pw / 2 + 0.5, 0.3); K.box("frostPane", 0.85, 1.9, 0.02, sr[0], 1.0, sr[1], pd.yaw); K.cyl("black", 0.015, 0.015, 2.05, sh[0], 1.02, sh[1], 8); K.cyl("black", 0.13, 0.13, 0.02, sh[0], 1.98, sh[1], 20);
-    var vn = pW(pw / 2 - 0.45, -pdd / 2 + 0.28); K.box("walnut", 0.62, 0.14, 0.42, vn[0], 0.8, vn[1], pd.yaw, 1); K.cyl("basalt", 0.17, 0.12, 0.12, vn[0], 0.93, vn[1], 18); var mi = pW(pw / 2 - 0.45, -pdd / 2 + 0.05); K.geo("chrome", new THREE.CircleGeometry(0.26, 28), mi[0], 1.45, mi[1], pd.yaw);
-    var wc = pW(pw / 2 - 0.4, 0.15); K.box("ceramic", 0.38, 0.4, 0.5, wc[0], 0.2, wc[1], pd.yaw, 1); var tw = pW(0.05, -pdd / 2 + 0.07); K.box("towel", 0.45, 0.6, 0.06, tw[0], 1.15, tw[1], pd.yaw);
+    var vn = pW(pw / 2 - 0.45, -pdd / 2 + 0.28); FP(K, vn[0], vn[1], pd.yaw).rb("walnut", 0.62, 0.14, 0.42, 0.02, 0, 0.8, 0); FP(K, vn[0], vn[1], pd.yaw).lathe("basalt", [[0, 0], [0.1, 0], [0.16, 0.05], [0.17, 0.12], [0.15, 0.125], [0, 0.03]], 20, 0, 0.87, 0); var mi = pW(pw / 2 - 0.45, -pdd / 2 + 0.05); K.geo("chrome", new THREE.CircleGeometry(0.26, 28), mi[0], 1.45, mi[1], pd.yaw);
+    var wc = pW(pw / 2 - 0.4, 0.15); FP(K, wc[0], wc[1], pd.yaw).rb("ceramic", 0.38, 0.4, 0.5, 0.08, 0, 0.2, 0, { seg: 2 }); var tw = pW(0.05, -pdd / 2 + 0.07); FP(K, tw[0], tw[1], pd.yaw).rb("towel", 0.45, 0.6, 0.05, 0.02, 0, 1.15, 0);
     var hp = pW(fx, pdd / 2 + 0.55); hot(hp[0], 1.0, hp[1], 1.3, "note", { key: "bath" }); light(0xfff0d8, 0.3, 3, pW(0, 0)[0], 1.9, pW(0, 0)[1], false);
     // the sleeping loft (L): on the pod, a queen bed under the curve, a black rail, an oak ladder
-    if (PL.loft) { var lf = pW(0, -0.15); K.box("walnut", pw + 0.3, 0.12, pdd + 0.7, lf[0], ph + 0.1, lf[1], pd.yaw, 1); var mt = pW(0, -0.3); K.box("linen", 1.55, 0.2, 2.0, mt[0], ph + 0.26, mt[1], pd.yaw + PI / 2, 1); K.box("throw", 0.5, 0.04, 2.02, pW(0.5, -0.3)[0], ph + 0.37, pW(0.5, -0.3)[1], pd.yaw + PI / 2, 1);
-      [-0.4, 0.4].forEach(function (o) { var pl = pW(-0.6, -0.3 + o); K.box("linen", 0.36, 0.13, 0.55, pl[0], ph + 0.42, pl[1], pd.yaw, 1); });
+    if (PL.loft) { var lf = pW(0, -0.15); K.box("walnut", pw + 0.3, 0.12, pdd + 0.7, lf[0], ph + 0.1, lf[1], pd.yaw, 1); var mt = pW(0, -0.3); FP(K, mt[0], mt[1], pd.yaw + PI / 2).rb("linen", 1.55, 0.2, 2.0, 0.05, 0, ph + 0.26, 0, { seg: 2 }); FP(K, mt[0], mt[1], pd.yaw + PI / 2).rb("cloth", 1.6, 0.08, 1.4, 0.04, 0, ph + 0.39, 0.25, { bulge: 0.02 }); var tr = pW(0.5, -0.3); FP(K, tr[0], tr[1], pd.yaw + PI / 2).rb("throw", 0.5, 0.035, 1.66, 0.012, 0, ph + 0.44, 0);
+      [-0.4, 0.4].forEach(function (o) { var pl = pW(-0.6, -0.3 + o); FP(K, pl[0], pl[1], pd.yaw).rb("linen", 0.36, 0.13, 0.55, 0.05, 0, ph + 0.42, 0, { bulge: 0.04 }); });
       var fr = pW(0, pdd / 2 + 0.18); K.box("black", pw + 0.3, 0.04, 0.04, fr[0], ph + 0.95, fr[1], pd.yaw); for (var i = 0; i <= 6; i++) { var rp = pW(-pw / 2 - 0.13 + (pw + 0.26) * i / 6, pdd / 2 + 0.18); K.box("black", 0.03, 0.8, 0.03, rp[0], ph + 0.55, rp[1], pd.yaw); }
       var ld = pW(pw / 2 + 0.25, pdd / 2 - 0.2); [-0.22, 0.22].forEach(function (o) { var lp = pW(pw / 2 + 0.25 + o, pdd / 2 - 0.2); K.box("oak", 0.05, ph + 1.0, 0.07, lp[0], (ph + 1.0) / 2, lp[1], pd.yaw, 1); }); for (var r2 = 1; r2 <= 7; r2++) K.box("oak", 0.46, 0.04, 0.05, ld[0], r2 * (ph / 7.4), ld[1], pd.yaw, 1);
       so(lf[0], lf[1], pw + 0.3, pdd + 0.7, ph, ph + 0.16, pd.yaw); so(fr[0], fr[1], pw + 0.3, 0.1, ph + 0.16, ph + 1.0, pd.yaw); so(ld[0], ld[1], 0.55, 0.2, 0, 1.0, pd.yaw);
@@ -949,59 +1226,51 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       // head on the pillows, on the inner half of the mattress: keeps the eye a metre under the shell (the camera near plane is 0.5 m)
       var me = pW(-0.55, 0.2); L.recl.push({ kind: "bed", x: me[0], z: me[1], y: ph + 0.55, loft: true }); }
     yield 2;
-    // ── the bed: walnut platform, linen, a throw, pillows, an upholstered headboard, nightstands and lamps, a bench at the foot ──
-    var B = PL.bed, bW = function (lx, lz) { return at(B, lx, lz); }; var bc = bW(0, 0);
-    K.box("walnut", B.w + 0.12, 0.28, B.l + 0.06, bc[0], 0.16, bc[1], B.yaw, 1); K.box("linen", B.w, 0.26, B.l - 0.12, bc[0], 0.43, bc[1], B.yaw, 1); var dv = bW(0, 0.25); K.box("cloth", B.w + 0.06, 0.08, B.l - 0.7, dv[0], 0.6, dv[1], B.yaw, 1);
-    var th = bW(0, B.l / 2 - 0.42); K.box("throw", B.w + 0.1, 0.05, 0.55, th[0], 0.655, th[1], B.yaw, 1);
-    var hb = bW(0, -B.l / 2 - 0.03); K.box("sofa", B.w + 0.3, 1.1, 0.12, hb[0], 0.55, hb[1], B.yaw, 1);
-    [-0.48, 0.48].forEach(function (o) { var pw2 = bW(o, -B.l / 2 + 0.28); var pg = new THREE.BoxGeometry(0.66, 0.17, 0.4); pg.rotateX(0.4); K.geo("linen", pg, pw2[0], 0.7, pw2[1], B.yaw); var pc = bW(o * 0.9, -B.l / 2 + 0.5); var pg2 = new THREE.BoxGeometry(0.5, 0.12, 0.3); pg2.rotateX(0.3); K.geo("rug", pg2, pc[0], 0.68, pc[1], B.yaw); });
-    [-1, 1].forEach(function (sd) { var nw = bW(sd * (B.w / 2 + 0.33), -B.l / 2 + 0.25); K.box("walnut", 0.46, 0.52, 0.4, nw[0], 0.26, nw[1], B.yaw, 1); K.cyl("brass", 0.06, 0.08, 0.04, nw[0], 0.54, nw[1], 12); K.cyl("brass", 0.012, 0.012, 0.2, nw[0], 0.65, nw[1], 6); K.cyl("lamp", 0.11, 0.14, 0.2, nw[0], 0.82, nw[1], 16); so(nw[0], nw[1], 0.46, 0.4, 0, 0.56); light(0xffd2a0, 0.32, 4, nw[0], 1.0, nw[1], false); });
-    var bn = bW(0, B.l / 2 + 0.35); K.box("leather", 1.3, 0.1, 0.4, bn[0], 0.44, bn[1], B.yaw, 1); [-0.55, 0.55].forEach(function (o) { var lg = bW(o, B.l / 2 + 0.35); K.box("black", 0.04, 0.4, 0.34, lg[0], 0.2, lg[1], B.yaw); });
-    so(bc[0], bc[1], B.w + 0.12, B.l + 0.06, 0, 0.58, B.yaw); so(hb[0], hb[1], B.w + 0.3, 0.14, 0, 1.1, B.yaw); seat(bn[0], bn[1], 1.3, 0.4, 0.49, B.yaw + PI);
+    // ── the bed: platform, mattress, duvet, throw, pillows, a tufted headboard; nightstands with lamps; a leather bench at the foot ──
+    var B = PL.bed, bW = function (lx, lz) { return at(B, lx, lz); }; var bc = bW(0, 0); bedK(K, B, {});
+    [-1, 1].forEach(function (sd) { var nw = bW(sd * (B.w / 2 + 0.33), -B.l / 2 + 0.25); so(nw[0], nw[1], 0.46, 0.4, 0, 0.56); light(0xffc890, 0.32, 4, nw[0], 1.0, nw[1], false); });
+    var bn = bW(0, B.l / 2 + 0.35), bnf = FP(K, bn[0], bn[1], B.yaw); bnf.rb("leather", 1.3, 0.1, 0.42, 0.04, 0, 0.45, 0, { bulge: 0.015, seg: 2 }); [-0.55, 0.55].forEach(function (o) { bnf.box("black", 0.03, 0.4, 0.36, o, 0.2, 0); }); bnf.box("black", 1.1, 0.02, 0.03, 0, 0.12, 0);
+    var hb = bW(0, -B.l / 2 - 0.03); so(bc[0], bc[1], B.w + 0.12, B.l + 0.06, 0, 0.58, B.yaw); so(hb[0], hb[1], B.w + 0.3, 0.14, 0, 1.1, B.yaw); seat(bn[0], bn[1], 1.3, 0.4, 0.5, B.yaw + PI);
     // lying on the bed: head on the pillows, looking up through the skylight toward the glass front
     var hd = bW(0, -B.l / 2 + 0.45); L.recl.push({ kind: "bed", x: hd[0], z: hd[1], y: 0.95, foot: bW(0, B.l / 2) }); hot(bc[0], 0.6, bc[1], 1.9, "note", { key: "bed" });
     yield 3;
-    // ── the living room: the sofa (bed) facing the glass, armchairs, a walnut coffee table, a floor lamp ──
-    sofaKit(K, Mt, PL.sofa.x, PL.sofa.z, 0, PL.sofa.l); PL.arms.forEach(function (a) { armchairKit(K, a.x, a.z, a.yaw); seat(a.x, a.z, 0.6, 0.6, 0.44, a.yaw); var bk = at(a, 0, -0.32); so(bk[0], bk[1], 0.8, 0.18, 0, 0.85, a.yaw); });
+    // ── the living room: the boucle sofa (bed) facing the glass, cognac swivel chairs (or club chairs), a walnut coffee table, a lamp ──
+    sofaK(K, PL.sofa.x, PL.sofa.z, 0, { len: PL.sofa.l, mat: "sofa", pil: ["velvetT", "linen", "velvetS"] });
+    PL.arms.forEach(function (a) { if (!modelK(K, Bs, "lounge_chair", a.x, a.z, a.yaw, 0.85)) armK(K, a.x, a.z, a.yaw, { mat: "oat", pil: ["velvetT"] }); seat(a.x, a.z, 0.6, 0.6, 0.44, a.yaw); var bk = at(a, 0, -0.32); so(bk[0], bk[1], 0.8, 0.18, 0, 0.85, a.yaw); });
     for (var s3 = 0; s3 < 3; s3++) { var o3 = -PL.sofa.l / 2 + 0.2 + (PL.sofa.l - 0.4) * (s3 + 0.5) / 3; seat(PL.sofa.x + o3, PL.sofa.z + 0.06, 0.6, 0.62, 0.48, 0); } so(PL.sofa.x, PL.sofa.z - 0.38, PL.sofa.l, 0.22, 0, 0.85);
-    var tb = PL.table; K.box("walnut", 1.15, 0.06, 0.62, tb.x, 0.4, tb.z, 0, 1); K.box("walnut", 1.0, 0.3, 0.06, tb.x, 0.2, tb.z - 0.24, 0, 1); K.box("walnut", 1.0, 0.3, 0.06, tb.x, 0.2, tb.z + 0.24, 0, 1);
-    K.box("cloth", 0.3, 0.04, 0.22, tb.x - 0.3, 0.45, tb.z - 0.05, 0.2); K.box("rug", 0.28, 0.03, 0.2, tb.x - 0.3, 0.485, tb.z - 0.05, 0.25); K.cyl("pot", 0.13, 0.09, 0.07, tb.x + 0.25, 0.465, tb.z + 0.05, 18); K.cyl("lamp", 0.035, 0.035, 0.08, tb.x + 0.05, 0.47, tb.z + 0.12, 10); so(tb.x, tb.z, 1.15, 0.62, 0, 0.43);
-    var lp = PL.lamp; K.cyl("black", 0.16, 0.18, 0.03, lp.x, 0.015, lp.z, 18); K.cyl("brass", 0.014, 0.014, 1.5, lp.x, 0.76, lp.z, 8); K.cyl("lamp", 0.18, 0.24, 0.3, lp.x, 1.6, lp.z, 18); so(lp.x, lp.z, 0.36, 0.36, 0, 1.6); light(0xffd9a8, 0.4, 4.5, lp.x, 1.5, lp.z, false);
+    var tb = PL.table; coffeeK(K, tb.x, tb.z, 0, { w: 1.15, d: 0.62, h: 0.4 }); so(tb.x, tb.z, 1.15, 0.62, 0, 0.43);
+    var lp = PL.lamp; floorLampK(K, lp.x, lp.z, {}); so(lp.x, lp.z, 0.36, 0.36, 0, 1.6); light(0xffc890, 0.4, 4.5, lp.x, 1.5, lp.z, false);
     hot(PL.sofa.x, 0.6, PL.sofa.z + 0.9, 1.5, "note", { key: "living" });
     yield 4;
-    // ── the wood stove: black steel on legs, a glass door onto a live fire, a stone hearth, a log basket; its flue up through the dome ──
-    var stv = PL.stove, sW = function (lx, lz) { return at(stv, lx, lz); }; var sc = sW(0, 0);
-    K.disc("stone", 0.7, sc[0], 0.03, sc[1], 28, 1); K.box("stove", 0.58, 0.6, 0.48, sc[0], 0.62, sc[1], stv.yaw, 1); K.box("stove", 0.62, 0.05, 0.52, sc[0], 0.94, sc[1], stv.yaw, 1); K.cyl("stove", 0.085, 0.085, 0.1, sc[0], 1.0, sc[1], 14);
-    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { var l = sW(q[0] * 0.24, q[1] * 0.18); K.box("stove", 0.05, 0.32, 0.05, l[0], 0.16, l[1], stv.yaw); });
-    var gw = sW(0, 0.245); K.box("ember", 0.34, 0.1, 0.02, gw[0], 0.42, gw[1], stv.yaw); K.box("glassB", 0.38, 0.32, 0.01, sW(0, 0.25)[0], 0.6, sW(0, 0.25)[1], stv.yaw); K.box("black", 0.44, 0.04, 0.03, sW(0, 0.255)[0], 0.78, sW(0, 0.255)[1], stv.yaw); K.box("black", 0.44, 0.04, 0.03, sW(0, 0.255)[0], 0.42, sW(0, 0.255)[1], stv.yaw);
-    var lb = sW(0.62, 0.15); K.cyl("throw", 0.2, 0.18, 0.3, lb[0], 0.15, lb[1], 14, true); for (var lg2 = 0; lg2 < 4; lg2++) K.cyl("walnut", 0.05, 0.05, 0.42, lb[0] + (lg2 % 2 - 0.5) * 0.08, 0.28 + (lg2 >> 1) * 0.08, lb[1], 8, false, stv.yaw, 0, PI / 2);
-    var fl = new THREE.Mesh((function () { var a = new THREE.PlaneGeometry(0.34, 0.26), b = a.clone(); b.rotateY(PI / 2); b.scale(0.7, 1, 0.7); var m = mergeGeos([toNonIndexed(a), toNonIndexed(b)]); m.translate(0, 0.46 + 0.13, 0); return m; })(), mats().fire); var fp = sW(0, 0.05); fl.position.set(fp[0], 0, fp[1]); fl.rotation.y = stv.yaw; fl.renderOrder = 4; g.add(fl);
-    so(sc[0], sc[1], 0.62, 0.52, 0, 1.0, stv.yaw); so(lb[0], lb[1], 0.4, 0.4, 0, 0.35); L.fireLight = light(0xff8a3a, 0.8, 6, sW(0, 0.5)[0], 0.8, sW(0, 0.5)[1], true); hot(sW(0, 0.9)[0], 0.6, sW(0, 0.9)[1], 1.3, "note", { key: "stove" });
+    // ── the wood stove on its stone hearth with a live fire, a hoop of logs; its flue up through the dome ──
+    var stv = PL.stove, sW = function (lx, lz) { return at(stv, lx, lz); }; var sc = sW(0, 0); stoveK(K, stv.x, stv.z, stv.yaw);
+    var fl = new THREE.Mesh((function () { var m = toNonIndexed(new THREE.PlaneGeometry(0.3, 0.24)); m.translate(0, 0.57, 0); return m; })(), mats().fire); var fp = sW(0, 0.199); fl.position.set(fp[0], 0, fp[1]); fl.rotation.y = stv.yaw; fl.renderOrder = 4; g.add(fl);
+    var lb = sW(0.66, 0.0); so(sc[0], sc[1], 0.66, 0.54, 0, 1.0, stv.yaw); so(lb[0], lb[1], 0.4, 0.4, 0, 0.35); L.fireLight = light(0xff8a3a, 0.8, 6, sW(0, 0.5)[0], 0.8, sW(0, 0.5)[1], true); hot(sW(0, 0.9)[0], 0.6, sW(0, 0.9)[1], 1.3, "note", { key: "stove" });
     yield 5;
-    // ── the kitchenette: walnut cabinets, a stone top, a sink, a two ring hob, a fridge drawer, a coffee machine, a little shelf ──
-    var kt = PL.kitchen, kW = function (lx, lz) { return at(kt, lx, lz); }; var kc = kW(0, 0);
-    K.box("walnut", kt.l, 0.86, 0.6, kc[0], 0.43, kc[1], kt.yaw, 1); K.box("marble", kt.l + 0.04, 0.04, 0.64, kc[0], 0.88, kc[1], kt.yaw, 1); for (var d2 = 1; d2 < 4; d2++) { var dl = kW(-kt.l / 2 + kt.l * d2 / 4, 0.302); K.box("black", 0.01, 0.74, 0.005, dl[0], 0.45, dl[1], kt.yaw); }
-    var sk = kW(-kt.l / 2 + 0.45, 0); K.box("inox", 0.42, 0.02, 0.36, sk[0], 0.895, sk[1], kt.yaw); K.cyl("chrome", 0.012, 0.012, 0.3, kW(-kt.l / 2 + 0.45, -0.22)[0], 1.05, kW(-kt.l / 2 + 0.45, -0.22)[1], 8);
-    var hb2 = kW(kt.l / 2 - 0.45, 0.02); K.box("black", 0.5, 0.008, 0.42, hb2[0], 0.904, hb2[1], kt.yaw); var cm = kW(0.05, -0.12); K.box("inox", 0.26, 0.34, 0.3, cm[0], 1.07, cm[1], kt.yaw); K.cyl("ceramic", 0.04, 0.035, 0.08, kW(0.05, 0.08)[0], 0.94, kW(0.05, 0.08)[1], 12);
-    var sh2 = kW(0, -0.22); [-1, 1].forEach(function (s2) { var pp = kW(s2 * (kt.l / 2 - 0.08), -0.22); K.cyl("brass", 0.012, 0.012, 0.5, pp[0], 1.15, pp[1], 6); }); K.box("walnut", kt.l - 0.1, 0.03, 0.2, sh2[0], 1.38, sh2[1], kt.yaw, 1); for (var j2 = 0; j2 < 5; j2++) { var jr = kW(-kt.l / 2 + 0.25 + j2 * (kt.l - 0.5) / 4, -0.22); K.cyl(j2 % 2 ? "glassB" : "ceramic", 0.05, 0.05, 0.14, jr[0], 1.47, jr[1], 10); }
-    plantKit(K, kW(kt.l / 2 - 0.15, -0.1)[0], kW(kt.l / 2 - 0.15, -0.1)[1], 0.5, false);
-    so(kc[0], kc[1], kt.l, 0.62, 0, 0.92, kt.yaw); light(0xffd9a8, 0.45, 4.5, kW(0, 0.9)[0], 2.1, kW(0, 0.9)[1], false); hot(kW(0, 0.9)[0], 0.9, kW(0, 0.9)[1], 1.4, "note", { key: "kitchen" });
-    // ── dining: a round walnut table, chairs, a vase ──
-    var dn = PL.dining; K.cyl("walnut", 0.52, 0.52, 0.04, dn.x, 0.74, dn.z, 32); K.cyl("walnut", 0.05, 0.07, 0.7, dn.x, 0.37, dn.z, 10); K.cyl("walnut", 0.28, 0.3, 0.03, dn.x, 0.015, dn.z, 24); K.cyl("glassB", 0.06, 0.05, 0.2, dn.x, 0.86, dn.z, 12); [0, 1, 2].forEach(function (k) { var a = k * 2.1; K.sph("flower", 0.05, dn.x + Math.cos(a) * 0.05, 1.02 + k * 0.03, dn.z + Math.sin(a) * 0.05, 1, 6); });
-    dn.chairs.forEach(function (a) { var r = a * PI / 180, cx = dn.x + Math.sin(r) * 0.78, cz = dn.z + Math.cos(r) * 0.78; K.box("leather", 0.44, 0.06, 0.42, cx, 0.46, cz, r, 1); K.box("leather", 0.44, 0.4, 0.05, cx + Math.sin(r) * 0.2, 0.68, cz + Math.cos(r) * 0.2, r, 1); [[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]].forEach(function (l) { var c = Math.cos(r), s = Math.sin(r); K.box("walnut", 0.035, 0.44, 0.035, cx + l[0] * c + l[1] * s, 0.22, cz - l[0] * s + l[1] * c, r); }); seat(cx, cz, 0.46, 0.44, 0.49, r + PI); });
+    // ── the kitchenette: walnut cabinets with brass pulls, a marble top, a sink and tap, a hob, a coffee machine, a shelf of jars ──
+    var kt = PL.kitchen, kf = FP(K, kt.x, kt.z, kt.yaw), kW = function (lx, lz) { return at(kt, lx, lz); };
+    kf.rb("walnut", kt.l, 0.84, 0.6, 0.012, 0, 0.44, 0); for (var d2 = 0; d2 < 4; d2++) { var dx = -kt.l / 2 + kt.l * (d2 + 0.5) / 4; kf.rb("walnut", kt.l / 4 - 0.02, 0.7, 0.02, 0.006, dx, 0.46, 0.305); kf.box("brass", 0.12, 0.012, 0.02, dx, 0.74, 0.325); }
+    kf.rb("marble", kt.l + 0.04, 0.04, 0.64, 0.01, 0, 0.88, 0.0); kf.box("inox", 0.42, 0.02, 0.36, -kt.l / 2 + 0.45, 0.895, 0); kf.rod("chrome", [-kt.l / 2 + 0.45, 0.9, -0.22], [-kt.l / 2 + 0.45, 1.2, -0.22], 0.012, 8); kf.rod("chrome", [-kt.l / 2 + 0.45, 1.2, -0.22], [-kt.l / 2 + 0.45, 1.17, -0.05], 0.01, 8);
+    kf.box("black", 0.5, 0.008, 0.42, kt.l / 2 - 0.45, 0.904, 0.02); kf.rb("inox", 0.26, 0.34, 0.3, 0.03, 0.05, 1.07, -0.12); kf.lathe("ceramic", [[0, 0], [0.035, 0], [0.042, 0.075], [0.044, 0.08]], 12, 0.05, 0.9, 0.08);
+    [-1, 1].forEach(function (s2) { kf.rod("brass", [s2 * (kt.l / 2 - 0.08), 0.9, -0.22], [s2 * (kt.l / 2 - 0.08), 1.42, -0.22], 0.01, 6); }); kf.rb("walnut", kt.l - 0.1, 0.03, 0.2, 0.008, 0, 1.38, -0.22); for (var j2 = 0; j2 < 5; j2++) kf.lathe(j2 % 2 ? "glassB" : "ceramic", [[0, 0], [0.045, 0], [0.05, 0.02], [0.05, 0.13], [0.035, 0.145], [0.036, 0.16], [0, 0.16]], 12, -kt.l / 2 + 0.25 + j2 * (kt.l - 0.5) / 4, 1.395, -0.22);
+    var kp = kW(kt.l / 2 - 0.15, -0.1); snakeK(K, kp[0], kp[1], 0.55, { pr: 0.1, ph: 0.18 }); kp = null;
+    var kc = kW(0, 0); so(kc[0], kc[1], kt.l, 0.62, 0, 0.92, kt.yaw); light(0xffc890, 0.45, 4.5, kW(0, 0.9)[0], 2.1, kW(0, 0.9)[1], false); hot(kW(0, 0.9)[0], 0.9, kW(0, 0.9)[1], 1.4, "note", { key: "kitchen" });
+    // ── dining: a round walnut table, cross-back chairs with rattan seats, a vase of flowers, a candle ──
+    var dn = PL.dining; tableK(K, dn.x, dn.z, { round: true, r: 0.52, top: "walnut", leg: "walnut" }); var df = FP(K, dn.x, dn.z, 0); budVaseK(df, 0, 0.05, 0.752, rnd); candleK(df, 0.15, -0.1, 0.752);
+    dn.chairs.forEach(function (a) { var r = a * PI / 180, cx = dn.x + Math.sin(r) * 0.78, cz = dn.z + Math.cos(r) * 0.78; crossChairP(K, cx, cz, r + PI, { wood: "walnut" }); seat(cx, cz, 0.46, 0.44, 0.49, r + PI); settingK(df, Math.sin(r) * 0.32, Math.cos(r) * 0.32, 0.752, r + PI, rnd, false); });
     so(dn.x, dn.z, 1.0, 1.0, 0, 0.77); hot(dn.x, 0.8, dn.z, 1.2, "note", { key: "dining" });
-    if (PL.daybed) { var db = PL.daybed; K.box("walnut", 2.05, 0.3, 0.9, db.x, 0.15, db.z, db.yaw, 1); K.box("sofa", 1.95, 0.18, 0.82, db.x, 0.39, db.z, db.yaw, 1); var dbk = at(db, 0, -0.38); K.box("sofa", 1.95, 0.42, 0.14, dbk[0], 0.6, dbk[1], db.yaw, 1); [-0.6, 0.6].forEach(function (o) { var pc = at(db, o, -0.22); var pg = new THREE.BoxGeometry(0.45, 0.32, 0.12); pg.rotateX(-0.3); K.geo(o < 0 ? "throw" : "linen", pg, pc[0], 0.62, pc[1], db.yaw); });
+    if (PL.daybed) { var db = PL.daybed, dbf = FP(K, db.x, db.z, db.yaw); dbf.rb("walnut", 2.05, 0.28, 0.9, 0.02, 0, 0.16, 0); dbf.rb("cream", 1.95, 0.16, 0.82, 0.06, 0, 0.38, 0, { bulge: 0.02, seg: 2 }); dbf.rb("cream", 1.95, 0.16, 0.44, 0.07, 0, 0.62, -0.36, { bulge: 0.03, seg: 2, rx: PI / 2 - 0.15 }); [-0.6, 0.6].forEach(function (o) { dbf.rb(o < 0 ? "velvetT" : "linen", 0.45, 0.12, 0.32, 0.05, o, 0.62, -0.18, { bulge: 0.035, rx: PI / 2 - 0.4 }); });
       seat(db.x, db.z, 1.8, 0.7, 0.48, db.yaw); hot(db.x, 0.6, db.z, 1.4, "note", { key: "daybed" }); }
     yield 6;
     // ── the curtains (heavy linen, gathered at both edges of the glass), plants, a rattan pendant under the skylight, a bench by the door ──
     PL.curtains.forEach(function (c, ci) { var n = 9, P0 = []; for (var i = 0; i <= n; i++) { var off = (i - n / 2) * 0.075, wv = (i % 2 ? 0.06 : -0.06); P0.push([c.x + Math.cos(c.yaw) * off - Math.sin(c.yaw) * wv, c.z - Math.sin(c.yaw) * off - Math.cos(c.yaw) * wv]); }
       var pos = [], uvs = []; for (var i2 = 0; i2 < n; i2++) { var a = P0[i2], b = P0[i2 + 1]; var y0 = 0.03, y1 = c.h; [[a, y0], [b, y0], [b, y1], [a, y0], [b, y1], [a, y1]].forEach(function (v) { pos.push(v[0][0], v[1], v[0][1]); uvs.push(v[0][0] * 0.8, v[1] * 0.8); }); }
       var cg = new THREE.BufferGeometry(); cg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); cg.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2)); cg.computeVertexNormals(); K.add("curtain", cg); });
-    PL.plants.forEach(function (p, i) { plantKit(K, p.x, p.z, i === 2 ? 1.5 : 1.8, true); so(p.x, p.z, 0.5, 0.5, 0, 1.2); });
-    var pz = 0.15 * R, py = R - 0.95; K.cyl("black", 0.006, 0.006, R - py - 0.05, 0, py + (R - py) / 2, 0, 4); var pend = new THREE.SphereGeometry(0.34, 20, 12, 0, TAU, 0, PI * 0.55); K.geo("throw", pend, 0, py - 0.02, 0); K.cyl("lamp", 0.07, 0.07, 0.06, 0, py - 0.12, 0, 12); light(0xffd2a0, 0.55, 6.5, 0, py - 0.4, 0, false);
-    var bp = [0.95, R - 0.95]; K.box("oak", 0.4, 0.06, 0.9, bp[0] + 0.3, 0.45, bp[1] - 0.3, 0.6, 1); K.box("black", 0.36, 0.42, 0.04, bp[0] + 0.3, 0.21, bp[1] - 0.3, 0.6);
+    PL.plants.forEach(function (p, i) { plantPick(K, ["fig", "olive", "paradise"][i % 3], p.x, p.z, i === 2 ? 1.5 : 1.8, { pot: ["white", "terra", "basket"][i % 3], pr: 0.24 }); so(p.x, p.z, 0.5, 0.5, 0, 1.2); });
+    var py = R - 0.95; pendantK2(K, 0, 0, R - 0.05, py + 0.2, { style: "rattan" }); light(0xffc890, 0.55, 6.5, 0, py - 0.4, 0, false);
+    var bp = [0.95, R - 0.95], bpf = FP(K, bp[0] + 0.3, bp[1] - 0.3, 0.6); bpf.rb("oak", 0.9, 0.05, 0.38, 0.015, 0, 0.45, 0); [-0.38, 0.38].forEach(function (o) { bpf.box("black", 0.03, 0.43, 0.32, o, 0.215, 0); });
     yield 7;
-    var meshes = buildBased(K, g, INT, intBases()); meshes.forEach(function (m) { m.castShadow = false; m.receiveShadow = !m.material.transparent; });
+    var meshes = []; yield* buildBasedSteps(K, g, INT, Bs, meshes); modelMeshes(K, g);
     // the door: the Model Suite's own leaf on its hinge (shown with its shell while the interior stands)
     L.door = { piv: P.piv || new THREE.Group(), open: 0, target: 0, manual: false };
     scene.add(g); g.updateMatrixWorld(true); L.tris = Math.round(K.count());
@@ -1012,91 +1281,124 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // while the real interior stands, the Model Suite leaves the instanced shells for its own set (shell, a moving leaf) and drops the
   // furnished look; when the interior goes, it returns
   function setFake(P, on) { var E = P.cl.E; if (!E) return; (E.inst[P.size] || []).forEach(function (m) { m.setMatrixAt(P.instI, on ? sMatrix(P) : _ZERO); m.instanceMatrix.needsUpdate = true; }); if (E.mset && P.model) E.mset.visible = !on; if (E.mfake && P.model) E.mfake.visible = on; if (on && P.piv) P.piv.rotation.y = 0; }
-  function disposeInterior(P) { var L = P.L; if (!L) return; try { scene.remove(L.g); L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); var j = DM.sol.indexOf(sd); if (j >= 0) DM.sol.splice(j, 1); }); L.g.traverse(function (o) { if (o.isMesh && o.geometry && !o.userData.noDispose) o.geometry.dispose(); }); } catch (e) { note("dispose", e); } P.L = null; setFake(P, true); doorSolidOn(P, true); DM.n.disposes++; }
+  function disposeInterior(P) { var L = P.L; if (!L) return; try { scene.remove(L.g); L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); var j = DM.sol.indexOf(sd); if (j >= 0) DM.sol.splice(j, 1); }); L.g.traverse(function (o) { if (o.isMesh && o.geometry && !o.userData.noDispose) o.geometry.dispose(); if (o.isInstancedMesh && o.dispose) o.dispose(); }); } catch (e) { note("dispose", e); } P.L = null; setFake(P, true); doorSolidOn(P, true); DM.n.disposes++; }
 
   // ───────────────────────── the Grand Vault interiors, fitted to each use (built near, disposed far) ─────────────────────────
-  function chairWhite(K, x, z, yaw) { var c = Math.cos(yaw), s = Math.sin(yaw); var W = function (lx, lz) { return [x + lx * c + lz * s, z - lx * s + lz * c]; }; var b = W(0, 0); K.box("chairW", 0.42, 0.04, 0.42, b[0], 0.45, b[1], yaw, 1); var bk = W(0, -0.2); K.box("chairW", 0.42, 0.45, 0.03, bk[0], 0.7, bk[1], yaw, 1); for (var i = 0; i < 4; i++) { var sp = W(-0.15 + i * 0.1, -0.2); K.box("chairW", 0.02, 0.4, 0.02, sp[0], 0.68, sp[1], yaw); }
-    [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(function (l) { var w = W(l[0], l[1]); K.box("chairW", 0.03, 0.45, 0.03, w[0], 0.225, w[1], yaw); }); K.box("cloth", 0.38, 0.03, 0.38, b[0], 0.48, b[1], yaw); }
-  function roundTable(K, x, z, r, cloth) { K.cyl(cloth ? "cloth" : "walnut", r, cloth ? r + 0.02 : r, cloth ? 0.72 : 0.04, x, cloth ? 0.38 : 0.74, z, 28, false); if (!cloth) { K.cyl("black", 0.05, 0.07, 0.72, x, 0.36, z, 10); K.cyl("black", 0.3, 0.32, 0.03, x, 0.015, z, 18); } }
-  function centrepiece(K, x, z, y) { K.cyl("glassB", 0.07, 0.06, 0.22, x, y + 0.11, z, 12); for (var k = 0; k < 7; k++) { var a = k / 7 * TAU; K.sph(k % 3 ? "flower" : "rose", 0.06, x + Math.cos(a) * 0.08, y + 0.28 + (k % 2) * 0.04, z + Math.sin(a) * 0.08, 1, 6); } K.sph("leaf", 0.12, x, y + 0.22, z, 0.5, 8); [-1, 1].forEach(function (sd) { K.cyl("lamp", 0.03, 0.03, 0.08, x + sd * 0.25, y + 0.04, z + 0.1, 8); }); }
-  function pendantK(K, x, z, top, y, mat) { K.cyl("black", 0.006, 0.006, top - y, x, (top + y) / 2, z, 4); var sh = new THREE.CylinderGeometry(0.07, 0.24, 0.26, 18, 1, true); K.geo(mat || "brass", sh, x, y - 0.13, z); K.cyl("lamp", 0.05, 0.05, 0.05, x, y - 0.22, z, 10); }
+  // the string lights inside a vault: warm bulbs along every rib (and, in the hall, swags across under the crown), one instanced draw
+  function vaultFairyPts(VG, extra) { var pts = []; (VG.ribs || []).forEach(function (rp) { var acc = 0.25; for (var i = 0; i < rp.length - 1; i++) { var a = rp[i], b = rp[i + 1], L = a.distanceTo(b), t = 0; while (acc + (L - t) >= 0.5) { t += 0.5 - acc; acc = 0; var q = a.clone().lerp(b, t / L); if (q.y > 2.2) pts.push(q.add(V3(0, -0.07, 0))); } acc += L - t; } });
+    (extra || []).forEach(function (q) { pts.push(q); }); return pts; }
   function* buildVaultSteps(Vn) {
-    var Mt = intMats(), VG = Vn.VG, V = VG.V, d = VG.d, zg = VG.zg, use = Vn.use; var g = new THREE.Group(); g.name = "domes_vault_interior " + Vn.id; g.position.set(Vn.x, Vn.D, Vn.z); g.rotation.y = Vn.rot; g.userData.noCull = true; g.userData.interior = true;
-    var L = { P: Vn, g: g, solids: [], lights: [], hots: [], seats: [] }; var K = new Kit();
+    var Mt = intMats(), B = intBases(), VG = Vn.VG, V = VG.V, d = VG.d, zg = VG.zg, use = Vn.use; var g = new THREE.Group(); g.name = "domes_vault_interior " + Vn.id; g.position.set(Vn.x, Vn.D, Vn.z); g.rotation.y = Vn.rot; g.userData.noCull = true; g.userData.interior = true;
+    var L = { P: Vn, g: g, solids: [], lights: [], hots: [], seats: [] }; var K = instKit(), R = rng(Vn.i * 977 + 31);
     var so = function (lx, lz, w, dd, y0, y1, ry) { return pSolid(Vn, lx, lz, w, dd, Vn.D + y0, Vn.D + y1, ry, L.solids); };
     var seat = function (lx, lz, w, dd, y, face) { var sd = so(lx, lz, w, dd, y - 0.4, y); if (sd) { sd.seat = true; sd.face = Vn.rot + face; L.seats.push(sd); } return sd; };
     var light = function (col, k, dist, lx, ly, lz, flick) { k *= 4.0; dist *= 1.3; var l = new THREE.PointLight(col, 0, dist, 1.4); l.position.set(lx, ly, lz); l.userData.k0 = k; l.userData.flick = !!flick; g.add(l); L.lights.push(l); return l; };
     var hot = function (lx, ly, lz, r, kind, dd) { var w = l2w(Vn, lx, lz); var o = { x: w[0], y: Vn.D + ly, z: w[1], r: r, kind: kind, d: dd || {} }; L.hots.push(o); return o; };
-    var roofAt = function (x, z) { var sec = vSec(V, z), X = Math.abs(x) / sec.ax; return X >= 1 ? 0 : sec.hy * Math.sqrt(1 - Math.pow(X, V.p)) - 0.3; };
-    var halfW = function (z, y) { var sec = vSec(V, z); return sec.ax * Math.pow(Math.max(0, 1 - Math.pow(y / sec.hy, 2)), 1 / V.p) - 0.35; };
+    var roofAt = function (x, z) { return vRoof(V, x, z) - 0.3; };
+    var halfW = function (z, y) { return vHalf(V, z, y) - 0.35; };
+    var AMB = 0xff9a48, WARM = 0xffb066;
+    var chairsAround = function (x, z, n, r, fn) { for (var c = 0; c < n; c++) { var a = c / n * TAU + PI / n, cx = x + Math.sin(a) * r, cz = z + Math.cos(a) * r; fn(cx, cz, a + PI); seat(cx, cz, 0.42, 0.42, 0.49, a + PI); } };
     yield 1;
     if (use === "restaurant") {
-      // the bar along the west side: walnut counter, marble top, a brass foot rail, stools; the back bar of lit bottles
-      var bx = -halfW(0, 1.2) + 1.55, bz0 = -zg + 2.4, bz1 = 1.4, bzc = (bz0 + bz1) / 2, bl = bz1 - bz0;
-      K.box("walnut", 0.6, 1.05, bl, bx, 0.525, bzc, 0, 1); K.box("marble", 0.75, 0.05, bl + 0.1, bx + 0.05, 1.08, bzc, 0, 1); K.cyl("brass", 0.025, 0.025, bl, bx + 0.42, 0.22, bzc, 8, false, 0, PI / 2); so(bx, bzc, 0.7, bl, 0, 1.1);
-      var nb = Math.floor(bl / 0.7); for (var i = 0; i < nb; i++) { var z = bz0 + 0.35 + i * (bl - 0.7) / Math.max(1, nb - 1); K.cyl("leather", 0.2, 0.2, 0.08, bx + 0.75, 0.76, z, 16); K.cyl("brass", 0.025, 0.025, 0.72, bx + 0.75, 0.36, z, 8); K.cyl("brass", 0.18, 0.2, 0.02, bx + 0.75, 0.01, z, 16); seat(bx + 0.75, z, 0.42, 0.42, 0.8, -PI / 2); }
-      var bbx = -halfW(0, 2.4) + 0.3; K.box("walnut", 0.4, 2.3, bl - 0.4, bbx, 1.15, bzc, 0, 1); for (var sh = 0; sh < 3; sh++) { K.box("glassB", 0.32, 0.02, bl - 0.6, bbx + 0.15, 1.15 + sh * 0.42, bzc, 0); for (var k = 0; k < Math.floor((bl - 0.8) / 0.16); k++) { var zz = bz0 + 0.5 + k * 0.16; K.cyl(k % 3 === 0 ? "amber" : "bottle", 0.035, 0.035, 0.26 + (k % 4) * 0.03, bbx + 0.12, 1.3 + sh * 0.42, zz, 8); } }
-      K.box("ledStrip", 0.02, 0.02, bl - 0.6, bbx + 0.28, 1.1, bzc, 0); so(bbx, bzc, 0.4, bl, 0, 2.3); for (var p = 0; p < 3; p++) pendantK(K, bx + 0.1, bz0 + 0.8 + p * (bl - 1.6) / 2, roofAt(bx, 0), 2.2, "brass");
-      light(0xffc98a, 0.8, 7, bx + 0.6, 2.2, bzc, false); hot(bx + 1.3, 1.0, bzc, 1.8, "note", { key: "bar" });
+      // ── the bar along the west side, its fluted front to the room: six stools; the lit back bar against the curve behind ──
+      var bz = -0.75, bl = 4.2, bx = -3.9; barK(K, bx, bz, PI / 2, bl, {}); so(bx - 0.03, bz, 0.7, bl + 0.12, 0, 1.1);
+      for (var i = 0; i < 6; i++) { var sz = bz - bl / 2 + 0.42 + i * (bl - 0.84) / 5; stoolP(K, bx + 0.86, sz, -PI / 2, { back: true }); seat(bx + 0.86, sz, 0.42, 0.42, 0.8, -PI / 2); }
+      var bbx = -(vHalf(V, bz, 2.45) - 0.3), bbTop = Math.min(2.45, vRoof(V, Math.abs(bbx) + 0.25, bz) - 0.12); backBarK(K, bbx, bz, PI / 2, bl - 0.2, bbTop); so(bbx, bz, 0.52, bl - 0.2, 0, bbTop);
+      for (var p = 0; p < 3; p++) pendantK2(K, bx + 0.15, bz - bl / 2 + 0.7 + p * (bl - 1.4) / 2, roofAt(bx, bz), 2.25, { style: "dome" });
+      light(WARM, 0.85, 7, bx + 0.7, 2.3, bz, false); light(AMB, 0.5, 4, bbx + 0.5, 1.6, bz, false); hot(bx + 1.4, 1.0, bz, 1.9, "note", { key: "bar" });
       yield 2;
-      // dining: four-tops and tables for two in walnut, leather chairs, a candle and a bud vase each, pendants over
-      var tabs = []; [-1.2, 1.5, 4.1].forEach(function (x, ix) { [-zg + 2.4, -zg + 5.0, 1.6].forEach(function (z, iz) { if (ix === 2 && Math.abs(x) > halfW(z, 1.0) - 1.0) return; tabs.push([x, z, (ix + iz) % 2 ? 2 : 4]); }); });
-      tabs.forEach(function (t, ti) { var x = t[0], z = t[1]; if (t[2] === 4) { K.box("walnut", 1.0, 0.05, 1.0, x, 0.74, z, 0, 1); K.box("black", 0.08, 0.72, 0.08, x, 0.36, z, 0); [0, PI / 2, PI, -PI / 2].forEach(function (a) { var cx = x + Math.sin(a) * 0.72, cz = z + Math.cos(a) * 0.72; K.box("leather", 0.44, 0.06, 0.42, cx, 0.46, cz, a, 1); K.box("leather", 0.44, 0.38, 0.05, cx + Math.sin(a) * 0.2, 0.68, cz + Math.cos(a) * 0.2, a, 1); seat(cx, cz, 0.44, 0.42, 0.49, a + PI); }); }
-        else { roundTable(K, x, z, 0.38, false); [PI / 2, -PI / 2].forEach(function (a) { var cx = x + Math.sin(a) * 0.62, cz = z + Math.cos(a) * 0.62; K.box("leather", 0.44, 0.06, 0.42, cx, 0.46, cz, a, 1); K.box("leather", 0.44, 0.38, 0.05, cx + Math.sin(a) * 0.2, 0.68, cz + Math.cos(a) * 0.2, a, 1); seat(cx, cz, 0.44, 0.42, 0.49, a + PI); }); }
-        so(x, z, t[2] === 4 ? 1.0 : 0.76, t[2] === 4 ? 1.0 : 0.76, 0, 0.76); K.cyl("lamp", 0.03, 0.03, 0.07, x + 0.1, 0.8, z, 8); K.cyl("glassB", 0.03, 0.025, 0.14, x - 0.1, 0.84, z + 0.05, 8); K.sph("rose", 0.04, x - 0.1, 0.94, z + 0.05, 1, 6); pendantK(K, x, z, roofAt(x, z), 2.3, ti % 2 ? "throw" : "brass"); });
-      light(0xffd2a0, 0.9, 9, 1.5, 3.0, -1.0, false); light(0xffd2a0, 0.7, 8, 2.8, 2.8, 2.6, false);
+      // ── the dining room: walnut four-tops and marble two-tops, cross-back chairs, a setting at every place, a candle and a bud
+      // vase, a pendant over each table; the two-tops in the middle row by the window ──
+      var tabs = [[-1.2, -1.9, 4], [-1.2, 0.5, 4], [-1.2, 2.9, 2], [1.3, -1.9, 2], [1.3, 0.5, 4], [1.3, 2.9, 4], [3.8, -1.9, 4], [3.8, 0.5, 2], [3.8, 2.9, 4]];
+      tabs.forEach(function (t, ti) { var x = t[0], z = t[1], f = FP(K, x, z, 0);
+        if (t[2] === 4) { tableK(K, x, z, { s: 0.86, top: "walnut", leg: "walnut" }); [0, PI / 2, PI, -PI / 2].forEach(function (a) { var cx = x + Math.sin(a) * 0.66, cz = z + Math.cos(a) * 0.66; crossChairP(K, cx, cz, a + PI, { wood: "walnut" }); seat(cx, cz, 0.44, 0.42, 0.49, a + PI); settingK(f, Math.sin(a) * 0.26, Math.cos(a) * 0.26, 0.752, a + PI, R, true); }); so(x, z, 0.9, 0.9, 0, 0.77); }
+        else { tableK(K, x, z, { round: true, r: 0.38, top: "marble", leg: "brass" }); [PI / 2, -PI / 2].forEach(function (a) { var cx = x + Math.sin(a) * 0.62, cz = z + Math.cos(a) * 0.62; crossChairP(K, cx, cz, a + PI, { wood: "oak" }); seat(cx, cz, 0.44, 0.42, 0.49, a + PI); settingK(f, Math.sin(a) * 0.2, Math.cos(a) * 0.2, 0.752, a + PI, R, true); }); so(x, z, 0.78, 0.78, 0, 0.77); }
+        candleK(f, 0.06, -0.05, 0.752); budVaseK(f, -0.07, 0.06, 0.752, R); pendantK2(K, x, z, roofAt(x, z), 2.2, { style: ti % 3 === 1 ? "rattan" : "dome", mat: ti % 2 ? "copper" : "brass" }); });
+      light(WARM, 0.9, 9, 1.3, 2.9, 0.5, false); light(WARM, 0.7, 8, 3.8, 2.7, -0.7, false);
       yield 3;
-      // the open kitchen across the back: a pass with heat lamps and plates, the line behind, a chalkboard menu
-      var kz = -zg + 1.1, kw = 2 * halfW(kz, 1.0) - 2.6; K.box("walnut", kw, 1.05, 0.6, 0.6, 0.525, kz + 0.5, 0, 1); K.box("inox", kw + 0.06, 0.05, 0.7, 0.6, 1.08, kz + 0.5, 0); K.box("inox", kw, 0.03, 0.35, 0.6, 1.5, kz + 0.45, 0); for (var hl = 0; hl < 4; hl++) { K.cyl("lamp", 0.07, 0.07, 0.05, 0.6 - kw / 2 + 0.4 + hl * (kw - 0.8) / 3, 1.45, kz + 0.45, 12); K.cyl("ceramic", 0.13, 0.11, 0.03, 0.6 - kw / 2 + 0.4 + hl * (kw - 0.8) / 3, 1.11, kz + 0.55, 18); }
-      K.box("inox", kw - 0.6, 0.9, 0.7, 0.6, 0.45, kz - 0.45, 0); K.box("black", kw - 0.8, 0.02, 0.5, 0.6, 0.91, kz - 0.45, 0); for (var pt = 0; pt < 3; pt++) K.cyl("inox", 0.14, 0.13, 0.16, -0.4 + pt * 0.9, 1.0, kz - 0.42, 14); so(0.6, kz + 0.5, kw, 0.6, 0, 1.1); so(0.6, kz - 0.45, kw - 0.6, 0.7, 0, 0.95);
-      var ck = chalkTex("mesquite", Vn.name, (C("rooms.menu", [])[2] || "").split(" · ").slice(0, 6)); var cm = std({ map: ck, roughness: 0.9 }); var cq = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.5), cm); cq.position.set(0.6 + kw / 2 - 0.2, 1.9, kz + 0.82); g.add(cq); L.extraMats = [cm];
-      light(0xfff0d8, 0.7, 6, 0.6, 2.2, kz, false); hot(0.6, 1.0, kz + 1.3, 1.8, "note", { key: "menu" });
-      // the host stand by the door, the lounge in the front corner, olive trees
-      K.box("walnut", 0.6, 1.1, 0.45, 1.9, 0.55, zg - 1.4, 0, 1); K.cyl("lamp", 0.08, 0.1, 0.18, 1.85, 1.25, zg - 1.4, 12); so(1.9, zg - 1.4, 0.6, 0.45, 0, 1.15);
-      var lxz = [-halfW(zg - 1.6, 1) + 1.0, zg - 1.9]; sofaKit(K, Mt, lxz[0], lxz[1] - 0.4, PI / 2, 2.0, "leather"); [-0.6, 0, 0.6].forEach(function (o) { seat(lxz[0], lxz[1] - 0.4 + o, 0.6, 0.62, 0.48, PI / 2); }); K.box("walnut", 0.6, 0.38, 1.0, lxz[0] + 1.1, 0.19, lxz[1] - 0.4, 0, 1); so(lxz[0] + 1.1, lxz[1] - 0.4, 0.6, 1.0, 0, 0.4);
-      [[-halfW(-1, 1) + 0.6, -0.8], [halfW(0.5, 1) - 0.6, -zg + 2.6], [halfW(2, 1) - 0.7, 3.2]].forEach(function (q) { plantKit(K, q[0], q[1], 2.0, true); so(q[0], q[1], 0.56, 0.56, 0, 1.4); });
+      // ── the open kitchen across the back: the pass (stainless top, heat lamps over plates), the line behind it, a chalkboard menu ──
+      var kz = -zg + 1.6, kw = Math.min(6.4, 2 * halfW(kz, 1.5) - 1.6), kx = 0.5; barK(K, kx, kz, 0, kw, { top: "inox", dressing: false }); so(kx, kz, kw, 0.7, 0, 1.1);
+      for (var hl = 0; hl < 5; hl++) { var hx = kx - kw / 2 + 0.5 + hl * (kw - 1.0) / 4; pendantK2(K, hx, kz + 0.05, roofAt(hx, kz), 1.62, { style: "globe", mat: "inox" }); var pf = FP(K, hx, kz + 0.1, 0); pf.lathe("ceramic", [[0, 0], [0.12, 0], [0.14, 0.012], [0.145, 0.016], [0, 0.008]], 18, 0, 1.085, 0); }
+      var lz = kz - 1.1, lw = kw - 0.6; FP(K, kx, lz, 0).rb("inox", lw, 0.9, 0.5, 0.02, 0, 0.45, 0); FP(K, kx, lz, 0).box("black", lw - 0.2, 0.012, 0.42, 0, 0.906, 0); for (var pt = 0; pt < 4; pt++) { var lf = FP(K, kx - lw / 2 + 0.5 + pt * (lw - 1.0) / 3, lz, 0); lf.lathe(pt % 2 ? "inox" : "copper", [[0, 0], [0.13, 0], [0.135, 0.15], [0.14, 0.16], [0, 0.155]], 16, 0, 0.91, 0); }
+      FP(K, kx, lz - 0.15, 0).box("inox", lw, 0.03, 0.3, 0, 1.55, 0); for (var pl = 0; pl < 10; pl++) FP(K, kx - lw / 2 + 0.3 + pl * (lw - 0.6) / 9, lz - 0.15, 0).cyl("ceramic", 0.12, 0.12, 0.02 + (pl % 3) * 0.02, 0, 1.58, 0, 16);
+      so(kx, lz, lw, 0.5, 0, 0.95);
+      var ck = chalkTex("mesquite", Vn.name, (C("rooms.menu", [])[2] || "").split(" · ").slice(0, 6)); var cm = std({ map: ck, roughness: 0.9 }); var cq = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.15), cm); var ex = 3.6, ez = zg - 0.8; cq.position.set(ex, 1.18, ez + 0.03); g.add(cq); L.extraMats = [cm];
+      var ef = FP(K, ex, ez, 0); [-1, 1].forEach(function (s) { ef.box("walnut", 0.04, 1.7, 0.04, s * 0.5, 0.85, 0.05, 0, -0.08); ef.box("walnut", 0.04, 1.6, 0.04, s * 0.5, 0.8, -0.32, 0, 0.18); }); ef.box("walnut", 1.0, 1.25, 0.03, 0, 1.18, 0.0); so(ex, ez, 1.1, 0.5, 0, 1.7);
+      light(0xfff0d8, 0.7, 6, kx, 2.4, kz - 0.4, false); hot(kx, 1.0, kz + 1.3, 1.9, "note", { key: "menu" });
+      yield 4;
+      // ── the host stand by the door; the lounge in the front corner: a leather divan, two cognac swivel chairs, a round walnut
+      // table on a Persian rug, a floor lamp; olive trees, a fiddle leaf fig ──
+      var hs = FP(K, 2.0, zg - 1.05, 0); hs.rb("walnut", 0.62, 1.08, 0.46, 0.02, 0, 0.54, 0); hs.box("brass", 0.64, 0.02, 0.48, 0, 1.09, 0); tableLampK(K, 1.85, zg - 1.0, 1.1, { base: "brass" }); so(2.0, zg - 1.05, 0.62, 0.46, 0, 1.15);
+      var lx = -3.75, lzc = 3.45; rugK(K, 1, 2.0, 2.7, lx, lzc, 0, 0.016);
+      if (!modelK(K, B, "cab_divan", lx - 1.0, lzc, PI / 2, 0.71)) sofaK(K, lx - 1.0, lzc, PI / 2, { len: 2.1, mat: "leather", pil: ["oat", "velvetT"] }); so(lx - 1.0, lzc, 0.75, 2.1, 0, 0.75, PI / 2); [-0.6, 0, 0.6].forEach(function (o) { seat(lx - 0.95, lzc + o, 0.6, 0.6, 0.47, PI / 2); });
+      [[1.05, -0.65, -PI / 2 - 0.35], [1.05, 0.65, -PI / 2 + 0.35]].forEach(function (q) { var cx = lx + q[0], cz = lzc + q[1]; if (!modelK(K, B, "lounge_chair", cx, cz, q[2], 0.85)) armK(K, cx, cz, q[2], { mat: "leather", pil: ["oat"] }); seat(cx, cz, 0.6, 0.6, 0.46, q[2]); });
+      coffeeK(K, lx, lzc, 0, { round: true, r: 0.42, h: 0.4 }); so(lx, lzc, 0.85, 0.85, 0, 0.42); floorLampK(K, lx - 1.15, lzc - 1.35, {}); so(lx - 1.15, lzc - 1.35, 0.36, 0.36, 0, 1.6); light(AMB, 0.55, 5, lx, 2.2, lzc, false);
+      [[5.15, -3.2, "olive", 2.3], [-3.7, -3.5, "olive", 2.1], [5.3, 3.85, "fig", 1.9]].forEach(function (q) { plantPick(K, q[2], q[0], q[1], q[3], { pot: q[2] === "olive" ? "terra" : "white", pr: 0.3 }); so(q[0], q[1], 0.6, 0.6, 0, 1.4); });
+      hot(lx, 0.8, lzc, 1.6, "note", { key: "bar" });
     } else if (use === "hall") {
-      // the stage at the back (in front of the glass), speakers, a microphone, a DJ table; the parquet dance floor under the crown
-      var sz0 = -zg + 0.4, sz1 = -zg + 2.6, sw = 7.4; K.box("walnut", sw, 0.45, sz1 - sz0, 0, 0.225, (sz0 + sz1) / 2, 0, 1); K.box("black", sw + 0.02, 0.05, 0.05, 0, 0.44, sz1, 0); for (var st = 1; st <= 2; st++) K.box("walnut", 1.6, 0.15 * st, 0.3, -sw / 2 + 1.2, 0.075 * st, sz1 + 0.3 * (3 - st), 0, 1);
-      so(0, (sz0 + sz1) / 2, sw, sz1 - sz0, 0, 0.45); for (var st2 = 1; st2 <= 2; st2++) so(-sw / 2 + 1.2, sz1 + 0.3 * (3 - st2), 1.6, 0.32, 0, 0.15 * st2);
-      [-1, 1].forEach(function (sd) { K.box("speaker", 0.55, 1.4, 0.5, sd * (sw / 2 - 0.5), 0.45 + 0.7, sz0 + 0.5, 0); so(sd * (sw / 2 - 0.5), sz0 + 0.5, 0.55, 0.5, 0.45, 1.85); });
-      K.box("black", 1.6, 0.06, 0.6, 1.4, 1.2, sz0 + 0.9, 0); K.box("black", 0.06, 0.75, 0.5, 0.65, 0.82, sz0 + 0.9, 0); K.box("black", 0.06, 0.75, 0.5, 2.15, 0.82, sz0 + 0.9, 0); so(1.4, sz0 + 0.9, 1.6, 0.6, 0.45, 1.25);
-      K.cyl("black", 0.012, 0.012, 1.45, -0.6, 0.45 + 0.72, sz1 - 0.5, 6); K.cyl("black", 0.16, 0.18, 0.02, -0.6, 0.46, sz1 - 0.5, 14); K.sph("black", 0.035, -0.6, 1.95, sz1 - 0.5, 1.4, 8); hot(-0.6, 1.0, sz1 + 0.6, 1.6, "note", { key: "stage" });
-      var df = 5.6, dfz = -0.9; K.flat("parquet", -df / 2, dfz - df / 2, df / 2, dfz + df / 2, 0.025, true, 0.6); [[0, dfz - df / 2, df, 0.06], [0, dfz + df / 2, df, 0.06], [-df / 2, dfz, 0.06, df], [df / 2, dfz, 0.06, df]].forEach(function (b) { K.box("brass", b[2], 0.02, b[3], b[0], 0.03, b[1], 0); });
-      light(0xffd2a0, 0.9, 8, 0, 3.4, sz1 - 0.5, false); light(0xffc98a, 1.0, 10, 0, 4.4, dfz, false);
+      // ── the stage before the back glass: a skirted platform, an ivory drape with side legs, a row of amber uplights washing it,
+      // a lighting truss with spots, speakers on stands, a DJ booth, a microphone ──
+      var sz0 = -zg + 0.25, sz1 = -zg + 2.35, sw = 7.4, szc = (sz0 + sz1) / 2, st = FP(K, 0, szc, 0);
+      st.rb("walnut", sw, 0.45, sz1 - sz0, 0.015, 0, 0.225, 0); st.geo("charcoalF", drapeGeo(sw, 0.43, 0.16, 0.018), 0, 0.0, (sz1 - sz0) / 2 + 0.03); st.box("brass", sw, 0.025, 0.03, 0, 0.44, (sz1 - sz0) / 2 + 0.01);
+      for (var s1 = 1; s1 <= 2; s1++) FP(K, -sw / 2 + 1.0, sz1 + 0.3 * (3 - s1), 0).rb("walnut", 1.4, 0.15 * s1, 0.3, 0.01, 0, 0.075 * s1, 0); so(0, szc, sw, sz1 - sz0, 0, 0.45); for (var s2 = 1; s2 <= 2; s2++) so(-sw / 2 + 1.0, sz1 + 0.3 * (3 - s2), 1.4, 0.32, 0, 0.15 * s2);
+      var dz = sz0 - 0.02, dw = 7.0, dTop = Math.min(4.3, arcY(VG.arcB, dw / 2) - 0.2), dH2 = dTop - 0.45; FP(K, 0, dz, 0, 0.45).geo("drapeF", drapeGeo(dw, dH2, 0.32, 0.07), 0, 0, 0); [-1, 1].forEach(function (s) { FP(K, s * (dw / 2 - 0.35), dz + 0.14, 0, 0.45).geo("drapeF", drapeGeo(1.0, dH2 + 0.05, 0.14, 0.09), 0, 0, 0); });
+      FP(K, 0, dz + 0.06, 0).rod("black", [-dw / 2, dTop + 0.03, 0], [dw / 2, dTop + 0.03, 0], 0.025, 8);
+      for (var u = 0; u < 8; u++) { var ux = -3.15 + u * 0.9, uf = FP(K, ux, dz + 0.42, 0, 0.45); uf.cyl("black", 0.07, 0.08, 0.14, 0, 0.07, 0, 12); uf.cyl("lamp", 0.055, 0.055, 0.01, 0, 0.145, 0.0, 12, -0.35); var wq = new THREE.PlaneGeometry(1.15, 3.2); uf.geo("uplight", wq, 0, 1.45, -0.3); }
+      yield 1;
+      var tz = sz1 + 0.15, tyy = Math.min(4.2, roofAt(0, tz) - 0.4), tf = FP(K, 0, tz, 0); [[0, 0], [0, -0.3], [-0.26, -0.15]].forEach(function (q) { tf.rod("black", [-3.9, tyy + q[0], q[1]], [3.9, tyy + q[0], q[1]], 0.024, 6); }); for (var tq = 0; tq < 16; tq++) { var tx0 = -3.9 + tq * 0.49, tx1 = tx0 + 0.49; tf.rod("black", [tx0, tyy, 0], [tx1, tyy - 0.26, -0.15], 0.009, 4); tf.rod("black", [tx0, tyy, -0.3], [tx1, tyy - 0.26, -0.15], 0.009, 4); }
+      [-3.3, -1.1, 1.1, 3.3].forEach(function (x) { var sp = FP(K, x, tz - 0.15, 0); sp.rod("black", [0, tyy - 0.26, 0], [0, tyy - 0.45, 0], 0.012, 4); sp.cyl("black", 0.09, 0.07, 0.24, 0, tyy - 0.58, 0.04, 12, 0.6); sp.cyl("lamp", 0.07, 0.07, 0.012, 0, tyy - 0.67, -0.03, 12, 0.6); [-1, 1].forEach(function (k) { tf.rod("black", [x + k * 0.6, tyy, -0.15], [x + k * 0.6, roofAt(x, tz) + 0.25, -0.15], 0.006, 4); }); });
+      [-1, 1].forEach(function (s) { var sp2 = FP(K, s * 3.45, sz1 + 0.45, -s * 0.25); [0, 1, 2].forEach(function (k) { var a = k / 3 * TAU; sp2.rod("black", [0, 1.15, 0], [Math.sin(a) * 0.45, 0, Math.cos(a) * 0.45], 0.012, 5); }); sp2.rod("black", [0, 1.15, 0], [0, 1.45, 0], 0.02, 6); sp2.rb("black", 0.42, 0.68, 0.38, 0.03, 0, 1.8, 0); sp2.cyl("speaker", 0.12, 0.12, 0.02, 0, 1.68, 0.19, 16, PI / 2); so(s * 3.45, sz1 + 0.45, 0.6, 0.6, 0, 2.1); });
+      var dj = FP(K, 2.2, szc + 0.1, 0, 0.45); dj.rb("ivory", 1.7, 0.95, 0.62, 0.03, 0, 0.475, 0); dj.rb("black", 1.75, 0.05, 0.66, 0.01, 0, 0.97, 0); dj.box("black", 0.36, 0.02, 0.26, -0.4, 1.0, -0.02, 0, -0.15); dj.box("black", 0.36, 0.02, 0.26, 0.4, 1.0, -0.02, 0, -0.15); dj.box("ledStrip", 1.6, 0.02, 0.02, 0, 0.93, 0.32); so(2.2, szc + 0.1, 1.75, 0.66, 0.45, 1.45);
+      var mic = FP(K, -0.5, sz1 - 0.45, 0, 0.45); mic.lathe("black", [[0, 0], [0.14, 0], [0.14, 0.012], [0.02, 0.03], [0, 0.03]], 16, 0, 0, 0); mic.rod("black", [0, 0.03, 0], [0, 1.4, 0], 0.01, 5); mic.rod("black", [0, 1.4, 0], [0, 1.52, 0.12], 0.008, 4); mic.sph("black", 0.035, 0, 1.54, 0.14, 1, 1.3, 1, 8);
+      hot(-0.5, 1.0, sz1 + 0.8, 1.7, "note", { key: "stage" }); light(AMB, 1.0, 9, 0, 3.0, szc + 0.5, false); light(0xffa04a, 0.6, 6, 0, 1.4, dz + 1.2, false);
+      yield 1;
+      // ── the parquet dance floor with a brass inlay under a ring chandelier of candle bulbs ──
+      var df = 5.4, dfd = 4.6, dfz = -1.2; K.flat("parquet", -df / 2, dfz - dfd / 2, df / 2, dfz + dfd / 2, 0.025, true, 0.6); [[0, dfz - dfd / 2, df, 0.06], [0, dfz + dfd / 2, df, 0.06], [-df / 2, dfz, 0.06, dfd], [df / 2, dfz, 0.06, dfd]].forEach(function (b) { K.box("brass", b[2], 0.02, b[3], b[0], 0.03, b[1], 0); });
+      var chY = Math.min(4.4, roofAt(0, dfz) - 1.3), cf = FP(K, 0, dfz, 0); var tor = new THREE.TorusGeometry(1.25, 0.05, 8, 40); tor.rotateX(PI / 2); cf.geo("walnut", tor, 0, chY, 0); var tor2 = new THREE.TorusGeometry(0.8, 0.035, 8, 32); tor2.rotateX(PI / 2); cf.geo("brass", tor2, 0, chY + 0.35, 0);
+      for (var cb = 0; cb < 16; cb++) { var ca = cb / 16 * TAU; cf.cyl("ivory", 0.018, 0.018, 0.12, Math.sin(ca) * 1.25, chY + 0.1, Math.cos(ca) * 1.25, 6); cf.sph("lamp", 0.03, Math.sin(ca) * 1.25, chY + 0.19, Math.cos(ca) * 1.25, 1, 1.5, 1, 6); if (cb % 4 === 0) cf.rod("brass", [Math.sin(ca) * 1.25, chY, Math.cos(ca) * 1.25], [0, roofAt(0, dfz) + 0.2, 0], 0.005, 4); if (cb % 2 === 0) cf.rod("brass", [Math.sin(ca) * 1.25, chY, Math.cos(ca) * 1.25], [Math.sin(ca) * 0.8, chY + 0.35, Math.cos(ca) * 0.8], 0.006, 4); }
+      light(WARM, 1.1, 10, 0, chY - 0.3, dfz, false);
       yield 2;
-      // round tables of eight in white linen, white chairs, flowers and candles, round the dance floor
-      var tp = [[-4.7, -3.4], [4.7, -3.4], [-5.3, -0.4], [5.3, -0.4], [-4.6, 2.6], [4.6, 2.6], [-1.8, 3.9], [1.8, 3.9]]; tp.forEach(function (t) { var x = t[0], z = t[1]; var hwz = halfW(z, 1.0); if (Math.abs(x) + 1.6 > hwz) x = Math.sign(x) * (hwz - 1.6); roundTable(K, x, z, 0.9, true); centrepiece(K, x, z, 0.76); so(x, z, 1.8, 1.8, 0, 0.77);
-        for (var c = 0; c < 8; c++) { var a = c / 8 * TAU + PI / 8, cx = x + Math.sin(a) * 1.28, cz = z + Math.cos(a) * 1.28; chairWhite(K, cx, cz, a); seat(cx, cz, 0.42, 0.42, 0.49, a + PI); } });
-      light(0xffd2a0, 0.8, 9, -4.5, 3.0, 1.0, false); light(0xffd2a0, 0.8, 9, 4.5, 3.0, 1.0, false);
+      // ── round tables of eight in floor-length ivory linen, gilded Chiavari chairs, a centrepiece of roses with candles, round the floor ──
+      [[-5.2, -2.0], [5.2, -2.0], [-5.2, 1.4], [5.2, 1.4], [-3.3, 4.4], [3.3, 4.4]].forEach(function (t, ti) { var x = t[0], z = t[1]; weddingTableK(K, x, z, 0.9, 8, {}); so(x, z, 1.8, 1.8, 0, 0.77); chairsAround(x, z, 8, 1.25, function (cx, cz, a) { chiavariP(K, cx, cz, a); }); });
+      light(WARM, 0.8, 9, -5.0, 3.0, 0.0, false); light(WARM, 0.8, 9, 5.0, 3.0, 0.0, false); light(WARM, 0.7, 8, 0, 3.0, 4.4, false);
       yield 3;
-      // fairy lights across the hall under the vault, a drinks bar by the door, olive trees in white planters
-      var FK2 = new Kit(); var fb = []; for (var r = -3; r <= 3; r++) { var z0 = r * (zg / 3.4); var hw0 = halfW(z0, 3.4) - 0.3; var n2 = 22; var prev = null; for (var q = 0; q <= n2; q++) { var t2 = q / n2; var x2 = -hw0 + 2 * hw0 * t2, y2 = Math.min(roofAt(x2, z0) - 0.2, 4.6) - 0.9 * Math.sin(t2 * PI) * 0.6; var pv = V3(x2, y2, z0); if (prev) FK2.tube("wire", prev, pv, 0.006, 4); prev = pv; if (q % 1 === 0 && q > 0 && q < n2) fb.push(pv); } }
-      buildBased(FK2, g, EXT, mats()); var bm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.04, 6, 4), mats().bulb, fb.length); fb.forEach(function (p2, i2) { bm.setMatrixAt(i2, _M.makeTranslation(p2.x, p2.y - 0.05, p2.z)); }); bm.name = "dm hall fairy"; g.add(finish(bm)); L.fairy = bm;
-      var bxh = halfW(zg - 2, 1) - 0.8; K.box("walnut", 0.6, 1.05, 2.4, bxh, 0.525, zg - 2.2, 0, 1); K.box("marble", 0.7, 0.05, 2.5, bxh, 1.08, zg - 2.2, 0, 1); for (var gl = 0; gl < 8; gl++) K.cyl("glassB", 0.035, 0.03, 0.16, bxh - 0.15 + (gl % 2) * 0.2, 1.18, zg - 3.2 + gl * 0.28, 8); so(bxh, zg - 2.2, 0.7, 2.4, 0, 1.1);
-      [[-halfW(-zg + 1.2, 1) + 0.6, -zg + 1.2], [halfW(-zg + 1.2, 1) - 0.6, -zg + 1.2], [-halfW(zg - 1, 1) + 0.6, zg - 1.0]].forEach(function (q2) { K.cyl("chairW", 0.3, 0.26, 0.55, q2[0], 0.275, q2[1], 16); plantKit(K, q2[0], q2[1], 2.2, true); so(q2[0], q2[1], 0.6, 0.6, 0, 1.4); });
+      // ── the drinks bar in the back corner beside the stage, stools; olive trees and plants in the front corners ──
+      var hbx = -5.2, hbz = -4.85; barK(K, hbx, hbz, PI / 2, 1.9, {}); so(hbx - 0.03, hbz, 0.7, 2.0, 0, 1.1); var hb2 = FP(K, hbx - 0.95, hbz, PI / 2); hb2.rb("walnut", 1.7, 0.86, 0.42, 0.015, 0, 0.43, 0); for (var gb = 0; gb < 12; gb++) hb2.lathe("glassB", BOT[gb % BOT.length], 10, -0.75 + gb * 0.135, 0.86, -0.05); so(hbx - 0.95, hbz, 0.42, 1.7, 0, 0.9);
+      [-0.5, 0.4].forEach(function (o) { stoolP(K, hbx + 0.86, hbz + o, -PI / 2, { seat: "velvetN" }); seat(hbx + 0.86, hbz + o, 0.42, 0.42, 0.8, -PI / 2); }); pendantK2(K, hbx + 0.1, hbz, roofAt(hbx, hbz), 2.3, { style: "dome" }); light(AMB, 0.5, 4, hbx + 0.6, 2.0, hbz, false);
+      [[5.6, -4.9, "olive", 2.5, "white"], [-6.25, 4.55, "fig", 2.0, "white"], [6.35, 3.4, "paradise", 2.0, "white"]].forEach(function (q) { plantPick(K, q[2], q[0], q[1], q[3], { pot: q[4], pr: 0.32 }); so(q[0], q[1], 0.66, 0.66, 0, 1.4); });
     } else {
-      // the studio: mats in two rows facing the back glass, bolsters and blocks, the teacher's mat facing the room; the tea bar
-      var mz = [-0.6, 1.4]; mz.forEach(function (z, ri) { for (var m = 0; m < 4; m++) { var x = -2.4 + m * 1.6 + (ri ? 0.8 : 0); if (Math.abs(x) > halfW(z, 0.5) - 0.5) continue; K.box(m % 2 ? "mat" : "mat2", 0.62, 0.012, 1.85, x, 0.02, z, 0); K.cyl("cloth", 0.11, 0.11, 0.62, x, 0.12, z + 1.1, 12, false, 0, 0, PI / 2); K.box("bamboo", 0.23, 0.15, 0.1, x + 0.42, 0.075, z + 0.8, 0.3, 1); seat(x, z + 0.2, 0.5, 0.6, 0.12, PI); } });
-      K.box("mat2", 0.64, 0.012, 1.85, 0, 0.02, -zg + 1.6, PI / 2); K.cyl("brass", 0.12, 0.08, 0.08, 0.6, 0.06, -zg + 1.6, 18); K.cyl("brass", 0.09, 0.06, 0.06, 0.85, 0.05, -zg + 1.75, 16); K.cyl("throw", 0.3, 0.3, 0.12, -0.7, 0.06, -zg + 1.6, 18); seat(-0.7, -zg + 1.6, 0.5, 0.5, 0.14, 0);
-      hot(0, 0.5, 0.4, 2.2, "note", { key: "mats" }); light(0xffe2bc, 0.7, 7, 0, 3.0, 0, false);
+      // ── the studio: the teacher's mat at the back facing the room, singing bowls and candles on a low stand, eight student mats in
+      // two rows with bolsters and cork blocks; the tea bar along the west side; floor cushions round a low table; plants everywhere ──
+      var mats0 = ["velvetS", "mat2", "jute2", "velvetT"]; var mat = function (x, z, yaw, mk) { var f = FP(K, x, z, yaw); f.rb(mk, 0.61, 0.008, 1.83, 0.003, 0, 0.012, 0); f.cyl(mk, 0.045, 0.045, 0.61, 0, 0.05, -0.93, 14, 0, PI / 2); var bo = new THREE.CapsuleGeometry(0.1, 0.42, 4, 12); bo.rotateZ(PI / 2); f.geo("linen", bo, 0, 0.11, -0.66);
+        [-1, 1].forEach(function (s) { f.rb("cork", 0.15, 0.1, 0.23, 0.015, s * 0.42, 0.05, -0.55 + s * 0.03, { ry: s * 0.3 }); }); return f; };
+      var tm = mat(0, -zg + 0.95, PI / 2, "mat"); seat(0, -zg + 0.95, 0.5, 0.5, 0.14, 0); var bs = FP(K, 0, -zg + 0.35, 0); bs.rb("walnut", 1.3, 0.3, 0.34, 0.02, 0, 0.15, 0); [-0.42, -0.1, 0.25].forEach(function (x, k) { bs.lathe("brass", [[0, 0], [0.05, 0], [0.11 - k * 0.015, 0.06], [0.12 - k * 0.015, 0.075 - k * 0.008], [0.11 - k * 0.015, 0.072 - k * 0.008]], 18, x, 0.3, 0); }); candleK(bs, 0.5, 0.02, 0.3); candleK(bs, 0.58, -0.06, 0.3);
+      so(0, -zg + 0.35, 1.3, 0.34, 0, 0.35); var zf = FP(K, 1.3, -zg + 0.95, 0); zf.lathe("velvetT", [[0, 0], [0.19, 0], [0.22, 0.04], [0.21, 0.1], [0.17, 0.14], [0, 0.15]], 18, 0, 0, 0);
+      [[-0.45, 4], [1.55, 4]].forEach(function (rw, ri) { for (var m = 0; m < rw[1]; m++) { var x = (ri ? -1.47 : -2.2) + m * 1.47; if (Math.abs(x) + 0.35 > halfW(rw[0] + 0.9, 0.1)) continue; mat(x, rw[0], PI, mats0[(m + ri) % 4]); seat(x, rw[0] - 0.2, 0.5, 0.6, 0.12, PI); } });
+      hot(0, 0.5, 0.5, 2.2, "note", { key: "mats" }); light(0xffe2bc, 0.75, 7, 0, 2.6, 0, false);
       yield 2;
-      var tx2 = -halfW(1.0, 1.0) + 0.75, tz0 = -1.6, tz1 = 2.0; K.box("bamboo", 0.55, 0.92, tz1 - tz0, tx2, 0.46, (tz0 + tz1) / 2, 0, 1); K.box("walnut", 0.62, 0.04, tz1 - tz0 + 0.04, tx2, 0.94, (tz0 + tz1) / 2, 0, 1); so(tx2, (tz0 + tz1) / 2, 0.6, tz1 - tz0, 0, 0.96);
-      for (var tp2 = 0; tp2 < 3; tp2++) { var zt = tz0 + 0.5 + tp2 * 1.2; K.sph("ceramic", 0.1, tx2, 1.05, zt, 0.8, 12); K.cyl("ceramic", 0.012, 0.02, 0.12, tx2 + 0.1, 1.07, zt, 6, false, 0, 0, -0.8); for (var cu = 0; cu < 3; cu++) K.cyl("ceramic", 0.035, 0.03, 0.06, tx2 + 0.12, 0.99, zt + 0.25 + cu * 0.09, 10); }
-      var shx = tx2 - 0.15; [-1, 1].forEach(function (s2) { K.cyl("brass", 0.012, 0.012, 0.7, shx, 1.3, (tz0 + tz1) / 2 + s2 * 1.4, 6); }); K.box("walnut", 0.22, 0.03, 3.0, shx, 1.62, (tz0 + tz1) / 2, 0, 1); for (var jr = 0; jr < 9; jr++) K.cyl(jr % 2 ? "glassB" : "amber", 0.05, 0.05, 0.16, shx, 1.72, tz0 + 0.3 + jr * 0.36, 10);
-      light(0xffd9a8, 0.5, 5, tx2 + 0.6, 2.0, (tz0 + tz1) / 2, false); hot(tx2 + 1.0, 0.9, (tz0 + tz1) / 2, 1.6, "note", { key: "tea" });
-      // plants everywhere: big planters round the edge, a low table with singing bowls, floor cushions by the tea bar
-      [[halfW(-2, 1) - 0.5, -2.2], [halfW(1, 1) - 0.5, 1.0], [halfW(3, 1) - 0.6, 3.0], [-halfW(-2.6, 1) + 0.5, -2.6], [-halfW(3, 1) + 0.6, 3.0], [1.6, -zg + 0.7], [-1.6, -zg + 0.7]].forEach(function (q3, i3) { plantKit(K, q3[0], q3[1], i3 % 2 ? 1.4 : 2.0, true); so(q3[0], q3[1], 0.56, 0.56, 0, 1.2); });
-      [[tx2 + 1.0, 2.6], [tx2 + 1.7, 2.9]].forEach(function (c2) { K.cyl("throw", 0.32, 0.32, 0.14, c2[0], 0.07, c2[1], 18); seat(c2[0], c2[1], 0.5, 0.5, 0.15, PI / 2); });
+      var tbx = -(halfW(0.2, 1.6) - 0.05), tz0 = -1.4, tz1 = 1.6, tzc = (tz0 + tz1) / 2, tl = tz1 - tz0; var tb = FP(K, tbx, tzc, PI / 2);
+      tb.rb("oak", tl, 0.88, 0.55, 0.02, 0, 0.44, 0); for (var sl = 0; sl < Math.floor(tl / 0.09); sl++) tb.box("oak", 0.06, 0.8, 0.012, -tl / 2 + 0.06 + sl * 0.09, 0.44, 0.28); tb.rb("walnut", tl + 0.06, 0.04, 0.6, 0.012, 0, 0.9, 0.0);
+      for (var tp = 0; tp < 3; tp++) { var px = -tl / 2 + 0.45 + tp * 0.95; tb.lathe(tp === 1 ? "copper" : "ceramic", [[0, 0], [0.06, 0], [0.095, 0.05], [0.09, 0.1], [0.05, 0.14], [0.025, 0.15], [0.022, 0.165], [0, 0.17]], 16, px, 0.92, 0.05); tb.rod(tp === 1 ? "copper" : "ceramic", [px + 0.08, 0.97, 0.05], [px + 0.16, 1.05, 0.05], 0.012, 6); var hg = new THREE.TorusGeometry(0.05, 0.009, 6, 14, PI); hg.rotateZ(-PI / 2); tb.geo(tp === 1 ? "copper" : "ceramic", hg, px - 0.09, 1.0, 0.05);
+        for (var cu = 0; cu < 3; cu++) tb.lathe("ceramic", [[0, 0], [0.028, 0], [0.04, 0.05], [0.042, 0.055]], 12, px + 0.08 + cu * 0.1, 0.92, -0.12); }
+      [-1, 1].forEach(function (s) { tb.rod("brass", [s * (tl / 2 - 0.1), 0.92, -0.22], [s * (tl / 2 - 0.1), 1.62, -0.22], 0.012, 6); }); tb.rb("walnut", tl - 0.1, 0.03, 0.22, 0.01, 0, 1.6, -0.17); for (var jr = 0; jr < 9; jr++) tb.lathe("glassB", [[0, 0], [0.045, 0], [0.05, 0.02], [0.05, 0.13], [0.035, 0.145], [0.036, 0.16], [0, 0.16]], 12, -tl / 2 + 0.25 + jr * (tl - 0.5) / 8, 1.615, -0.17); tb.cyl(jr % 3 ? "cork" : "leafO", 0.042, 0.042, 0.08, -tl / 2 + 0.25 + jr * (tl - 0.5) / 8, 1.66, -0.17, 10);
+      so(tbx, tzc, 0.6, tl, 0, 0.96); light(0xffd9a8, 0.5, 5, tbx + 0.7, 2.0, tzc, false); hot(tbx + 1.0, 0.9, tzc, 1.6, "note", { key: "tea" });
+      var lt = FP(K, -2.55, 2.65, 0); lt.rb("walnut", 0.8, 0.06, 0.5, 0.015, 0, 0.3, 0); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) { lt.box("walnut", 0.04, 0.27, 0.04, q[0] * 0.34, 0.135, q[1] * 0.2); }); lt.lathe("ceramic", [[0, 0], [0.05, 0], [0.08, 0.04], [0.075, 0.08], [0.03, 0.11], [0, 0.115]], 14, 0.1, 0.33, 0); so(-2.55, 2.65, 0.8, 0.5, 0, 0.34);
+      [[-2.55, 2.05, 0, "velvetT"], [-2.55, 3.25, PI, "jute2"], [-3.25, 2.65, PI / 2, "velvetS"]].forEach(function (q) { FP(K, q[0], q[1], q[2]).rb(q[3], 0.55, 0.12, 0.55, 0.05, 0, 0.06, 0, { bulge: 0.025, seg: 2 }); seat(q[0], q[1], 0.5, 0.5, 0.15, q[2]); });
+      yield 3;
+      [[3.5, -2.3, "paradise", 2.0], [3.65, 0.55, "snake", 1.1], [-3.5, -2.45, "olive", 1.9], [1.9, -zg + 0.45, "fig", 1.7], [-1.9, -zg + 0.45, "snake", 1.0], [3.55, 2.6, "fig", 1.5], [-1.0, 3.0, "snake", 0.9]].forEach(function (q, i) { plantPick(K, q[2], q[0], q[1], q[3], { pot: ["basket", "white", "terra"][i % 3], pr: q[3] > 1.4 ? 0.27 : 0.18 }); so(q[0], q[1], 0.5, 0.5, 0, 1.2); });
+      [[-1.2, 0.6], [1.2, 0.6], [0, -1.6]].forEach(function (q) { pendantK2(K, q[0], q[1], roofAt(q[0], q[1]), 2.6, { style: "rattan" }); }); light(AMB, 0.5, 6, 0, 2.3, 1.5, false);
+      rugK(K, 3, 1.6, 2.2, -2.55, 2.65, PI / 2, 0.014);
     }
     yield 4;
-    var meshes = buildBased(K, g, INT, intBases()); meshes.forEach(function (m) { m.castShadow = false; m.receiveShadow = !m.material.transparent; });
+    var extra = []; if (use === "hall") { for (var r = 0; r < 4; r++) { var z0 = [-3.0, -0.4, 2.2, 4.6][r], hw0 = halfW(z0, 3.4) - 0.2, n2 = 34; for (var q = 1; q < n2; q++) { var t2 = q / n2, x2 = -hw0 + 2 * hw0 * t2; extra.push(V3(x2, Math.min(roofAt(x2, z0) - 0.25, 4.9) - 0.75 * Math.sin(t2 * PI), z0)); } } }
+    vaultFairyPts(VG, extra).forEach(function (q) { K.sph("bulb", 0.032, q.x, q.y, q.z, 1, 6); }); L.fairyN = extra.length;
+    var meshes = []; yield* buildBasedSteps(K, g, INT, B, meshes); modelMeshes(K, g);
     scene.add(g); g.updateMatrixWorld(true); L.tris = Math.round(K.count());
     try { if (window.PLAN_PERF && PLAN_PERF.warmGroup) PLAN_PERF.warmGroup(g, { name: "domes vault interior" }); } catch (e) {}
     return L;
   }
   function buildVaultInterior(Vn) { var it = buildVaultSteps(Vn), r; do { r = it.next(); } while (!r.done); return r.value; }
-  function disposeVault(Vn) { var L = Vn.L; if (!L) return; try { scene.remove(L.g); L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); var j = DM.sol.indexOf(sd); if (j >= 0) DM.sol.splice(j, 1); }); L.g.traverse(function (o) { if (o.isMesh && o.geometry) o.geometry.dispose(); }); (L.extraMats || []).forEach(function (m) { m.dispose(); }); } catch (e) { note("vdispose", e); } Vn.L = null; vaultFakes(); DM.n.vdisposes++; }
+  function disposeVault(Vn) { var L = Vn.L; if (!L) return; try { scene.remove(L.g); L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); var j = DM.sol.indexOf(sd); if (j >= 0) DM.sol.splice(j, 1); }); L.g.traverse(function (o) { if (o.isMesh && o.geometry && !o.userData.noDispose) o.geometry.dispose(); if (o.isInstancedMesh && o.dispose) o.dispose(); }); (L.extraMats || []).forEach(function (m) { m.dispose(); }); } catch (e) { note("vdispose", e); } Vn.L = null; vaultFakes(); DM.n.vdisposes++; }
 
   // ───────────────────────── every frame: the night look, near / far, lights, doors, interiors, steam, staff ─────────────────────────
   var STEAM = { pool: [], t: 0 };
@@ -1139,7 +1441,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var n = clamp((nightK() - 0.02) * 3.2, 0, 1), mode = sgMode(), lying = !!(mode && mode.on && mode.spot && mode.spot.dome); U.uNight.value = n; U.uTime.value = (U.uTime.value + dt) % 10000; U.uDim.value = lying ? 0.6 : 1; var dim = U.uDim.value;
       var cam = camera.position, gk = n * dim;
       MX.glowV.opacity = 0.32 * gk; MX.fpaint.emissiveIntensity = MX.fsoft.emissiveIntensity = 0.28 * gk; MX.emit.emissiveIntensity = 0.22 + 2.8 * gk; MX.bulb.emissiveIntensity = 0.25 + 3.0 * gk; MX.water.emissiveIntensity = 0.5 + 1.3 * n; MX.fire.uniforms.uAmp.value = 0.75 + 0.25 * n;
-      (EX.signMats || []).forEach(function (m) { m.emissiveIntensity = 0.12 + 0.75 * n; }); var inV = vaultAt(cam.x, cam.z, cam.y - 1.5); if (MX.vliner) MX.vliner.emissiveIntensity = 0.02 + (inV ? 0.16 : 0.75) * gk; if (MX.vskin) MX.vskin.emissiveIntensity = 0.55 * gk;MX.membrane.emissiveIntensity = 0.05 * gk;
+      (EX.signMats || []).forEach(function (m) { m.emissiveIntensity = 0.12 + 0.75 * n; }); var inV = vaultAt(cam.x, cam.z, cam.y - 1.5); if (MX.vliner) MX.vliner.emissiveIntensity = 0.03 + (inV ? 0.3 : 0.75) * gk; if (MX.vskin) MX.vskin.emissiveIntensity = 0.55 * gk; if (IN.fairy) IN.fairy.emissiveIntensity = 0.8 + 2.2 * gk; U.uWarm.value = 0.2 * gk; if (IN.bases) { IN.bases.iglow.opacity = 0.3 + 0.55 * gk; IN.bases.iemit.emissiveIntensity = 1.1 + 0.9 * gk; }MX.membrane.emissiveIntensity = 0.05 * gk;
       var t = U.uTime.value;
       // clusters: near detail, small parts, far stand-ins, pooled lights
       EX.cl.forEach(function (E) { var dc = Math.max(0, Math.hypot(cam.x - E.cx, cam.z - E.cz) - E.r); var nearV = dc < 320; E.near.visible = nearV; E.small.visible = dc < 190; E.far.visible = !nearV;
@@ -1149,11 +1451,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var nm = nearestModel(), nv = nearestVault(); var close = (nm && nm.d < 140) || (nv && nv.d < 140);
       if (close) interiorFrame(); else if (!lying) { if (IN.sb) { try { var q2; do { q2 = IN.sb.it.next(); } while (!q2.done); IN.sb.P.L = q2.value; if (!IN.sb.P.vault) setFake(IN.sb.P, false); else vaultFakes(); } catch (e) { note("finish", e); } IN.sb = null; } SITE.suites.forEach(function (P) { if (P.L) disposeInterior(P); }); SITE.vaults.forEach(function (V) { if (V.L) disposeVault(V); }); }
       SITE.suites.forEach(function (P) { if (!P.L) return; doorFrame(P, dt); var dimIn = lying && mode.spot.dome === P ? 0.15 : 1; P.L.lights.forEach(function (l) { l.intensity = l.userData.k0 * (0.4 + 0.6 * n) * dimIn * (l.userData.flick ? 0.85 + 0.15 * Math.sin(t * 12 + l.id) * Math.sin(t * 6.1) : 1); }); });
-      SITE.vaults.forEach(function (V) { if (Math.hypot(V.x - cam.x, V.z - cam.z) < 90) vaultDoorFrame(V, dt); if (V.L) V.L.lights.forEach(function (l) { l.intensity = l.userData.k0 * (0.55 + 0.95 * n); }); });
+      SITE.vaults.forEach(function (V) { if (Math.hypot(V.x - cam.x, V.z - cam.z) < 90) vaultDoorFrame(V, dt); if (V.L) V.L.lights.forEach(function (l) { l.intensity = l.userData.k0 * (0.6 + 0.7 * n); }); });
       aoFrame(n);
       var nearTub = SITE.suites.some(function (P) { return Math.abs(P.x - cam.x) < 60 && Math.abs(P.z - cam.z) < 60; }); if (nearTub) steamFrame(dt, n); else if (STEAM.g) STEAM.pool.forEach(function (sp) { sp.visible = false; });
       // the staff, built when you come near their venue, hidden from afar
       if (nowMs() > (FR.staffAt || 0)) { FR.staffAt = nowMs() + 2000; try { buildStaff(); } catch (e) { note("staff", e); } }
+      if (nowMs() > (LBL.at || 0)) { LBL.at = nowMs() + 2500; labelSweep(); }
       (DM.castList || []).forEach(function (c) { var dd = Math.hypot(c.g.position.x - cam.x, c.g.position.z - cam.z); c.g.visible = dd < 55; });
       // the Model Suite stamp: first time inside one
       if (!FR.stamped && nm && nm.P.L && nm.d < nm.P.R - 0.6 && Math.abs(player.position.y - nm.P.D) < 1.2) { FR.stamped = true; try { var PP = window.PLAN_PROGRESS; if (PP && PP.award) PP.award("stamp", { id: C("progress.interiorStamp", "p_model_suite") }); } catch (e) {} }
@@ -1162,8 +1465,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── the camera inside a dome or a vault: kept within the skin, first person when tight ─────────────────────────
   function suiteAt(x, z, y) { var S = SITE; if (!S) return null; for (var i = 0; i < S.suites.length; i++) { var P = S.suites[i]; if (!P.L) continue; if (Math.abs(x - P.x) > P.R || Math.abs(z - P.z) > P.R) continue; var d = Math.hypot(x - P.x, z - P.z); if (d < P.R - 0.25 && y > P.D - 0.4 && y < P.D + 3.2) return P; } return null; }
-  function vaultAt(x, z, y) { var S = SITE; if (!S) return null; for (var i = 0; i < S.vaults.length; i++) { var V = S.vaults[i]; if (Math.abs(x - V.x) > V.w || Math.abs(z - V.z) > V.w) continue; var q = w2l(V, x, z); if (Math.abs(q[1]) < V.VG.zg - 0.1 && Math.abs(q[0]) < vSec(V.VG.V, q[1]).ax - 0.2 && y > V.D - 0.4 && y < V.D + 3.0) return V; } return null; }
-  function inVolume(P, x, y, z, pad) { if (P.vault) { var q = w2l(P, x, z); var Vv = P.VG.V; if (Math.abs(q[1]) > P.VG.zg - pad) return false; var h = y - P.D; if (h < 0.1) return false; var hz = vSec(Vv, q[1]).hy; var f = Math.pow(Math.abs(q[0]) / Vv.a, Vv.p) + (h / hz) * (h / hz); return f < 1 - pad * 0.18; } var dx = x - P.x, dy = y - P.D, dz = z - P.z; return dy > 0.1 && Math.sqrt(dx * dx + dy * dy + dz * dz) < P.R - pad; }
+  function vaultAt(x, z, y) { var S = SITE; if (!S) return null; for (var i = 0; i < S.vaults.length; i++) { var V = S.vaults[i]; if (!V.VG || Math.abs(x - V.x) > V.w || Math.abs(z - V.z) > V.w) continue; var q = w2l(V, x, z); if (Math.abs(q[1]) < V.VG.zg - 0.1 && Math.abs(q[0]) < vHalf(V.VG.V, q[1], 0.3) - 0.2 && y > V.D - 0.4 && y < V.D + 3.0) return V; } return null; }
+  function inVolume(P, x, y, z, pad) { if (P.vault) { var q = w2l(P, x, z); var Vv = P.VG.V; if (Math.abs(q[1]) > P.VG.zg - pad) return false; var h = y - P.D; if (h < 0.1) return false; return vF(Vv, q[0], h, q[1]) < -pad * 0.18; } var dx = x - P.x, dy = y - P.D, dz = z - P.z; return dy > 0.1 && Math.sqrt(dx * dx + dy * dy + dz * dz) < P.R - pad; }
   function camHook(dt) {
     if (DM.off || !SITE || !DM.ready || window.__cam) return false; var mode = sgMode(); if (mode && (mode.on || mode.k > 0.001)) return false;
     try { var px = player.position.x, py = player.position.y, pz = player.position.z, fwd = [-Math.sin(yaw), -Math.cos(yaw)]; var P = suiteAt(px, pz, py) || vaultAt(px, pz, py);
@@ -1209,8 +1512,26 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       if (msg) { t.innerHTML = "<b>E</b> &nbsp;" + msg; el.classList.add("on"); }
     } catch (e) { note("prompt", e); }
   }
+  // ───────────────────────── name labels and chat bubbles hide behind walls (R5) ─────────────────────────
+  // The client draws them without a depth test, so a name showed through every dome, vault, pyramid and building wall. Here every
+  // label and bubble sprite is depth tested (no depth write) and drawn pulled LABEL_OFF metres toward the camera along its line of
+  // sight, its size compensated so it looks exactly as before: a wall between you and the character hides the name, its own head,
+  // hat or a chair beside it never does, glass (no depth write) never does. The client's makeLabel and makeBubble are wrapped (no
+  // client.js change) and the labels made before that are patched by a light sweep. ?labeldepth=0 turns it off.
+  var LABEL_OFF = 0.55, LBL = DM.lbl = DM.lbl || { n: 0, at: 0, on: !/[?&]labeldepth=0\b/.test(location.search) };
+  function depthLabel(sp) { try { var m = sp && sp.material; if (!m || !m.isSpriteMaterial || m.userData.dmDepth) return sp; m.userData.dmDepth = true; m.depthTest = true; m.depthWrite = false;
+      m.onBeforeCompile = function (sh) { sh.vertexShader = sh.vertexShader.replace("vec4 mvPosition = modelViewMatrix[ 3 ];", "vec4 mvPosition = modelViewMatrix[ 3 ];\n float dmL = length(mvPosition.xyz); float dmK = max(0.2, (dmL - " + LABEL_OFF.toFixed(2) + ") / max(dmL, 0.001)); mvPosition.xyz *= dmK;")
+          .replace("vec2 scale = vec2( length( modelMatrix[ 0 ].xyz ), length( modelMatrix[ 1 ].xyz ) );", "vec2 scale = vec2( length( modelMatrix[ 0 ].xyz ), length( modelMatrix[ 1 ].xyz ) ) * dmK;"); };
+      m.customProgramCacheKey = function () { return "dm_label"; }; m.needsUpdate = true; LBL.n++; } catch (e) { note("label", e); } return sp; }
+  function labelSweep() { if (!LBL.on) return; var one = function (g) { if (!g || !g.userData) return; if (g.userData.label) depthLabel(g.userData.label); if (g.userData.bubble) depthLabel(g.userData.bubble); };
+    try { one(player); } catch (e) {} try { avatars.forEach(function (a) { one(a && a.g); }); } catch (e) {} try { CAST.forEach(function (c) { one(c.g); }); } catch (e) {}
+    try { ["walkers", "hall", "carts"].forEach(function (k) { (SITES[k] || []).forEach(function (w) { one(w.g); if (w.drv) one(w.drv); }); }); } catch (e) {} try { for (var id in VEH) { var V = VEH[id]; if (V && V.label) depthLabel(V.label); } } catch (e) {} }
+  function installLabels() { if (!LBL.on || LBL.wrapped) return; LBL.wrapped = true;
+    try { if (typeof makeLabel === "function") { var ml = makeLabel; makeLabel = function () { return depthLabel(ml.apply(this, arguments)); }; } } catch (e) { note("label wrap", e); }
+    try { if (typeof makeBubble === "function") { var mb = makeBubble; makeBubble = function () { return depthLabel(mb.apply(this, arguments)); }; } } catch (e) { note("bubble wrap", e); }
+    labelSweep(); }
   function install() {
-    if (DM.installed) return; DM.installed = true; var o = DM.orig = { openNearest: openNearest, updateZone: updateZone };
+    if (DM.installed) return; DM.installed = true; var o = DM.orig = { openNearest: openNearest, updateZone: updateZone }; installLabels();
     openNearest = function () { try { if (DM.impl.handleE()) return; } catch (e) { note("E", e); } return o.openNearest.apply(this, arguments); };
     updateZone = function () { var r = o.updateZone.apply(this, arguments); try { DM.impl.prompt(); } catch (e) {} return r; };
   }
@@ -1240,6 +1561,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     step("vaults", function () { buildVaults(S); });
     step("bollards", function () { buildBollards(S); }); step("signs", function () { buildSigns(S); });
     step("solids", function () { S.suites.forEach(function (P) { suiteSolids(P); }); S.vaults.forEach(function (V) { vaultSolids(V); }); });
+    step("prefabs", function () { prefab("chiavari", function (K0) { chiavariK(K0, 0, 0, 0, {}); }); ["walnut", "oak"].forEach(function (w) { prefab("cross:" + w + ":rattan", function (K0) { crossChairK(K0, 0, 0, 0, { wood: w, seat: "rattan" }); }); }); prefab("stool:1:leather", function (K0) { stoolK(K0, 0, 0, 0, { back: true, seat: "leather" }); }); prefab("stool:0:velvetN", function (K0) { stoolK(K0, 0, 0, 0, { seat: "velvetN" }); }); });
     step("perf", function () { perfRooms(S); var W = window.PLAN_PERF; if (W && W.warmGroup) { EX.cl.forEach(function (E) { W.warmGroup(E.g, { name: E.g.name }); }); if (S.vg) W.warmGroup(S.vg, { name: "domes vaults" }); } });
     DM.groups = EX.cl.map(function (E) { return E.g; }).concat(S.vg ? [S.vg] : []);
     DM.n.deferMs = Math.round(nowMs() - t0); DM.n.exteriorMeshes = EX.meshes.length; DM.ready = true;
@@ -1251,7 +1573,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     S.suites.forEach(function (P) { P.perfSig = function () { return (P.L && P.L.door && P.L.door.open > 0.1 ? 2 : 1); };
       P.perfRoom = function (R) { var Rr = P.R; return { kind: "domes " + P.id, M: sMatrix(P), boxes: [[-Rr, Rr, -0.6, Rr + 0.3, -Rr, 0.14 * Rr]], rects: [R("x", 0.2 * Rr, -Rr, Rr, -0.2, Rr), R("y", 0.86 * Rr, -0.5 * Rr, 0.5 * Rr, -0.5 * Rr, 0.5 * Rr)], roots: P.L ? [P.L.g] : [] }; }; });
     S.vaults.forEach(function (V) { V.perfSig = function () { return V.door && V.door.open > 0.1 ? 2 : 1; };
-      V.perfRoom = function (R) { var VG = V.VG, aw = VG.d.a + 0.2, M0 = sMatrix(V); return { kind: "domes " + V.id, M: M0, boxes: [[-aw, aw, -0.6, VG.d.H + 0.3, -VG.zg, VG.zg]], rects: [R("x", VG.zg, -aw, aw, -0.2, VG.d.H), R("x", -VG.zg, -aw, aw, -0.2, VG.d.H)], roots: V.L ? [V.L.g] : [] }; }; });
+      V.perfRoom = function (R) { var VG = V.VG, aw = VG.d.a + 0.2, M0 = sMatrix(V); var rects = [R("x", VG.zg, -aw, aw, -0.2, VG.d.H), R("x", -VG.zg, -aw, aw, -0.2, VG.d.H)]; (VG.wins || []).forEach(function (Wn) { rects.push(R("z", Wn.sd * (vHalf(VG.V, 0, Wn.yb) + 0.05), -Wn.zw, Wn.zw, Wn.yb - 0.1, Wn.yb + Wn.h + 0.1)); }); return { kind: "domes " + V.id, M: M0, boxes: [[-aw, aw, -0.6, VG.d.H + 0.3, -VG.c, VG.c]], rects: rects, roots: V.L ? [V.L.g] : [] }; }; });
     W.rooms.push({ name: "domes", key: function () { if (!SITE) return null; var mode = sgMode(); if (mode && mode.on && !(mode.spot && mode.spot.dome)) return null; var c = camera.position;
       var P = suiteAt(c.x, c.z, c.y - 1.4); if (P && inVolume(P, c.x, c.y, c.z, 0.05)) { var q = w2l(P, c.x, c.z); if (q[1] < 0.12 * P.R) return P; return null; }
       var V = vaultAt(c.x, c.z, c.y - 1.4); if (V && inVolume(V, c.x, c.y, c.z, 0.02)) return V; return null; } });
@@ -1266,6 +1588,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     build: function (id) { var P = SITE.byId[id]; if (!P) return null; if (P.vault) { if (!P.L) { P.L = buildVaultInterior(P); vaultFakes(); } } else if (!P.L) { P.L = buildInterior(P); setFake(P, false); } return !!P.L; },
     drop: function (id) { var P = SITE.byId[id]; if (!P) return null; if (P.vault) disposeVault(P); else disposeInterior(P); return true; },
     door: function (id, t) { var P = SITE.byId[id]; if (!P) return null; if (P.vault) { P.door.manual = true; P.door.target = P.door.open = t; var e = ease(t) * 1.45; P.leaves[0].rotation.y = -e; P.leaves[1].rotation.y = PI + e; doorSolidOn(P, t < 0.5); return t; } if (!P.L) return null; var D = P.L.door; D.manual = true; D.target = D.open = t; D.piv.rotation.y = -ease(t) * 1.5; doorSolidOn(P, t < 0.45); return t; },
+    // rebuild an interior step by step and time each step (ms) and the whole (the time-sliced build's worst frame)
+    steps: function (id) { var P = SITE.byId[id]; if (!P) return null; if (P.vault) disposeVault(P); else disposeInterior(P); var it = P.vault ? buildVaultSteps(P) : buildSteps(P), r, t = [], t0; do { t0 = nowMs(); r = it.next(); t.push(+(nowMs() - t0).toFixed(1)); } while (!r.done); P.L = r.value; if (P.vault) vaultFakes(); else setFake(P, false); var nm = 0; P.L.g.traverse(function (o) { if (o.isMesh) nm++; }); return { t: t, tris: P.L.tris, meshes: nm }; },
     lie: function (id, which) { var P = SITE.byId[id]; if (!P) return null; if (!P.L) { P.L = buildInterior(P); setFake(P, false); } var r = P.L.recl[which | 0] || P.L.recl[0]; return lieDown(P, r); },
     // a camera view in a suite's or vault's frame: eye (lx, ly, lz) looking at (tx, ty, tz), heights above the deck top
     cam: function (id, lx, ly, lz, tx, ty, tz, fov) { var P = SITE.byId[id]; if (!P) return null; var a = l2w(P, lx, lz), b = l2w(P, tx, tz); window.__cam = [a[0], P.D + ly, a[1], b[0], P.D + ty, b[1], fov || 0]; try { player.visible = false; } catch (e) {} try { updateCulling(true); } catch (e) {} return window.__cam; }

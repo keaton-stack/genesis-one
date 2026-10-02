@@ -26,7 +26,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
 
   const E = window.PLAN_ENRICH = { n: {}, errs: [], t: {}, beds: [], bedRoads: [], raise: [], seats: [], strings: [], lanterns: [], fence: [], plazas: [], proms: [], chunks: [], mine: new Set(), done: false };
   const cnt = (k, d) => { E.n[k] = (E.n[k] || 0) + (d === undefined ? 1 : d); };
-  const step = (name, fn) => { const t0 = performance.now(); try { fn(); } catch (e) { E.errs.push(name + ": " + ((e && e.stack) || e)); console.error("plan_enrich " + name + " failed:", (e && e.stack) || e); } E.t[name] = Math.round(performance.now() - t0); };
+  const step = (name, fn) => { const t0 = performance.now(); try { fn(); } catch (e) { if (E.errs.length < 40) E.errs.push(name + ": " + ((e && e.stack) || e)); console.error("plan_enrich " + name + " failed:", (e && e.stack) || e); } E.t[name] = Math.round(performance.now() - t0); };
   // own seeded random: the engine's rnd() drives the desert scatter after the world hooks, so it is left untouched
   let seed = 0x5eed1e1; const rand = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -346,7 +346,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
   const PERG_SKIP = new Set(["hl1_club_walk", "hl3_main_street", "hl4_sculpture_ave", "apron_walk", "sun_gate_walk", "flight_deck_spur", "garden_bay_walk", "link_south", "museum_walk", "observatory_spur", "sun_tunnels_spur"]);
   function promenade(q) { const { pr, cfg, own, w, style, pts } = q; const L = plen(pts); const dark = style === "out"; const inside = cfg.inside || w >= 14;
     // R3: pergola rest bays first, so the benches, lanterns, string posts and beds keep off them
-    if (style === "lux" && !PERG_SKIP.has(pr.id) && L > 120) try { walkPergolas(pts, w, own, 150, "prom:" + pr.id, { side: pr.id.length % 2 ? 1 : -1 }); } catch (e) { E.errs.push("pergolas " + pr.id + ": " + e.message); }
+    if (style === "lux" && !PERG_SKIP.has(pr.id) && L > 120) try { walkPergolas(pts, w, own, 150, "prom:" + pr.id, { side: pr.id.length % 2 ? 1 : -1 }); } catch (e) { if (E.errs.length < 40) E.errs.push("pergolas " + pr.id + ": " + e.message); }
     // benches with a planter beside them, alternating sides
     if (cfg.benches !== false) {
       if (cfg.benches === "median") { const mp = planTrim(pts, 34, L - 32); for (const s of samples(mp, 24, 14, plen(mp) - 6)) for (const sd of [-1, 1]) { const [x, z] = offP(s, 2.7 * sd); if (!spotOK(x, z, 1.0, own, { inside: true, door: true, edgeR: 0.4 })) continue; benchAt(x, z, Math.atan2(-s.uz * sd, s.ux * sd), true); } }
@@ -400,7 +400,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
       while (k < len) { const m = Math.min(len - k, Math.round(open / arc)); if (m * arc >= 2.4) segs.push([r.i0 + trim + k, m]); k += m + Math.round(2.4 / arc); }
       for (const sg of segs) rec.rails.push(sg); }
     // R3: pergolas just outside the ring of the larger desert-modern plazas (the railing opens in front of each)
-    if (style === "lux" && z.r >= 15 && !/^gp_/.test(z.id)) try { ringPergolas(z, z.id === "pz_compass" ? 4 : z.r >= 28 ? 3 : 2, "plaza:" + z.id, { R, S, rec, a0: 0.45 + (z.id.length % 5) * 0.4, odd: z.id.length % 2 === 1 }); } catch (e) { E.errs.push("pergolas " + z.id + ": " + e.message); }
+    if (style === "lux" && z.r >= 15 && !/^gp_/.test(z.id)) try { ringPergolas(z, z.id === "pz_compass" ? 4 : z.r >= 28 ? 3 : 2, "plaza:" + z.id, { R, S, rec, a0: 0.45 + (z.id.length % 5) * 0.4, odd: z.id.length % 2 === 1 }); } catch (e) { if (E.errs.length < 40) E.errs.push("pergolas " + z.id + ": " + e.message); }
     // entry pillars (or posts) either side of every ribbon gap wider than 2 m, lamps round the ring, trees framing the entries
     const pk = style === "ow" ? "e1_tpost" : style === "out" ? "e1_opost" : "e1_pillar";
     for (const r of runs) { if (r.st !== "gap" || r.full) continue; const wgap = r.len * arc; if (wgap < 2.0) continue;

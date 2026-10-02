@@ -23,7 +23,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   ["exec_desk", "lounge_chair", "bookcase", "planter_lux", "bench_lux", "lux_lamp", "datepalm", "canarypalm", "fanpalm2", "barrel_cactus", "agave_cluster", "yucca_cluster"].forEach(function (k) { if (NEEDS.indexOf(k) < 0) NEEDS.push(k); });
 
   var GB = window.PLAN_GBANK = { errs: [], n: {}, mode: null, built: false, site: null, hs: [], seats: [], lights: [] };
-  function note(w, e) { var m = w + ": " + (e && e.message ? e.message : e); GB.errs.push(m); if (GB.errs.length <= 5) console.warn("[gbank] " + m); }
+  function note(w, e) { var m = w + ": " + (e && e.message ? e.message : e); if (GB.errs.length < 40) GB.errs.push(m); if (GB.errs.length <= 5) console.warn("[gbank] " + m); }
   var TAU = Math.PI * 2;
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function sstep(a, b, v) { var t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }

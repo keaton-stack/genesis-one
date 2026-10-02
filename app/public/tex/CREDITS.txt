@@ -59,10 +59,15 @@ gfx_sand, gfx_sand_n: dense_sand (Dimitrios Savva)
 gfx_gravel, gfx_gravel_n: rocky_trail_02 (Amal Kumar)
 
 Night sky (plan_gfx.js, round 4 sky pass), files in tex/sky/:
-sky_l_8k.jpg, sky_l_4k.jpg, sky_l_2k.jpg (luminance), sky_c_2k.jpg, sky_c_1k.jpg (colour): NASA/Goddard Space Flight Center Scientific
+sky_l_8k.jpg, sky_l_4k.jpg, sky_l_2k.jpg (the faint resolved star field and its density): NASA/Goddard Space Flight Center Scientific
   Visualization Studio, "Deep Star Maps 2020" (Ernie Wright), https://svs.gsfc.nasa.gov/4851 . Public domain (NASA media usage guidelines).
   Built from the Hipparcos-2, Tycho-2 and Gaia DR2 catalogs (with the Yale Bright Star Catalog, UCAC3 and XHIP). Re-encoded: the stars
   brighter than magnitude 8 removed (they are drawn from stars.bin), an asinh-stretched luminance plus a low-resolution chroma layer.
+sky_gl_8k.jpg, sky_gl_4k.jpg, sky_gl_2k.jpg (the Milky Way's glow, luminance) and sky_gc_2k.jpg, sky_gc_1k.jpg (its colour), night sky
+  round 5: ESO/S. Brunier, "The Milky Way panorama", https://www.eso.org/public/images/eso0932a/ , CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/). Credit line: ESO/S. Brunier. Changes: the stars to magnitude 8 and the planets of the
+  2008-2009 frames removed and filled from their surroundings, the faint field blurred into the glow, re-projected from the panorama's
+  galactic frame (fitted to the Hipparcos catalogue) to J2000 equatorial coordinates, split into luminance and chroma, re-encoded.
 stars.bin (41,411 stars to magnitude 8: position, magnitude, B-V colour) and const.json (IAU constellation figures and names):
   d3-celestial by Olaf Frohn, https://github.com/ofrohn/d3-celestial , BSD 3-Clause licence, Copyright (c) 2015, Olaf Frohn. All rights
   reserved. Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following

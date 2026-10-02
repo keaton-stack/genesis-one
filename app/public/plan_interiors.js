@@ -117,6 +117,8 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   function leatherTex(key, base) { return panel("leather:" + key, 512, 512, function (x, W, H) { var R = rng(key.length * 31 + 7); x.fillStyle = base; x.fillRect(0, 0, W, H); for (var i = 0; i < 14000; i++) { x.fillStyle = R() < 0.5 ? "rgba(255,240,220,0.035)" : "rgba(30,12,4,0.05)"; var r = 1 + R() * 2.2; x.fillRect(R() * W, R() * H, r, r); }
     x.strokeStyle = "rgba(40,18,6,0.12)"; x.lineWidth = 1.2; for (var c = 0; c < 40; c++) { x.beginPath(); var px = R() * W, py = R() * H; x.moveTo(px, py); x.quadraticCurveTo(px + (R() - 0.5) * 60, py + (R() - 0.5) * 60, px + (R() - 0.5) * 90, py + (R() - 0.5) * 90); x.stroke(); }
     x.fillStyle = "rgba(20,8,2,0.35)"; x.fillRect(0, 0, W, 3); x.fillRect(0, 0, 3, H); x.fillStyle = "rgba(255,235,210,0.12)"; x.fillRect(0, 4, W, 2); }, true); }
+  // R5: after a WebGL context loss the one-time room probe is empty: plan_perf calls this on restore to draw it again
+  IN.restoreEnv = function () { var old = IN.env; if (old === undefined) return false; IN.env = undefined; var t = roomEnv(); try { scene.traverse(function (o) { var ms = o.material; if (!ms) return; ms = Array.isArray(ms) ? ms : [ms]; for (var i = 0; i < ms.length; i++) if (ms[i] && ms[i].envMap === old) { ms[i].envMap = t; ms[i].needsUpdate = true; } }); if (MT) for (var k in MT) { var m = MT[k]; if (m && m.envMap === old) { m.envMap = t; m.needsUpdate = true; } } } catch (e) { note("restore env", e); } return !!t; };
   function roomEnv() {
     if (IN.env !== undefined) return IN.env; IN.env = null;
     try { var c = cv(256, 128), x = c.getContext("2d"); var g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, "#fff6e8"); g.addColorStop(0.42, "#d9c9b2"); g.addColorStop(0.55, "#8f7f6c"); g.addColorStop(1, "#4d4136"); x.fillStyle = g; x.fillRect(0, 0, 256, 128);
@@ -345,7 +347,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   function disposeInterior(h) {
     var L = h && h.L; if (!L) return; L.dead = true; try { if (inside && inside.int3 === h) myLeave(true); } catch (e) {}
     L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); }); swapOut(h);
-    L.people.forEach(function (p) { try { if (p.mixer) p.mixer.stopAllAction(); } catch (e) {} }); (L.anchors || []).forEach(function (a) { if (a.parent) a.parent.remove(a); }); try { if (typeof talkNpc !== "undefined" && talkNpc && talkNpc.g && (L.anchors || []).indexOf(talkNpc.g) >= 0) closeTalk(); } catch (e) {}
+    L.people.forEach(function (p) { try { if (p.mixer) p.mixer.stopAllAction(); } catch (e) {} try { if (p.g && p.g.userData && p.g.userData.r5ids && typeof r5DropAvatar === "function") r5DropAvatar(p.g); else if (p.g && p.r5 && typeof r5Free === "function") r5Free(p.g, p.r5, true); } catch (e) {} });   /* R5: a person's label, tinted copies and skeleton go with the interior */ (L.anchors || []).forEach(function (a) { if (a.parent) a.parent.remove(a); }); try { if (typeof talkNpc !== "undefined" && talkNpc && talkNpc.g && (L.anchors || []).indexOf(talkNpc.g) >= 0) closeTalk(); } catch (e) {}
     if (L.g.parent) L.g.parent.remove(L.g);
     L.g.traverse(function (o) { if (o.isMesh && o.userData.int3 && o.geometry) o.geometry.dispose(); });
     L.g.traverse(function (o) { if ((o.isMesh || o.isSkinnedMesh) && o.userData.own) { if (o.geometry) o.geometry.dispose(); } });
@@ -439,7 +441,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     return R.p; }
   // a person in the room frame: { kind: rig kind | null (avatar), look, x, z, y (floor), yaw, sit, walk: [[x, z, dwell, yaw]...], face (turn to a visitor), name }
   function person(L, o) { var P = { o: o, x: o.x, z: o.z, y: o.y, yaw: o.yaw || 0, yaw0: o.yaw || 0, g: null, mixer: null, act: null, t: 0, k: 0, pause: o.walk ? 2 + Math.random() * 4 : 0, sp: o.speed || 0.95 }; L.people.push(P);
-    if (o.rig && rigInfo(o.rig) && THREE.SkeletonUtils) { rigLoad(o.rig).then(function (R) { if (!R || !L.g.parent && L.dead) return; if (L.dead) return; try { var g = THREE.SkeletonUtils.clone(R.gl.scene); g.traverse(function (q) { if (q.isMesh || q.isSkinnedMesh) { q.castShadow = false; q.receiveShadow = true; q.frustumCulled = false; } });
+    if (o.rig && rigInfo(o.rig) && THREE.SkeletonUtils) { rigLoad(o.rig).then(function (R) { if (!R || !L.g.parent && L.dead) return; if (L.dead) return; try { if (typeof r5Ids === "function" && typeof R5 !== "undefined" && R5.on) P.r5 = r5Ids(); var g = THREE.SkeletonUtils.clone(R.gl.scene); g.traverse(function (q) { if (q.isMesh || q.isSkinnedMesh) { q.castShadow = false; q.receiveShadow = true; q.frustumCulled = false; } });
         var bb = new THREE.Box3().setFromObject(g), hh = bb.max.y - bb.min.y; if (hh > 0.5 && Math.abs(hh - R.h) > R.h * 0.12) g.scale.multiplyScalar(R.h / hh); P.mixer = new THREE.AnimationMixer(g); P.clips = {}; for (var c in R.clips) P.clips[c] = P.mixer.clipAction(R.clips[c]); P.g = g; P.rig = true; L.g.add(g); place(P); } catch (e) { note("rig spawn " + o.rig, e); } }); if (!o.fallback) return P; }
     try { var a = avatar("int3_" + (o.id || L.people.length) + "_" + L.h.id, o.name || "", o.look || { body: "m" }, o.hat || null, o.outfit || null); if (a.userData.label) { a.userData.label.visible = !!o.label; a.userData.label.scale.set(1.3, 0.34, 1); } if (a.userData.blob) a.userData.blob.visible = false;
       if (o.sit) { a.userData.sit = true; try { sitOffset(a, o.back); } catch (e) {} } P.g = a; L.g.add(a); place(P); if (o.toque) P.hat = toque(a); } catch (e) { note("avatar", e); }
@@ -839,19 +841,20 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // @@REST@@
   // @@CLUB@@
 
-  var R_BUILD = 34, R_DROP = 95, R_PREP = 120, R_STAGE = 70;   // R_STAGE: the staged build starts (plan_perf.js budget); R_BUILD: finished at once
+  var R_BUILD = 34, R_DROP = 95, R_PREP = 120, R_STAGE = 70, R_NOW = 10;   // R5: inside R_BUILD the staged build gets 10 ms a frame; within R_NOW it is finished at once   // R_STAGE: the staged build starts (plan_perf.js budget); R_BUILD: finished at once
   function distTo(h, x, z) { return Math.hypot(h.e[0] - x, h.e[2] - z) - TYPES[h.kind].R * h.s; }
   function camInside(h) { var T = TYPES[h.kind], q = localP(h, camera.position.x, camera.position.z), cy = (camera.position.y - h.e[1]) / h.s; if (cy < -0.5 || cy > T.see[4]) return false; for (var i = 0; i < T.rooms.length; i++) { var r = T.rooms[i]; if (q[0] > r[0] && q[0] < r[2] && q[1] > r[1] && q[1] < r[3]) return true; } return false; }
   function frame(dt) {
     if (IN.off || !IN.list.length || !player) return; dt = Math.min(dt || 0.016, 0.1); var px = player.position.x, pz = player.position.z; var flying = false; try { flying = !!(FLY && FLY.on); } catch (e) {}
     if (!IN.patched) { IN.patched = true; for (var kk in TYPES) { try { patchShell(kk); } catch (e) { note("shell " + kk, e); } } try { for (var k2 in TYPES) { var di = DOOR_KINDS.indexOf(k2); if (di >= 0) DOOR_KINDS.splice(di, 1); } } catch (e) { note("door kinds", e); } }
-    var best = null, bd = 1e9; for (var i = 0; i < IN.list.length; i++) { var h = IN.list[i]; var d = distTo(h, px, pz); if (d < bd) { bd = d; best = h; } } IN.near = best; IN.nearD = bd;
+    var best = null, bd = 1e9; for (var i = 0; i < IN.list.length; i++) { var h = IN.list[i]; var d = distTo(h, px, pz); if (d < bd) { bd = d; best = h; } } if (IN.active && best && best !== IN.active && !(inside && inside.int3)) { var dA = distTo(IN.active, px, pz); if (dA < bd * 1.15 + 3) { best = IN.active; bd = dA; } }   // R5: hysteresis (no rebuild at every midpoint between two buildings)
+    IN.near = best; IN.nearD = bd;
     if (bd < R_PREP && !IN.pref && LAZY.length) { IN.pref = true; try { if (window.PLAN_LOAD_KINDS) window.PLAN_LOAD_KINDS(LAZY).then(function (ks) { IN.n.lazy = ks; }); } catch (e) { note("prefetch", e); } }
     var act = IN.active; var inMine = !!(inside && inside.int3);
     var SB = IN.sb; if (SB && (SB.h !== best || flying || inMine || bd > R_STAGE + 12)) { try { disposeInterior(SB.h); } catch (e) {} IN.sb = SB = null; }
     if (act && !inMine && (distTo(act, px, pz) > R_DROP || flying)) { disposeInterior(act); act = null; }
-    if (best && !flying && bd < R_BUILD && act !== best && !inMine) { if (act) disposeInterior(act); try { if (SB) { IN.sb = null; while (!SB.it.next().done); } else buildInterior(best); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} } act = IN.active; }
-    else if (best && !flying && bd < R_STAGE && act !== best && !inMine && window.PLAN_PERF && PLAN_PERF.step) { try { if (!SB) { if (act) { disposeInterior(act); act = null; } SB = IN.sb = { h: best, it: buildSteps(best) }; } if (PLAN_PERF.step(SB.it).done) { IN.sb = null; act = IN.active; IN.n.staged = (IN.n.staged || 0) + 1; if (best.L) PLAN_PERF.warmGroup(best.L.g, { name: "int3 " + best.id }); } } catch (e) { note("stage " + best.id, e); IN.sb = null; try { disposeInterior(best); } catch (x) {} } }
+    if (best && !flying && (bd < R_NOW || (bd < R_BUILD && !(window.PLAN_PERF && PLAN_PERF.step))) && act !== best && !inMine) { if (act) disposeInterior(act); try { if (SB) { IN.sb = null; while (!SB.it.next().done); } else buildInterior(best); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} } act = IN.active; }
+    else if (best && !flying && bd < R_STAGE && act !== best && !inMine && window.PLAN_PERF && PLAN_PERF.step) { try { if (!SB) { if (act) { disposeInterior(act); act = null; } SB = IN.sb = { h: best, it: buildSteps(best) }; } if (PLAN_PERF.step(SB.it, bd < R_BUILD ? 10 : undefined).done) { IN.sb = null; act = IN.active; IN.n.staged = (IN.n.staged || 0) + 1; if (best.L) PLAN_PERF.warmGroup(best.L.g, { name: "int3 " + best.id }); } } catch (e) { note("stage " + best.id, e); IN.sb = null; try { disposeInterior(best); } catch (x) {} } }
     if (!act || !act.L) return; var L = act.L, T = TYPES[act.kind], D = T.door;
     // the doors: open as you walk up (from either side), shut when you walk away; E overrides until you leave the porch
     var dw = doorW(act), dd = Math.hypot(dw[0] - px, dw[2] - pz), lvl = Math.abs(player.position.y - dw[1]) < 2.2; if (L.door.manual !== null && dd > 7) L.door.manual = null;

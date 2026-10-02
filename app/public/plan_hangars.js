@@ -144,6 +144,8 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
     return MT;
   }
   // a warm neutral room as the reflection probe of the interior materials (the sky probe would put blue sky on the epoxy)
+  // R5: after a WebGL context loss the one-time room probe is empty: plan_perf calls this on restore to draw it again
+  H.restoreEnv = function () { var old = H.env; if (old === undefined) return false; H.env = undefined; var t = roomEnv(); try { scene.traverse(function (o) { var ms = o.material; if (!ms) return; ms = Array.isArray(ms) ? ms : [ms]; for (var i = 0; i < ms.length; i++) if (ms[i] && ms[i].envMap === old) { ms[i].envMap = t; ms[i].needsUpdate = true; } }); if (MT) for (var k in MT) { var m = MT[k]; if (m && m.envMap === old) { m.envMap = t; m.needsUpdate = true; } } } catch (e) { note("restore env", e); } return !!t; };
   function roomEnv() {
     if (H.env !== undefined) return H.env; H.env = null;
     try { var sc = new THREE.Scene(); var c = cv(256, 128), x = c.getContext("2d"); var g = x.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, "#fbfbf8"); g.addColorStop(0.45, "#bfc1c0"); g.addColorStop(0.55, "#8f918f"); g.addColorStop(1, "#5d5f5f"); x.fillStyle = g; x.fillRect(0, 0, 256, 128);
@@ -559,19 +561,20 @@ window.PLAN_HANGARS = window.PLAN_HANGARS || {};
   }
 
   // ───────────────────────── frame: which hangar is active, doors, entering, lights, sound ─────────────────────────
-  var R_BUILD = 46, R_DROP = 100, R_OPEN = 20, R_SHUT = 27, R_STAGE = 80;   // R_STAGE: the staged build starts (plan_perf.js budget); R_BUILD: finished at once
+  var R_BUILD = 46, R_DROP = 100, R_OPEN = 20, R_SHUT = 27, R_STAGE = 80, R_NOW = 12;   // R5: inside R_BUILD the staged build gets 10 ms a frame; only within R_NOW (a warp to the door) is it finished at once   // R_STAGE: the staged build starts (plan_perf.js budget); R_BUILD: finished at once
   var AU = { hum: null, motor: null, t: 6 };
   function frame(dt) {
     if (H.off || !H.list.length || !player) return; var px = player.position.x, pz = player.position.z; var I = INFO();
     var flying = false; try { flying = !!(FLY && FLY.on); } catch (e) {}
     // nearest hangar
     var best = null, bd = 1e9; for (var i = 0; i < H.list.length; i++) { var h = H.list[i]; var d = Math.hypot(h.e[0] - px, h.e[2] - pz) - 12 * h.s; if (d < bd) { bd = d; best = h; } }
+    if (H.active && best && best !== H.active && !(inside && inside.hgr)) { var dA = Math.hypot(H.active.e[0] - px, H.active.e[2] - pz) - 12 * H.active.s; if (dA < bd * 1.15 + 3) { best = H.active; bd = dA; } }   // R5: hysteresis, the built one stays until another is clearly nearer (no rebuild at every midpoint of a row)
     H.near = best; H.nearD = bd;
     // interior: one at a time, built on approach (the open door shows it), dropped when you walk away
     var act = H.active; if (act && (Math.hypot(act.e[0] - px, act.e[2] - pz) - 12 * act.s > R_DROP || flying) && !(inside && inside.hgr === act)) { disposeInterior(act); H.active = act = null; }
     var SB = H.sb; if (SB && (SB.h !== best || flying || (inside && inside.hgr) || bd > R_STAGE + 12)) { try { abortBuild(SB.h); } catch (e) {} H.sb = SB = null; }
-    if (best && !flying && bd >= R_BUILD && bd < R_STAGE && act !== best && !(inside && inside.hgr) && window.PLAN_PERF && PLAN_PERF.step) { try { if (!SB) { if (act) { disposeInterior(act); H.active = act = null; } SB = H.sb = { h: best, it: buildSteps(best) }; } if (PLAN_PERF.step(SB.it).done) { H.sb = null; H.active = act = best; chiefAt(best.L); H.n.staged = (H.n.staged || 0) + 1; PLAN_PERF.warmGroup(best.L.g, { name: "hangar " + best.id }); } } catch (e) { note("stage " + best.id, e); H.sb = null; try { abortBuild(best); } catch (x) {} } }
-    if (best && !flying && bd < R_BUILD && act !== best && !(inside && inside.hgr)) { if (act) disposeInterior(act); try { if (SB && SB.h === best) { H.sb = null; while (!SB.it.next().done); } else buildInterior(best); H.active = best; chiefAt(best.L); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} H.active = null; } }
+    if (best && !flying && bd >= R_NOW && bd < R_STAGE && act !== best && !(inside && inside.hgr) && window.PLAN_PERF && PLAN_PERF.step) { try { if (!SB) { if (act) { disposeInterior(act); H.active = act = null; } SB = H.sb = { h: best, it: buildSteps(best) }; } if (PLAN_PERF.step(SB.it, bd < R_BUILD ? 10 : undefined).done) { H.sb = null; H.active = act = best; chiefAt(best.L); H.n.staged = (H.n.staged || 0) + 1; PLAN_PERF.warmGroup(best.L.g, { name: "hangar " + best.id }); } } catch (e) { note("stage " + best.id, e); H.sb = null; try { abortBuild(best); } catch (x) {} } }
+    if (best && !flying && (bd < R_NOW || (bd < R_BUILD && !(window.PLAN_PERF && PLAN_PERF.step))) && act !== best && !(inside && inside.hgr)) { if (act) disposeInterior(act); try { if (SB && SB.h === best) { H.sb = null; while (!SB.it.next().done); } else buildInterior(best); H.active = best; chiefAt(best.L); } catch (e) { note("build " + best.id, e); try { disposeInterior(best); } catch (x) {} H.active = null; } }
     // doors: open when you walk up to the front, shut when you leave; E overrides until you walk away
     for (var j = 0; j < H.list.length; j++) { var hh = H.list[j]; if (H.hold && H.hold[hh.id] !== undefined) { hh.open = hh.target = H.hold[hh.id]; setDoor(hh, hh.open); doorSolidOn(hh, hh.open < 0.62); continue; }   // tests: hold a door at an opening
       var near = hh === best && bd < R_SHUT + 10;

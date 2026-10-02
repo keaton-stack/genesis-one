@@ -23,7 +23,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     lastPushKey: "", impactOverride: null, t: { arr: 0, sync: 0, ride: 0, day: 0, resolve: 0, hud: 0 }, ride: null, air: false, lastLanding: 0,
     cheerSeen: {}, capToast: -1, dirty: true, lookout: null, fx: null, lblImgs: [], lblReady: [], fontsOK: false, open: false, tab: "stamps", chap: null };
   API.errs = S.errs;
-  function note(where, e) { var m = where + ": " + ((e && e.message) || e); S.errs.push(m); if (S.errs.length < 12) console.warn("plan_progress " + m, e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : ""); }
+  function note(where, e) { var m = where + ": " + ((e && e.message) || e); if (S.errs.length < 40) S.errs.push(m); if (S.errs.length < 12) console.warn("plan_progress " + m, e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : ""); }
   function safe(name, fn) { try { return fn(); } catch (e) { note(name, e); } }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function nowS() { return Math.floor(Date.now() / 1000); }

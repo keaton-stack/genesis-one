@@ -404,7 +404,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     batch.geo(g, mat);
   }
   // flat walkable area on the ground (A1's polygonNow: clipped cells, walk grid)
-  function area(poly, mat, lift, batch) { try { const m = polygonNow(poly, mat, lift); if (m && m.geometry) batch.geo(m.geometry, mat); } catch (e) { GP.errs.push("area " + e.message); } }
+  function area(poly, mat, lift, batch) { try { const m = polygonNow(poly, mat, lift); if (m && m.geometry) batch.geo(m.geometry, mat); } catch (e) { if (GP.errs.length < 40) GP.errs.push("area " + e.message); } }
   // a walk grid surface without a mesh (bridge decks, stepping stones)
   function walkQuad(ax, ay, az, bx, by, bz, w) { const dx = bx - ax, dz = bz - az, L = hyp(dx, dz) || 1; const nx = -dz / L * w / 2, nz = dx / L * w / 2; const rows = []; const n = Math.max(2, Math.ceil(L / 0.5)); for (let i = 0; i <= n; i++) { const t = i / n; const x = ax + dx * t, z = az + dz * t, y = ay + (by - ay) * t; rows.push([[x + nx, y, z + nz], [x - nx, y, z - nz]]); } const g = gridGeo(rows); walkAdd(g); g.dispose(); }
   // text board
@@ -602,7 +602,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ═════════ defer (second): the park itself ═════════
   function dressHook() {
     if (!GP.ready) return; const t0 = performance.now(); const tm = {};
-    const step = (name, fn) => { const t = performance.now(); try { fn(); } catch (e) { GP.errs.push(name + ": " + (e && e.message)); console.error("plan_park " + name + " failed:", (e && e.stack) || e); } tm[name] = Math.round(performance.now() - t); };
+    const step = (name, fn) => { const t = performance.now(); try { fn(); } catch (e) { if (GP.errs.length < 40) GP.errs.push(name + ": " + (e && e.message)); console.error("plan_park " + name + " failed:", (e && e.stack) || e); } tm[name] = Math.round(performance.now() - t); };
     step("water", buildWater); step("bridges", buildBridges); step("fields", buildFields); step("lawn", buildLawn); step("carparks", buildCarParks); step("dogpark", buildDogPark);
     step("farm", buildFarm); step("stables", buildStables); step("green", buildGreen); step("knoll", buildKnoll); step("loop", buildLoop); step("animals", buildAnimals);
     step("merge", () => mergeWater(zone("creek", -104, -400, 190)));

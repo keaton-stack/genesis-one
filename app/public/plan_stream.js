@@ -62,6 +62,7 @@
     var nm = (src && src.name) || ""; if (nm === "glass") return { mat: glassMaterial(), glass: true }; if (nm === "winframe") return { mat: frameMaterial() };
     var m = wrapMat(src); if (!m) m = new THREE.MeshStandardMaterial({ color: 0x9a8a78 });
     // the LOD files carry 4 px colour swatches: keep the colour, drop the maps that would only add noise
+    if (m.emissiveMap && m.emissive) m.emissive.setRGB(0, 0, 0);   /* R5: without its map the emissive colour lit the whole stand-in (a white block at night) */
     m.normalMap = null; m.roughnessMap = null; m.metalnessMap = null; m.aoMap = null; m.emissiveMap = null; m.side = THREE.DoubleSide; m.transparent = false; m.depthWrite = true; m.roughness = 0.9; m.metalness = 0;
     if (m.map) m.map.colorSpace = THREE.SRGBColorSpace; m.userData.p2proxy = true; return { mat: m };
   }
@@ -223,7 +224,8 @@
   }
   PS.request = function (ks, force) { [].concat(ks || []).forEach(function (k) { if (!PROXY[k]) return; PRI[k] = 1; if (force) FORCEK[k] = 1; if (PS.st[k] === "wait" || PS.st[k] === "dormant") PS.st[k] = "proxy"; }); ORD = []; kick(); };
   function settled(k) { var s = PS.st[k]; return s === "full" || s === "failed"; }
-  function waitFull(k) { return new Promise(function (res) { if (settled(k)) return res(k); var iv = setInterval(function () { if (settled(k)) { clearInterval(iv); res(k); } }, 150); }); }
+  var ABORTS = {};
+  function waitFull(k) { return new Promise(function (res) { if (settled(k)) return res(k); var t0 = now(), iv = setInterval(function () { if (settled(k) || now() - t0 > 120000) { clearInterval(iv); res(k); } }, 150); }); }   // R5: a waiter gives up after 2 minutes
   // window.PLAN_LOAD_KINDS: a proxy kind a module asks for is fetched first and swapped at once; it resolves when it is in full
   PS.wrapLoad = function () { var f = window.PLAN_LOAD_KINDS; if (typeof f !== "function" || f.p2) return;
     var w = function (ks) { ks = [].concat(ks || []); var px = ks.filter(function (k) { return PROXY[k] && !settled(k); }); if (!px.length) return f(ks);
@@ -271,7 +273,7 @@
     var crit = critical(x, z); if (!crit.length) { kick(); return false; }
     crit.forEach(function (k) { if (PS.st[k] === "wait") PS.st[k] = "proxy"; PRI[k] = 1; });
     if (WARP) { WARP.to = [x, z, y]; WARP.crit = crit; return true; }
-    for (var ka in CTRL) if (crit.indexOf(ka) < 0 && CTRL[ka]) { try { CTRL[ka].abort(); } catch (e) {} }   // the bandwidth goes to the destination
+    for (var ka in CTRL) if (crit.indexOf(ka) < 0 && CTRL[ka] && (ABORTS[ka] || 0) < 3) { ABORTS[ka] = (ABORTS[ka] || 0) + 1; try { CTRL[ka].abort(); } catch (e) {} }   /* R5: a kind is cut off by a warp at most 3 times, then left to finish */   // the bandwidth goes to the destination
     PS.n.veils++; WARP = { to: [x, z, y], crit: crit, t0: now() }; PS.force = true; veil(true, 0); PS.lastVeil = { kinds: crit.length, t0: Math.round(WARP.t0) };
     var iv = setInterval(function () { var W = WARP, c = 0; for (var i = 0; i < W.crit.length; i++) { var s = PS.st[W.crit[i]]; if (s === "full" || s === "failed") c++; } veil(true, c / W.crit.length); tick();
       if (c >= W.crit.length || now() - W.t0 > PS.K.warpWait) { clearInterval(iv); W.crit.forEach(function (k) { delete PRI[k]; }); PS.force = false; PS.bypass = true; try { warpTo(W.to[0], W.to[1], W.to[2]); } catch (e) { note("warp", e); } PS.bypass = false; WARP = null; PS.lastVeil.ms = Math.round(now() - W.t0); PS.lastVeil.got = c; setTimeout(function () { veil(false); }, 250); } }, 120);
