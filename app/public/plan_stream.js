@@ -77,7 +77,7 @@
           var s = spec.raw ? 1 : spec.height ? spec.height / sz.y : spec.size / Math.max(sz.x, sz.z);
           var norm = spec.raw ? new THREE.Matrix4() : new THREE.Matrix4().makeRotationY(spec.rot || 0).multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-c.x, -box.min.y, -c.z));
           var parts = [];
-          root.traverse(function (o) { if (!o.isMesh) return; var geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); try { sanitizeTangents(geo); } catch (e) {} var pm = procMat(o.material); parts.push(pm.glass ? { geometry: geo, material: pm.mat, noShadow: true, noReceive: true } : { geometry: geo, material: pm.mat }); });
+          root.traverse(function (o) { if (!o.isMesh) return; var geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); try { sanitizeTangents(geo); } catch (e) {} if (window.R6MEM && R6MEM.hold) R6MEM.hold(geo);   /* R6: read again at the swap */ var pm = procMat(o.material); parts.push(pm.glass ? { geometry: geo, material: pm.mat, noShadow: true, noReceive: true } : { geometry: geo, material: pm.mat }); });
           if (!parts.length) { PS.n.proxyFail++; return res(false); }
           var m = { norm: norm, bottom: box.min.y, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: 0, proxy: true };
           Object.defineProperty(m, "_pp", { value: parts, writable: true, enumerable: false, configurable: true });
@@ -198,6 +198,7 @@
     if (!lod) old.forEach(function (p) { if (!PS.leaks[k] && !gs.length) try { p.geometry.dispose(); } catch (e) {} });
     if (!PS.leaks[k] && !gs.length) old.forEach(function (p) { try { if (p.material.userData.p2proxy) { if (p.material.map) p.material.map.dispose(); p.material.dispose(); } } catch (e) {} });
     try { if (window.PLAN_ENRICH && PLAN_ENRICH.relod) PLAN_ENRICH.relod(); } catch (e) { note("relod", e); }
+    try { if (lod && window.R6MEM && R6MEM.release) lod.forEach(function (g) { R6MEM.release(g); }); } catch (e) {}   /* R6: the stand-in is now the far LOD: its arrays may go */
     try { cullAt = 0; } catch (e) {}
     PS.st[k] = "full"; PS.n.swapped++; PS.n.full++; PS.ms[k + ":swap"] = Math.round(now() - t0);
   }

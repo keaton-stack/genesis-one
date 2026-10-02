@@ -13,7 +13,181 @@ const ASSET = (() => { const stored = localStorage.getItem("g1:quality"); const 
 let KTX2 = null;
 function ktx2Loader() { if (KTX2 !== null) return KTX2 || null; try { KTX2 = typeof KTX2Loader !== "undefined" && typeof renderer !== "undefined" ? new KTX2Loader().setTranscoderPath("/lib/basis/").detectSupport(renderer) : false; } catch (e) { console.warn("KTX2 textures unavailable", e); KTX2 = false; } return KTX2 || null; }
 function wrapMat(m) { if (!m) return m; const C = m.isMeshPhysicalMaterial ? THREE.MeshPhysicalMaterial : m.isMeshStandardMaterial ? THREE.MeshStandardMaterial : null; if (!C || m instanceof C) return m.clone(); const w = new C(); w.copy(m); return w; }
-function gltfLoader() { const l = new THREE.GLTFLoader(); if (typeof MeshoptDecoder !== "undefined" && l.setMeshoptDecoder) l.setMeshoptDecoder(MeshoptDecoder); const k = ktx2Loader(); if (k && l.setKTX2Loader) l.setKTX2Loader(k); return l; }
+function gltfLoader() { const l = new THREE.GLTFLoader(); if (typeof MeshoptDecoder !== "undefined" && l.setMeshoptDecoder) l.setMeshoptDecoder(MeshoptDecoder); const k = ktx2Loader(); if (k && l.setKTX2Loader) l.setKTX2Loader(k); if (R6.on && l.register && Array.isArray(l.pluginCallbacks)) l.pluginCallbacks.unshift(r6ImgPlugin); return l; }
+// ───────────────────────────── R6: memory ─────────────────────────────
+// 1. GPU-compressed textures (the KTX2 model atlases) kept every transcoded mip level in JS memory after three uploaded them: about
+//    2 GB once the world had streamed (the bulk of "heap 3 GB"). The data is dropped 10 s after a source's first upload, and the
+//    texture is frozen as uploaded (a later change of a sampler setting, colour space or needsUpdate would make three upload it
+//    again, from nothing): such a change is ignored and counted (R6.n.frozen), a re-upload anyway is counted too (R6.n.reup).
+// 2. glTF images (JPEG / PNG inside the .glb files: the people's 3072 px albedo maps and their 2048 px maps) are capped per tier
+//    (2048 px on ultra and high, 1024 px on medium and low) and shared: two modules loading the same rig (the concierge and the
+//    residents were loaded by plan_gbank / plan_progress and again by plan_interiors) now get one texture source, one GPU copy.
+// 3. A WebGL context loss can no longer be restored from memory once data was dropped: the page offers a reload instead.
+// ?r6=0 turns all of it off.
+const R6 = window.R6MEM = (() => {
+  const Q = location.search, lv = localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) ? "medium" : "high");
+  const imgCap = +((Q.match(/[?&]r6img=(\d+)/) || [])[1]) || (lv === "ultra" || lv === "high" ? 2048 : 1024);
+  const ktxCap = +((Q.match(/[?&]r6ktx=(\d+)/) || [])[1]) || (lv === "ultra" ? 1e9 : 2048);
+  const ormCap = +((Q.match(/[?&]r6orm=(\d+)/) || [])[1]) || (lv === "ultra" || lv === "high" ? 1024 : 512);
+  return { on: !/[?&]r6=0\b/.test(Q), level: lv, imgCap, ktxCap, ormCap, freed: false, q: [], n: { orm: 0, ormMB: 0, tex: 0, texMB: 0, reup: 0, frozen: 0, ktxCap: 0, ktxCapMB: 0, img: 0, imgCap: 0, imgCapMB: 0, shared: 0, sharedMB: 0, geo: 0, geoMB: 0, late: 0 }, who: { reup: [], frozen: [], late: [] } };
+})();
+function r6Note(list, s) { const L = R6.who[list]; if (L.length < 24 && L.indexOf(s) < 0) L.push(s); }
+const R6_KEYS = ["wrapS", "wrapT", "wrapR", "magFilter", "minFilter", "anisotropy", "colorSpace", "flipY", "premultiplyAlpha", "unpackAlignment", "generateMipmaps", "format", "type", "internalFormat"];
+function r6Freeze(t) {
+  if (!t || t.r6frozen) return t; t.r6frozen = true;
+  for (const k of R6_KEYS) { let v = t[k]; Object.defineProperty(t, k, { configurable: true, enumerable: true, get() { return v; }, set(nv) { if (nv !== v) { R6.n.frozen++; r6Note("frozen", (t.name || "?") + "." + k); } } }); }
+  const s = t.source; if (s && !s.r6frozen) { s.r6frozen = true; Object.defineProperty(s, "needsUpdate", { configurable: true, set(v) { if (v) { R6.n.frozen++; r6Note("frozen", (t.name || "?") + ".needsUpdate"); } } }); }
+  return t;
+}
+function r6TexUp(tx) {
+  const s = tx.source; if (!s) return;
+  if (s.r6freed) { R6.n.reup++; r6Note("reup", tx.name || "?"); return; }
+  if (!s.r6q) { s.r6q = performance.now(); R6.q.push(tx); }
+}
+// a compressed texture from the KTX2 loader: capped (top mip levels dropped, no re-encode), its data dropped after upload
+function r6Ktx(t) {
+  if (!t || !t.isCompressedTexture || t.isCompressedArrayTexture || t.isCompressedCubeTexture || !Array.isArray(t.mipmaps) || !t.mipmaps.length) return t;
+  while (t.mipmaps.length > 1 && Math.max(t.mipmaps[0].width, t.mipmaps[0].height) > R6.ktxCap) { const m = t.mipmaps.shift(); R6.n.ktxCap++; R6.n.ktxCapMB += (m.data ? m.data.byteLength : 0) / 1048576; }
+  if (t.image && t.mipmaps[0]) { t.image.width = t.mipmaps[0].width; t.image.height = t.mipmaps[0].height; }
+  const prev = t.onUpdate; t.onUpdate = prev ? function (x) { prev.call(this, x); r6TexUp(x); } : r6TexUp;
+  t.clone = function () { const c = Object.getPrototypeOf(t).clone.call(this); c.onUpdate = t.onUpdate; c.clone = t.clone; if (this.source && this.source.r6freed) r6Freeze(c); return c; };
+  return t;
+}
+if (R6.on && typeof KTX2Loader !== "undefined" && KTX2Loader.prototype._createTextureFrom) { const cf = KTX2Loader.prototype._createTextureFrom; KTX2Loader.prototype._createTextureFrom = function () { const r = cf.apply(this, arguments); if (r && typeof r.then === "function") return r.then((t) => { try { r6Ktx(t); } catch (e) {} return t; }); try { r6Ktx(r); } catch (e) {} return r; }; }
+setInterval(() => {   // drop the data of sources uploaded at least 10 s ago (a second sampler variant of the same source, if any, has uploaded by then)
+  if (!R6.q.length) return; const now = performance.now(); let keep = [];
+  for (const tx of R6.q) { const s = tx.source; if (now - s.r6q < 10000) { keep.push(tx); continue; } let b = 0; for (const m of tx.mipmaps || []) if (m && m.data) { b += m.data.byteLength; m.data = null; } s.dataReady = false; s.r6freed = true; R6.freed = true; R6.n.tex++; R6.n.texMB += b / 1048576; r6Freeze(tx); }
+  R6.q = keep;
+}, 2000);
+// glTF images (no KTX2): one source per distinct image (content hash) and capped per tier
+const R6IMG = new Map();
+function r6Hash(u8) { let a = 0x811c9dc5, b = 5381; for (let i = 0; i < u8.length; i++) { const c = u8[i]; a = Math.imul(a ^ c, 0x01000193); b = (Math.imul(b, 33) + c) | 0; } return (a >>> 0).toString(36) + "." + (b >>> 0).toString(36) + "." + u8.length; }
+// image sources used only as occlusion / roughness / metalness maps (low-frequency data) are capped lower (R6.ormCap)
+function r6OrmOnly(json) {
+  if (json.r6orm) return json.r6orm; const use = {}, tex = json.textures || [];
+  const mark = (ti, orm) => { const t = ti !== undefined && tex[ti]; if (!t) return; const ex = t.extensions || {}; const src = ex.KHR_texture_basisu ? ex.KHR_texture_basisu.source : ex.EXT_texture_webp ? ex.EXT_texture_webp.source : ex.EXT_texture_avif ? ex.EXT_texture_avif.source : t.source; if (src === undefined) return; use[src] = use[src] === undefined ? orm : use[src] && orm; };
+  for (const m of json.materials || []) { const pb = m.pbrMetallicRoughness || {}; mark(pb.baseColorTexture && pb.baseColorTexture.index, false); mark(pb.metallicRoughnessTexture && pb.metallicRoughnessTexture.index, true); mark(m.normalTexture && m.normalTexture.index, false); mark(m.occlusionTexture && m.occlusionTexture.index, true); mark(m.emissiveTexture && m.emissiveTexture.index, false);
+    const ext = m.extensions || {}; for (const k in ext) { const e = ext[k]; if (e && typeof e === "object") for (const q in e) if (e[q] && typeof e[q] === "object" && e[q].index !== undefined) mark(e[q].index, false); } }
+  return (json.r6orm = use);
+}
+function r6DropMips(t, cap) {   // on the texture the parser made first (later clones copy its mip list)
+  if (!t || !t.isCompressedTexture || !Array.isArray(t.mipmaps)) return t; let n = 0;
+  while (t.mipmaps.length > 1 && Math.max(t.mipmaps[0].width, t.mipmaps[0].height) > cap) { const m = t.mipmaps.shift(); R6.n.ormMB += (m.data ? m.data.byteLength : 0) / 1048576; m.data = null; n++; }
+  if (n) { R6.n.orm++; t.image.width = t.mipmaps[0].width; t.image.height = t.mipmaps[0].height; } return t;
+}
+function r6ImgPlugin(parser) {
+  return { name: "R6_image_share", loadTexture(ti) {
+    const json = parser.json, td = json.textures && json.textures[ti]; if (!td) return null; const ex = td.extensions || {};
+    if (ex.KHR_texture_basisu) { const src = ex.KHR_texture_basisu.source, kl = parser.options.ktx2Loader; if (!kl || !r6OrmOnly(json)[src]) return null; return parser.loadTextureImage(ti, src, kl).then((t) => r6DropMips(t, R6.ormCap)); }
+    if (td.source === undefined || ex.EXT_texture_webp || ex.EXT_texture_avif) return null;
+    const src = td.source, im = json.images && json.images[src]; if (!im || im.bufferView === undefined || !parser.textureLoader || !parser.textureLoader.isImageBitmapLoader) return null;
+    const loader = parser.textureLoader, cap = r6OrmOnly(json)[src] ? Math.min(R6.imgCap, R6.ormCap) : R6.imgCap;
+    return parser.getDependency("bufferView", im.bufferView).then((buf) => {
+      const key = (im.mimeType || "") + ":" + cap + ":" + r6Hash(new Uint8Array(buf)); let e = R6IMG.get(key), base = e && e.ref && e.ref.deref();
+      if (e && (base || !e.done)) { R6.n.shared++; parser.sourceCache[src] = e.p.then((t) => { if (t && t.image) R6.n.sharedMB += t.image.width * t.image.height * 4 * 1.333 / 1048576; return t; }); return parser.loadTextureImage(ti, src, loader); }
+      const p = parser.loadImageSource(src, loader).then((t) => {
+        const img = t && t.image; R6.n.img++; if (!img || typeof createImageBitmap !== "function" || !(img instanceof ImageBitmap)) return t;
+        const w = img.width, h = img.height, m = Math.max(w, h); if (m <= cap) return t;
+        const k = cap / m, rw = Math.max(1, Math.round(w * k)), rh = Math.max(1, Math.round(h * k));
+        return createImageBitmap(img, { resizeWidth: rw, resizeHeight: rh, resizeQuality: "high", premultiplyAlpha: "none", colorSpaceConversion: "none" }).then((b2) => { try { img.close(); } catch (x) {} t.image = b2; t.needsUpdate = true; R6.n.imgCap++; R6.n.imgCapMB += (w * h - rw * rh) * 4 * 1.333 / 1048576; return t; }, () => t);
+      });
+      e = { p, ref: null, done: false }; R6IMG.set(key, e); p.then((t) => { e.done = true; if (t) e.ref = typeof WeakRef === "function" ? new WeakRef(t) : { deref: () => t }; }, () => { e.done = true; });
+      parser.sourceCache[src] = p; return parser.loadTextureImage(ti, src, loader);
+    });
+  } };
+}
+// texture files (/tex): one image per URL. Modules loaded the same file separately (travertine, terrazzo, wood, the jet cabin
+// finishes: 2 to 5 copies each on the GPU); every caller still gets its own Texture (its own repeat, wrap and colour space) on
+// one shared source, so three keeps one GPU copy per distinct sampler setting.
+const R6URL = new Map();
+// GPU-compressed /tex sets (desktop tier): tex/<name>.ktx2 (KTX2 / Basis, made by scripts/r6_ktx_textures.py, stored flipped
+// because compressed textures cannot be flipped at upload) replaces the .jpg: 1 byte a pixel or less on the GPU instead of 4.
+// Every caller still gets its own Texture (its own repeat, wrap, colour space) on one shared source; it becomes a
+// CompressedTexture when the file has been transcoded. Without the KTX2 loader, or if the file fails, the .jpg loads instead.
+// The transcoded data is kept (not dropped like the model textures): a caller may add a sampler setting later. ?r6tex=0: off.
+const R6KTX = new Set(["adobe", "apron", "dirt", "rock", "sand", "sand2", "tile", "turf", "wood", "corrugated", "detail", "detail2", "jet_carpet", "jet_gold", "jet_leather", "jet_wall", "jet_walnut", "terrazzo", "travertine", "wicker"].flatMap((s) => [s, s + "_n", s + "_r"]).concat(["wall_detail"]));
+const R6KT = new Map();
+function r6KtxUrl(url) {
+  if (ASSET.tier !== "d" || /[?&]r6tex=0\b/.test(location.search)) return null; const m = url.match(/^\/tex\/([a-z0-9_]+)\.jpg(\?.*)?$/); if (!m || !R6KTX.has(m[1])) return null;
+  let ok = false; try { ok = typeof renderer !== "undefined" && !!renderer; } catch (x) {} if (!ok || !ktx2Loader()) return null; return "/tex/" + m[1] + ".ktx2" + (m[2] || "");
+}
+function r6LoadKtx(self, ld, url, kurl, onLoad, onError) {
+  let e = R6KT.get(url);
+  if (!e || e.err) {
+    e = { src: new THREE.Texture().source, tex: null, err: null, wait: [] }; R6KT.set(url, e); const E = e;
+    const fill = (c) => { const t = E.tex; Object.setPrototypeOf(c, THREE.CompressedTexture.prototype); c.isCompressedTexture = true; c.mipmaps = t.mipmaps; c.format = t.format; c.type = t.type; c.generateMipmaps = false; c.flipY = false; if (t.mipmaps.length < 2) c.minFilter = THREE.LinearFilter; c.needsUpdate = true; };
+    E.fill = fill;
+    ktx2Loader().load(kurl, (t) => { E.tex = t; E.src.data = t.image; R6.n.ktxTex = (R6.n.ktxTex || 0) + 1; for (const w of E.wait.splice(0)) { fill(w.c); if (w.f) try { w.f(w.c); } catch (x) { console.error(x); } } },
+      undefined, () => { /* fallback: the JPEG on the same shared source */ R6.n.ktxFail = (R6.n.ktxFail || 0) + 1; ld.call(self, url, (b) => { E.src.data = b.image; E.src.needsUpdate = true; E.jpg = true; for (const w of E.wait.splice(0)) { w.c.needsUpdate = true; if (w.f) try { w.f(w.c); } catch (x) { console.error(x); } } }, undefined, (er) => { E.err = er || true; for (const w of E.wait.splice(0)) if (w.e) try { w.e(er); } catch (x) {} }); });
+  } else R6.n.urlShared = (R6.n.urlShared || 0) + 1;
+  const c = new THREE.Texture(); c.source = e.src;
+  if (e.tex || e.jpg) { if (e.tex) e.fill(c); else c.needsUpdate = true; if (onLoad) setTimeout(() => { try { onLoad(c); } catch (x) { console.error(x); } }, 0); } else e.wait.push({ c, f: onLoad, e: onError });
+  return c;
+}
+if (R6.on) { const ld = THREE.TextureLoader.prototype.load;
+  THREE.TextureLoader.prototype.load = function (url, onLoad, onProgress, onError) {
+    if (typeof url !== "string" || /^(data|blob):/.test(url)) return ld.apply(this, arguments);
+    const kurl = r6KtxUrl(url); if (kurl) return r6LoadKtx(this, ld, url, kurl, onLoad, onError);
+    let e = R6URL.get(url); const src = e && e.ref.deref();
+    if (!src || e.err) { const base = ld.call(this, url, () => { e.ok = true; for (const w of e.wait.splice(0)) { w.c.needsUpdate = true; if (w.f) try { w.f(w.c); } catch (x) { console.error(x); } } }, undefined, (er) => { e.err = er || true; for (const w of e.wait.splice(0)) if (w.e) try { w.e(er); } catch (x) {} });
+      e = { ref: typeof WeakRef === "function" ? new WeakRef(base.source) : { deref: () => base.source }, ok: false, err: null, wait: [], src: base.source }; R6URL.set(url, e); }
+    else R6.n.urlShared = (R6.n.urlShared || 0) + 1;
+    const c = new THREE.Texture(); c.source = e.src || e.ref.deref(); e.src = null;   // only the textures handed out keep the source alive
+    if (e.ok) { c.needsUpdate = true; if (onLoad) setTimeout(() => { try { onLoad(c); } catch (x) { console.error(x); } }, 0); } else e.wait.push({ c, f: onLoad, e: onError });
+    return c;
+  }; }
+// context loss after data was dropped: the restore cannot bring it back, so offer a reload (plan_perf's own notice is replaced)
+function r6CtxHook() { const c = document.getElementById("gl"); if (!c || c.r6cx) return !!c; c.r6cx = true;
+  c.addEventListener("webglcontextrestored", () => { if (!R6.freed) return; setTimeout(() => { try { const d = document.getElementById("r5ctx"); if (d) d.style.display = "none"; } catch (e) {}
+    let b = document.getElementById("r6ctx"); if (!b) { b = document.createElement("div"); b.id = "r6ctx"; b.style.cssText = "position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:100001;max-width:440px;padding:16px 20px;background:rgba(8,13,8,0.94);color:#f5f1e6;border:1px solid rgba(77,222,111,0.55);border-radius:10px;font:14px/1.45 'Space Grotesk',system-ui,sans-serif;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.5)";
+      b.innerHTML = "<b>The graphics driver reset the 3D view</b><br>Reload to continue. You come back where you were."; const x = document.createElement("button"); x.textContent = "Reload"; x.style.cssText = "margin:12px 6px 0;padding:7px 16px;border-radius:6px;border:1px solid #4DDE6F;background:#4DDE6F;color:#0a1610;font:600 13px 'Space Grotesk',system-ui,sans-serif;cursor:pointer"; x.onclick = () => { try { if (window.PLAN_PERF && PLAN_PERF.save) PLAN_PERF.save(true); } catch (e) {} location.reload(); }; b.appendChild(x); document.body.appendChild(b); } b.style.display = ""; }, 60); }, false); return true; }
+if (!r6CtxHook()) addEventListener("DOMContentLoaded", r6CtxHook);
+// 4. Geometry: three keeps every vertex and index array in JS memory after upload. A static attribute unchanged for 60 s after
+//    its upload drops its array; the array is read back from its GPU buffer (WebGL2 getBufferSubData) the first time anything
+//    reads it again (a raycast, a clone, a merge, the stream's swap, a dispose) and is then kept for good. Instanced and dynamic
+//    attributes, interleaved buffers and arrays under 16 KB are left alone. ?r6geo=0 turns this part off.
+R6.geoOn = R6.on && !/[?&]r6geo=0\b/.test(location.search); R6.gq = []; R6.gl = null; R6.lastBuf = null;
+function r6GlHook(r) {
+  const gl = r.getContext(); if (!gl || !gl.getBufferSubData || R6.gl) return; R6.gl = gl;
+  const bb = gl.bindBuffer, bd = gl.bufferData; let ab = null, eb = null;
+  gl.bindBuffer = function (t, b) { if (t === 0x8892) ab = b; else if (t === 0x8893) eb = b; return bb.call(this, t, b); };
+  gl.bufferData = function (t, d) { R6.lastBuf = t === 0x8892 ? ab : t === 0x8893 ? eb : null; R6.lastArr = d; return bd.apply(this, arguments); };
+}
+function r6Readback(a, buf, ctor, len) {
+  const out = new ctor(len), gl = R6.gl;
+  try { if (!gl || gl.isContextLost() || !gl.isBuffer(buf)) { R6.n.lost = (R6.n.lost || 0) + 1; return out; } gl.bindBuffer(0x8F36, buf); gl.getBufferSubData(0x8F36, 0, out); gl.bindBuffer(0x8F36, null); } catch (e) { R6.n.lost = (R6.n.lost || 0) + 1; }
+  return out;
+}
+if (R6.geoOn) {
+  THREE.BufferAttribute.prototype.onUploadCallback = function () {
+    const a = this, buf = R6.lastArr === a.array ? R6.lastBuf : null; R6.lastBuf = null; R6.lastArr = null;
+    if (!buf || a.r6keep || a.isInstancedBufferAttribute || a.usage !== THREE.StaticDrawUsage || !a.array || a.array.byteLength < 16384) return;
+    a.r6buf = buf; if (a.r6hold) return;
+    R6.gq.push({ a, buf, t: performance.now(), v: a.version });
+  };
+  setInterval(() => {
+    if (!R6.gq.length) return; const now = performance.now(), keep = [];
+    for (const e of R6.gq) { const a = e.a; if (a.r6keep || a.r6disp || a.version !== e.v || a.r6free) continue; if (now - e.t < 60000) { keep.push(e); continue; }
+      const arr = a.array; if (!arr || !arr.buffer) continue; const ctor = arr.constructor, len = arr.length, b = arr.byteLength;
+      // a view into a bigger buffer (a glTF buffer view shared by several attributes) frees nothing: leave it
+      if (arr.buffer.byteLength > b * 1.25) { a.r6keep = true; continue; }
+      let cur = null; const buf = e.buf; a.r6free = true;
+      const restore = (v, rd) => { Object.defineProperty(a, "array", { value: v, writable: true, configurable: true, enumerable: true }); a.r6free = false; a.r6reads = (a.r6reads || 0) + 1;
+        /* a one-off reader (the far-LOD build, the stream's swap) gets the array back and it is dropped again after another quiet minute; a second reader keeps it */ if (rd && a.r6reads < 2 && !a.r6disp) R6.gq.push({ a, buf, t: performance.now(), v: a.version }); else a.r6keep = true; };
+      Object.defineProperty(a, "array", { configurable: true, enumerable: true,
+        get() { if (cur === null) { cur = r6Readback(a, buf, ctor, len); R6.n.late++; R6.n.geoMB -= b / 1048576; r6Note("late", (a.name || "") + ctor.name + "x" + len + " @" + ((new Error().stack || "").split("\n")[2] || "").trim().slice(3, 90)); } restore(cur, true); return cur; },
+        set(v) { restore(v, false); } });
+      R6.n.geo++; R6.n.geoMB += b / 1048576; R6.freed = true; }
+    R6.gq = keep;
+  }, 5000);
+  // geometry known to be read again soon (the stream's far-LOD stand-ins: moved into the full model's frame at the swap, then
+  // simplified for the third LOD tier) is held, and released once that is done
+  R6.hold = (g) => { try { for (const k in g.attributes) g.attributes[k].r6hold = true; if (g.index) g.index.r6hold = true; } catch (e) {} };
+  R6.release = (g) => { try { const L = Object.values(g.attributes); if (g.index) L.push(g.index); for (const a of L) { if (!a || !a.r6hold) continue; a.r6hold = false; if (a.r6buf && !a.r6keep && !a.r6free) R6.gq.push({ a, buf: a.r6buf, t: performance.now(), v: a.version }); } } catch (e) {} };
+  // a disposed geometry gets its arrays back first (three deletes the GPU buffers the read-back needs)
+  const gd = THREE.BufferGeometry.prototype.dispose;
+  THREE.BufferGeometry.prototype.dispose = function () { try { const at = this.attributes; for (const k in at) if (at[k]) { at[k].r6disp = true; if (at[k].r6free) void at[k].array; } if (this.index) { this.index.r6disp = true; if (this.index.r6free) void this.index.array; } } catch (e) {} return gd.apply(this, arguments); };
+}
 // three r170: colours stay as authored (no sRGB reinterpretation of hex values) and light intensities keep r128's legacy scale
 THREE.ColorManagement.enabled = false;
 { const P = THREE.Light.prototype; const DIR = Math.PI, PUNCT = 1.7; Object.defineProperty(P, "intensity", { configurable: true, get() { return (this._intensity === undefined ? 1 : this._intensity) * (this.isPointLight || this.isSpotLight ? PUNCT : DIR); }, set(v) { this._intensity = v; } }); }
@@ -62,6 +236,7 @@ function logLine(name, text) { const log = $("#log"); const d = document.createE
 // ───────────────────────────── scene ─────────────────────────────
 const canvas = $("#gl");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
+if (R6.geoOn) r6GlHook(renderer);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;
 // ── light pool: three.js compiles every shader for the number of visible lights and loops all of them per pixel, so the scene keeps a fixed small set (8 point, 3 spot) that mirrors whichever real lights are nearest the camera each frame. Real lights stay in the graph (the code animates them) but are never rendered directly. ──
 const LIGHTS = { src: [], pool: [], spool: [], dirty: false, ready: false, at: 0 };
@@ -3875,7 +4050,7 @@ function buildMinigames() {
   { const spots = PLAN_MODE ? planCacheSpots() : [[66, 40], [252 - 60, -497 + 130], [33, -686 - 30], [851, 219 + 120], [600 + 90, 480 - 40], [285, 721 - 100], [-260, 1150], [LAKE.x + 170, LAKE.z - 60], [-360, 330 + 140], [1040 - 40, 1260 - 30], [-700, -600 + 40], [-800, 300 - 60]];
     const geo = new THREE.CylinderGeometry(0.55, 0.55, 0.12, 24); geo.rotateX(Math.PI / 2); const mat = new THREE.MeshStandardMaterial({ color: 0xf4cd5a, emissive: 0xaa7a10, emissiveIntensity: 0.6, metalness: 0.6, roughness: 0.3 });
     spots.forEach((sp, i) => { const [x, z] = sp; const m = new THREE.Mesh(geo, mat); m.position.set(x, getH(x, z) + 1.2, z); m.castShadow = true; scene.add(m); const id = "c" + i; m.visible = !HUNT.got.has(id); HUNT.coins.push({ id, x, z, m }); });
-    { const fc = PLAN_MODE && planPlace("founders_cache"); hotspots.push({ x: fc ? fc.x : 30, z: fc ? fc.z : 60, r: 26, t: "Founders' Cache", k: "Minigame · treasure hunt", p: (PLAN_MODE ? "Twelve gold $GBACK tokens are hidden across the site, one in every chapter from Arrivals Court to the Genesis Ring." : "Twelve gold $GBACK tokens are hidden across the site, one near every landmark.") + " Walk into a token to collect it. The compass shows the nearest one you still need. Collect all twelve for the reward and a place on the board." }); } }
+    { const fc = PLAN_MODE && planPlace("founders_cache"); hotspots.push({ x: fc ? fc.x : 30, z: fc ? fc.z : 60, r: 26, t: "Founders' Cache", k: "Minigame · treasure hunt", p: (PLAN_MODE ? "Twelve green $GBACK tokens are hidden across the site, one in every chapter from Arrivals Court to the Genesis Ring." : "Twelve green $GBACK tokens are hidden across the site, one near every landmark.") + " Walk into a token to collect it. The compass shows the nearest one you still need. Collect all twelve for the reward and a place on the board." }); } }
   // Lake Lap: a cart time trial around the Lakeside loop road
   if (!PLAN_MODE) { const n = 6; for (let i = 0; i < n; i++) { const a = i / n * 6.283; const sh = lakeShore(LAKE.x + Math.cos(a) * 200, LAKE.z + Math.sin(a) * 200); const x = LAKE.x + Math.cos(a) * (sh + 52), z = LAKE.z + Math.sin(a) * (sh + 52); LAP.gates.push({ x, z, a }); }
     const g0 = LAP.gates[0]; const arch = new THREE.Group(); const post = new THREE.CylinderGeometry(0.25, 0.25, 6, 10); for (const sd of [-1, 1]) { const pm = new THREE.Mesh(post, M.steel); pm.position.set(Math.cos(g0.a + Math.PI / 2) * 5 * sd, 3, Math.sin(g0.a + Math.PI / 2) * 5 * sd); arch.add(pm); }

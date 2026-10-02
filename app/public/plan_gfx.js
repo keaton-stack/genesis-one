@@ -21,6 +21,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   var GX = window.PLAN_GFX = {
     version: 3, errs: [], n: {}, on: !OFF, installed: false, tier: -1, bootTier: -1, pending: pending,
+    r6off: /[?&]r6=0/.test(location.search),   // R6 (HANDOFF_R6_RENDER.md): ?r6=0 restores the R5 behaviour of the R6 changes here
     storm: { k: 0, force: null, gust: 0, flash: 0, dir: [0.55, 0, 0.83], day: -1, next: 0, bolt: null, seq: null, probeK: 0, probeAt: 0 },
     floors: [], shafts: [], obj: {}, mats: {},
     // tunables (live-editable while developing)
@@ -1535,13 +1536,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var cam = camera.position;
     for (var i = 0; i < PROBES.length; i++) { var P = PROBES[i]; var fm = P.h.planes && P.h.planes[0] && (P.h.planes[0].meshes[0] || P.h.planes[0].obj); var vis = !!fm && visibleChain(fm); if (!vis) { P.visPrev = false; continue; } if (!P.visPrev) { P.visPrev = true; if (P.at >= 0 || PQ.indexOf(P) < 0) queueProbe(P); } if (PQ.indexOf(P) >= 0) continue; var near = cam.distanceTo(P.capP) < 70; if (!near) continue; var sn = GX.sun ? GX.sun.night : 0; if (P.at < 0 || Math.abs(sn - P.night) > 0.12 || Math.abs(GX.storm.k - P.storm) > 0.25) queueProbe(P); }
     if (!PQ.length) return; var Q = PQ[0]; if (cam.distanceTo(Q.capP) > 90 || !Q.visPrev) { PQ.shift(); return; }
-    var bg = scene.background, fog = scene.fog, sv = [];
+    var bg = scene.background, fog = scene.fog, sv = [], fd = fog && fog.isFogExp2 && !GX.r6off ? fog.density : null;
     try {
-      scene.background = typeof envTex !== "undefined" && envTex ? envTex : null; scene.fog = null;
+      // R6: no fog in the room probe by a zero density, not by removing the fog: a scene without fog is another shader program for
+      // every material the probe sees (about 140 extra programs, each compiled and linked once per session)
+      scene.background = typeof envTex !== "undefined" && envTex ? envTex : null; if (fd !== null) fog.density = 0; else scene.fog = null;
       SH.meshes.forEach(function (m) { sv.push([m, m.visible]); m.visible = false; });
       var prevRT = renderer.getRenderTarget(), prevAU = renderer.shadowMap.autoUpdate, prevNU = renderer.shadowMap.needsUpdate; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false;
       renderer.setRenderTarget(Q.rt, Q.face); renderer.render(scene, Q.cc.children[Q.face]); renderer.setRenderTarget(prevRT); renderer.shadowMap.needsUpdate = prevNU; renderer.shadowMap.autoUpdate = prevAU;
-    } catch (e) { note("probe", e); PQ.shift(); } finally { scene.background = bg; scene.fog = fog; sv.forEach(function (x) { x[0].visible = x[1]; }); }
+    } catch (e) { note("probe", e); PQ.shift(); } finally { scene.background = bg; scene.fog = fog; if (fd !== null) fog.density = fd; sv.forEach(function (x) { x[0].visible = x[1]; }); }
     Q.face++; if (Q.face >= 6) { Q.rt.texture.needsPMREMUpdate = true; Q.mats.forEach(function (x) { if (x[1].envMap !== Q.rt.texture) { x[1].envMap = Q.rt.texture; x[1].needsUpdate = true; } }); Q.at = performance.now(); Q.night = GX.sun ? GX.sun.night : 0; Q.storm = GX.storm.k; PQ.shift(); GX.n.probeCaptures = (GX.n.probeCaptures || 0) + 1; }
   }
 

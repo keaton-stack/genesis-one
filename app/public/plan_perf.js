@@ -20,6 +20,8 @@
 // R5 (1 Oct 2026, HANDOFF_R5_STABILITY.md, the section at the end of this file): no frame ever waits for a shader link (the 10 to 45 s
 // "page unresponsive" freezes), a stability watchdog in the F3 overlay and the summary (long tasks, heap trend, GPU memory, links,
 // context), WebGL context loss handling. ?r5=0 turns R5 off, ?pns=0 only the link guard.
+// R6 (2 Oct 2026, HANDOFF_R6_RENDER.md, the last section and marked parts above): far fewer and smaller shader programs, less to draw
+// (shadow cascades, sub-pixel meshes, building LOD, static batches). ?r6=0 turns R6 off.
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
 (function () {
   "use strict";
@@ -28,7 +30,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   P.errs = P.errs || []; P.n = P.n || {};
   P.off = /[?&]perf=0\b/.test(Q);
   P.K = { budget: 3.5, cull: !/[?&]pcull=0\b/.test(Q), warm: !/[?&]pwarm=0\b/.test(Q), pre: !/[?&]ppre=0\b/.test(Q), fix: !/[?&]pfix=0\b/.test(Q),
-    preHold: 15000, longMs: 50, hitchMs: 100, shadowEveryIn: 4, cullHz: 10 };
+    preHold: 15000, longMs: 50, hitchMs: 100, shadowEveryIn: 4, cullHz: 10, r6: !/[?&]r6=0\b/.test(Q), r6wu: !/[?&]r6wu=0\b/.test(Q) };   // r6: HANDOFF_R6_RENDER.md (?r6=0 off)
   function note(tag, e) { try { if (P.errs.length < 40) P.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (P.errs.length <= 5) console.warn("[perf] " + tag, e); } catch (x) {} }
   P.note = note;
   if (P.off) return;
@@ -249,10 +251,43 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // the client's rooms and the fly-in cabin each carry a fill HemisphereLight: adding one changes the scene's hemisphere light count,
   // which is part of every lit shader's program key, so every material on screen recompiled on entering the FBO (109 programs).
   // A spare (black, intensity 0) hemisphere light stands in whenever no room fill is shown: the count never changes.
-  function hemiInit() { if (P.hemi || !P.K.fix || typeof scene === "undefined") return; var h = new THREE.HemisphereLight(0x000000, 0x000000, 0); h.name = "perf spare hemi"; h.userData.pooled = true; h.userData.perf = true; h.layers.enable(30); scene.add(h); P.hemi = h; }
+  // R6: every hemisphere light anywhere in the scene is counted (a registry filled by Object3D.add), and two spares (on every layer,
+  // so the room probes and the warm-up cameras count them too) keep the total at three: the scene's own, plus a room fill and the
+  // cabin fill at most. Before, passes saw one, two or three (the probes did not see the spare, the cabin warm-up hid it): 168 of
+  // the 756 programs at load were the same materials with another hemisphere count.
+  var HEMIS = P.hemis = new Set(), HT = 3;
+  (function hemiReg() {
+    if (!P.K.r6 || !P.K.fix || !window.THREE || !THREE.Object3D || THREE.Object3D.prototype.__r6h) return; var O = THREE.Object3D.prototype, a0 = O.add; O.__r6h = true;
+    var got = 0, reg = function (q) { if (q.isHemisphereLight && !q.userData.perf) { HEMIS.add(q); got++; } }, r0 = O.remove, has = function (q) { if (q.isHemisphereLight && HEMIS.has(q)) got++; };
+    // a subtree with a fill light can be added under any parent; the spares are settled at once (a room entered mid-frame used to be
+    // drawn, or compiled, once with four hemisphere lights before the next frame's check)
+    var sc0 = null, both = function (q) { reg(q); hideLamp(q); };
+    O.add = function () { got = 0; var root = this, k = 0; while (root.parent !== null && k++ < 64) root = root.parent; if (sc0 === null) { try { sc0 = scene; } catch (e) {} } var main = root === sc0 && sc0 !== null, fn = main ? both : reg;
+      for (var i = 0; i < arguments.length; i++) { var o = arguments[i]; if (!o) continue; if (o.isLight === true) fn(o); else if (o.children && o.children.length && !o.isBone && o.traverse) { try { o.traverse(fn); } catch (e) {} } }
+      var r = a0.apply(this, arguments); if (got && P.hemi2) { try { hemiFix(); } catch (e) {} } return r; };
+    O.remove = function () { got = 0; for (var i = 0; i < arguments.length; i++) { var o = arguments[i]; if (o && o.traverse && !o.isBone && HEMIS.size) { try { o.traverse(has); } catch (e) {} } } var r = r0.apply(this, arguments); if (got && P.hemi2) { try { hemiFix(); } catch (e) {} } return r; };
+  })();
+  // R6: the client draws point and spot lights only through its pool (8 point and 3 spot lights that take the nearest sources'
+  // values); every other point or spot light in the scene is hidden by collectLights, which runs when scene.add brings lights or
+  // every 4 s. A lamp added inside a group (an interior, a dome, a pyramid, a room's props) stayed visible until then, so for up to
+  // 4 s the scene had 11 to 18 point lights instead of 8, and every material in view compiled again for that count: about 500 of
+  // the 1,330 programs of a 25 minute session, each a full lit shader. Now such a light is hidden the moment it reaches the main
+  // scene (any parent, see hemiReg below), and every frame for the lights the client has collected (in case a module shows one
+  // again); lights in other scenes (the telescope view, previews) are untouched. (A first version used a visible accessor on the
+  // light classes: exact, but it made three's per-object visible check polymorphic and cost about 4 per cent of the frame on low.)
+  function hideLamp(q) { if ((q.isPointLight === true || q.isSpotLight === true) && q.visible === true && !(q.userData && q.userData.pooled)) { q.visible = false; P.n.lampsHidden = (P.n.lampsHidden || 0) + 1; } }
+  var LSRC = null;
+  function lampsFrame() { if (!P.K.r6) return; if (LSRC === null) { var LG = G("LIGHTS"); if (!LG) return; LSRC = LG; } var src = LSRC.src; for (var i = 0; i < src.length; i++) { var l = src[i]; if (l.visible === true) l.visible = false; } }
+  function hemiInit() { if (P.hemi || !P.K.fix || typeof scene === "undefined") return; var mk = function (nm) { var h = new THREE.HemisphereLight(0x000000, 0x000000, 0); h.name = nm; h.userData.pooled = true; h.userData.perf = true; h.layers.enable(30); if (P.K.r6) h.layers.mask = 0xffffffff; scene.add(h); return h; };
+    P.hemi = mk("perf spare hemi"); if (P.K.r6) { P.hemi2 = mk("perf spare hemi 2"); try { scene.traverse(function (o) { if (o.isHemisphereLight && !o.userData.perf) HEMIS.add(o); }); } catch (e) {} } }
   function countHemi(g) { var c = g.userData.perfHemi; if (c && c.n === g.children.length) return c.k; var k = 0; g.traverse(function (o) { if (o.isHemisphereLight && o.visible) k++; }); g.userData.perfHemi = { n: g.children.length, k: k }; return k; }
+  function shown(o) { var sc = typeof scene !== "undefined" ? scene : null; for (var k = 0; o && k < 64; k++) { if (!o.visible) return false; if (o === sc) return true; o = o.parent; } return false; }
   function hemiFix() {
     if (!P.hemi) return; var need = 0;
+    if (P.hemi2) {   // R6
+      HEMIS.forEach(function (h) { var r = h; while (r.parent) r = r.parent; if (r !== scene) { HEMIS.delete(h); return; } if (shown(h)) need++; });   // out of the scene: dropped (found again when its group is added back)
+      var w1 = need < HT, w2 = need < HT - 1; if (P.hemi.visible !== w1) P.hemi.visible = w1; if (P.hemi2.visible !== w2) P.hemi2.visible = w2; return;
+    }
     try { var ins = inside; if (ins && ins.g && ins.g.parent && ins.g.visible) need += countHemi(ins.g); } catch (e) {}
     try { var F = FLY; if (F && F.g && F.g.parent && F.g.visible) need += countHemi(F.g); } catch (e) {}
     var want = need === 0; if (P.hemi.visible !== want) P.hemi.visible = want;
@@ -262,7 +297,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // the moon (and back), which recompiles every lit material twice a day. Keep the flag; the light is at zero there anyway.
   function sunFix() { if (!P.K.fix) return; try { if (CSMX.on) return; if (sun.parent && renderer.shadowMap.enabled && !sun.castShadow) sun.castShadow = true; } catch (e) {} }
   function preRender() {
-    MW.fr++; hemiFix(); sunFix();
+    MW.fr++; hemiFix(); sunFix(); try { lampsFrame(); } catch (e) {}
     if (IC.kind && P.K.shadowEveryIn > 1 && !FLY.on && renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = (FRAME_N % P.K.shadowEveryIn) === 0;   // indoors: the outside's shadows at a steady quarter rate
     try { shadowTurns(); } catch (e) { note("shadow turns", e); }
     try { boneStep(); } catch (e) { note("bones", e); }
@@ -275,7 +310,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // jump (fast travel, a cut) redraws all of them. Other shadow-casting lights keep the client's cadence. Indoors plan_perf's quarter
   // rate applies to the whole set. ?psh=0: the client's cadence.
   P.K.shTurns = !/[?&](psh|p3)=0\b/.test(Q);
-  var SHT = { f: -1, want: true, due: [], keep: [], cam: null, far: 0 };
+  var SHT = { f: -1, want: true, due: [], keep: [], cam: null, far: 0, last: [] }, R6TURN = [1, 2, 1, 3, 1, 2];
+  // R6: the far cascades (81 m and more on ultra) hold only what is far away; while the camera has not moved 1.5 m or turned 1.5
+  // degrees and the sun has not moved since a far cascade was last drawn, drawing it again gives the same map (up to the far people
+  // and vehicles, refreshed at least every 2 s). Standing still, that drawing (1,300 draws on ultra) was the slowest frame.
+  function farMark(i, cp, csm) { var r = SHT.last[i] || (SHT.last[i] = { p: new THREE.Vector3(), q: new THREE.Quaternion(), d: new THREE.Vector3(), t: 0 }); r.p.copy(cp); r.q.copy(camera.quaternion); r.d.copy(csm.lightDirection); r.t = now(); }
+  function farStill(i, cp, csm) { var r = SHT.last[i]; if (!r || now() - r.t > 2000) return false; return r.p.distanceToSquared(cp) < 2.25 && r.q.angleTo(camera.quaternion) < 0.026 && r.d.dot(csm.lightDirection) > 0.99999; }
   function shadowTurns() {
     var c = G("CSMX"), csm = c && c.csm, sm = renderer.shadowMap; if (!csm) return;
     var L = csm.lights, n = L.length, i; SHT.f = FRAME_N; SHT.want = sm.needsUpdate || sm.autoUpdate; SHT.on = false;
@@ -285,9 +325,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var all = SHT.cam.distanceToSquared(cp) > 400 || c.lastFar !== SHT.far; SHT.cam.copy(cp); SHT.far = c.lastFar;
     var f = FRAME_N, due = SHT.due;
     for (i = 0; i < n; i++) due[i] = all;
-    if (every <= 1) { due[0] = true; due[1 + f % (n - 1)] = true; }
+    if (every <= 1) { due[0] = true; due[n === 4 && P.K.r6 ? R6TURN[f % 6] : 1 + f % (n - 1)] = true; }   /* R6: on ultra the middle cascade every 2nd frame, the next every 3rd, the far one (1,300 draws, static at that range) every 6th */
     else { var slot = f % (2 * (n - 1)); if (slot % 2 === 0) due[0] = true; else due[1 + (slot >> 1)] = true; }
-    for (i = 0; i < n; i++) { var s = L[i].shadow; L[i].__p3csm = true; s.autoUpdate = false; if (due[i]) s.needsUpdate = true; }
+    if (P.K.r6 && !all) for (i = 2; i < n; i++) if (due[i] && farStill(i, cp, csm)) due[i] = false;   /* R6: a far cascade is not redrawn while the view and the sun stand still (at most 2 s) */
+    for (i = 0; i < n; i++) { var s = L[i].shadow; L[i].__p3csm = true; s.autoUpdate = false; if (due[i]) { s.needsUpdate = true; if (P.K.r6) farMark(i, cp, csm); } }
     sm.needsUpdate = true; SHT.on = true;
   }
   // the client's own cadence for the other shadow-casting lights (the gate is now open every frame)
@@ -316,13 +357,25 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // compile a group's materials the way the main pass will draw them: lights from the scene (the group's own point and spot
   // lights are pooled by the client, so they never count), the post target's colour space, fog or (the room probes) no fog
   function compileGroup(g, async, noFog) {
+    if (noFog && P.K.r6) return async ? Promise.resolve() : undefined;   // R6: the probes keep the fog (zero density), so there is no fog-free variant to prepare
     var hid = []; g.traverse(function (o) { if ((o.isPointLight || o.isSpotLight) && !o.userData.pooled && o.visible) { hid.push(o); o.visible = false; } });
     var fog = scene.fog, prt = renderer.getRenderTarget(), tm = renderer.toneMapping, rt = mainRT(), res;
-    try { if (noFog) scene.fog = null; renderer.setRenderTarget(rt); if (!rt) renderer.toneMapping = THREE.ACESFilmicToneMapping; hemiFix(); res = async ? renderer.compileAsync(g, camera, scene) : renderer.compile(g, camera, scene); }
+    try { if (noFog) scene.fog = null; renderer.setRenderTarget(rt); if (!rt) renderer.toneMapping = THREE.ACESFilmicToneMapping; hemiFix(); CW.mine++; try { res = async ? renderer.compileAsync(g, camera, scene) : renderer.compile(g, camera, scene); } finally { CW.mine--; } }
     finally { renderer.setRenderTarget(prt); renderer.toneMapping = tm; scene.fog = fog; for (var i = 0; i < hid.length; i++) hid[i].visible = true; }
     return res;
   }
   P.compileGroup = compileGroup;
+  // R6: renderer.compile / compileAsync called by the client and the modules. The cabin warm-up and the fly-in compiled the whole
+  // scene with no render target set, that is for the screen's colour space, which the post-processed main pass never draws in:
+  // about 190 programs at every load that nothing used. With the main pass's target (and the hemisphere spares settled) they are
+  // the main pass's own programs. Calls made with a target, and plan_perf's own, are left as they are.
+  var CW = P.cw = { mine: 0, n: 0 };
+  function wrapCompile() {
+    var R = renderer; if (!P.K.r6 || !R || R.__r6c) return; R.__r6c = true; var c0 = R.compile, rr0 = R.render, SC = G("scene");
+    R.render = function (sc) { if (sc === SC) hemiFix(); return rr0.apply(this, arguments); };   // every pass of the main scene sees the settled spares
+    R.compile = function () { if (CW.mine > 0) return c0.apply(this, arguments); var prt = this.getRenderTarget(), rt = prt === null ? mainRT() : null; CW.n++;
+      try { hemiFix(); if (rt) this.setRenderTarget(rt); return c0.apply(this, arguments); } finally { if (rt) this.setRenderTarget(prt); } };
+  }
   // a room's materials are cloned on every entry and disposed on the way out (the gfx floor probes, the FBO's model copies); three.js
   // then deletes a program nobody uses, and the next entry compiles it again. Every program gets one extra user: compiled once per session.
   function pinPrograms() { var ps = renderer.info.programs || [], n = 0; for (var i = 0; i < ps.length; i++) { var p = ps[i]; if (!p.perfPin) { p.perfPin = true; p.usedTimes++; n++; } } P.n.pinned = (P.n.pinned || 0) + n; }
@@ -349,12 +402,25 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     for (var q = 0; q < list.length; q++) GEOW.add(list[q].geometry); P.n.geoWarm = (P.n.geoWarm || 0) + list.length;
   }
   // warm a group built ahead of the player (hidden): programs, then textures one per slot, then geometry in ~60k-vertex batches
+  function inScene(g) { var r = g; while (r.parent) r = r.parent; return r === G("scene"); }
+  function drawSoon(g, opts, name) {
+    if (!opts.detached) return true; var k = (/^(?:stream|lazy) (.+)$/.exec(name || "") || [])[1]; if (!k) return false;
+    try { var PL = G("PLACE"); if (PL && PL[k] && PL[k].length) return true; } catch (e) {}
+    try { var IS = G("INSTSET"); for (var i = 0; i < IS.length; i++) if (IS[i].kind === k && IS[i].list && IS[i].list.length) return true; } catch (e) {}
+    return false;
+  }
   P.warmGroup = function (g, opts) {
     if (!P.K.warm || !g) return; opts = opts || {}; var st = { t0: 0, done: false }; var name = opts.name || g.name || "group";
-    WQ.push(function () { if (!st.t0) { st.t0 = now(); try { Promise.all([compileGroup(g, true), compileGroup(g, true, true)]).then(function () { st.done = true; }, function () { st.done = true; }); pinPrograms(); } catch (e) { note("warm compile " + name, e); st.done = true; } return false; } return st.done || now() - st.t0 > 15000; });
-    WQ.push(function () { texturesOf(g).forEach(function (t) { WQ.splice(1, 0, function () { if (texReady(t) && texPending(t)) { renderer.initTexture(t); P.n.texWarm = (P.n.texWarm || 0) + 1; } return true; }); }); return true; });
+    WQ.push(function () { if (P.K.r6 && !st.t0 && !(G("scene") || {}).environment && now() - (st.w0 || (st.w0 = now())) < 20000) return false;   /* R6: not before the sky's environment map exists (a standard material compiled without it is another program, used by nothing) */
+      if (!st.t0) { st.t0 = now(); try { Promise.all([compileGroup(g, true), compileGroup(g, true, true)]).then(function () { st.done = true; }, function () { st.done = true; }); pinPrograms(); } catch (e) { note("warm compile " + name, e); st.done = true; } return false; } return st.done || now() - st.t0 > 15000; });
+    // R6 (coordinator request): the warm-up uploads textures and geometry only for what will be drawn: a group in the scene (an
+    // interior built ahead of the player) or a streamed / lazily loaded kind that is placed in the world. A kind used only inside
+    // rooms (furniture, arcade cabinets) and a sample built and disposed again get their programs compiled and nothing uploaded
+    // (they upload at their first real draw): 0.6 to 0.8 GB of GPU memory that was never drawn. ?r6wu=0: the R5 behaviour.
+    if (P.K.r6 && P.K.r6wu && !drawSoon(g, opts, name)) { P.n.warmCompileOnly = (P.n.warmCompileOnly || 0) + 1; kick(); return; }
+    WQ.push(function () { if (P.K.r6 && !opts.detached && !inScene(g)) return true; texturesOf(g).forEach(function (t) { WQ.splice(1, 0, function () { if (texReady(t) && texPending(t)) { renderer.initTexture(t); P.n.texWarm = (P.n.texWarm || 0) + 1; } return true; }); }); return true; });
     var meshes = null, mi = 0;
-    WQ.push(function () { if (!meshes) { meshes = []; g.traverse(function (o) { if ((o.isMesh || o.isPoints || o.isLine) && o.geometry && !GEOW.has(o.geometry) && o.onBeforeRender === THREE.Object3D.prototype.onBeforeRender) meshes.push(o); }); }
+    WQ.push(function () { if (P.K.r6 && !opts.detached && !inScene(g)) return true; if (!meshes) { meshes = []; g.traverse(function (o) { if ((o.isMesh || o.isPoints || o.isLine) && o.geometry && !GEOW.has(o.geometry) && o.onBeforeRender === THREE.Object3D.prototype.onBeforeRender) meshes.push(o); }); }
       var t1 = now(); while (mi < meshes.length && now() - t1 < 2) { var batch = [], verts = 0; while (mi < meshes.length && verts < 60000) { var m = meshes[mi++]; if (GEOW.has(m.geometry)) continue; batch.push(m); verts += m.geometry.attributes.position ? m.geometry.attributes.position.count : 0; } if (batch.length) warmMeshes(batch, opts.detached ? g : null); }
       if (mi >= meshes.length) { P.n.warmed = (P.n.warmed || 0) + 1; P.n.lastWarm = name + " " + Math.round(now() - st.t0) + " ms"; return true; } return false; });
     kick();
@@ -418,10 +484,20 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var h = H.list.find(function (q) { return !q.L; });
       if (h) { try { var L2 = H.api.buildInterior(h); if (L2 && L2.g) { L2.g.visible = true; both(L2.g); n++; } } catch (e) { note("pre hangar", e); } try { H.api.disposeInterior(h); } catch (e) { note("pre hangar dispose", e); } }
     }
+    // R6: the Dome Suites (one of each size, the model suite too), the three Grand Vaults and one Stargazer Pyramid: their interiors
+    // were compiled on approach (about 20 programs a session after the loading screen); built here once, compiled, disposed
+    var lvl = (G("QUAL") || {}).level; if (P.K.r6 && (lvl === "high" || lvl === "ultra")) {   /* the cascaded tiers only: on low and medium the builds cost more load time than the compiles save */
+      var DM = window.PLAN_DOMES, SGm = window.PLAN_STARGAZE;
+      if (DM && DM.api && DM.site && !DM.off) { var seenD = {};
+        (DM.site.suites || []).forEach(function (Q2) { var k = Q2.size + (Q2.model ? "m" : ""); if (seenD[k] || Q2.L) return; seenD[k] = 1; try { var L3 = DM.api.buildInterior(Q2); if (L3 && L3.g) { L3.g.visible = true; both(L3.g); n++; Q2.L = L3; } } catch (e) { note("pre dome " + k, e); } try { if (Q2.L) DM.api.disposeInterior(Q2); } catch (e) { note("pre dome dispose", e); } Q2.L = null; });
+        (DM.site.vaults || []).forEach(function (V) { if (V.L) return; try { var L4 = DM.api.buildVaultInterior(V); if (L4 && L4.g) { L4.g.visible = true; both(L4.g); n++; V.L = L4; } } catch (e) { note("pre vault", e); } try { if (V.L) DM.api.disposeVault(V); } catch (e) { note("pre vault dispose", e); } V.L = null; }); }
+      if (SGm && SGm.api && SGm.site && !SGm.off) { var Py = (SGm.site.pyr || []).filter(function (q) { return q.open && !q.L; })[0];
+        if (Py) { try { var L5 = SGm.api.buildInterior(Py); if (L5 && L5.g) { L5.g.visible = true; both(L5.g); n++; Py.L = L5; } } catch (e) { note("pre pyramid", e); } try { if (Py.L) SGm.api.disposeInterior(Py); } catch (e) { note("pre pyramid dispose", e); } Py.L = null; } }
+    }
     try { LIGHTS.dirty = true; } catch (e) {}
     P.n.preModules = n; P.n.preModulesMs = Math.round(now() - t0);
   }
-  function sampleCabin() { try { if (FLY.warm || FLY.on || typeof warmCabin !== "function") return; if (P.hemi) P.hemi.visible = false; warmCabin(); } catch (e) { note("pre cabin", e); } hemiFix(); }
+  function sampleCabin() { try { if (FLY.warm || FLY.on || typeof warmCabin !== "function") return; if (P.hemi && !P.hemi2) P.hemi.visible = false; warmCabin(); } catch (e) { note("pre cabin", e); } hemiFix(); }
   async function runPre(hold) { P.inFrame = (P.inFrame || 0) + 1; try { return await runPre0(hold); } finally { P.inFrame--; } }   /* R5: the pre-compile renders never wait for a link either */
   async function runPre0(hold) {
     var t0 = now(), msg = document.getElementById("loadmsg"), deadline = t0 + P.K.preHold;
@@ -467,11 +543,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function install() {
     if (P.installed) return; P.installed = true;
     try { hemiInit(); } catch (e) { note("hemi", e); }
+    try { wrapCompile(); } catch (e) { note("wrap compile", e); }
     try { wrapRender(); } catch (e) { note("wrap render", e); }
     try { wrapShadowMap(); } catch (e) { note("wrap shadow map", e); }    try { wrapLazy(); } catch (e) { note("wrap lazy", e); }
     try { wrapCulling(); } catch (e) { note("wrap culling", e); }
     try { watchLoad(); } catch (e) { note("watch load", e); }
-    try { if (typeof warmCabin === "function" && !warmCabin.perf) { var wc = warmCabin; warmCabin = function () { if (P.hemi) P.hemi.visible = false; try { return wc.apply(this, arguments); } finally { hemiFix(); } }; warmCabin.perf = true; } } catch (e) { note("wrap cabin", e); }
+    try { if (typeof warmCabin === "function" && !warmCabin.perf) { var wc = warmCabin; warmCabin = function () { if (P.hemi && !P.hemi2) P.hemi.visible = false; var R = renderer, r0 = R.render, stub = P.K.r6 && P.K.r6wu && !FLY.on; if (stub) R.render = function () {}; try { return wc.apply(this, arguments); } finally { if (stub) R.render = r0; hemiFix(); } }   /* R6: the cabin's programs are compiled (renderer.compile); its 8 px test render, which uploaded every texture of the cabin and the scene for a flight that may never happen, is skipped */; warmCabin.perf = true; } } catch (e) { note("wrap cabin", e); }
     if (!P.readyAt) { try { if (document.getElementById("load").classList.contains("off")) ready(); } catch (e) {} }
   }
   P.install = install;
@@ -786,4 +863,267 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function hookCanvas() { var c = document.getElementById("gl"); if (!c || c.__r5cx) return !!c; c.__r5cx = true; c.addEventListener("webglcontextlost", function () { try { onLost(); } catch (e) { note("lost", e); } }, false); c.addEventListener("webglcontextrestored", function () { try { onRestored(); } catch (e) { note("restored", e); } }, false); return true; }
   if (!hookCanvas()) addEventListener("DOMContentLoaded", hookCanvas);
   W.test = function (ms) { var x = renderer.getContext().getExtension("WEBGL_lose_context"); if (!x) return "no WEBGL_lose_context"; x.loseContext(); setTimeout(function () { x.restoreContext(); }, ms || 2000); return "lost; restoring in " + (ms || 2000) + " ms"; };
+})();
+
+// ───────────────────────── R6 (2 Oct 2026, HANDOFF_R6_RENDER.md): fewer and smaller shader programs, less to draw ─────────────────────────
+// The R5 guard stopped the long freezes, but every new program still cost a compile in the GPU process (ANGLE over D3D11), queued
+// behind the others: 750 programs at load, 1,000 to 1,400 after a session, each lit one about 100 KB of fragment shader.
+// 1. Fewer programs (in the first part of this file): a point or spot light outside the client's pool is never visible to the
+//    renderer (lamps added inside groups used to count for up to 4 s: 11 to 18 point lights instead of 8, a full recompile each);
+//    every hemisphere light is counted and two spares keep the count constant in every pass; renderer.compile without a target
+//    compiles for the main pass's target; the room probes keep the fog (zero density) instead of a fog-free variant of everything.
+//    750 programs at load became about 320.
+// 2. Smaller programs (here): point and spot lights without shadows are lit in a plain loop instead of one unrolled copy per light,
+//    and the cascaded sun is evaluated once with the cascades' blended shadow (same result: the cascades are one light and the direct
+//    term is linear in its colour). 15 inlined lighting evaluations per lit shader become 3.
+// 3. Less to draw: see "less to draw" below (shadow cascades, sub-pixel meshes, building LOD distance, static batches); the far
+//    cascade is redrawn every 6th frame on ultra (shadowTurns, first part).
+// ?r6=0 turns R6 off (here, in the first part of this file and in plan_gfx.js); ?r6ch=0 only the chunk rewrite.
+(function () {
+  "use strict";
+  var P = window.PLAN_PERF; if (!P || P.off || P.r6) return;
+  var Q = location.search;
+  var S = P.r6 = { on: !!(P.K && P.K.r6), n: {}, errs: [] };
+  if (!S.on) return;
+  function note(tag, e) { try { if (S.errs.length < 20) S.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (P.note) P.note("r6 " + tag, e); } catch (x) {} }
+
+  // ── the light loops ──
+  var CH = S.ch = { on: !/[?&]r6ch=0\b/.test(Q), orig: null, mine: null, rep: [] };
+  function rewrite(c) {
+    var rep = [];
+    c = c.replace(/#pragma unroll_loop_start\s*for \( int i = 0; i < NUM_POINT_LIGHTS; i \+\+ \) \{[\s\S]*?#pragma unroll_loop_end/, function (blk) { rep.push("point");
+      return "#if defined( USE_SHADOWMAP ) && NUM_POINT_LIGHT_SHADOWS > 0\n" + blk + "\n#else\nfor ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {\n\tpointLight = pointLights[ i ];\n\tgetPointLightInfo( pointLight, geometryPosition, directLight );\n\tRE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );\n}\n#endif"; });
+    c = c.replace(/#pragma unroll_loop_start\s*for \( int i = 0; i < NUM_SPOT_LIGHTS; i \+\+ \) \{[\s\S]*?#pragma unroll_loop_end/, function (blk) { rep.push("spot");
+      return "#if ( defined( USE_SHADOWMAP ) && NUM_SPOT_LIGHT_SHADOWS > 0 ) || NUM_SPOT_LIGHT_MAPS > 0\n" + blk + "\n#else\nfor ( int i = 0; i < NUM_SPOT_LIGHTS; i ++ ) {\n\tspotLight = spotLights[ i ];\n\tgetSpotLightInfo( spotLight, geometryPosition, directLight );\n\tRE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );\n}\n#endif"; });
+    var a = c.indexOf("#if defined( USE_SHADOWMAP ) && defined( CSM_FADE )"), b = a >= 0 ? c.indexOf("#elif defined (USE_SHADOWMAP)", a) : -1;
+    if (a >= 0 && b > a && c.slice(a, b).indexOf("ReflectedLight prevLight = reflectedLight;") > 0) { rep.push("csm");
+      c = c.slice(0, a) + [
+        "#if defined( USE_SHADOWMAP ) && defined( CSM_FADE )",
+        "\t\tvec2 cascade; float cascadeCenter; float closestEdge; float margin; float csmx; float csmy; vec3 csmCol = vec3( 0.0 ); bool csmHit = false;",
+        "\t\t#pragma unroll_loop_start",
+        "\t\tfor ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {",
+        "\t\t\t#if ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )",
+        "\t\t\t\tcascade = CSM_cascades[ i ]; cascadeCenter = ( cascade.x + cascade.y ) / 2.0; closestEdge = linearDepth < cascadeCenter ? cascade.x : cascade.y;",
+        "\t\t\t\tmargin = 0.25 * pow( closestEdge, 2.0 ); csmx = cascade.x - margin / 2.0; csmy = cascade.y + margin / 2.0;",
+        "\t\t\t\tif ( linearDepth >= csmx && ( linearDepth < csmy || UNROLLED_LOOP_INDEX == CSM_CASCADES - 1 ) ) {",
+        "\t\t\t\t\tdirectionalLight = directionalLights[ i ]; getDirectionalLightInfo( directionalLight, directLight );",
+        "\t\t\t\t\tfloat dist = min( linearDepth - csmx, csmy - linearDepth ); float ratio = clamp( dist / margin, 0.0, 1.0 );",
+        "\t\t\t\t\tvec3 prevColor = directLight.color; directionalLightShadow = directionalLightShadows[ i ];",
+        "\t\t\t\t\tdirectLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;",
+        "\t\t\t\t\tbool shouldFadeLastCascade = UNROLLED_LOOP_INDEX == CSM_CASCADES - 1 && linearDepth > cascadeCenter;",
+        "\t\t\t\t\tdirectLight.color = mix( prevColor, directLight.color, shouldFadeLastCascade ? ratio : 1.0 );",
+        "\t\t\t\t\tbool shouldBlend = UNROLLED_LOOP_INDEX != CSM_CASCADES - 1 || UNROLLED_LOOP_INDEX == CSM_CASCADES - 1 && linearDepth < cascadeCenter;",
+        "\t\t\t\t\tcsmCol += directLight.color * ( shouldBlend ? ratio : 1.0 ); csmHit = true;",
+        "\t\t\t\t}",
+        "\t\t\t#endif",
+        "\t\t}",
+        "\t\t#pragma unroll_loop_end",
+        "\t\tif ( csmHit ) { getDirectionalLightInfo( directionalLights[ 0 ], directLight ); directLight.color = csmCol; directLight.visible = true; RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight ); }",
+        "\t"].join("\n") + c.slice(b);
+    }
+    CH.rep = rep; return c;
+  }
+  function chunks() {
+    if (!CH.on || !window.THREE || !THREE.ShaderChunk) return; var SC = THREE.ShaderChunk, cur = SC.lights_fragment_begin; if (cur === CH.mine) return;
+    try { CH.orig = cur; CH.mine = rewrite(cur); SC.lights_fragment_begin = CH.mine; S.n.chunks = CH.rep.join(","); } catch (e) { note("chunks", e); }
+  }
+  S.chunks = chunks;
+  chunks();   // now (three's own chunk), again once the cascaded shadows have put theirs in (client.js at load), and on every world hook
+  var HK = window.PLAN_HOOKS; if (HK && HK.world) HK.world.push({ name: "r6World", fn: function () { chunks(); } });
+  // ── less to draw (R6.3): every draw of a frame passes here first ──
+  // a. Shadow cascades (cascaded tiers): an instanced kind's instance buffer is kept nearest-first, so the near cascades draw only
+  //    the instances whose shadow can reach them (distance <= cascade range + shadow length + size); the middle cascade draws the
+  //    buildings with their far-LOD mesh and the far cascades with their lightest one (the same shapes the main view uses at that
+  //    range); a single object smaller than two shadow texels of a cascade is not drawn into it (five in the two far cascades,
+  //    which start 81 m out on ultra, where people are not drawn either).
+  //    Before, every cascade drew every instance in range at full detail: 17 to 39 million triangles a frame in the shadow passes.
+  // b. The main view: a mesh whose bounding sphere covers under 0.75 px (lit, not emissive; 0.35 px otherwise) is not drawn (small
+  //    animals at a kilometre, props on the horizon); it is under a pixel either way, and no longer sparkles.
+  // c. Buildings switch to their far LOD (24k triangles instead of 80k) at 60 per cent of the old distance (115 to 140 m instead of
+  //    190 to 230 m) on the high and ultra tiers. ?r6d=0 turns a to c off; ?r6s=0, ?r6p=0, ?r6l=0 single parts.
+  var D = S.d = { on: !/[?&]r6d=0\b/.test(Q), sh: !/[?&]r6s=0\b/.test(Q), px: !/[?&]r6p=0\b/.test(Q), lod: !/[?&]r6l=0\b/.test(Q), n: { skipSh: 0, cutSh: 0, lodSh: 0, skipPx: 0, sorts: 0 },
+    cams: new Map(), csm: null, far: [0, 0, 0, 0], texel: [0, 0, 0, 0], tanEl: 1, K: 1, sorted: new WeakMap(), tier: new WeakMap(), sortAt: 0, sortCam: [1e9, 1e9], installed: false, indoor: false, cam: null, scene: null };
+  var GC = {}, CONST = { scene: 1, camera: 1, renderer: 1, INSTSET: 1, CSMX: 1, QUAL: 1, MODEL_SPECS: 1 };   // client.js consts: resolved once (an eval per lookup per frame added up)
+  function G(name) { var v = GC[name]; if (v !== undefined) return v; try { v = (0, eval)(name); } catch (e) { return undefined; } if (v !== undefined && v !== null && CONST[name]) GC[name] = v; return v; }
+  function tierOf(S2, t) { return t === 0 ? S2.insts : t === 1 ? S2.far : S2.far2; }
+  // nearest-first instance buffers (outdoors; indoors plan_perf's portal culling owns them)
+  function sortInst(force) {
+    if (D.csm === null) return;   /* the order only serves the cascades: nothing to do without them (low, medium) */
+    var IS = G("INSTSET"), cam = G("camera"); if (!IS || !cam) return; var ic = P.ic; if (ic && ic.kind) { D.indoor = true; return; } D.indoor = false;
+    var cx = cam.position.x, cz = cam.position.z, t = performance.now(); var moved = Math.hypot(cx - D.sortCam[0], cz - D.sortCam[1]);
+    var all = force || (moved > 12 && t - D.sortAt > 400); if (all) { D.sortAt = t; D.sortCam[0] = cx; D.sortCam[1] = cz; }
+    for (var s = 0; s < IS.length; s++) { var S2 = IS[s];
+      for (var tt = 0; tt < 3; tt++) { var arr = tierOf(S2, tt); if (!arr || !arr.length) continue; var m0 = arr[0], n = m0.count, rec = D.sorted.get(m0);
+        for (var q = 0; q < arr.length; q++) if (!D.tier.has(arr[q])) D.tier.set(arr[q], { S: S2, t: tt, i: q });
+        if (!all && rec && rec.ver === m0.instanceMatrix.version && rec.n === n) continue;
+        if (!n || !m0.visible) { D.sorted.set(m0, { ver: m0.instanceMatrix.version, n: n, d: null, x: cx, z: cz }); continue; }
+        var src = m0.instanceMatrix.array, ord = new Array(n), dd = new Float32Array(n);
+        for (var k = 0; k < n; k++) { var b = k * 16, dx = src[b + 12] - cx, dz = src[b + 14] - cz; ord[k] = [dx * dx + dz * dz, k]; }
+        ord.sort(function (a, c) { return a[0] - c[0]; }); var same = true; for (var k2 = 0; k2 < n; k2++) { dd[k2] = Math.sqrt(ord[k2][0]); if (ord[k2][1] !== k2) same = false; }
+        if (!same) { var tmp = D.tmp && D.tmp.length >= n * 16 ? D.tmp : (D.tmp = new Float32Array(Math.max(n * 16, 4096)));
+          for (var q2 = 0; q2 < arr.length; q2++) { var a2 = arr[q2].instanceMatrix.array; for (var k3 = 0; k3 < n; k3++) { var f = ord[k3][1] * 16, g = k3 * 16; for (var j = 0; j < 16; j++) tmp[g + j] = a2[f + j]; } for (var j2 = 0; j2 < n * 16; j2++) a2[j2] = tmp[j2]; arr[q2].instanceMatrix.needsUpdate = true; } }
+        D.sorted.set(m0, { ver: m0.instanceMatrix.version, n: n, d: dd, x: cx, z: cz }); D.n.sorts++; } }
+  }
+  function upper(d, v) { var lo = 0, hi = d.length; while (lo < hi) { var mid = (lo + hi) >> 1; if (d[mid] <= v) lo = mid + 1; else hi = mid; } return lo; }
+  // per frame: the cascades' ranges and texel sizes, the sun's shadow length factor, the main view's pixel scale
+  function frameSetup() {
+    var c = G("CSMX"), csm = c && c.csm, cam = G("camera"), R = G("renderer"); if (!cam || !R) return;
+    if (csm && D.sh && R.shadowMap.enabled) { if (D.csm !== csm) { D.csm = csm; D.cams.clear(); csm.lights.forEach(function (l, i) { D.cams.set(l.shadow.camera, i); }); }
+      var far = Math.min(cam.far, csm.maxFar), br = csm.breaks || []; for (var i = 0; i < csm.lights.length; i++) { var sc = csm.lights[i].shadow.camera; D.far[i] = (br[i] || 1) * far * 1.15 + 4; D.texel[i] = (sc.right - sc.left) / Math.max(1, csm.lights[i].shadow.mapSize.x); }
+      var ld = csm.lightDirection; var hz = Math.hypot(ld.x, ld.z); D.tanEl = Math.max(0.12, hz > 1e-6 ? -ld.y / hz : 10); }
+    else { D.csm = null; D.cams.clear(); }
+    D.K = (R.domElement.height / 2) / Math.tan(cam.fov * Math.PI / 360); D.cam = cam; D.scene = G("scene");
+  }
+  var _sp = new THREE.Vector3();
+  function lit(m) { return !!m && (m.isMeshStandardMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial) && !m.emissiveMap && !(m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity) > 0.02); }
+  function lodGeo(S2, tt, i, ci) {   // the geometry a tier's part i is drawn with in cascade ci (null: as it is; false: not at all)
+    if (!D.lod) return null; var want = ci >= 2 ? 2 : ci === 1 && tt === 0 ? 1 : 0; if (want <= tt) return null;
+    for (var w = want; w > tt; w--) { var arr = tierOf(S2, w); if (!arr || !arr.length) continue; if (!arr[0].visible || !(arr[0].count > 0)) continue;   // uploaded: drawn in the main view this frame
+      return i < arr.length ? arr[i].geometry : false; }
+    return null;
+  }
+  // client.js (R6 memory) drops geometry arrays a minute after upload and reads them back from the GPU if anything touches them: nothing
+  // here reads a dropped array (bounds are computed only while the data is there, batches skip such meshes)
+  function dropped(geo) { var a = geo.attributes; for (var k in a) if (a[k] && a[k].r6free) return true; return !!(geo.index && geo.index.r6free); }
+  function wrapDraw(R) {
+    if (D.installed || !R) return; D.installed = true; var rbd = R.renderBufferDirect;
+    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+      if (sc === null && D.csm !== null && obj && cam.isOrthographicCamera === true) { var ci = D.cams.get(cam);
+        if (ci !== undefined) {
+          if (obj.isInstancedMesh === true) { var tf = D.tier.get(obj);
+            if (tf !== undefined) { var m0 = tierOf(tf.S, tf.t)[0], rec = D.sorted.get(m0), cnt = obj.count, sub = null;
+              if (ci <= 1 && !D.indoor && rec && rec.d && rec.ver === m0.instanceMatrix.version && rec.n === m0.count) { var sz = tf.S.h * 1.6; var lim = D.far[ci] + sz / D.tanEl + tf.S.rad * 1.6 + Math.hypot(D.cam.position.x - rec.x, D.cam.position.z - rec.z); var k = upper(rec.d, lim); if (k < cnt) { D.n.cutSh += cnt - k; cnt = k; } }
+              if (cnt <= 0) { D.n.skipSh++; return; }
+              sub = lodGeo(tf.S, tf.t, tf.i, ci); if (sub === false) { D.n.skipSh++; return; }
+              if (sub || cnt !== obj.count) { var c0 = obj.count; obj.count = cnt; if (sub) D.n.lodSh++; try { return rbd.call(this, cam, sc, sub || geo, mat, obj, grp); } finally { obj.count = c0; } } } }
+          else if (geo && obj.isMesh === true) { if (ci >= 2 && obj.isSkinnedMesh === true) { D.n.skipSh++; return; } var bs = geo.boundingSphere; if (bs === null && !dropped(geo)) { geo.computeBoundingSphere(); bs = geo.boundingSphere; } if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < (ci >= 2 ? 5 : 2) * D.texel[ci]) { D.n.skipSh++; return; } } } }
+      else if (D.px && cam === D.cam && sc === D.scene && obj && obj.isMesh === true && obj.isInstancedMesh !== true && geo) { var bs2 = geo.boundingSphere; if (bs2 === null && !dropped(geo)) { geo.computeBoundingSphere(); bs2 = geo.boundingSphere; }
+        if (bs2) { _sp.copy(bs2.center).applyMatrix4(obj.matrixWorld); var dist = _sp.distanceTo(cam.position); if (dist > 30) { var px = bs2.radius * obj.matrixWorld.getMaxScaleOnAxis() / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35)) { D.n.skipPx++; return; } } } }
+      return rbd.apply(this, arguments);
+    };
+  }
+  // buildings' far LOD distance (high and ultra)
+  function lodDist() {
+    if (!D.lod) return; var IS = G("INSTSET"), Qs = G("QUAL"), SP = G("MODEL_SPECS"); if (!IS || !Qs) return; var hiT = Qs.level === "high" || Qs.level === "ultra";
+    for (var s = 0; s < IS.length; s++) { var S2 = IS[s]; if (!S2.far || S2.lodR === undefined) continue; var sp = SP && SP[S2.kind]; if (sp && sp.prop) continue;
+      if (S2.r6lod0 === undefined || S2.lodR !== S2.r6lodSet) S2.r6lod0 = S2.lodR;
+      var want = hiT ? Math.max(90, S2.r6lod0 * 0.6) : S2.r6lod0; if (S2.lodR !== want) { S2.lodR = want; S2.r6lodSet = want; D.n.lodSet = (D.n.lodSet || 0) + 1; } }
+  }
+  // d. The near cascades walk only what is near: three's shadow pass walks the whole scene (13,000 objects) for every cascade it
+  //    draws, two a frame on ultra; the near and middle cascades are now drawn in a pass of their own during which the top-level
+  //    objects that cannot cast into them (farther than the cascade's range plus the longest shadow plus their own size) are set
+  //    aside (visible = false for that pass only, so their subtrees are not walked). ?r6n=0 turns it off.
+  var NR = D.nr = { on: !/[?&]r6n=0\b/.test(Q), bs: new WeakMap(), q: 0, hid: [], n: { passes: 0, hidden: 0 } };
+  var _bx = new THREE.Box3(), _sv = new THREE.Vector3(), _m4 = new THREE.Matrix4();
+  function topSphere(o) {   // the object's bounding sphere in its own frame (moving objects carry it), cached 15 s; null while not yet measured
+    var c = NR.bs.get(o), t = performance.now(); if (c && c.nc === o.children.length && t - c.at < 15000) return c; if (NR.budget <= 0) return c && c.nc === o.children.length ? c : null; var t0 = t;
+    // instanced and skinned content changes its extent without its own matrix moving (instance counts, people walking): never set aside
+    _bx.makeEmpty(); var dyn = false; try { o.updateMatrixWorld(); o.traverse(function (q) { if (q.isSkinnedMesh || q.isInstancedMesh || q.isPoints || q.isBatchedMesh) dyn = true; if (dyn || !(q.isMesh || q.isLine || q.isSprite)) return; var g = q.geometry; if (!g) return; if (!g.boundingBox) { if (dropped(g)) { if (!g.boundingSphere) { dyn = true; return; } g.boundingBox = new THREE.Box3(); g.boundingSphere.getBoundingBox(g.boundingBox); } else g.computeBoundingBox(); } var bb = g.boundingBox.clone().applyMatrix4(q.matrixWorld); _bx.union(bb); }); } catch (e) { c = { nc: o.children.length, never: true, at: t }; NR.bs.set(o, c); return c; }
+    if (dyn) c = { nc: o.children.length, never: true, at: t };
+    else if (_bx.isEmpty()) c = { nc: o.children.length, empty: true, at: t };
+    else { var sph = _bx.getBoundingSphere(new THREE.Sphere()); c = { nc: o.children.length, lc: sph.center.clone().applyMatrix4(_m4.copy(o.matrixWorld).invert()), r: sph.radius + 2, never: sph.radius > 500 || !isFinite(sph.radius), at: t }; }
+    NR.bs.set(o, c); NR.budget -= performance.now() - t0; return c;
+  }
+  function nearAside(ci) {   // set aside what cannot cast into cascade ci; returns the list to put back
+    var sc = D.scene, cam = D.cam, hid = NR.hid; hid.length = 0; if (!sc || !cam) return hid; var lim = D.far[ci] + 40 / D.tanEl, cx = cam.position.x, cz = cam.position.z, ch = sc.children;
+    for (var i = 0; i < ch.length; i++) { var o = ch[i]; if (o.visible !== true || o.isLight || o.isCamera || o.isBone) continue; var c = topSphere(o); if (!c || c.never || c.empty) continue;
+      _sv.copy(c.lc).applyMatrix4(o.matrixWorld); var d = Math.hypot(_sv.x - cx, _sv.z - cz) - c.r; if (d > lim) { o.visible = false; hid.push(o); } }
+    return hid;
+  }
+  function wrapShadow(R) {
+    var sm = R.shadowMap; if (sm.__r6) return; sm.__r6 = true; var s0 = sm.render, near = [], rest = [];
+    sm.render = function (lights, scn, cam) {
+      if (!NR.on || D.csm === null || !lights || lights.length < 2 || D.indoor || !(sm.autoUpdate || sm.needsUpdate)) return s0.apply(this, arguments);
+      near.length = 0; rest.length = 0; for (var i = 0; i < lights.length; i++) { var l = lights[i], ci = D.cams.get(l.shadow && l.shadow.camera), due = l.shadow.autoUpdate || l.shadow.needsUpdate; if (ci !== undefined && ci <= 1 && due) near.push(l); else rest.push(l); }
+      if (!near.length) return s0.apply(this, arguments);
+      NR.budget = 1.5; var nu = sm.needsUpdate, r;
+      for (var k = 0; k < near.length; k++) { var ci2 = D.cams.get(near[k].shadow.camera), hid = nearAside(ci2); NR.n.passes++; NR.n.hidden += hid.length; sm.needsUpdate = nu; try { r = s0.call(this, [near[k]], scn, cam); } finally { for (var j = 0; j < hid.length; j++) hid[j].visible = true; } }
+      if (rest.length) { sm.needsUpdate = nu; r = s0.call(this, rest, scn, cam); }
+      return r;
+    };
+  }
+  // e. Static batches: a top-level group whose meshes have not moved, changed or been toggled for 20 s has the meshes that share a
+  //    material (and shadow flags, within a 48 m cell) drawn as one merged mesh; the originals stay in place, hidden, for raycasts
+  //    and for the way back. Any later change to one of them (moved, shown, hidden, another material or geometry, a child added or
+  //    removed) puts the originals back for good. Rooms, interiors, people, vehicles, lights, transparent, skinned and instanced
+  //    meshes are never merged. ?r6b=0 turns it off.
+  var BT = D.bt = { on: !/[?&]r6b=0\b/.test(Q), q: [], seen: new WeakSet(), live: [], rr: 0, n: { groups: 0, merged: 0, meshes: 0, draws: 0, reverts: 0, skipped: 0, verts: 0 } };
+  var NOB = /^(perf|player|avatar|r6)/i;
+  var _bm = new THREE.Matrix4(), _bi = new THREE.Matrix4();
+  function sigOf(m, g, own) {   // the mesh relative to the group: matrix, visibility (its own and its ancestors' up to the group), material and geometry
+    _bm.multiplyMatrices(_bi, m.matrixWorld); var e = _bm.elements, v = own === undefined ? m.visible : own, p = m.parent; while (p && p !== g) { if (!p.visible) { v = false; break; } p = p.parent; }
+    return (v ? 1 : 2) + e[0] * 1.3 + e[1] * 2.3 + e[2] * 2.9 + e[4] * 3.1 + e[5] * 1.7 + e[6] * 3.7 + e[8] * 4.1 + e[9] * 4.3 + e[10] * 1.9 + e[12] * 0.11 + e[13] * 0.13 + e[14] * 0.17 + (m.material ? m.material.id : 0) * 1e-3 + (m.geometry ? m.geometry.id : 0) * 1e-5; }
+  function eligible(g) {   // the meshes of a top-level group that could be merged (none: people, rooms, interiors, skinned or LOD content)
+    if (!g || !g.isObject3D || g.isMesh || g.isLight || g.isCamera || !g.children.length || NOB.test(g.name || "")) return null; var ud = g.userData || {};
+    if (ud.interior || ud.walk || ud.id !== undefined || ud.r5ids || ud.r6batch || ud.noBatch || ud.door || ud.ride) return null;
+    try { if (inside && inside.g === g) return null; } catch (e) {} try { if (FLY && FLY.g === g) return null; } catch (e) {}
+    var ok = true, meshes = [], nodes = 0;
+    g.traverse(function (o) { if (!ok) return; nodes++; if (o.isCamera || o.isSkinnedMesh || o.isBone || o.isLOD) { ok = false; return; }
+      if (!o.isMesh || o.isInstancedMesh || o.children.length) return;   // a mesh with children (a lamp with its light) stays as it is: hiding it would hide them
+      if (o.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender || o.onAfterRender !== THREE.Object3D.prototype.onAfterRender) return;
+      if (o.userData && (o.userData.door || o.userData.walk || o.userData.anim || o.userData.spin || o.userData.sway || o.userData.r6batch)) return;
+      var mt = o.material; if (!mt || Array.isArray(mt) || mt.transparent || mt.alphaHash || mt.isShaderMaterial || mt.isRawShaderMaterial) return; var geo = o.geometry; if (!geo || !geo.isBufferGeometry || geo.morphAttributes.position || geo.groups.length > 1 || !geo.attributes.position || geo.attributes.position.isInterleavedBufferAttribute || geo.attributes.position.count > 6000 || dropped(geo)) return; if (o.morphTargetInfluences) return; meshes.push(o); });   // big meshes are one draw anyway: not copied
+    if (!ok || meshes.length < 2 || nodes > 6000) return null; return meshes;
+  }
+  function attrKey(geo) { var k = []; for (var n in geo.attributes) { var a = geo.attributes[n]; if (a.isInterleavedBufferAttribute) return null; k.push(n + a.itemSize + (a.normalized ? "n" : "") + (a.array.constructor.name)); } return k.sort().join(","); }
+  function mergeInto(g, list) {   // list of meshes (same material and flags): one geometry in g's frame
+    var key = attrKey(list[0].geometry); if (!key) return null; for (var i = 1; i < list.length; i++) if (attrKey(list[i].geometry) !== key) return null;
+    var names = Object.keys(list[0].geometry.attributes), nv = 0, ni = 0; list.forEach(function (m) { var p = m.geometry.attributes.position; nv += p.count; ni += m.geometry.index ? m.geometry.index.count : p.count; });
+    if (nv > 400000) return null;
+    var out = new THREE.BufferGeometry(), arrs = {}; names.forEach(function (n) { var a = list[0].geometry.attributes[n]; arrs[n] = new a.array.constructor(nv * a.itemSize); });
+    var idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni), vo = 0, io = 0; var inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), M = new THREE.Matrix4(), N = new THREE.Matrix3(), v = new THREE.Vector3();
+    list.forEach(function (m) { var geo = m.geometry, cnt = geo.attributes.position.count; M.multiplyMatrices(inv, m.matrixWorld); N.getNormalMatrix(M);
+      names.forEach(function (n) { var a = geo.attributes[n], s = a.itemSize, dst = arrs[n];
+        if (n === "position") { for (var i = 0; i < cnt; i++) { v.fromBufferAttribute(a, i).applyMatrix4(M); dst[(vo + i) * 3] = v.x; dst[(vo + i) * 3 + 1] = v.y; dst[(vo + i) * 3 + 2] = v.z; } }
+        else if (n === "normal" || (n === "tangent" && s >= 3)) { for (var j = 0; j < cnt; j++) { v.set(a.getX(j), a.getY(j), a.getZ(j)); if (n === "normal") v.applyMatrix3(N).normalize(); else v.transformDirection(M); dst[(vo + j) * s] = v.x; dst[(vo + j) * s + 1] = v.y; dst[(vo + j) * s + 2] = v.z; if (s === 4) dst[(vo + j) * s + 3] = a.getW(j); } }
+        else if (a.normalized || !(a.array instanceof Float32Array)) { var src = a.array; for (var k = 0; k < cnt * s; k++) dst[vo * s + k] = src[k]; }
+        else { for (var k2 = 0; k2 < cnt; k2++) for (var c = 0; c < s; c++) dst[(vo + k2) * s + c] = a.getComponent(k2, c); } });
+      if (geo.index) { var ix = geo.index.array; for (var q = 0; q < ix.length; q++) idx[io + q] = ix[q] + vo; io += ix.length; } else { for (var q2 = 0; q2 < cnt; q2++) idx[io + q2] = vo + q2; io += cnt; }
+      vo += cnt; });
+    names.forEach(function (n) { var a = list[0].geometry.attributes[n]; out.setAttribute(n, new THREE.BufferAttribute(arrs[n], a.itemSize, a.normalized)); });
+    out.setIndex(new THREE.BufferAttribute(idx, 1)); out.computeBoundingSphere(); out.computeBoundingBox();
+    var m0 = list[0], mm = new THREE.Mesh(out, m0.material); mm.name = "r6 batch"; mm.castShadow = m0.castShadow; mm.receiveShadow = m0.receiveShadow; mm.layers.mask = m0.layers.mask; mm.renderOrder = m0.renderOrder; mm.userData.r6batch = true; mm.userData.noShadow = m0.userData.noShadow; mm.userData.shSet = true;
+    BT.n.verts += nv; return mm;
+  }
+  function snap(meshes, g, hs) { _bi.copy(g.matrixWorld).invert(); var s = new Float64Array(meshes.length + 1); for (var i = 0; i < meshes.length; i++) s[i] = sigOf(meshes[i], g, hs && hs.has(meshes[i]) ? true : undefined); var nodes = 0; g.traverse(function () { nodes++; }); s[meshes.length] = nodes; return s; }
+  function batch(g, meshes) {
+    var cells = new Map(); g.updateMatrixWorld(true);
+    meshes.forEach(function (m) { if (!m.visible || dropped(m.geometry)) return; var p = m.parent, vis = true; while (p && p !== g) { if (!p.visible) { vis = false; break; } p = p.parent; } if (!vis) return; var bs = m.geometry.boundingSphere || (m.geometry.computeBoundingSphere(), m.geometry.boundingSphere); _sv.copy(bs.center).applyMatrix4(m.matrixWorld);
+      var k = m.material.id + "|" + (m.castShadow ? 1 : 0) + (m.receiveShadow ? 1 : 0) + "|" + m.layers.mask + "|" + m.renderOrder + "|" + Math.floor(_sv.x / 48) + "," + Math.floor(_sv.z / 48); var L = cells.get(k); if (!L) cells.set(k, L = []); L.push(m); });
+    var made = [], hidden = [];
+    var tb = performance.now(); cells.forEach(function (L) { if (L.length < 2 || BT.n.verts > 800000 || performance.now() - tb > 4) return; var mm = null;   /* at most ~4 ms in one frame: the rest of the group stays as it is */ try { mm = mergeInto(g, L); } catch (e) { note("batch merge", e); } if (!mm) return; made.push(mm); L.forEach(function (m) { m.visible = false; hidden.push(m); }); });
+    if (!made.length) return null; made.forEach(function (mm) { g.add(mm); }); var E = { g: g, made: made, hidden: hidden, meshes: meshes, sig: null };
+    E.hset = new Set(hidden); E.sig = snap(meshes, g, E.hset); BT.n.groups++; BT.n.merged += hidden.length; BT.n.draws += made.length; return E;
+  }
+  function unbatch(E, why) { try { E.made.forEach(function (mm) { if (mm.parent) mm.parent.remove(mm); mm.geometry.dispose(); }); E.hidden.forEach(function (m) { m.visible = true; }); } catch (e) { note("unbatch", e); } E.g.userData.noBatch = true; BT.n.reverts++; BT.last = why; }
+  function checkSome() {   // a few live batches a frame: still in the scene and unchanged?
+    var L = BT.live; if (!L.length) return; var k = Math.min(L.length, 6);
+    for (var i = 0; i < k; i++) { BT.rr = (BT.rr + 1) % L.length; var E = L[BT.rr]; if (!E) continue; var r = E.g; while (r.parent) r = r.parent;
+      if (r !== D.scene) { E.made.forEach(function (mm) { mm.geometry.dispose(); if (mm.parent) mm.parent.remove(mm); }); E.hidden.forEach(function (m) { m.visible = true; }); L.splice(BT.rr, 1); return; }
+      // the hidden originals are expected hidden (visible false); compare with that
+      var s = E.sig, ms = E.meshes, bad = false, hs = E.hset || (E.hset = new Set(E.hidden)); _bi.copy(E.g.matrixWorld).invert(); for (var j = 0; j < ms.length && !bad; j++) { var m = ms[j]; if (hs.has(m) && m.visible) { bad = true; break; } if (sigOf(m, E.g, hs.has(m) ? true : undefined) !== s[j]) bad = true; }
+      if (!bad) { var nodes = 0; E.g.traverse(function () { nodes++; }); if (nodes !== s[ms.length]) bad = true; }
+      if (bad) { unbatch(E, "changed"); L.splice(BT.rr, 1); return; } }
+  }
+  function batchStep() {   // candidates: snapshot now, merge if unchanged 20 s later (a little each idle slice)
+    var sc = D.scene; if (!sc || !BT.on) return; var t = performance.now();
+    if (!BT.scanAt || t - BT.scanAt > 30000) { BT.scanAt = t; for (var i = 0; i < sc.children.length; i++) { var g = sc.children[i]; if (BT.seen.has(g)) continue; BT.seen.add(g); BT.q.push({ g: g, at: t, sig: null, meshes: null }); } }
+    var t0 = performance.now(), n = 0;
+    while (BT.q.length && performance.now() - t0 < 2 && n < 40) { var c = BT.q[0]; if (t - c.at < (c.sig ? 20000 : 0)) break; BT.q.shift(); n++;
+      if (!c.sig) { var ms = eligible(c.g); if (!ms) { BT.n.skipped++; continue; } c.meshes = ms; c.g.updateMatrixWorld(true); c.sig = snap(ms, c.g); c.at = t; BT.q.push(c); continue; }
+      var r = c.g; while (r.parent) r = r.parent; if (r !== sc || c.g.userData.noBatch) continue;
+      var s2 = snap(c.meshes, c.g), keep = []; for (var j = 0; j < c.meshes.length; j++) if (s2[j] === c.sig[j]) keep.push(c.meshes[j]);   // what moved or changed in the window stays out
+      if (s2[c.meshes.length] !== c.sig[c.meshes.length] || keep.length < 2) { c.sig = s2; c.at = t; c.tries = (c.tries || 0) + 1; if (c.tries < 4) BT.q.push(c); continue; }
+      var E = null; try { E = batch(c.g, keep); } catch (e) { note("batch", e); } if (E) BT.live.push(E); }
+  }
+  P.r6batchStats = function () { return BT.n; };
+  function dInstall() {
+    if (!D.on || !P.installed) return false; var R = G("renderer"); if (!R) return false;
+    try { wrapDraw(R); } catch (e) { note("wrap draw", e); }
+    try { wrapShadow(R); } catch (e) { note("wrap shadow", e); }
+    try { var uc = G("updateCulling"); if (typeof uc === "function" && !uc.r6) { window.__r6uc = function () { var r = uc.apply(this, arguments); try { sortInst(false); } catch (e) { note("sort", e); } return r; }; window.__r6uc.r6 = true; updateCulling = window.__r6uc; } } catch (e) { note("wrap culling", e); }
+    return true;
+  }
+  if (D.on && HK && HK.frame) HK.frame.push({ name: "r6Draw", fn: function () { if (!D.installed) { if (!dInstall()) return; } try { frameSetup(); if ((D.f = (D.f || 0) + 1) % 30 === 1) lodDist(); sortInst(false); } catch (e) { note("draw frame", e); } if (BT.on && P.readyAt && performance.now() - P.readyAt > 10000) { try { checkSome(); if ((D.f & 7) === 0) batchStep(); } catch (e) { note("batch frame", e); } } } });
+  var tries = 0; (function early() { chunks(); if (++tries < 400 && !(typeof CSMX !== "undefined" && CSMX && CSMX.csm)) setTimeout(early, 25); else chunks(); })();
 })();
