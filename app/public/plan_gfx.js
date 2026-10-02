@@ -412,6 +412,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // R5: the eye adapts a little when the player looks up at a dark sky (the forward vector's height, smoothed over about a second)
     try { var me = camera.matrixWorld.elements; var fy = -me[9]; var at = 1 + GX.K.sk.adaptUp * sstep(0.08, 0.75, fy) * (SK.dark || 0) * (1 - 0.8 * (SK.moonBright || 0)) * (1 - S);
       SK.adapt = SK.adapt === undefined ? at : SK.adapt + (at - SK.adapt) * Math.min(1, (dt || 0) / GX.K.sk.adaptT); if (typeof POST !== "undefined" && SK.adapt > 0 && SK.adapt < 3) POST.exposure *= SK.adapt; } catch (e) {}
+    // R7: a glazed interior (the Market Hall vault) can ask for less exposure by day: window.PLAN_EXPO_K() returns a factor (1 = none),
+    // smoothed over 0.8 s and applied in proportion to daylight, so night is untouched
+    try { var ik = typeof window.PLAN_EXPO_K === "function" ? +window.PLAN_EXPO_K() : 1; if (!(ik > 0.3 && ik <= 1.5)) ik = 1; SK.ik = SK.ik === undefined ? ik : SK.ik + (ik - SK.ik) * Math.min(1, (dt || 0) / 0.8);
+      if (typeof POST !== "undefined" && SK.ik !== 1) POST.exposure *= 1 + (SK.ik - 1) * clamp(typeof day === "number" ? day : 1, 0, 1); } catch (e) {}
     try { cloudA.material.opacity = Math.min(0.95, cloudA.material.opacity + S * 0.4 * day); cloudB.material.opacity = Math.min(0.9, cloudB.material.opacity + S * 0.5 * day); cloudA.material.color.lerp(TMP.c.setRGB(0.16, 0.17, 0.19), S * 0.8); cloudB.material.color.copy(cloudA.material.color); } catch (e) {}
     // clouds: light, ambient and haze
     if (CL) { var cu = CL.mesh.material.uniforms; var lightDir = el > -0.04 ? sdir : mdir; cu.uLDir.value.fromArray(lightDir);

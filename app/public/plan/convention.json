@@ -1,0 +1,272 @@
+{
+  "_about": "R7 Solport Convention Center: the main arena, its forecourt, the keynote hall and two breakout rooms (plan_convention.js). Names, copy, positions and sizes live here. World frame: x east, z south. Arena frame: u east, v south from the arena centre.",
+  "version": 1,
+  "names": {
+    "center": "Solport Convention Center",
+    "short": "Solport Convention Center",
+    "summit": "Solport Summit",
+    "hall": "The Keynote Hall",
+    "lobby": "The Grand Lobby",
+    "breakA": "Breakout A · The Mesa Room",
+    "breakB": "Breakout B · The Canyon Room"
+  },
+  "arena": {
+    "cx": -385,
+    "cz": -90,
+    "a": 85,
+    "b": 60,
+    "height": 25,
+    "skinBase": 6.0,
+    "glassK": 0.94,
+    "ledHalfAngle": 0.42,
+    "ledBottom": 7.0,
+    "ledTop": 16.0,
+    "columns": 110,
+    "seed": 7,
+    "edgeFront": 22.5,
+    "edgeEnds": 12.5,
+    "edgeBack": 18.5,
+    "crown": 22
+  },
+  "forecourt": {
+    "x0": -300,
+    "x1": -250,
+    "z0": -140,
+    "z1": -40
+  },
+  "hub": [
+    -268,
+    -90
+  ],
+  "led": {
+    "title": "SOLPORT",
+    "subtitle": "CONVENTION CENTER",
+    "impactLabel": "COMMUNITY IMPACT",
+    "impactSub": "in-game actions by everyone on the site",
+    "nightLine": "TONIGHT UNDER THE DOUGLAS DARK SKY",
+    "summit": "SOLPORT",
+    "summitSub": "SUMMIT",
+    "ticker": "SOLPORT SUMMIT  ·  INNOVATION  ·  PEOPLE  ·  IMPACT  ·  GENESIS ONE  ·  WELCOME TO DOUGLAS, ARIZONA  ·  ",
+    "cycle": [
+      16,
+      10,
+      12
+    ]
+  },
+  "banners": [
+    [
+      "SOLPORT SUMMIT",
+      "INNOVATION · PEOPLE · IMPACT"
+    ],
+    [
+      "SOLPORT SUMMIT",
+      "BUILT IN THE DESERT"
+    ],
+    [
+      "SOLPORT",
+      "CONVENTION CENTER"
+    ]
+  ],
+  "rooms": {
+    "breakA": {
+      "slide": [
+        "WORKSHOP",
+        "The Micro-Economy of Giving",
+        "Breakout A · The Mesa Room"
+      ]
+    },
+    "breakB": {
+      "slide": [
+        "PANEL",
+        "Building Genesis One, Dirt to Community",
+        "Breakout B · The Canyon Room"
+      ]
+    }
+  },
+  "info": {
+    "forecourt": {
+      "t": "Solport Convention Center",
+      "k": "The arena, the keynote hall and the breakout rooms · Solport",
+      "p": "The main arena of the Solport campus: a low, wide hall wrapped in a folded skin of weathered copper and desert sandstone, with a glazed lobby facing the forecourt and a curved LED media wall over the doors. Inside: the Grand Lobby, a keynote hall that seats about four and a half thousand, and two breakout rooms. Walk in through the glass doors."
+    },
+    "lobby": {
+      "t": "The Grand Lobby",
+      "k": "Registration, wayfinding and the way into the keynote hall",
+      "p": "Check in at the registration desk, then follow the signs: the Keynote Hall is straight ahead through the three portals, the breakout rooms are down the side corridors to the left and right."
+    },
+    "watch": {
+      "t": "Watch the keynote",
+      "k": "Solport Summit · main stage",
+      "p": "Take a seat in the house and watch the keynote on the main stage."
+    },
+    "hall": {
+      "t": "The Keynote Hall",
+      "k": "About 4,500 seats · main stage, layered LED walls, a lighting rig",
+      "p": "A flat floor in front of the stage and raked tiers behind it, aisles with steps between the sections. The side walls are red sandstone, the ceiling is folded copper. Find an aisle seat and press E to sit and watch."
+    },
+    "breakA": {
+      "t": "Breakout A · The Mesa Room",
+      "k": "Workshops and smaller sessions",
+      "p": "A room for about a hundred and twenty: workshops, panels and working sessions alongside the main programme."
+    },
+    "breakB": {
+      "t": "Breakout B · The Canyon Room",
+      "k": "Panels and smaller sessions",
+      "p": "A room for about a hundred and twenty: panels and working sessions alongside the main programme."
+    }
+  },
+  "staff": {
+    "maren": {
+      "name": "Maren",
+      "role": "Host · Solport Convention Center",
+      "at": [
+        44,
+        0
+      ],
+      "face": 1.5708,
+      "look": {
+        "skin": "c98f63",
+        "shirt": "1b2a3a",
+        "pants": "1c1c1e",
+        "hair": 2,
+        "body": "f"
+      },
+      "greet": [
+        "Welcome to the Solport Convention Center.",
+        "Good to see you. The keynote is on in the main hall.",
+        "Hello there. Grab a badge and head on in."
+      ],
+      "talk": [
+        {
+          "t": "Welcome to the Solport Convention Center, the main arena of the Solport campus. I look after the lobby. What can I help you with?",
+          "o": [
+            [
+              "What is on today?",
+              1
+            ],
+            [
+              "Tell me about the building",
+              2
+            ],
+            [
+              "Where are the breakout rooms?",
+              3
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "The Solport Summit. The keynote is running in the main hall right now, straight ahead through the three portals. Take any aisle seat and press E to sit and watch, or use the Watch the keynote point by the portals and we will seat you in the middle of the house.",
+          "o": [
+            [
+              "Tell me about the building",
+              2
+            ],
+            [
+              "Where are the breakout rooms?",
+              3
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "It is a low, wide arena wrapped in folded panels of weathered copper and desert sandstone, so it glows orange at sunset. The LED wall over the doors shows the summit, the community impact counter and, after dark, the night sky. The keynote hall seats about four and a half thousand people.",
+          "o": [
+            [
+              "What is on today?",
+              1
+            ],
+            [
+              "Where are the breakout rooms?",
+              3
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "Down the side corridors. The Mesa Room is to the north, the Canyon Room to the south. Each one seats about a hundred and twenty for workshops and panels.",
+          "o": [
+            [
+              "What is on today?",
+              1
+            ],
+            [
+              "Tell me about the building",
+              2
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "theo": {
+      "name": "Theo",
+      "role": "Keynote speaker · Solport Summit",
+      "stage": true,
+      "at": [
+        -49.5,
+        -2.0
+      ],
+      "face": 1.5708,
+      "look": {
+        "skin": "e8c19a",
+        "shirt": "20242c",
+        "pants": "1c1c1e",
+        "hair": 1,
+        "body": "m"
+      },
+      "greet": [
+        "Thanks for joining us.",
+        "Welcome to the Solport Summit.",
+        "Great to have you in the room."
+      ],
+      "talk": [
+        {
+          "t": "Welcome to the Solport Summit. Today is about building in the desert: communities, aviation, and giving that is built into how things run, not added on afterwards.",
+          "o": [
+            [
+              "What is the talk about?",
+              1
+            ],
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        },
+        {
+          "t": "How a place like Genesis One goes from dirt to a living community, and how every visit, flight and conversation here adds to the shared impact counter you can see on the LED wall outside.",
+          "o": [
+            [
+              "Thanks",
+              null
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "prompts": {
+    "watch": "watch the keynote",
+    "seat": "sit and watch",
+    "stand": "stand up",
+    "door": "walk in"
+  },
+  "progress": {
+    "arena": "p_solport_arena",
+    "keynote": "p_solport_keynote",
+    "talkHost": "t_maren"
+  }
+}

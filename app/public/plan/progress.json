@@ -4,10 +4,53 @@
   "key": "KeyJ",
   "keyLabel": "J",
   "ranks": [
-    { "id": "passenger", "name": "Passenger", "xp": 0, "color": "#f5f1e6", "blurb": "Welcome aboard. Every visitor starts here.", "perks": ["Your Sol Passport and its first stamps", "The Passenger badge on your nameplate"] },
-    { "id": "pilot", "name": "Pilot", "xp": 750, "color": "#4DDE6F", "blurb": "You have found your way around Solport.", "perks": ["Pilot wings on your nameplate, seen by everyone", "Stamp Travel: travel instantly from your passport to any place you have stamped", "Runway Silver paint for your golf cart"] },
-    { "id": "captain", "name": "Captain", "xp": 5000, "color": "#f4cd5a", "blurb": "A regular of Genesis One, known all over the site.", "perks": ["The Captain's gold badge and nameplate trim", "Captain's Cheer: your Cheer emote launches a gold firework everyone nearby can see", "Captain Navy paint for your golf cart"] },
-    { "id": "tower", "name": "Tower", "xp": 15000, "color": "#7fe3f0", "blurb": "The rarest rank. You have seen everything Genesis One has to offer.", "perks": ["The Tower beacon badge on your nameplate", "The Tower Lookout: ride the lift to the roof deck of the Solport control tower", "Tower Crimson paint for your golf cart"] }
+    {
+      "id": "passenger",
+      "name": "Passenger",
+      "xp": 0,
+      "color": "#f5f1e6",
+      "blurb": "Welcome aboard. Every visitor starts here.",
+      "perks": [
+        "Your Sol Passport and its first stamps",
+        "The Passenger badge on your nameplate"
+      ]
+    },
+    {
+      "id": "pilot",
+      "name": "Pilot",
+      "xp": 750,
+      "color": "#4DDE6F",
+      "blurb": "You have found your way around Solport.",
+      "perks": [
+        "Pilot wings on your nameplate, seen by everyone",
+        "Stamp Travel: travel instantly from your passport to any place you have stamped",
+        "Runway Silver paint for your golf cart"
+      ]
+    },
+    {
+      "id": "captain",
+      "name": "Captain",
+      "xp": 5000,
+      "color": "#f4cd5a",
+      "blurb": "A regular of Genesis One, known all over the site.",
+      "perks": [
+        "The Captain's gold badge and nameplate trim",
+        "Captain's Cheer: your Cheer emote launches a gold firework everyone nearby can see",
+        "Captain Navy paint for your golf cart"
+      ]
+    },
+    {
+      "id": "tower",
+      "name": "Tower",
+      "xp": 15000,
+      "color": "#7fe3f0",
+      "blurb": "The rarest rank. You have seen everything Genesis One has to offer.",
+      "perks": [
+        "The Tower beacon badge on your nameplate",
+        "The Tower Lookout: ride the lift to the roof deck of the Solport control tower",
+        "Tower Crimson paint for your golf cart"
+      ]
+    }
   ],
   "xp": {
     "stamp_place": 40,
@@ -28,251 +71,1435 @@
     "visit": 25,
     "visit_streak_step": 5,
     "visit_streak_cap": 10,
-    "streaks": [[3, 100], [7, 250], [14, 500], [30, 1000]],
+    "streaks": [
+      [
+        3,
+        100
+      ],
+      [
+        7,
+        250
+      ],
+      [
+        14,
+        500
+      ],
+      [
+        30,
+        1000
+      ]
+    ],
     "community_share": 150,
     "daily_repeat_cap": 500
   },
   "activities": [
-    { "id": "golf", "n": 0, "name": "Desert Golf round" },
-    { "id": "course", "n": 1, "name": "Cart Course lap" },
-    { "id": "obby", "n": 2, "name": "Low-G Course run" },
-    { "id": "drag", "n": 3, "name": "Drag Strip run" },
-    { "id": "rings", "n": 4, "name": "Sky Rings" },
-    { "id": "hunt", "n": 5, "name": "Founders' Cache hunt" },
-    { "id": "lap", "n": 6, "name": "Fingers Lap" },
-    { "id": "rodeo", "n": 7, "name": "Bull Ride" },
-    { "id": "dance", "n": 8, "name": "Dance Battle" },
-    { "id": "brace", "n": 9, "name": "Balloon Race" },
-    { "id": "arcade", "n": 10, "name": "Arcade prize" },
-    { "id": "stargaze", "n": 11, "name": "Stargazing session" }
+    {
+      "id": "golf",
+      "n": 0,
+      "name": "Desert Golf round"
+    },
+    {
+      "id": "course",
+      "n": 1,
+      "name": "Cart Course lap"
+    },
+    {
+      "id": "obby",
+      "n": 2,
+      "name": "Low-G Course run"
+    },
+    {
+      "id": "drag",
+      "n": 3,
+      "name": "Drag Strip run"
+    },
+    {
+      "id": "rings",
+      "n": 4,
+      "name": "Sky Rings"
+    },
+    {
+      "id": "hunt",
+      "n": 5,
+      "name": "Founders' Cache hunt"
+    },
+    {
+      "id": "lap",
+      "n": 6,
+      "name": "Fingers Lap"
+    },
+    {
+      "id": "rodeo",
+      "n": 7,
+      "name": "Bull Ride"
+    },
+    {
+      "id": "dance",
+      "n": 8,
+      "name": "Dance Battle"
+    },
+    {
+      "id": "brace",
+      "n": 9,
+      "name": "Balloon Race"
+    },
+    {
+      "id": "arcade",
+      "n": 10,
+      "name": "Arcade prize"
+    },
+    {
+      "id": "stargaze",
+      "n": 11,
+      "name": "Stargazing session"
+    }
   ],
   "rides": [
-    { "id": "rover", "n": 0, "name": "Outpost Rover" },
-    { "id": "stagecoach", "n": 1, "name": "Stagecoach" },
-    { "id": "crossing", "n": 2, "name": "The Crossing shuttle" },
-    { "id": "shuttle", "n": 3, "name": "Site shuttle" },
-    { "id": "friend", "n": 4, "name": "A friend's cart" },
-    { "id": "cart", "n": 5, "name": "A shared golf cart" },
-    { "id": "jet", "n": 6, "name": "Giveback One" }
+    {
+      "id": "rover",
+      "n": 0,
+      "name": "Outpost Rover"
+    },
+    {
+      "id": "stagecoach",
+      "n": 1,
+      "name": "Stagecoach"
+    },
+    {
+      "id": "crossing",
+      "n": 2,
+      "name": "The Crossing shuttle"
+    },
+    {
+      "id": "shuttle",
+      "n": 3,
+      "name": "Site shuttle"
+    },
+    {
+      "id": "friend",
+      "n": 4,
+      "name": "A friend's cart"
+    },
+    {
+      "id": "cart",
+      "n": 5,
+      "name": "A shared golf cart"
+    },
+    {
+      "id": "jet",
+      "n": 6,
+      "name": "Giveback One"
+    }
   ],
   "chapters": [
-    { "id": "solport", "n": 0, "name": "Solport Airfield", "sub": "The 1928 airfield, City of Douglas", "ink": "#2c5d9c", "stamps": [
-      { "n": 0, "id": "p_terminal", "place": "terminal", "r": 34 },
-      { "n": 1, "id": "p_gate_a2", "place": "gate_a2", "r": 24 },
-      { "n": 2, "id": "p_tower", "place": "tower", "r": 24, "name": "The Tower" },
-      { "n": 3, "id": "p_hangar_row_city", "place": "hangar_row_city", "r": 34, "name": "Hangar Row" },
-      { "n": 4, "id": "p_museum", "place": "museum", "r": 24, "name": "1928 Airfield Museum" },
-      { "n": 5, "id": "p_link_plaza", "place": "link_plaza", "r": 18, "name": "Link Plaza" },
-      { "n": 6, "id": "p_sky_rings", "place": "sky_rings", "r": 22, "name": "Sky Rings" }
-    ] },
-    { "id": "landing", "n": 1, "name": "The Landing", "sub": "Stage One: the airpark and the club", "ink": "#1d7a45", "stamps": [
-      { "n": 10, "id": "p_arrivals_court", "place": "arrivals_court" },
-      { "n": 11, "id": "p_sun_gate", "place": "sun_gate", "r": 16 },
-      { "n": 12, "id": "p_welcome_house", "place": "welcome_house" },
-      { "n": 13, "id": "p_cart_hub", "place": "cart_hub", "name": "Cart and Bike Hub" },
-      { "n": 14, "id": "p_club_walk", "place": "club_walk" },
-      { "n": 15, "id": "p_flight_deck", "place": "flight_deck" },
-      { "n": 16, "id": "p_amphitheater", "place": "amphitheater" },
-      { "n": 17, "id": "p_crossing_plaza", "place": "crossing_plaza", "name": "Crossing Plaza" },
-      { "n": 18, "id": "p_founders_row", "place": "founders_row", "name": "Founders Row" },
-      { "n": 19, "id": "p_landing_club", "place": "landing_club" },
-      { "n": 20, "id": "p_chapel", "place": "chapel" },
-      { "n": 21, "id": "p_grand_pavilion", "place": "grand_pavilion" }
-    ] },
-    { "id": "flightline", "n": 2, "name": "The Flight Line", "sub": "Stage Two: hangars, pilots and speed", "ink": "#9a6410", "stamps": [
-      { "n": 30, "id": "p_flightline_market", "place": "flightline_market" },
-      { "n": 31, "id": "p_pilot_house", "place": "pilot_house", "name": "The Pilot House" },
-      { "n": 32, "id": "p_diner", "place": "diner" },
-      { "n": 33, "id": "p_propeller_plaza", "place": "propeller_plaza" },
-      { "n": 34, "id": "p_flight_school", "place": "flight_school", "name": "Flight School" },
-      { "n": 35, "id": "p_giveback_shop", "place": "giveback_shop" },
-      { "n": 36, "id": "p_flightline_row", "place": "flightline_row", "name": "Flight Line Row" },
-      { "n": 37, "id": "p_paddock", "place": "paddock" },
-      { "n": 38, "id": "p_cart_course", "place": "cart_course" },
-      { "n": 39, "id": "p_drag_strip", "place": "drag_strip", "name": "Drag Strip" },
-      { "n": 40, "id": "p_fingers_lap", "place": "fingers_lap", "name": "Fingers Lap" },
-      { "n": 41, "id": "p_threshold_overlook", "place": "threshold_overlook" }
-    ] },
-    { "id": "mainstreet", "n": 3, "name": "Main Street and the Gate", "sub": "Stage Three: the frontier town", "ink": "#8e3322", "stamps": [
-      { "n": 50, "id": "p_expanse_gate", "place": "expanse_gate", "name": "Expanse Gate" },
-      { "n": 51, "id": "p_arcade", "place": "arcade" },
-      { "n": 52, "id": "p_heritage_strip", "place": "heritage_strip" },
-      { "n": 53, "id": "p_frontier_arch", "place": "frontier_arch", "r": 16 },
-      { "n": 54, "id": "p_four_corners", "place": "four_corners" },
-      { "n": 55, "id": "p_main_street", "place": "main_street" },
-      { "n": 56, "id": "p_depot", "place": "depot" },
-      { "n": 57, "id": "p_community_garden", "place": "community_garden" },
-      { "n": 58, "id": "p_works", "place": "works", "name": "Maker Row" }
-    ] },
-    { "id": "design", "n": 4, "name": "The Design District", "sub": "Stage Three: art on the land", "ink": "#16706f", "stamps": [
-      { "n": 70, "id": "p_compass_plaza", "place": "compass_plaza" },
-      { "n": 71, "id": "p_gbank", "name": "GBANK", "at": "gbank", "x": 915.7, "z": 477.5, "r": 24 },
-      { "n": 72, "id": "p_outpost_beacon", "place": "outpost_beacon", "r": 14 },
-      { "n": 73, "id": "p_sculpture_ave", "place": "sculpture_ave", "name": "The Seven Gates" },
-      { "n": 74, "id": "p_artist_studios", "place": "artist_studios" },
-      { "n": 75, "id": "p_design_district", "place": "design_district", "name": "Sculpture Fields" },
-      { "n": 76, "id": "p_field_of_light", "place": "field_of_light" },
-      { "n": 77, "id": "p_sun_tunnels", "place": "sun_tunnels" },
-      { "n": 78, "id": "p_flagship", "place": "flagship" },
-      { "n": 79, "id": "p_genesis_lodge", "place": "genesis_lodge" }
-    ] },
-    { "id": "outpost", "n": 5, "name": "The Outpost", "sub": "Stage Three: the off-world frontier", "ink": "#3a3f9e", "stamps": [
-      { "n": 90, "id": "p_outpost_gate", "place": "outpost_gate" },
-      { "n": 91, "id": "p_launch_plaza", "place": "launch_plaza" },
-      { "n": 92, "id": "p_mission_control", "place": "mission_control" },
-      { "n": 93, "id": "p_genesis_dome", "place": "genesis_dome", "name": "The Genesis Dome" },
-      { "n": 94, "id": "p_genesis_ring", "place": "genesis_ring" },
-      { "n": 95, "id": "p_habitat_one", "place": "habitat_one", "name": "Habitat One" },
-      { "n": 96, "id": "p_stratos_field", "place": "stratos_field" },
-      { "n": 97, "id": "p_lowg_course", "place": "lowg_course" },
-      { "n": 98, "id": "p_observatory", "place": "observatory" },
-      { "n": 99, "id": "p_crater_row", "place": "crater_row" }
-    ] },
-    { "id": "nightranch", "n": 6, "name": "Launch Complex and the Ranches", "sub": "Stage Three: after dark and open range", "ink": "#6b2b70", "stamps": [
-      { "n": 110, "id": "p_night_plaza", "place": "night_plaza" },
-      { "n": 111, "id": "p_concert_bowl", "place": "concert_bowl" },
-      { "n": 112, "id": "p_drive_in", "place": "drive_in" },
-      { "n": 113, "id": "p_geoglyph", "place": "geoglyph", "name": "The Ring Geoglyph" },
-      { "n": 114, "id": "p_solar_yard", "place": "solar_yard" },
-      { "n": 115, "id": "p_frontier_ranch", "place": "frontier_ranch" },
-      { "n": 116, "id": "p_corral", "place": "corral" },
-      { "n": 117, "id": "p_frontier_ranches", "place": "frontier_ranches" }
-    ] },
-    { "id": "commons", "n": 7, "name": "The Commons and Desert Golf", "sub": "Stage Three: stay, gather and play", "ink": "#7c4a1a", "stamps": [
-      { "n": 130, "id": "p_commons", "place": "commons" },
-      { "n": 131, "id": "p_fireside", "place": "fireside" },
-      { "n": 132, "id": "p_glamping", "place": "glamping", "name": "Glamping Loop" },
-      { "n": 133, "id": "p_fountain_court", "place": "fountain_court" },
-      { "n": 134, "id": "p_stone_spiral", "place": "stone_spiral", "r": 16 },
-      { "n": 135, "id": "p_south_ridge", "place": "south_ridge" },
-      { "n": 136, "id": "p_golf", "place": "golf", "name": "Desert Golf" },
-      { "n": 137, "id": "p_golf_clubhouse", "place": "golf_clubhouse", "name": "Golf Clubhouse" },
-      { "n": 138, "id": "p_awos", "place": "awos", "r": 16, "name": "AWOS Weather Station" },
-      { "n": 139, "id": "p_mesa_heights", "place": "mesa_heights" },
-      { "n": 140, "id": "p_sunset_bluff", "place": "sunset_bluff" }
-    ] },
-    { "id": "park", "n": 8, "name": "Genesis Park", "sub": "A partnership proposal with the City of Douglas", "ink": "#a65a26", "stamps": [
-      { "n": 150, "id": "p_gp_knoll", "place": "gp_knoll" },
-      { "n": 151, "id": "p_gp_lawn", "place": "gp_lawn" },
-      { "n": 152, "id": "p_gp_bandshell", "place": "gp_bandshell" },
-      { "n": 153, "id": "p_gp_windmill", "place": "gp_windmill" },
-      { "n": 154, "id": "p_gp_playground", "place": "gp_playground" },
-      { "n": 155, "id": "p_gp_barn", "place": "gp_barn" },
-      { "n": 156, "id": "p_gp_petting", "place": "gp_petting" },
-      { "n": 157, "id": "p_gp_spring", "place": "gp_spring", "r": 16 },
-      { "n": 158, "id": "p_gp_confluence", "place": "gp_confluence", "r": 16 },
-      { "n": 159, "id": "p_gp_stables", "place": "gp_stables" },
-      { "n": 160, "id": "p_gp_field1", "place": "gp_field1", "name": "Field 1" },
-      { "n": 161, "id": "p_gp_pump", "place": "gp_pump" }
-    ] },
-    { "id": "partners", "n": 9, "name": "Industry Partners", "sub": "Meet the partners in the FBO and at GBANK", "ink": "#0f4a2c", "bonus": 400, "stamps": [
-      { "n": 170, "id": "t_pt_stellar", "talk": "pt_stellar", "kind": "partner", "name": "Brad Kost", "org": "Stellar Aviation" },
-      { "n": 171, "id": "t_pt_paul", "talk": "pt_paul", "kind": "partner", "name": "Paul Mazzapica", "org": "FinanceAdvisors.com" },
-      { "n": 172, "id": "t_pt_jetfinders", "talk": "pt_jetfinders", "kind": "partner", "name": "Jake", "org": "JetFinders" },
-      { "n": 173, "id": "t_freedomair", "talk": "freedomair", "kind": "partner", "name": "Joe", "org": "Freedom Air" },
-      { "n": 174, "id": "t_will", "talk": "will", "kind": "partner", "name": "Will Deitrick", "org": "GBANK · Riverside Management Group" }
-    ] },
-    { "id": "locals", "n": 10, "name": "Locals of Genesis One", "sub": "Everyone who makes the site feel like home", "ink": "#8a3558", "stamps": [
-      { "n": 180, "id": "t_sky", "talk": "sky", "kind": "local", "name": "Sky", "org": "Tour guide, Arrivals Court" },
-      { "n": 181, "id": "t_rosa", "talk": "rosa", "kind": "local" },
-      { "n": 182, "id": "t_marcus", "talk": "marcus", "kind": "local" },
-      { "n": 183, "id": "t_lupe", "talk": "lupe", "kind": "local" },
-      { "n": 184, "id": "t_dale", "talk": "dale", "kind": "local" },
-      { "n": 185, "id": "t_reyes", "talk": "reyes", "kind": "local" },
-      { "n": 186, "id": "t_elena", "talk": "elena", "kind": "local" },
-      { "n": 187, "id": "t_joe", "talk": "joe", "kind": "local" },
-      { "n": 188, "id": "t_hank", "talk": "hank", "kind": "local" },
-      { "n": 189, "id": "t_priya", "talk": "priya", "kind": "local" },
-      { "n": 190, "id": "t_tomas", "talk": "tomas", "kind": "local" },
-      { "n": 191, "id": "t_mateo", "talk": "mateo", "kind": "local" },
-      { "n": 192, "id": "t_host", "talk": "host", "kind": "local", "name": "The Outpost host", "org": "Launch Plaza, The Outpost" },
-      { "n": 193, "id": "t_milo", "talk": "milo", "kind": "local" },
-      { "n": 194, "id": "t_vega", "talk": "vega", "kind": "local" },
-      { "n": 195, "id": "t_wyatt", "talk": "wyatt", "kind": "local" },
-      { "n": 196, "id": "t_dee", "talk": "dee", "kind": "local" },
-      { "n": 197, "id": "t_ada", "talk": "ada", "kind": "local" },
-      { "n": 198, "id": "t_nate", "talk": "nate", "kind": "local" },
-      { "n": 199, "id": "t_bo", "talk": "bo", "kind": "local" }
-    ] },
-    { "id": "darksky", "n": 11, "name": "The Dark Sky", "sub": "The Stargazer Pyramids and the Solport Dark Sky Observatory", "ink": "#2b2f6b", "stamps": [
-      { "n": 200, "id": "p_stargazer_pyramids", "name": "The Stargazer Pyramids", "x": 742, "z": 800, "r": 34 },
-      { "n": 201, "id": "p_dark_sky_observatory", "name": "Solport Dark Sky Observatory", "x": 772, "z": 772, "r": 13 },
-      { "n": 202, "id": "p_first_stargaze", "name": "First stargazing session", "x": 772, "z": 772, "r": 0.3 },
-      { "n": 203, "id": "t_astronomer", "talk": "astronomer", "kind": "local", "name": "Dr. Celeste Ruiz", "org": "Solport Dark Sky Observatory" }
-    ] },
-    { "id": "domes", "n": 12, "name": "Domes and Vaults", "sub": "The Dome Suites and the Grand Vault Domes at Pavilion Green", "ink": "#6b4a2b", "stamps": [
-      { "n": 210, "id": "p_club_dome_suites", "name": "The Club Dome Suites", "x": 80, "z": -412, "r": 40 },
-      { "n": 211, "id": "p_commons_dome_suites", "name": "The Commons Dome Suites", "x": 282, "z": 668, "r": 42 },
-      { "n": 212, "id": "p_south_ridge_dome_homes", "name": "South Ridge Dome Homes", "x": 575, "z": 958, "r": 45 },
-      { "n": 213, "id": "p_model_suite", "name": "Inside a Model Suite", "x": 329, "z": 696, "r": 0.3 },
-      { "n": 214, "id": "p_mesquite_room", "name": "The Mesquite Room", "x": 60, "z": -522, "r": 12 },
-      { "n": 215, "id": "p_saguaro_hall", "name": "Saguaro Hall", "x": 100, "z": -523, "r": 13 },
-      { "n": 216, "id": "p_agave_studio", "name": "Agave Studio", "x": 140, "z": -517, "r": 9 },
-      { "n": 217, "id": "t_noor", "talk": "noor", "kind": "local", "name": "Noor", "org": "Dome Suites host, The Commons" },
-      { "n": 218, "id": "t_lucia", "talk": "lucia", "kind": "local", "name": "Lucia", "org": "The Mesquite Room" },
-      { "n": 219, "id": "t_andre", "talk": "andre", "kind": "local", "name": "Andre", "org": "Saguaro Hall" },
-      { "n": 220, "id": "t_maya", "talk": "maya", "kind": "local", "name": "Maya", "org": "Agave Studio" }
-    ] }
+    {
+      "id": "solport",
+      "n": 0,
+      "name": "Solport Airfield",
+      "sub": "The 1928 airfield, City of Douglas",
+      "ink": "#2c5d9c",
+      "stamps": [
+        {
+          "n": 0,
+          "id": "p_terminal",
+          "place": "terminal",
+          "r": 34
+        },
+        {
+          "n": 1,
+          "id": "p_gate_a2",
+          "place": "gate_a2",
+          "r": 24
+        },
+        {
+          "n": 2,
+          "id": "p_tower",
+          "place": "tower",
+          "r": 24,
+          "name": "The Tower"
+        },
+        {
+          "n": 3,
+          "id": "p_hangar_row_city",
+          "place": "hangar_row_city",
+          "r": 34,
+          "name": "Hangar Row"
+        },
+        {
+          "n": 4,
+          "id": "p_museum",
+          "place": "museum",
+          "r": 24,
+          "name": "1928 Airfield Museum"
+        },
+        {
+          "n": 5,
+          "id": "p_link_plaza",
+          "place": "link_plaza",
+          "r": 18,
+          "name": "Link Plaza"
+        },
+        {
+          "n": 6,
+          "id": "p_sky_rings",
+          "place": "sky_rings",
+          "r": 22,
+          "name": "Sky Rings"
+        }
+      ]
+    },
+    {
+      "id": "landing",
+      "n": 1,
+      "name": "The Landing",
+      "sub": "Stage One: the airpark and the club",
+      "ink": "#1d7a45",
+      "stamps": [
+        {
+          "n": 10,
+          "id": "p_arrivals_court",
+          "place": "arrivals_court"
+        },
+        {
+          "n": 11,
+          "id": "p_sun_gate",
+          "place": "sun_gate",
+          "r": 16
+        },
+        {
+          "n": 12,
+          "id": "p_welcome_house",
+          "place": "welcome_house"
+        },
+        {
+          "n": 13,
+          "id": "p_cart_hub",
+          "place": "cart_hub",
+          "name": "Cart and Bike Hub"
+        },
+        {
+          "n": 14,
+          "id": "p_club_walk",
+          "place": "club_walk"
+        },
+        {
+          "n": 15,
+          "id": "p_flight_deck",
+          "place": "flight_deck"
+        },
+        {
+          "n": 16,
+          "id": "p_amphitheater",
+          "place": "amphitheater"
+        },
+        {
+          "n": 17,
+          "id": "p_crossing_plaza",
+          "place": "crossing_plaza",
+          "name": "Crossing Plaza"
+        },
+        {
+          "n": 18,
+          "id": "p_founders_row",
+          "place": "founders_row",
+          "name": "Founders Row"
+        },
+        {
+          "n": 19,
+          "id": "p_landing_club",
+          "place": "landing_club"
+        },
+        {
+          "n": 20,
+          "id": "p_chapel",
+          "place": "chapel"
+        },
+        {
+          "n": 21,
+          "id": "p_grand_pavilion",
+          "place": "grand_pavilion"
+        }
+      ]
+    },
+    {
+      "id": "flightline",
+      "n": 2,
+      "name": "The Flight Line",
+      "sub": "Stage Two: hangars, pilots and speed",
+      "ink": "#9a6410",
+      "stamps": [
+        {
+          "n": 30,
+          "id": "p_flightline_market",
+          "place": "flightline_market"
+        },
+        {
+          "n": 31,
+          "id": "p_pilot_house",
+          "place": "pilot_house",
+          "name": "The Pilot House"
+        },
+        {
+          "n": 32,
+          "id": "p_diner",
+          "place": "diner"
+        },
+        {
+          "n": 33,
+          "id": "p_propeller_plaza",
+          "place": "propeller_plaza"
+        },
+        {
+          "n": 34,
+          "id": "p_flight_school",
+          "place": "flight_school",
+          "name": "Flight School"
+        },
+        {
+          "n": 35,
+          "id": "p_giveback_shop",
+          "place": "giveback_shop"
+        },
+        {
+          "n": 36,
+          "id": "p_flightline_row",
+          "place": "flightline_row",
+          "name": "Flight Line Row"
+        },
+        {
+          "n": 37,
+          "id": "p_paddock",
+          "place": "paddock"
+        },
+        {
+          "n": 38,
+          "id": "p_cart_course",
+          "place": "cart_course"
+        },
+        {
+          "n": 39,
+          "id": "p_drag_strip",
+          "place": "drag_strip",
+          "name": "Drag Strip"
+        },
+        {
+          "n": 40,
+          "id": "p_fingers_lap",
+          "place": "fingers_lap",
+          "name": "Fingers Lap"
+        },
+        {
+          "n": 41,
+          "id": "p_threshold_overlook",
+          "place": "threshold_overlook"
+        }
+      ]
+    },
+    {
+      "id": "mainstreet",
+      "n": 3,
+      "name": "Main Street and the Gate",
+      "sub": "Stage Three: the frontier town",
+      "ink": "#8e3322",
+      "stamps": [
+        {
+          "n": 50,
+          "id": "p_expanse_gate",
+          "place": "expanse_gate",
+          "name": "Expanse Gate"
+        },
+        {
+          "n": 51,
+          "id": "p_arcade",
+          "place": "arcade"
+        },
+        {
+          "n": 52,
+          "id": "p_heritage_strip",
+          "place": "heritage_strip"
+        },
+        {
+          "n": 53,
+          "id": "p_frontier_arch",
+          "place": "frontier_arch",
+          "r": 16
+        },
+        {
+          "n": 54,
+          "id": "p_four_corners",
+          "place": "four_corners"
+        },
+        {
+          "n": 55,
+          "id": "p_main_street",
+          "place": "main_street"
+        },
+        {
+          "n": 56,
+          "id": "p_depot",
+          "place": "depot"
+        },
+        {
+          "n": 57,
+          "id": "p_community_garden",
+          "place": "community_garden"
+        },
+        {
+          "n": 58,
+          "id": "p_works",
+          "place": "works",
+          "name": "Maker Row"
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "n": 4,
+      "name": "The Design District",
+      "sub": "Stage Three: art on the land",
+      "ink": "#16706f",
+      "stamps": [
+        {
+          "n": 70,
+          "id": "p_compass_plaza",
+          "place": "compass_plaza"
+        },
+        {
+          "n": 71,
+          "id": "p_gbank",
+          "name": "GBANK",
+          "at": "gbank",
+          "x": 915.7,
+          "z": 477.5,
+          "r": 24
+        },
+        {
+          "n": 72,
+          "id": "p_outpost_beacon",
+          "place": "outpost_beacon",
+          "r": 14
+        },
+        {
+          "n": 73,
+          "id": "p_sculpture_ave",
+          "place": "sculpture_ave",
+          "name": "The Seven Gates"
+        },
+        {
+          "n": 74,
+          "id": "p_artist_studios",
+          "place": "artist_studios"
+        },
+        {
+          "n": 75,
+          "id": "p_design_district",
+          "place": "design_district",
+          "name": "Sculpture Fields"
+        },
+        {
+          "n": 76,
+          "id": "p_field_of_light",
+          "place": "field_of_light"
+        },
+        {
+          "n": 77,
+          "id": "p_sun_tunnels",
+          "place": "sun_tunnels"
+        },
+        {
+          "n": 78,
+          "id": "p_flagship",
+          "place": "flagship"
+        },
+        {
+          "n": 79,
+          "id": "p_genesis_lodge",
+          "place": "genesis_lodge"
+        }
+      ]
+    },
+    {
+      "id": "outpost",
+      "n": 5,
+      "name": "The Outpost",
+      "sub": "Stage Three: the off-world frontier",
+      "ink": "#3a3f9e",
+      "stamps": [
+        {
+          "n": 90,
+          "id": "p_outpost_gate",
+          "place": "outpost_gate"
+        },
+        {
+          "n": 91,
+          "id": "p_launch_plaza",
+          "place": "launch_plaza"
+        },
+        {
+          "n": 92,
+          "id": "p_mission_control",
+          "place": "mission_control"
+        },
+        {
+          "n": 93,
+          "id": "p_genesis_dome",
+          "place": "genesis_dome",
+          "name": "The Genesis Dome"
+        },
+        {
+          "n": 94,
+          "id": "p_genesis_ring",
+          "place": "genesis_ring"
+        },
+        {
+          "n": 95,
+          "id": "p_habitat_one",
+          "place": "habitat_one",
+          "name": "Habitat One"
+        },
+        {
+          "n": 96,
+          "id": "p_stratos_field",
+          "place": "stratos_field"
+        },
+        {
+          "n": 97,
+          "id": "p_lowg_course",
+          "place": "lowg_course"
+        },
+        {
+          "n": 98,
+          "id": "p_observatory",
+          "place": "observatory"
+        },
+        {
+          "n": 99,
+          "id": "p_crater_row",
+          "place": "crater_row"
+        }
+      ]
+    },
+    {
+      "id": "nightranch",
+      "n": 6,
+      "name": "Launch Complex and the Ranches",
+      "sub": "Stage Three: after dark and open range",
+      "ink": "#6b2b70",
+      "stamps": [
+        {
+          "n": 110,
+          "id": "p_night_plaza",
+          "place": "night_plaza"
+        },
+        {
+          "n": 111,
+          "id": "p_concert_bowl",
+          "place": "concert_bowl"
+        },
+        {
+          "n": 112,
+          "id": "p_drive_in",
+          "place": "drive_in"
+        },
+        {
+          "n": 113,
+          "id": "p_geoglyph",
+          "place": "geoglyph",
+          "name": "The Ring Geoglyph"
+        },
+        {
+          "n": 114,
+          "id": "p_solar_yard",
+          "place": "solar_yard"
+        },
+        {
+          "n": 115,
+          "id": "p_frontier_ranch",
+          "place": "frontier_ranch"
+        },
+        {
+          "n": 116,
+          "id": "p_corral",
+          "place": "corral"
+        },
+        {
+          "n": 117,
+          "id": "p_frontier_ranches",
+          "place": "frontier_ranches"
+        }
+      ]
+    },
+    {
+      "id": "commons",
+      "n": 7,
+      "name": "The Commons and Desert Golf",
+      "sub": "Stage Three: stay, gather and play",
+      "ink": "#7c4a1a",
+      "stamps": [
+        {
+          "n": 130,
+          "id": "p_commons",
+          "place": "commons"
+        },
+        {
+          "n": 131,
+          "id": "p_fireside",
+          "place": "fireside"
+        },
+        {
+          "n": 132,
+          "id": "p_glamping",
+          "place": "glamping",
+          "name": "Glamping Loop"
+        },
+        {
+          "n": 133,
+          "id": "p_fountain_court",
+          "place": "fountain_court"
+        },
+        {
+          "n": 134,
+          "id": "p_stone_spiral",
+          "place": "stone_spiral",
+          "r": 16
+        },
+        {
+          "n": 135,
+          "id": "p_south_ridge",
+          "place": "south_ridge"
+        },
+        {
+          "n": 136,
+          "id": "p_golf",
+          "place": "golf",
+          "name": "Desert Golf"
+        },
+        {
+          "n": 137,
+          "id": "p_golf_clubhouse",
+          "place": "golf_clubhouse",
+          "name": "Golf Clubhouse"
+        },
+        {
+          "n": 138,
+          "id": "p_awos",
+          "place": "awos",
+          "r": 16,
+          "name": "AWOS Weather Station"
+        },
+        {
+          "n": 139,
+          "id": "p_mesa_heights",
+          "place": "mesa_heights"
+        },
+        {
+          "n": 140,
+          "id": "p_sunset_bluff",
+          "place": "sunset_bluff"
+        }
+      ]
+    },
+    {
+      "id": "park",
+      "n": 8,
+      "name": "Genesis Park",
+      "sub": "A partnership proposal with the City of Douglas",
+      "ink": "#a65a26",
+      "stamps": [
+        {
+          "n": 150,
+          "id": "p_gp_knoll",
+          "place": "gp_knoll"
+        },
+        {
+          "n": 151,
+          "id": "p_gp_lawn",
+          "place": "gp_lawn"
+        },
+        {
+          "n": 152,
+          "id": "p_gp_bandshell",
+          "place": "gp_bandshell"
+        },
+        {
+          "n": 153,
+          "id": "p_gp_windmill",
+          "place": "gp_windmill"
+        },
+        {
+          "n": 154,
+          "id": "p_gp_playground",
+          "place": "gp_playground"
+        },
+        {
+          "n": 155,
+          "id": "p_gp_barn",
+          "place": "gp_barn"
+        },
+        {
+          "n": 156,
+          "id": "p_gp_petting",
+          "place": "gp_petting"
+        },
+        {
+          "n": 157,
+          "id": "p_gp_spring",
+          "place": "gp_spring",
+          "r": 16
+        },
+        {
+          "n": 158,
+          "id": "p_gp_confluence",
+          "place": "gp_confluence",
+          "r": 16
+        },
+        {
+          "n": 159,
+          "id": "p_gp_stables",
+          "place": "gp_stables"
+        },
+        {
+          "n": 160,
+          "id": "p_gp_field1",
+          "place": "gp_field1",
+          "name": "Field 1"
+        },
+        {
+          "n": 161,
+          "id": "p_gp_pump",
+          "place": "gp_pump"
+        }
+      ]
+    },
+    {
+      "id": "partners",
+      "n": 9,
+      "name": "Industry Partners",
+      "sub": "Meet the partners in the FBO and at GBANK",
+      "ink": "#0f4a2c",
+      "bonus": 400,
+      "stamps": [
+        {
+          "n": 170,
+          "id": "t_pt_stellar",
+          "talk": "pt_stellar",
+          "kind": "partner",
+          "name": "Brad Kost",
+          "org": "Stellar Aviation"
+        },
+        {
+          "n": 171,
+          "id": "t_pt_paul",
+          "talk": "pt_paul",
+          "kind": "partner",
+          "name": "Paul Mazzapica",
+          "org": "FinanceAdvisors.com"
+        },
+        {
+          "n": 172,
+          "id": "t_pt_jetfinders",
+          "talk": "pt_jetfinders",
+          "kind": "partner",
+          "name": "Jake",
+          "org": "JetFinders"
+        },
+        {
+          "n": 173,
+          "id": "t_freedomair",
+          "talk": "freedomair",
+          "kind": "partner",
+          "name": "Joe",
+          "org": "Freedom Air"
+        },
+        {
+          "n": 174,
+          "id": "t_will",
+          "talk": "will",
+          "kind": "partner",
+          "name": "Will Deitrick",
+          "org": "GBANK · Riverside Management Group"
+        }
+      ]
+    },
+    {
+      "id": "locals",
+      "n": 10,
+      "name": "Locals of Genesis One",
+      "sub": "Everyone who makes the site feel like home",
+      "ink": "#8a3558",
+      "stamps": [
+        {
+          "n": 180,
+          "id": "t_sky",
+          "talk": "sky",
+          "kind": "local",
+          "name": "Sky",
+          "org": "Tour guide, Arrivals Court"
+        },
+        {
+          "n": 181,
+          "id": "t_rosa",
+          "talk": "rosa",
+          "kind": "local"
+        },
+        {
+          "n": 182,
+          "id": "t_marcus",
+          "talk": "marcus",
+          "kind": "local"
+        },
+        {
+          "n": 183,
+          "id": "t_lupe",
+          "talk": "lupe",
+          "kind": "local"
+        },
+        {
+          "n": 184,
+          "id": "t_dale",
+          "talk": "dale",
+          "kind": "local"
+        },
+        {
+          "n": 185,
+          "id": "t_reyes",
+          "talk": "reyes",
+          "kind": "local"
+        },
+        {
+          "n": 186,
+          "id": "t_elena",
+          "talk": "elena",
+          "kind": "local"
+        },
+        {
+          "n": 187,
+          "id": "t_joe",
+          "talk": "joe",
+          "kind": "local"
+        },
+        {
+          "n": 188,
+          "id": "t_hank",
+          "talk": "hank",
+          "kind": "local"
+        },
+        {
+          "n": 189,
+          "id": "t_priya",
+          "talk": "priya",
+          "kind": "local"
+        },
+        {
+          "n": 190,
+          "id": "t_tomas",
+          "talk": "tomas",
+          "kind": "local"
+        },
+        {
+          "n": 191,
+          "id": "t_mateo",
+          "talk": "mateo",
+          "kind": "local"
+        },
+        {
+          "n": 192,
+          "id": "t_host",
+          "talk": "host",
+          "kind": "local",
+          "name": "The Outpost host",
+          "org": "Launch Plaza, The Outpost"
+        },
+        {
+          "n": 193,
+          "id": "t_milo",
+          "talk": "milo",
+          "kind": "local"
+        },
+        {
+          "n": 194,
+          "id": "t_vega",
+          "talk": "vega",
+          "kind": "local"
+        },
+        {
+          "n": 195,
+          "id": "t_wyatt",
+          "talk": "wyatt",
+          "kind": "local"
+        },
+        {
+          "n": 196,
+          "id": "t_dee",
+          "talk": "dee",
+          "kind": "local"
+        },
+        {
+          "n": 197,
+          "id": "t_ada",
+          "talk": "ada",
+          "kind": "local"
+        },
+        {
+          "n": 198,
+          "id": "t_nate",
+          "talk": "nate",
+          "kind": "local"
+        },
+        {
+          "n": 199,
+          "id": "t_bo",
+          "talk": "bo",
+          "kind": "local"
+        }
+      ]
+    },
+    {
+      "id": "darksky",
+      "n": 11,
+      "name": "The Dark Sky",
+      "sub": "The Stargazer Pyramids and the Solport Dark Sky Observatory",
+      "ink": "#2b2f6b",
+      "stamps": [
+        {
+          "n": 200,
+          "id": "p_stargazer_pyramids",
+          "name": "The Stargazer Pyramids",
+          "x": 742,
+          "z": 800,
+          "r": 34
+        },
+        {
+          "n": 201,
+          "id": "p_dark_sky_observatory",
+          "name": "Solport Dark Sky Observatory",
+          "x": 772,
+          "z": 772,
+          "r": 13
+        },
+        {
+          "n": 202,
+          "id": "p_first_stargaze",
+          "name": "First stargazing session",
+          "x": 772,
+          "z": 772,
+          "r": 0.3
+        },
+        {
+          "n": 203,
+          "id": "t_astronomer",
+          "talk": "astronomer",
+          "kind": "local",
+          "name": "Dr. Celeste Ruiz",
+          "org": "Solport Dark Sky Observatory"
+        }
+      ]
+    },
+    {
+      "id": "domes",
+      "n": 12,
+      "name": "Domes and Vaults",
+      "sub": "The Dome Suites and the Grand Vault Domes at Pavilion Green",
+      "ink": "#6b4a2b",
+      "stamps": [
+        {
+          "n": 210,
+          "id": "p_club_dome_suites",
+          "name": "The Club Dome Suites",
+          "x": 80,
+          "z": -412,
+          "r": 40
+        },
+        {
+          "n": 211,
+          "id": "p_commons_dome_suites",
+          "name": "The Commons Dome Suites",
+          "x": 282,
+          "z": 668,
+          "r": 42
+        },
+        {
+          "n": 212,
+          "id": "p_south_ridge_dome_homes",
+          "name": "South Ridge Dome Homes",
+          "x": 575,
+          "z": 958,
+          "r": 45
+        },
+        {
+          "n": 213,
+          "id": "p_model_suite",
+          "name": "Inside a Model Suite",
+          "x": 329,
+          "z": 696,
+          "r": 0.3
+        },
+        {
+          "n": 214,
+          "id": "p_mesquite_room",
+          "name": "The Mesquite Room",
+          "x": 60,
+          "z": -522,
+          "r": 12
+        },
+        {
+          "n": 215,
+          "id": "p_saguaro_hall",
+          "name": "Saguaro Hall",
+          "x": 100,
+          "z": -523,
+          "r": 13
+        },
+        {
+          "n": 216,
+          "id": "p_agave_studio",
+          "name": "Agave Studio",
+          "x": 140,
+          "z": -517,
+          "r": 9
+        },
+        {
+          "n": 217,
+          "id": "t_noor",
+          "talk": "noor",
+          "kind": "local",
+          "name": "Noor",
+          "org": "Dome Suites host, The Commons"
+        },
+        {
+          "n": 218,
+          "id": "t_lucia",
+          "talk": "lucia",
+          "kind": "local",
+          "name": "Lucia",
+          "org": "The Mesquite Room"
+        },
+        {
+          "n": 219,
+          "id": "t_andre",
+          "talk": "andre",
+          "kind": "local",
+          "name": "Andre",
+          "org": "Saguaro Hall"
+        },
+        {
+          "n": 220,
+          "id": "t_maya",
+          "talk": "maya",
+          "kind": "local",
+          "name": "Maya",
+          "org": "Agave Studio"
+        }
+      ]
+    },
+    {
+      "id": "convention",
+      "n": 13,
+      "name": "Solport Convention Center",
+      "sub": "The main arena, the Market Hall and the Festival Grounds beside the Stellar FBO",
+      "ink": "#8a4a22",
+      "stamps": [
+        {
+          "n": 221,
+          "id": "p_solport_arena",
+          "name": "Solport Convention Center",
+          "x": -270,
+          "z": -90,
+          "r": 30
+        },
+        {
+          "n": 222,
+          "id": "p_solport_keynote",
+          "name": "A keynote in the main hall",
+          "x": -391.4,
+          "z": -90,
+          "r": 0.3
+        },
+        {
+          "n": 223,
+          "id": "t_maren",
+          "talk": "maren",
+          "kind": "local",
+          "name": "Maren",
+          "org": "Host, Solport Convention Center"
+        },
+        {
+          "n": 230,
+          "id": "p_festival_grounds",
+          "name": "The Festival Grounds",
+          "x": -188,
+          "z": -98,
+          "r": 45
+        },
+        {
+          "n": 231,
+          "id": "p_convention_dropoff",
+          "name": "Convention Center Drop-off",
+          "x": -200,
+          "z": -174,
+          "r": 14
+        },
+        {
+          "n": 232,
+          "id": "p_side_stage_dance",
+          "name": "A dance battle at the Side Stage",
+          "x": -164.6,
+          "z": -145.7,
+          "r": 0.3
+        },
+        {
+          "n": 233,
+          "id": "t_jordan",
+          "talk": "jordan",
+          "kind": "local",
+          "name": "Jordan",
+          "org": "Campus host, Solport Convention Center"
+        },
+        {
+          "n": 240,
+          "id": "p_market_hall",
+          "name": "The Market Hall",
+          "x": -302,
+          "z": 27,
+          "r": 40
+        },
+        {
+          "n": 241,
+          "id": "p_weekend_market",
+          "name": "The Weekend Market",
+          "x": -357,
+          "z": -9,
+          "r": 30
+        },
+        {
+          "n": 242,
+          "id": "p_market_mezzanine",
+          "name": "Up on the Market Hall terraces",
+          "x": -302,
+          "z": 15,
+          "r": 0.3
+        },
+        {
+          "n": 243,
+          "id": "p_market_coffee",
+          "name": "A coffee at the Market Hall",
+          "x": -302,
+          "z": 17,
+          "r": 0.3
+        },
+        {
+          "n": 244,
+          "id": "t_rosa_mk",
+          "talk": "rosa_mk",
+          "kind": "local",
+          "name": "Rosa",
+          "org": "Sonoran Kitchen, Market Hall"
+        },
+        {
+          "n": 245,
+          "id": "t_eli_mk",
+          "talk": "eli_mk",
+          "kind": "local",
+          "name": "Eli",
+          "org": "Copper Kettle Coffee, Market Hall"
+        },
+        {
+          "n": 246,
+          "id": "t_mara_mk",
+          "talk": "mara_mk",
+          "kind": "local",
+          "name": "Mara",
+          "org": "Native Hands, Market Hall"
+        },
+        {
+          "n": 247,
+          "id": "t_tomas_mk",
+          "talk": "tomas_mk",
+          "kind": "local",
+          "name": "Tomas",
+          "org": "The Weekend Market"
+        }
+      ]
+    }
   ],
   "titles": [
-    { "id": "solport_regular", "name": "Solport Regular", "unlock": "chapter:solport" },
-    { "id": "landing_local", "name": "Landing Local", "unlock": "chapter:landing" },
-    { "id": "flight_line_crew", "name": "Flight Line Crew", "unlock": "chapter:flightline" },
-    { "id": "frontier_regular", "name": "Frontier Regular", "unlock": "chapter:mainstreet" },
-    { "id": "patron_of_the_arts", "name": "Patron of the Arts", "unlock": "chapter:design" },
-    { "id": "outpost_pioneer", "name": "Outpost Pioneer", "unlock": "chapter:outpost" },
-    { "id": "night_owl", "name": "Night Owl", "unlock": "chapter:nightranch" },
-    { "id": "fireside_regular", "name": "Fireside Regular", "unlock": "chapter:commons" },
-    { "id": "friend_of_the_park", "name": "Friend of the Park", "unlock": "chapter:park" },
-    { "id": "partner_circle", "name": "Partner Circle", "unlock": "chapter:partners" },
-    { "id": "good_neighbour", "name": "Good Neighbour", "unlock": "chapter:locals" },
-    { "id": "stargazer", "name": "Stargazer", "unlock": "chapter:darksky" },
-    { "id": "dome_dweller", "name": "Dome Dweller", "unlock": "chapter:domes" },
-    { "id": "regular_flyer", "name": "Regular Flyer", "unlock": "streak:7" },
-    { "id": "sol_voyager", "name": "Sol Voyager", "unlock": "passport" }
+    {
+      "id": "solport_regular",
+      "name": "Solport Regular",
+      "unlock": "chapter:solport"
+    },
+    {
+      "id": "landing_local",
+      "name": "Landing Local",
+      "unlock": "chapter:landing"
+    },
+    {
+      "id": "flight_line_crew",
+      "name": "Flight Line Crew",
+      "unlock": "chapter:flightline"
+    },
+    {
+      "id": "frontier_regular",
+      "name": "Frontier Regular",
+      "unlock": "chapter:mainstreet"
+    },
+    {
+      "id": "patron_of_the_arts",
+      "name": "Patron of the Arts",
+      "unlock": "chapter:design"
+    },
+    {
+      "id": "outpost_pioneer",
+      "name": "Outpost Pioneer",
+      "unlock": "chapter:outpost"
+    },
+    {
+      "id": "night_owl",
+      "name": "Night Owl",
+      "unlock": "chapter:nightranch"
+    },
+    {
+      "id": "fireside_regular",
+      "name": "Fireside Regular",
+      "unlock": "chapter:commons"
+    },
+    {
+      "id": "friend_of_the_park",
+      "name": "Friend of the Park",
+      "unlock": "chapter:park"
+    },
+    {
+      "id": "partner_circle",
+      "name": "Partner Circle",
+      "unlock": "chapter:partners"
+    },
+    {
+      "id": "good_neighbour",
+      "name": "Good Neighbour",
+      "unlock": "chapter:locals"
+    },
+    {
+      "id": "stargazer",
+      "name": "Stargazer",
+      "unlock": "chapter:darksky"
+    },
+    {
+      "id": "dome_dweller",
+      "name": "Dome Dweller",
+      "unlock": "chapter:domes"
+    },
+    {
+      "id": "regular_flyer",
+      "name": "Regular Flyer",
+      "unlock": "streak:7"
+    },
+    {
+      "id": "sol_voyager",
+      "name": "Sol Voyager",
+      "unlock": "passport"
+    }
   ],
   "paints": [
-    { "cartc": 10, "id": "paint_silver", "name": "Runway Silver", "hue": 212, "sat": 0.12, "light": 1.12, "swatch": "#b7c0cb", "unlock": "rank:pilot" },
-    { "cartc": 11, "id": "paint_gold", "name": "Flight Line Gold", "hue": 45, "sat": 1.05, "light": 1.18, "swatch": "#e2b12f", "unlock": "chapter:flightline" },
-    { "cartc": 12, "id": "paint_indigo", "name": "Outpost Indigo", "hue": 238, "sat": 0.85, "light": 0.82, "swatch": "#3d41a8", "unlock": "chapter:outpost" },
-    { "cartc": 13, "id": "paint_sage", "name": "Meadow Sage", "hue": 96, "sat": 0.35, "light": 1.05, "swatch": "#8ea57a", "unlock": "chapter:park" },
-    { "cartc": 14, "id": "paint_navy", "name": "Captain Navy", "hue": 222, "sat": 0.9, "light": 0.55, "swatch": "#1f2f5c", "unlock": "rank:captain" },
-    { "cartc": 15, "id": "paint_crimson", "name": "Tower Crimson", "hue": 350, "sat": 0.95, "light": 0.62, "swatch": "#7c1628", "unlock": "rank:tower" }
+    {
+      "cartc": 10,
+      "id": "paint_silver",
+      "name": "Runway Silver",
+      "hue": 212,
+      "sat": 0.12,
+      "light": 1.12,
+      "swatch": "#b7c0cb",
+      "unlock": "rank:pilot"
+    },
+    {
+      "cartc": 11,
+      "id": "paint_gold",
+      "name": "Flight Line Gold",
+      "hue": 45,
+      "sat": 1.05,
+      "light": 1.18,
+      "swatch": "#e2b12f",
+      "unlock": "chapter:flightline"
+    },
+    {
+      "cartc": 12,
+      "id": "paint_indigo",
+      "name": "Outpost Indigo",
+      "hue": 238,
+      "sat": 0.85,
+      "light": 0.82,
+      "swatch": "#3d41a8",
+      "unlock": "chapter:outpost"
+    },
+    {
+      "cartc": 13,
+      "id": "paint_sage",
+      "name": "Meadow Sage",
+      "hue": 96,
+      "sat": 0.35,
+      "light": 1.05,
+      "swatch": "#8ea57a",
+      "unlock": "chapter:park"
+    },
+    {
+      "cartc": 14,
+      "id": "paint_navy",
+      "name": "Captain Navy",
+      "hue": 222,
+      "sat": 0.9,
+      "light": 0.55,
+      "swatch": "#1f2f5c",
+      "unlock": "rank:captain"
+    },
+    {
+      "cartc": 15,
+      "id": "paint_crimson",
+      "name": "Tower Crimson",
+      "hue": 350,
+      "sat": 0.95,
+      "light": 0.62,
+      "swatch": "#7c1628",
+      "unlock": "rank:tower"
+    }
   ],
   "impact": {
     "label": "In-game impact",
     "note": "Counts what everyone does in Genesis One: passport stamps, first conversations, flights, landings, activities, rides and daily visits. It is a game counter only: no money is involved and nothing here is a donation.",
     "rows": [
-      { "key": "stamps", "name": "Passport stamps collected" },
-      { "key": "talks", "name": "First conversations" },
-      { "key": "flights", "name": "Flights flown" },
-      { "key": "landings", "name": "Landings" },
-      { "key": "acts", "name": "Activities completed" },
-      { "key": "rides", "name": "Rides taken" },
-      { "key": "visits", "name": "Daily visits" }
+      {
+        "key": "stamps",
+        "name": "Passport stamps collected"
+      },
+      {
+        "key": "talks",
+        "name": "First conversations"
+      },
+      {
+        "key": "flights",
+        "name": "Flights flown"
+      },
+      {
+        "key": "landings",
+        "name": "Landings"
+      },
+      {
+        "key": "acts",
+        "name": "Activities completed"
+      },
+      {
+        "key": "rides",
+        "name": "Rides taken"
+      },
+      {
+        "key": "visits",
+        "name": "Daily visits"
+      }
     ],
     "milestones": [
-      { "n": 0, "id": "banners", "at": 250, "name": "Community Banners", "desc": "Tall banners rise around Compass Plaza, for everyone to see." },
-      { "n": 1, "id": "lanterns", "at": 1000, "name": "Lantern Ring", "desc": "A ring of lanterns lights Compass Plaza after dark." },
-      { "n": 2, "id": "drones", "at": 2500, "name": "Drone Light Show", "desc": "A drone light show over Compass Plaza every night." },
-      { "n": 3, "id": "fireworks", "at": 5000, "name": "Fireworks", "desc": "Fireworks over Compass Plaza after dark." },
-      { "n": 4, "id": "beacon", "at": 10000, "name": "Sol Beacon", "desc": "A golden beam rises from the Outpost Beacon at night, seen from the whole site." }
+      {
+        "n": 0,
+        "id": "banners",
+        "at": 250,
+        "name": "Community Banners",
+        "desc": "Tall banners rise around Compass Plaza, for everyone to see."
+      },
+      {
+        "n": 1,
+        "id": "lanterns",
+        "at": 1000,
+        "name": "Lantern Ring",
+        "desc": "A ring of lanterns lights Compass Plaza after dark."
+      },
+      {
+        "n": 2,
+        "id": "drones",
+        "at": 2500,
+        "name": "Drone Light Show",
+        "desc": "A drone light show over Compass Plaza every night."
+      },
+      {
+        "n": 3,
+        "id": "fireworks",
+        "at": 5000,
+        "name": "Fireworks",
+        "desc": "Fireworks over Compass Plaza after dark."
+      },
+      {
+        "n": 4,
+        "id": "beacon",
+        "at": 10000,
+        "name": "Sol Beacon",
+        "desc": "A golden beam rises from the Outpost Beacon at night, seen from the whole site."
+      }
     ]
   },
-  "lookout": { "name": "Tower Lookout", "place": "tower", "minRank": 3, "deckUp": 24.9, "locked": "The Tower Lookout opens at Tower rank. Keep collecting stamps, flying and playing." },
+  "lookout": {
+    "name": "Tower Lookout",
+    "place": "tower",
+    "minRank": 3,
+    "deckUp": 24.9,
+    "locked": "The Tower Lookout opens at Tower rank. Keep collecting stamps, flying and playing."
+  },
   "howto": [
-    { "t": "Collect passport stamps", "d": "Arrive at a place in the passport to stamp it.", "xp": "+40 XP each" },
-    { "t": "Meet the Industry Partners", "d": "Your first conversation with Brad, Paul, Jake, Joe and Will.", "xp": "+100 XP each" },
-    { "t": "Meet the locals", "d": "Talk to Sky and every named character on the site.", "xp": "+50 XP each" },
-    { "t": "Complete a passport chapter", "d": "Every stamp on a page earns a bonus and a reward: a title, a cart paint or a seal.", "xp": "+250 XP (Industry Partners +400)" },
-    { "t": "Try every activity", "d": "Desert Golf, the Cart Course, the Drag Strip, the Low-G Course, Sky Rings, Founders' Cache, Fingers Lap, the Bull Ride, a Dance Battle, the Balloon Race and an arcade prize.", "xp": "+100 XP the first time, +20 after" },
-    { "t": "Fly your own jet", "d": "Complete a flight in Giveback One.", "xp": "+150 XP the first flight, then +40 and a score bonus" },
-    { "t": "Land a jet", "d": "Bring a jet down safely on the runway.", "xp": "+100 XP the first landing, then +25" },
-    { "t": "Take a ride", "d": "The Outpost Rover, the Stagecoach, The Crossing shuttle, a site shuttle or a friend's cart.", "xp": "+60 XP the first of each, then +10" },
-    { "t": "Finish your day one steps", "d": "The welcome checklist you get after the tutorial.", "xp": "+25 XP each" },
-    { "t": "Visit every day", "d": "Your first visit each day, plus a streak bonus that grows each day in a row. Extra bonuses at 3, 7, 14 and 30 days.", "xp": "+25 XP a day and up" },
-    { "t": "Help the community", "d": "When the community impact meter reaches a milestone and you have taken part.", "xp": "+150 XP each milestone" },
-    { "t": "Complete the whole passport", "d": "Every stamp in every chapter.", "xp": "+1,000 XP and the Sol Voyager title" }
+    {
+      "t": "Collect passport stamps",
+      "d": "Arrive at a place in the passport to stamp it.",
+      "xp": "+40 XP each"
+    },
+    {
+      "t": "Meet the Industry Partners",
+      "d": "Your first conversation with Brad, Paul, Jake, Joe and Will.",
+      "xp": "+100 XP each"
+    },
+    {
+      "t": "Meet the locals",
+      "d": "Talk to Sky and every named character on the site.",
+      "xp": "+50 XP each"
+    },
+    {
+      "t": "Complete a passport chapter",
+      "d": "Every stamp on a page earns a bonus and a reward: a title, a cart paint or a seal.",
+      "xp": "+250 XP (Industry Partners +400)"
+    },
+    {
+      "t": "Try every activity",
+      "d": "Desert Golf, the Cart Course, the Drag Strip, the Low-G Course, Sky Rings, Founders' Cache, Fingers Lap, the Bull Ride, a Dance Battle, the Balloon Race and an arcade prize.",
+      "xp": "+100 XP the first time, +20 after"
+    },
+    {
+      "t": "Fly your own jet",
+      "d": "Complete a flight in Giveback One.",
+      "xp": "+150 XP the first flight, then +40 and a score bonus"
+    },
+    {
+      "t": "Land a jet",
+      "d": "Bring a jet down safely on the runway.",
+      "xp": "+100 XP the first landing, then +25"
+    },
+    {
+      "t": "Take a ride",
+      "d": "The Outpost Rover, the Stagecoach, The Crossing shuttle, a site shuttle or a friend's cart.",
+      "xp": "+60 XP the first of each, then +10"
+    },
+    {
+      "t": "Finish your day one steps",
+      "d": "The welcome checklist you get after the tutorial.",
+      "xp": "+25 XP each"
+    },
+    {
+      "t": "Visit every day",
+      "d": "Your first visit each day, plus a streak bonus that grows each day in a row. Extra bonuses at 3, 7, 14 and 30 days.",
+      "xp": "+25 XP a day and up"
+    },
+    {
+      "t": "Help the community",
+      "d": "When the community impact meter reaches a milestone and you have taken part.",
+      "xp": "+150 XP each milestone"
+    },
+    {
+      "t": "Complete the whole passport",
+      "d": "Every stamp in every chapter.",
+      "xp": "+1,000 XP and the Sol Voyager title"
+    }
   ],
   "rules": "Ranks are earned by play only. They are never bought and never tied to coins, tokens or money. Repeat XP from activities, flights, landings and rides is capped each day; stamps, firsts and bonuses are not.",
   "copy": {

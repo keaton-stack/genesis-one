@@ -1,0 +1,1631 @@
+{
+ "_about": "R7 (2 Oct 2026): the Solport Convention Center campus festival grounds, campus paths, the shuttle drop-off and the campus event life. Read by plan_festival.js. World frame: x east, z south (north is -z). Hours are in-game hours (one in-game day is 24 real minutes). Every name and line of copy the player sees is here: no em dashes, no fee or charity-share figures.",
+ "version": 1,
+ "names": {
+  "campus": "Solport Convention Center",
+  "grounds": "The Festival Grounds",
+  "short": "Festival Grounds",
+  "summit": "Solport Summit",
+  "kicker": "Lawn, bars, food trucks and the Side Stage",
+  "dropoff": "Convention Center Drop-off",
+  "stage": "The Side Stage"
+ },
+ "site": {
+  "bounds": [
+   -245,
+   -165,
+   -132,
+   -30
+  ],
+  "lawn": [
+   [
+    -226,
+    -150
+   ],
+   [
+    -196,
+    -153
+   ],
+   [
+    -176,
+    -149
+   ],
+   [
+    -171,
+    -128
+   ],
+   [
+    -172,
+    -100
+   ],
+   [
+    -176,
+    -80
+   ],
+   [
+    -200,
+    -76
+   ],
+   [
+    -224,
+    -79
+   ],
+   [
+    -229,
+    -104
+   ],
+   [
+    -228,
+    -130
+   ]
+  ],
+  "stage": {
+   "x": -160,
+   "z": -133,
+   "face": [
+    -0.34,
+    -0.94
+   ],
+   "w": 14,
+   "d": 8,
+   "h": 1.2
+  },
+  "dance": {
+   "w": 22,
+   "d": 15,
+   "ahead": 13.5
+  },
+  "trucks": [
+   {
+    "id": "giveback",
+    "x": -238.5,
+    "z": -104,
+    "face": 1.5708,
+    "livery": "giveback"
+   },
+   {
+    "id": "tacos",
+    "x": -238.5,
+    "z": -125,
+    "face": 1.5708,
+    "livery": "tacos"
+   },
+   {
+    "id": "coffee",
+    "x": -238.5,
+    "z": -84,
+    "face": 1.5708,
+    "livery": "coffee"
+   },
+   {
+    "id": "pizza",
+    "x": -238.5,
+    "z": -145,
+    "face": 1.5708,
+    "livery": "pizza"
+   }
+  ],
+  "bars": [
+   {
+    "id": "pergola",
+    "x": -140,
+    "z": -157,
+    "face": -1.9,
+    "w": 9.0,
+    "d": 4.4,
+    "sign": "goodtech"
+   },
+   {
+    "id": "mesquite",
+    "x": -139,
+    "z": -78,
+    "face": -1.5708,
+    "w": 10.0,
+    "d": 4.4,
+    "sign": "mesquite"
+   },
+   {
+    "id": "cart",
+    "x": -150,
+    "z": -44,
+    "face": 3.1416,
+    "w": 5.0,
+    "d": 3.2,
+    "sign": "cart",
+    "small": true
+   }
+  ],
+  "picnic": {
+   "lawn": [
+    [
+     -216,
+     -142
+    ],
+    [
+     -204,
+     -138
+    ],
+    [
+     -216,
+     -124
+    ],
+    [
+     -203,
+     -120
+    ],
+    [
+     -190,
+     -126
+    ],
+    [
+     -215,
+     -106
+    ],
+    [
+     -201,
+     -102
+    ],
+    [
+     -188,
+     -108
+    ],
+    [
+     -214,
+     -90
+    ],
+    [
+     -200,
+     -86
+    ],
+    [
+     -187,
+     -92
+    ]
+   ],
+   "plaza": [
+    [
+     -222,
+     -60
+    ],
+    [
+     -208,
+     -56
+    ],
+    [
+     -194,
+     -61
+    ],
+    [
+     -180,
+     -55
+    ],
+    [
+     -166,
+     -60
+    ],
+    [
+     -152,
+     -56
+    ],
+    [
+     -215,
+     -44
+    ],
+    [
+     -200,
+     -42
+    ],
+    [
+     -186,
+     -45
+    ],
+    [
+     -172,
+     -42
+    ],
+    [
+     -160,
+     -117
+    ],
+    [
+     -152,
+     -106
+    ],
+    [
+     -162,
+     -95
+    ],
+    [
+     -160,
+     -84
+    ],
+    [
+     -219,
+     -160
+    ]
+   ]
+  },
+  "firebowls": [
+   [
+    -201,
+    -51
+   ],
+   [
+    -173,
+    -50
+   ],
+   [
+    -159,
+    -66
+   ],
+   [
+    -229,
+    -52
+   ],
+   [
+    -150,
+    -96
+   ],
+   [
+    -186,
+    -68
+   ],
+   [
+    -160,
+    -159
+   ],
+   [
+    -218,
+    -155
+   ]
+  ],
+  "poles": [
+   [
+    -228,
+    -152
+   ],
+   [
+    -205,
+    -158
+   ],
+   [
+    -180,
+    -160
+   ],
+   [
+    -150,
+    -156
+   ],
+   [
+    -174,
+    -138
+   ],
+   [
+    -232,
+    -128
+   ],
+   [
+    -226,
+    -104
+   ],
+   [
+    -232,
+    -80
+   ],
+   [
+    -205,
+    -72
+   ],
+   [
+    -178,
+    -74
+   ],
+   [
+    -170,
+    -100
+   ],
+   [
+    -185,
+    -121
+   ],
+   [
+    -140,
+    -134
+   ]
+  ],
+  "drapes": [
+   [
+    0,
+    1,
+    "v"
+   ],
+   [
+    1,
+    2,
+    "g"
+   ],
+   [
+    2,
+    3,
+    "v"
+   ],
+   [
+    2,
+    4,
+    "g"
+   ],
+   [
+    3,
+    4,
+    "v"
+   ],
+   [
+    0,
+    5,
+    "g"
+   ],
+   [
+    5,
+    6,
+    "v"
+   ],
+   [
+    6,
+    7,
+    "g"
+   ],
+   [
+    7,
+    8,
+    "v"
+   ],
+   [
+    8,
+    9,
+    "g"
+   ],
+   [
+    9,
+    10,
+    "v"
+   ],
+   [
+    10,
+    4,
+    "g"
+   ],
+   [
+    11,
+    1,
+    "v"
+   ],
+   [
+    11,
+    6,
+    "g"
+   ],
+   [
+    11,
+    10,
+    "v"
+   ],
+   [
+    11,
+    4,
+    "g"
+   ],
+   [
+    12,
+    3,
+    "g"
+   ],
+   [
+    12,
+    4,
+    "v"
+   ]
+  ],
+  "festoons": [
+   [
+    0,
+    11,
+    6.2
+   ],
+   [
+    11,
+    9,
+    6.2
+   ],
+   [
+    5,
+    11,
+    6.2
+   ],
+   [
+    11,
+    2,
+    6.2
+   ],
+   [
+    4,
+    9,
+    6.2
+   ],
+   [
+    6,
+    10,
+    6.2
+   ],
+   [
+    1,
+    4,
+    6.2
+   ],
+   [
+    12,
+    10,
+    6.2
+   ]
+  ],
+  "plazaPoles": [
+   [
+    -226,
+    -66
+   ],
+   [
+    -198,
+    -68
+   ],
+   [
+    -170,
+    -68
+   ],
+   [
+    -146,
+    -70
+   ],
+   [
+    -226,
+    -36
+   ],
+   [
+    -198,
+    -34
+   ],
+   [
+    -170,
+    -34
+   ],
+   [
+    -144,
+    -38
+   ]
+  ],
+  "plazaFestoons": [
+   [
+    0,
+    5
+   ],
+   [
+    1,
+    4
+   ],
+   [
+    1,
+    6
+   ],
+   [
+    2,
+    5
+   ],
+   [
+    2,
+    7
+   ],
+   [
+    3,
+    6
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    2
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    4,
+    5
+   ],
+   [
+    5,
+    6
+   ],
+   [
+    6,
+    7
+   ]
+  ],
+  "bins": [
+   [
+    -196,
+    -164
+   ],
+   [
+    -168,
+    -164
+   ],
+   [
+    -232,
+    -150
+   ],
+   [
+    -233,
+    -94
+   ],
+   [
+    -233,
+    -70
+   ],
+   [
+    -177,
+    -71
+   ],
+   [
+    -145,
+    -112
+   ],
+   [
+    -136,
+    -95
+   ],
+   [
+    -160,
+    -38
+   ],
+   [
+    -210,
+    -35
+   ],
+   [
+    -141,
+    -145
+   ]
+  ],
+  "banners": [
+   [
+    -208,
+    -163,
+    "v"
+   ],
+   [
+    -186,
+    -163,
+    "g"
+   ],
+   [
+    -135,
+    -128,
+    "v"
+   ],
+   [
+    -135,
+    -100,
+    "g"
+   ],
+   [
+    -243,
+    -116,
+    "g"
+   ],
+   [
+    -243,
+    -92,
+    "v"
+   ]
+  ],
+  "boards": [
+   {
+    "x": -175,
+    "z": -163.5,
+    "face": 0
+   },
+   {
+    "x": -134.5,
+    "z": -84,
+    "face": 1.5708
+   },
+   {
+    "x": -190,
+    "z": -32.5,
+    "face": 3.1416
+   }
+  ],
+  "wayfinding": [
+   {
+    "x": -200,
+    "z": -162,
+    "face": 0,
+    "lines": [
+     [
+      "Arena and Keynote Hall",
+      "W"
+     ],
+     [
+      "Market Hall",
+      "S"
+     ],
+     [
+      "Stellar FBO",
+      "E"
+     ]
+    ]
+   },
+   {
+    "x": -134,
+    "z": -92,
+    "face": 1.5708,
+    "lines": [
+     [
+      "Link Plaza and Stellar FBO",
+      "E"
+     ],
+     [
+      "Arena and Keynote Hall",
+      "W"
+     ],
+     [
+      "Shuttle drop-off",
+      "N"
+     ]
+    ]
+   },
+   {
+    "x": -243,
+    "z": -100,
+    "face": -1.5708,
+    "lines": [
+     [
+      "Arena Forecourt",
+      "W"
+     ],
+     [
+      "Market Hall",
+      "S"
+     ],
+     [
+      "Shuttle drop-off",
+      "N"
+     ]
+    ]
+   },
+   {
+    "x": -198,
+    "z": -32,
+    "face": 3.1416,
+    "lines": [
+     [
+      "Market Hall",
+      "S"
+     ],
+     [
+      "Festival Grounds",
+      "N"
+     ],
+     [
+      "Stellar FBO",
+      "E"
+     ]
+    ]
+   }
+  ],
+  "beds": [
+   {
+    "c": [
+     -138,
+     -118
+    ],
+    "r": 5
+   },
+   {
+    "c": [
+     -137,
+     -140
+    ],
+    "r": 4
+   },
+   {
+    "c": [
+     -242,
+     -158
+    ],
+    "r": 5
+   },
+   {
+    "c": [
+     -242,
+     -62
+    ],
+    "r": 4.5
+   },
+   {
+    "c": [
+     -227,
+     -36
+    ],
+    "r": 4
+   },
+   {
+    "c": [
+     -137,
+     -55
+    ],
+    "r": 4.5
+   },
+   {
+    "c": [
+     -183,
+     -164
+    ],
+    "r": 3
+   },
+   {
+    "c": [
+     -180,
+     -114
+    ],
+    "r": 3.5
+   },
+   {
+    "c": [
+     -232,
+     -116
+    ],
+    "r": 2.5
+   },
+   {
+    "c": [
+     -163,
+     -163.2
+    ],
+    "r": 2.6
+   },
+   {
+    "c": [
+     -226,
+     -161
+    ],
+    "r": 2.6
+   },
+   {
+    "c": [
+     -150,
+     -84.5
+    ],
+    "r": 2.2
+   },
+   {
+    "c": [
+     -236,
+     -44
+    ],
+    "r": 3.5
+   },
+   {
+    "c": [
+     -218,
+     -40
+    ],
+    "r": 2.6
+   }
+  ],
+  "perimeter": [
+   {
+    "from": [
+     -128,
+     -165
+    ],
+    "to": [
+     -128,
+     -100
+    ],
+    "w": 7
+   },
+   {
+    "from": [
+     -128,
+     -60
+    ],
+    "to": [
+     -128,
+     4
+    ],
+    "w": 7
+   },
+   {
+    "from": [
+     -148,
+     -166
+    ],
+    "to": [
+     -128,
+     -166
+    ],
+    "w": 5
+   },
+   {
+    "from": [
+     -250,
+     -163
+    ],
+    "to": [
+     -246,
+     -40
+    ],
+    "w": 3.5
+   }
+  ],
+  "info": {
+   "x": -190,
+   "z": -161
+  },
+  "host": {
+   "x": -197,
+   "z": -157.5,
+   "face": 3.1416
+  },
+  "lounges": [
+   {
+    "x": -160,
+    "z": -159,
+    "n": 5,
+    "r": 2.3
+   },
+   {
+    "x": -218,
+    "z": -155,
+    "n": 4,
+    "r": 2.1
+   }
+  ],
+  "props": [
+   [
+    "planter_lux",
+    -230,
+    -164.2,
+    0,
+    1
+   ],
+   [
+    "planter_lux",
+    -215,
+    -164.2,
+    0,
+    1
+   ],
+   [
+    "planter_lux",
+    -133.5,
+    -74,
+    0,
+    1
+   ],
+   [
+    "planter_lux",
+    -133.5,
+    -108,
+    0,
+    1
+   ],
+   [
+    "planter_lux",
+    -188.5,
+    -31.5,
+    0,
+    1
+   ],
+   [
+    "planter_lux",
+    -170.5,
+    -31.5,
+    0,
+    1
+   ],
+   [
+    "ph_planter_2",
+    -244,
+    -108,
+    1.57,
+    1
+   ],
+   [
+    "ph_planter_2",
+    -244,
+    -88,
+    1.57,
+    1
+   ],
+   [
+    "ph_planter_3",
+    -171,
+    -162.5,
+    0,
+    1
+   ],
+   [
+    "ph_planter_3",
+    -146,
+    -164,
+    0,
+    1
+   ]
+  ]
+ },
+ "paths": [
+  {
+   "id": "fest_link",
+   "name": "Festival Walk (to Link Plaza and the Stellar FBO)",
+   "w": 6,
+   "pts": [
+    [
+     -133,
+     -88
+    ],
+    [
+     -127,
+     -84
+    ],
+    [
+     -122,
+     -78
+    ],
+    [
+     -118.5,
+     -73
+    ]
+   ]
+  },
+  {
+   "id": "fest_forecourt",
+   "name": "Forecourt Walk",
+   "w": 8,
+   "pts": [
+    [
+     -244,
+     -100
+    ],
+    [
+     -250,
+     -100
+    ],
+    [
+     -256,
+     -100
+    ]
+   ]
+  },
+  {
+   "id": "fest_market",
+   "name": "Market Walk (to the Market Hall door at x -176.6)",
+   "w": 7,
+   "pts": [
+    [
+     -183,
+     -31
+    ],
+    [
+     -181,
+     -16
+    ],
+    [
+     -178.5,
+     -3
+    ],
+    [
+     -176.6,
+     8.5
+    ]
+   ]
+  },
+  {
+   "id": "fest_market_w",
+   "name": "Market Walk west (to the Market Hall door at x -241.6)",
+   "w": 6,
+   "pts": [
+    [
+     -232,
+     -31
+    ],
+    [
+     -236,
+     -16
+    ],
+    [
+     -240,
+     -3
+    ],
+    [
+     -241.6,
+     8.5
+    ]
+   ]
+  },
+  {
+   "id": "fest_drop_w",
+   "name": "Drop-off Walk",
+   "w": 6,
+   "pts": [
+    [
+     -205,
+     -167.5
+    ],
+    [
+     -205,
+     -164
+    ]
+   ]
+  },
+  {
+   "id": "fest_drop_e",
+   "name": "Drop-off Walk east",
+   "w": 5,
+   "pts": [
+    [
+     -160,
+     -167.5
+    ],
+    [
+     -160,
+     -164
+    ]
+   ]
+  }
+ ],
+ "dropoff": {
+  "poly": [
+   [
+    -250,
+    -180.5
+   ],
+   [
+    -150,
+    -179.5
+   ],
+   [
+    -150,
+    -168
+   ],
+   [
+    -250,
+    -168
+   ]
+  ],
+  "kerb": -168,
+  "shelter": {
+   "x": -205,
+   "z": -170.5,
+   "w": 9,
+   "d": 2.6
+  },
+  "carts": [
+   [
+    -246,
+    -180,
+    3.1416
+   ],
+   [
+    -242.5,
+    -179.5,
+    3.1416
+   ],
+   [
+    -239,
+    -179,
+    3.1416
+   ],
+   [
+    -235.5,
+    -178.5,
+    3.1416
+   ]
+  ],
+  "bollards": [
+   -246,
+   -238,
+   -230,
+   -222,
+   -214,
+   -196,
+   -188,
+   -180,
+   -172,
+   -166,
+   -154
+  ]
+ },
+ "schedule": [
+  {
+   "id": "coffee",
+   "start": 7.0,
+   "end": 9.5,
+   "name": "Sunrise Coffee and Registration",
+   "where": "Festival Grounds",
+   "crowd": {
+    "stage": 0.0,
+    "bars": 0.35,
+    "trucks": 0.55,
+    "picnic": 0.35,
+    "lawn": 0.25
+   },
+   "screen": "GOOD MORNING",
+   "line": "Coffee trucks are open and badges are at the drop-off."
+  },
+  {
+   "id": "keynote",
+   "start": 9.5,
+   "end": 12.0,
+   "name": "Solport Summit Keynotes",
+   "where": "Keynote Hall",
+   "crowd": {
+    "stage": 0.0,
+    "bars": 0.1,
+    "trucks": 0.2,
+    "picnic": 0.15,
+    "lawn": 0.15
+   },
+   "screen": "KEYNOTES LIVE IN THE HALL",
+   "line": "The keynotes are on in the hall. The lawn is quiet for now."
+  },
+  {
+   "id": "lunch",
+   "start": 12.0,
+   "end": 14.0,
+   "name": "Lunch on the Lawn",
+   "where": "Festival Grounds",
+   "crowd": {
+    "stage": 0.15,
+    "bars": 0.6,
+    "trucks": 1.0,
+    "picnic": 1.0,
+    "lawn": 0.85
+   },
+   "screen": "LUNCH ON THE LAWN",
+   "line": "The food trucks are serving and the picnic tables are filling up."
+  },
+  {
+   "id": "builders",
+   "start": 14.0,
+   "end": 16.5,
+   "name": "Builder Sessions and Demos",
+   "where": "Breakout Rooms",
+   "crowd": {
+    "stage": 0.2,
+    "bars": 0.35,
+    "trucks": 0.4,
+    "picnic": 0.5,
+    "lawn": 0.45
+   },
+   "screen": "BUILD WHAT'S NEXT",
+   "line": "Builder sessions are running in the breakout rooms."
+  },
+  {
+   "id": "social",
+   "start": 16.5,
+   "end": 18.5,
+   "name": "Golden Hour Social",
+   "where": "Festival Grounds",
+   "crowd": {
+    "stage": 0.45,
+    "bars": 1.0,
+    "trucks": 0.8,
+    "picnic": 1.0,
+    "lawn": 0.95
+   },
+   "screen": "GOLDEN HOUR SOCIAL",
+   "line": "The bars are pouring and the light is turning gold."
+  },
+  {
+   "id": "djset",
+   "start": 18.5,
+   "end": 21.0,
+   "name": "Sunset DJ Set",
+   "where": "The Side Stage",
+   "crowd": {
+    "stage": 1.0,
+    "bars": 0.8,
+    "trucks": 0.55,
+    "picnic": 0.6,
+    "lawn": 1.0
+   },
+   "screen": "SUNSET DJ SET",
+   "line": "The Sunset DJ Set is on at the Side Stage. Press E on the dance floor."
+  },
+  {
+   "id": "market",
+   "start": 21.0,
+   "end": 23.5,
+   "name": "Night Market",
+   "where": "Market Hall and the stalls",
+   "crowd": {
+    "stage": 0.35,
+    "bars": 0.6,
+    "trucks": 0.45,
+    "picnic": 0.55,
+    "lawn": 0.4
+   },
+   "screen": "NIGHT MARKET",
+   "line": "The Night Market is open in the Market Hall and along the stalls."
+  }
+ ],
+ "quiet": {
+  "name": "Grounds open, quiet hours",
+  "crowd": {
+   "stage": 0.0,
+   "bars": 0.04,
+   "trucks": 0.04,
+   "picnic": 0.06,
+   "lawn": 0.04
+  },
+  "screen": "SOLPORT SUMMIT"
+ },
+ "crowd": {
+  "file": "/models/fest_crowd.bin",
+  "near": 260,
+  "counts": {
+   "stage": 160,
+   "bars": 80,
+   "trucks": 60,
+   "picnic": 120,
+   "lawn": 110,
+   "plaza": 70,
+   "truckGroups": 5,
+   "barGroups": 5
+  },
+  "palette": {
+   "skin": [
+    "f1d3b8",
+    "e8c19a",
+    "d9a877",
+    "c98f63",
+    "a86f46",
+    "8d5a3b",
+    "6b4226",
+    "4f3020"
+   ],
+   "shirt": [
+    "1c1f24",
+    "f5f1e6",
+    "2fae57",
+    "3a4a5e",
+    "8a8f98",
+    "4dde6f",
+    "2b2f6b",
+    "c7c2b6",
+    "6b4a2b",
+    "b8432f",
+    "222831",
+    "e9e4d8",
+    "5b3a7a",
+    "f4cd5a"
+   ],
+   "pants": [
+    "2b3a4a",
+    "1c1f24",
+    "6d5a3e",
+    "3a3a3a",
+    "4a5a6a",
+    "c8bca4",
+    "263040"
+   ],
+   "hair": [
+    "1c1512",
+    "3a2416",
+    "6b4226",
+    "c9a24d",
+    "2a2a2a",
+    "8a6a48"
+   ]
+  }
+ },
+ "staff": {
+  "jordan": {
+   "name": "Jordan",
+   "role": "Campus host, Solport Convention Center",
+   "look": {
+    "body": "f",
+    "skin": "c98f63",
+    "shirt": "4dde6f",
+    "pants": "1c1f24",
+    "hair": 2,
+    "hairc": "1c1512"
+   },
+   "greet": [
+    "Welcome to the Festival Grounds.",
+    "Grab a schedule, the boards update all day."
+   ],
+   "talk": [
+    {
+     "t": "Welcome to the Festival Grounds at the Solport Convention Center. The arena is to the west, the Market Hall is to the south and the walk to the Stellar FBO starts at the east gate.",
+     "o": [
+      [
+       "What is on today?",
+       1
+      ],
+      [
+       "Where can I eat?",
+       2
+      ],
+      [
+       "Thanks",
+       null
+      ]
+     ]
+    },
+    {
+     "t": "The day runs from Sunrise Coffee through the Solport Summit Keynotes, Lunch on the Lawn and the Golden Hour Social. At sunset the DJ takes the Side Stage, then the Night Market opens in the Market Hall. The boards by the gates show what is on now.",
+     "o": [
+      [
+       "Where can I eat?",
+       2
+      ],
+      [
+       "Thanks",
+       null
+      ]
+     ]
+    },
+    {
+     "t": "Four trucks along the west walk: tacos, wood-fired pizza, coffee and the green Giveback truck. The bars are the Pergola Bar by the drop-off, the Mesquite Bar on the east side and the bar cart by the picnic tables. Sit at any picnic table with E.",
+     "o": [
+      [
+       "Thanks",
+       null
+      ]
+     ]
+    }
+   ]
+  },
+  "djsol": {
+   "name": "DJ Sol",
+   "role": "Resident DJ, the Side Stage",
+   "look": {
+    "body": "m",
+    "skin": "8d5a3b",
+    "shirt": "1c1f24",
+    "pants": "1c1f24",
+    "hair": 3,
+    "hairc": "1c1512"
+   },
+   "hat": "hat_cap"
+  },
+  "mara": {
+   "name": "Mara",
+   "role": "Pergola Bar",
+   "look": {
+    "body": "f",
+    "skin": "e8c19a",
+    "shirt": "1c1f24",
+    "pants": "1c1f24",
+    "hair": 1,
+    "hairc": "6b4226"
+   }
+  },
+  "theo": {
+   "name": "Theo",
+   "role": "Mesquite Bar",
+   "look": {
+    "body": "m",
+    "skin": "d9a877",
+    "shirt": "e9e4d8",
+    "pants": "2b3a4a",
+    "hair": 0,
+    "hairc": "3a2416"
+   }
+  },
+  "ines": {
+   "name": "Ines",
+   "role": "Bar cart",
+   "look": {
+    "body": "f",
+    "skin": "a86f46",
+    "shirt": "2b2f6b",
+    "pants": "1c1f24",
+    "hair": 2,
+    "hairc": "1c1512"
+   }
+  },
+  "ray": {
+   "name": "Ray",
+   "role": "Giveback food truck",
+   "look": {
+    "body": "m",
+    "skin": "e0b48e",
+    "shirt": "2fae57",
+    "pants": "1c1f24",
+    "hair": 0,
+    "hairc": "1c1512"
+   },
+   "hat": "hat_cap"
+  },
+  "lupe": {
+   "name": "Lupe",
+   "role": "Taco truck",
+   "look": {
+    "body": "f",
+    "skin": "c98f63",
+    "shirt": "b8432f",
+    "pants": "1c1f24",
+    "hair": 2,
+    "hairc": "1c1512"
+   }
+  },
+  "ben": {
+   "name": "Ben",
+   "role": "Coffee truck",
+   "look": {
+    "body": "m",
+    "skin": "f1d3b8",
+    "shirt": "6b4a2b",
+    "pants": "2b3a4a",
+    "hair": 1,
+    "hairc": "c9a24d"
+   }
+  },
+  "gio": {
+   "name": "Gio",
+   "role": "Pizza truck",
+   "look": {
+    "body": "m",
+    "skin": "d9a877",
+    "shirt": "f5f1e6",
+    "pants": "1c1f24",
+    "hair": 0,
+    "hairc": "2a2a2a"
+   }
+  }
+ },
+ "lines": {
+  "stage": [
+   "This set is unreal.",
+   "Stay for the sunset, trust me.",
+   "The screen visuals are wild tonight.",
+   "One more song, then food."
+  ],
+  "bars": [
+   "Two sparkling waters and a prickly pear soda, please.",
+   "Did you catch the keynote this morning?",
+   "The Mesquite Bar does a great cold brew.",
+   "Meet at the Pergola Bar after the session."
+  ],
+  "trucks": [
+   "The Giveback truck line moves fast.",
+   "Tacos first, pizza second.",
+   "That green truck serves the whole lawn at lunch.",
+   "Coffee truck, always."
+  ],
+  "picnic": [
+   "Save me a seat under the umbrella.",
+   "The demos in the breakout rooms were great.",
+   "Best view of the arena is from here.",
+   "Is the DJ on at sunset?"
+  ],
+  "lawn": [
+   "The drapes look amazing with the light coming through.",
+   "The shuttle drops off right by the north gate.",
+   "Walk to the FBO is about ten minutes from the east gate.",
+   "Night Market later?"
+  ]
+ },
+ "liveries": {
+  "giveback": {
+   "name": "GIVEBACK",
+   "sub": "Good food, better tomorrows",
+   "body": "#1f7a3e",
+   "trim": "#e9efe6",
+   "menu": [
+    "Street tacos",
+    "Grain bowls",
+    "Desert lemonade",
+    "Seasonal plate"
+   ]
+  },
+  "tacos": {
+   "name": "SONORA TACOS",
+   "sub": "Mesquite grilled street tacos",
+   "body": "#c4623a",
+   "trim": "#f3e3c8",
+   "menu": [
+    "Carne asada",
+    "Al pastor",
+    "Nopales",
+    "Horchata"
+   ]
+  },
+  "coffee": {
+   "name": "DESERT BEAN",
+   "sub": "Cold brew and espresso",
+   "body": "#ece4d4",
+   "trim": "#5a3a24",
+   "menu": [
+    "Cold brew",
+    "Cortado",
+    "Horchata latte",
+    "Pastries"
+   ]
+  },
+  "pizza": {
+   "name": "RED ROCK PIZZA",
+   "sub": "Wood fired in Douglas",
+   "body": "#2a2a2c",
+   "trim": "#e3a24a",
+   "menu": [
+    "Margherita",
+    "Green chile",
+    "Roasted veg",
+    "Garlic knots"
+   ]
+  }
+ },
+ "barSigns": {
+  "goodtech": [
+   "GOOD TECH",
+   "BETTER",
+   "TOMORROWS"
+  ],
+  "mesquite": [
+   "THE MESQUITE",
+   "BAR",
+   "COLD BREW · SODAS · MOCKTAILS"
+  ],
+  "cart": [
+   "BAR CART",
+   "SPARKLING",
+   "WATER · SODA · TEA"
+  ]
+ },
+ "info": {
+  "grounds": {
+   "t": "The Festival Grounds",
+   "k": "Solport Convention Center · Festival Grounds",
+   "p": "A lawn and decomposed granite plaza between the arena and the Market Hall: open-air bars, the Side Stage, food trucks along the west walk and picnic tables under white umbrellas. The boards show the Solport Summit schedule for the day. Sit at a table with E, dance on the floor in front of the Side Stage, and follow the Festival Walk east to Link Plaza and the Stellar FBO."
+  },
+  "dropoff": {
+   "t": "Convention Center Drop-off",
+   "k": "Shuttle stop · Terminal Drive",
+   "p": "The drop-off for the Solport Convention Center, off Terminal Drive. Shuttle carts wait at the east end of the bay. The north gate of the Festival Grounds is a few steps south."
+  },
+  "stage": {
+   "t": "The Side Stage",
+   "k": "Festival Grounds · DJ and live sets",
+   "p": "A covered truss stage with an LED screen and a DJ booth. The Sunset DJ Set starts at 18:30. Press E on the dance floor to take part in the dance battle, or press 5 to 8 to dance anywhere."
+  }
+ },
+ "prompts": {
+  "dance": "dance battle on the floor",
+  "info": "about the Festival Grounds",
+  "talk": "talk"
+ },
+ "toast": {
+  "kicker": "SOLPORT SUMMIT",
+  "now": "Now",
+  "next": "Next",
+  "until": "until",
+  "from": "from"
+ },
+ "progress": {
+  "grounds": "p_festival_grounds",
+  "dropoff": "p_convention_dropoff",
+  "dance": "p_side_stage_dance",
+  "host": "t_jordan"
+ },
+ "hub": {
+  "name": "Festival Grounds",
+  "x": -190,
+  "z": -112
+ }
+}
