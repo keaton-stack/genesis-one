@@ -188,20 +188,35 @@ export class Room extends DurableObject<Env> {
     const live = new Set<string>();
     for (const s of this.ctx.getWebSockets()) { const id = this.connIdOf(s); if (id) live.add(id); }
     for (const id of Object.keys(conns)) if (!live.has(id)) delete conns[id];
-    const connected = new Set(Object.values(conns)).size || 1;
-    return Object.entries(conns).map(([connId, playerId]) => ({
-      to: connId,
-      data: {
-        type: "state",
-        status: game.status,
-        seats: game.seats,
-        you: playerId,
-        connected,
-        view: game.state ? logic.viewFor(game.state, playerId) : null,
-        result: game.result,
-        meta: META,
-      },
-    }));
+    const online = new Set(Object.values(conns));
+    const connected = online.size || 1;
+    // The room keeps every player it has ever seen (coins, passports, boards stay in state), but each update only carries the
+    // players who are connected now or acted within the last few hundred ticks, so the payload and the clients' work no longer
+    // grow with the visitor history (it used to send up to 500 stored players every tick).
+    const st = game.state as { tick?: number } | null;
+    const tick = st && typeof st.tick === "number" ? st.tick : 0;
+    const shown = (all: Record<string, { t?: number }>): Record<string, unknown> => {
+      const out: Record<string, unknown> = {};
+      for (const id in all) { const p = all[id]; if (online.has(id) || (p && typeof p.t === "number" && tick - p.t <= 600)) out[id] = p; }
+      return out;
+    };
+    return Object.entries(conns).map(([connId, playerId]) => {
+      const view = (game.state ? logic.viewFor(game.state, playerId) : null) as { players?: Record<string, { t?: number }> } | null;
+      if (view && view.players) view.players = shown(view.players) as Record<string, { t?: number }>;
+      return {
+        to: connId,
+        data: {
+          type: "state",
+          status: game.status,
+          seats: game.seats,
+          you: playerId,
+          connected,
+          view,
+          result: game.result,
+          meta: META,
+        },
+      };
+    });
   }
 
   private error(connId: string, error: string): Out[] {

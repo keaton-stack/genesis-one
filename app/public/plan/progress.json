@@ -199,6 +199,19 @@
       { "n": 201, "id": "p_dark_sky_observatory", "name": "Solport Dark Sky Observatory", "x": 772, "z": 772, "r": 13 },
       { "n": 202, "id": "p_first_stargaze", "name": "First stargazing session", "x": 772, "z": 772, "r": 0.3 },
       { "n": 203, "id": "t_astronomer", "talk": "astronomer", "kind": "local", "name": "Dr. Celeste Ruiz", "org": "Solport Dark Sky Observatory" }
+    ] },
+    { "id": "domes", "n": 12, "name": "Domes and Vaults", "sub": "The Dome Suites and the Grand Vault Domes at Pavilion Green", "ink": "#6b4a2b", "stamps": [
+      { "n": 210, "id": "p_club_dome_suites", "name": "The Club Dome Suites", "x": 80, "z": -412, "r": 40 },
+      { "n": 211, "id": "p_commons_dome_suites", "name": "The Commons Dome Suites", "x": 282, "z": 668, "r": 42 },
+      { "n": 212, "id": "p_south_ridge_dome_homes", "name": "South Ridge Dome Homes", "x": 575, "z": 958, "r": 45 },
+      { "n": 213, "id": "p_model_suite", "name": "Inside a Model Suite", "x": 329, "z": 696, "r": 0.3 },
+      { "n": 214, "id": "p_mesquite_room", "name": "The Mesquite Room", "x": 60, "z": -522, "r": 12 },
+      { "n": 215, "id": "p_saguaro_hall", "name": "Saguaro Hall", "x": 100, "z": -523, "r": 13 },
+      { "n": 216, "id": "p_agave_studio", "name": "Agave Studio", "x": 140, "z": -517, "r": 9 },
+      { "n": 217, "id": "t_noor", "talk": "noor", "kind": "local", "name": "Noor", "org": "Dome Suites host, The Commons" },
+      { "n": 218, "id": "t_lucia", "talk": "lucia", "kind": "local", "name": "Lucia", "org": "The Mesquite Room" },
+      { "n": 219, "id": "t_andre", "talk": "andre", "kind": "local", "name": "Andre", "org": "Saguaro Hall" },
+      { "n": 220, "id": "t_maya", "talk": "maya", "kind": "local", "name": "Maya", "org": "Agave Studio" }
     ] }
   ],
   "titles": [
@@ -214,6 +227,7 @@
     { "id": "partner_circle", "name": "Partner Circle", "unlock": "chapter:partners" },
     { "id": "good_neighbour", "name": "Good Neighbour", "unlock": "chapter:locals" },
     { "id": "stargazer", "name": "Stargazer", "unlock": "chapter:darksky" },
+    { "id": "dome_dweller", "name": "Dome Dweller", "unlock": "chapter:domes" },
     { "id": "regular_flyer", "name": "Regular Flyer", "unlock": "streak:7" },
     { "id": "sol_voyager", "name": "Sol Voyager", "unlock": "passport" }
   ],

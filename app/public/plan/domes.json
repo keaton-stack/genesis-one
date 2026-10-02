@@ -1,0 +1,165 @@
+{
+  "_about": "R4 DOMES: every name, line of copy, size and position of the Dome Suites and the Grand Vault Domes (plan_domes.js). Positions are world metres (x east, z south); rot is the yaw in degrees (0 = the door faces south, +z; 90 = east). A suite's 'from' is the old plan building it replaces (skipped in the plan build). size: S, M or L (see sizes). pool: a plunge pool on the deck. model: the walk-in model suite of its cluster. No prices, no fee rates, no investment language.",
+  "version": 1,
+  "names": {
+    "suites": "Dome Suites",
+    "suite": "Dome Suite",
+    "vaults": "Grand Vault Domes",
+    "vault": "Grand Vault Dome",
+    "modelSuite": "Model Suite"
+  },
+  "sizes": {
+    "S": { "label": "Dome Suite", "d": 7.2, "guests": "up to 4 guests", "sleeps": "a king bed and a sofa bed" },
+    "M": { "label": "Grand Dome Suite", "d": 8.2, "guests": "up to 5 guests", "sleeps": "a king bed, a sofa bed and a daybed" },
+    "L": { "label": "Family Dome Suite", "d": 9.4, "guests": "up to 6 guests", "sleeps": "a king bed, a queen bed in the sleeping loft and a sofa bed", "loft": true }
+  },
+  "deck": { "height": 0.6, "side": 1.3, "poolSide": 3.6, "diningSide": 2.9, "back": 1.0, "front": 4.4 },
+  "clusters": [
+    {
+      "id": "lodge", "name": "The Club Dome Suites", "short": "Club Dome Suites", "zone": "Stage One · The Landing",
+      "kicker": "Guest suites of The Landing Club · Stage One",
+      "hub": [80, -420], "status": "guest",
+      "suites": [
+        { "id": "CL1", "from": "b0334", "size": "M", "pool": true, "model": true, "x": 95, "z": -375, "rot": -90 },
+        { "id": "CL2", "from": "b0336", "size": "L", "pool": false, "x": 96, "z": -415, "rot": -90 },
+        { "id": "CL3", "from": "b0338", "size": "M", "pool": true, "x": 100, "z": -476, "rot": -174.8 },
+        { "id": "CL4", "from": "b0340", "size": "M", "pool": false, "x": 65, "z": -349, "rot": 90 },
+        { "id": "CL5", "from": "b0342", "size": "L", "pool": true, "x": 64, "z": -385, "rot": 90 },
+        { "id": "CL6", "from": "b0344", "size": "S", "pool": true, "x": 65, "z": -425, "rot": 90 },
+        { "id": "CL7", "from": "b0346", "size": "M", "pool": false, "x": 65, "z": -480, "rot": 90 }
+      ]
+    },
+    {
+      "id": "commons", "name": "The Commons Dome Suites", "short": "Commons Dome Suites", "zone": "Stage Three · The Expanse",
+      "kicker": "The glamping village of The Commons · Stage Three",
+      "hub": [300, 676], "status": "guest",
+      "suites": [
+        { "id": "CM1", "from": "b0528", "size": "L", "pool": true, "model": true, "x": 329, "z": 696, "rot": 61.9 },
+        { "id": "CM2", "from": "b0538", "size": "L", "pool": false, "x": 361, "z": 702, "rot": -118 },
+        { "id": "CM3", "from": "b0525", "size": "M", "pool": false, "x": 249, "z": 652, "rot": -72.8 },
+        { "id": "CM4", "from": "b0526", "size": "S", "pool": true, "x": 268, "z": 636, "rot": -151.3 },
+        { "id": "CM5", "from": "b0530", "size": "S", "pool": false, "x": 236, "z": 701, "rot": 139.2 },
+        { "id": "CM6", "from": "b0532", "size": "M", "pool": true, "x": 222, "z": 665, "rot": 107.1 },
+        { "id": "CM7", "from": "b0534", "size": "S", "pool": false, "x": 240, "z": 618, "rot": 29.2 },
+        { "id": "CM8", "from": "b0536", "size": "S", "pool": true, "x": 262, "z": 573, "rot": 9.2 },
+        { "id": "CM9", "from": "b0539", "size": "S", "pool": true, "x": 351, "z": 765, "rot": -108 }
+      ]
+    },
+    {
+      "id": "south", "name": "South Ridge Dome Homes", "short": "South Ridge Dome Homes", "zone": "Stage Three · The Expanse",
+      "kicker": "Dome homes along the south edge · future, subject to rezoning",
+      "hub": [575, 958], "status": "home",
+      "suites": [
+        { "id": "SR1", "from": "b0436", "size": "L", "pool": true, "model": true, "x": 612, "z": 974, "rot": -178.2 },
+        { "id": "SR2", "from": "b0430", "size": "L", "pool": true, "x": 451, "z": 978, "rot": 178.8 },
+        { "id": "SR3", "from": "b0433", "size": "L", "pool": true, "x": 528, "z": 977, "rot": -178.2 },
+        { "id": "SR4", "from": "b0439", "size": "L", "pool": false, "x": 710, "z": 971, "rot": -178.2 },
+        { "id": "SR5", "from": "b0441", "size": "M", "pool": true, "x": 476, "z": 943, "rot": 1.7 },
+        { "id": "SR6", "from": "b0444", "size": "L", "pool": false, "x": 560, "z": 940, "rot": 1.7 }
+      ]
+    }
+  ],
+  "vaults": {
+    "name": "The Grand Vault Domes at Pavilion Green",
+    "short": "Grand Vault Domes",
+    "zone": "Stage One · The Landing",
+    "kicker": "Dining, celebrations and wellness beside the Grand Pavilion · Stage One",
+    "hub": [100, -502],
+    "widths": [6, 8, 9, 13, 15, 18],
+    "shape": { "heightK": 0.44, "heightAdd": 0.3, "sideP": 2.6, "endQ": 2.2, "endK": 0.53, "endMin": 3.1, "recess": 0.55 },
+    "deck": { "height": 0.75, "side": 2.2, "back": 1.8, "frontK": 0.38, "frontAdd": 1.0 },
+    "venues": [
+      { "id": "dining", "use": "restaurant", "name": "The Mesquite Room", "tag": "Dining room and lounge under the vault", "w": 13, "x": 60, "z": -522, "rot": 0, "staff": "lucia" },
+      { "id": "hall", "use": "hall", "name": "Saguaro Hall", "tag": "Weddings and celebrations", "w": 15, "x": 100, "z": -523, "rot": 0, "staff": "andre" },
+      { "id": "studio", "use": "studio", "name": "Agave Studio", "tag": "Yoga, breathwork and tea", "w": 9, "x": 140, "z": -517, "rot": 0, "staff": "maya" }
+    ]
+  },
+  "staff": {
+    "lucia": {
+      "name": "Lucia", "role": "Maitre d' · The Mesquite Room", "venue": "dining", "at": [1.9, 3.95], "face": 0,
+      "look": { "skin": "b97f5a", "shirt": "1c1c1e", "pants": "1c1c1e", "hair": 3, "body": "f" },
+      "greet": ["Welcome in. The best table is the one by the glass at sunset.", "Good evening. The grill is going and the bar is open.", "Come in out of the sun. It is always cool under the vault."],
+      "talk": [
+        { "t": "Welcome to The Mesquite Room, the dining room and lounge under the vault. Everything here is cooked over mesquite and pecan wood. What can I tell you about?", "o": [["What is on the menu?", 1], ["Tell me about the bar", 2], ["What is this building?", 3], ["Thanks", null]] },
+        { "t": "A desert kitchen: mesquite grilled steaks and chicken, green chile stew, street corn, chiles rellenos, a citrus and prickly pear salad, and Sonoran hot dogs on the lounge menu for the late crowd. Breakfast on the deck from sunrise. The chalkboard by the kitchen has today's specials.", "o": [["Tell me about the bar", 2], ["What is this building?", 3], ["Thanks", null]] },
+        { "t": "The bar runs along the west side, with a back bar of local spirits, a prickly pear margarita our regulars swear by, and a zero proof list that is just as good. Sit at the counter and the bartender will look after you.", "o": [["What is on the menu?", 1], ["What is this building?", 3], ["Thanks", null]] },
+        { "t": "It is one of the three Grand Vault Domes at Pavilion Green: a vault of soft white panels over a square floor, with both ends fully glazed, so you can see the Grand Pavilion from your table on one side and the Club Dome Suites on the other. Saguaro Hall next door hosts the weddings, and Agave Studio the morning yoga.", "o": [["What is on the menu?", 1], ["Thanks", null]] }
+      ]
+    },
+    "andre": {
+      "name": "Andre", "role": "Events host · Saguaro Hall", "venue": "hall", "at": [-3.4, 5.3], "face": 0.35,
+      "look": { "skin": "6b4630", "shirt": "2b3a4a", "pants": "1c1f24", "hair": 1, "body": "m" },
+      "greet": ["Welcome to Saguaro Hall. Picture it full of people.", "We just finished setting the tables. Have a look around.", "Ceremony at the Chapel, dinner here, dancing until late."],
+      "talk": [
+        { "t": "Welcome to Saguaro Hall, the largest of the Grand Vault Domes. This is where Pavilion Green celebrates: weddings, anniversaries, club dinners and the odd big birthday. What would you like to know?", "o": [["How does a wedding day go?", 1], ["How many guests fit?", 2], ["The stage and the dance floor", 3], ["Thanks", null]] },
+        { "t": "Most couples say their vows at The Chapel or under the Grand Pavilion next door, have drinks on the deck under the string lights while the sun goes down, then come in for dinner. After the toasts the tables near the middle slide back and the dance floor opens. Guests who stay over have the Club Dome Suites across the lane.", "o": [["How many guests fit?", 2], ["The stage and the dance floor", 3], ["Thanks", null]] },
+        { "t": "Set like tonight, with round tables of eight, about a hundred and twenty for dinner, more for a standing reception, and the deck takes the overflow on a warm night. Both ends are glass, so the room always has the desert in it.", "o": [["How does a wedding day go?", 1], ["The stage and the dance floor", 3], ["Thanks", null]] },
+        { "t": "The stage at the back takes a band or a DJ, the parquet dance floor sits right under the crown of the vault, and the lighting is all warm and dimmable, so the room goes from dinner to dancing without anyone touching a switch on the wall. Step up and try the microphone.", "o": [["How does a wedding day go?", 1], ["Thanks", null]] }
+      ]
+    },
+    "maya": {
+      "name": "Maya", "role": "Wellness guide · Agave Studio", "venue": "studio", "at": [-0.6, 3.1], "face": 3.5,
+      "look": { "skin": "c99a76", "shirt": "6f7f66", "pants": "2a2a2e", "hair": 2, "body": "f" },
+      "greet": ["Breathe out. You made it.", "Sunrise flow starts when the light hits the back glass.", "Shoes off at the door, tea is on the bar."],
+      "talk": [
+        { "t": "Welcome to Agave Studio. It is a small vault, quiet and full of plants, with glass at both ends so you practice with the desert in front of you. How can I help?", "o": [["What classes are there?", 1], ["Tell me about the tea bar", 2], ["Why a dome?", 3], ["Thanks", null]] },
+        { "t": "Sunrise flow every morning when the light comes through the glass, a slower stretch class at sunset, breathwork, and a sound bath on clear nights with the singing bowls. Guests of the Dome Suites have a mat waiting for them. Grab one and sit with us any time.", "o": [["Tell me about the tea bar", 2], ["Why a dome?", 3], ["Thanks", null]] },
+        { "t": "Herbal teas from the desert: creosote and mint, prickly pear and hibiscus, chamomile from a farm down the valley, and a cold brew for after class. Help yourself, the cups are on the shelf.", "o": [["What classes are there?", 1], ["Thanks", null]] },
+        { "t": "The vault carries sound beautifully and keeps the room even and calm, warm in winter, cool in summer. And there are no corners for your mind to bump into.", "o": [["What classes are there?", 1], ["Thanks", null]] }
+      ]
+    },
+    "noor": {
+      "name": "Noor", "role": "Dome Suites host · The Commons", "suite": "CM1", "at": [-1.6, 7.1], "face": 0.4,
+      "look": { "skin": "a8714f", "shirt": "e8e2d4", "pants": "3a3a3c", "hair": 2, "body": "f" },
+      "greet": ["Welcome to the Dome Suites. The model suite is open, go on in.", "The hot tub is warm all night.", "Lie on the bed and look up, you will see why people stay."],
+      "talk": [
+        { "t": "Welcome to the Dome Suites. Each one is a geodesic dome on its own timber deck, with a glass front to the desert, a wood stove inside and a cedar hot tub outside. The Model Suite behind me is open, walk right in. What would you like to know?", "o": [["How many people can stay?", 1], ["What is inside?", 2], ["The deck", 3], ["Stargazing", 4], ["Thanks", null]] },
+        { "t": "There are three sizes. A Dome Suite of about seven metres sleeps up to four, with a king bed and a sofa bed. A Grand Dome Suite of about eight metres sleeps five, with a daybed by the glass as well. A Family Dome Suite of about nine and a half metres sleeps six: it adds a queen bed in a sleeping loft over the bathroom.", "o": [["What is inside?", 2], ["The deck", 3], ["Thanks", null]] },
+        { "t": "A grand living room: sofas and armchairs on a wool rug in front of the glass, a wood stove for cold desert nights, a king bed facing the view, a kitchenette, a bathroom pod with a rain shower, curtains you can draw all the way round, warm lamps and plenty of plants. Wifi and climate control, of course.", "o": [["How many people can stay?", 1], ["Stargazing", 4], ["Thanks", null]] },
+        { "t": "Every deck has a cedar barrel hot tub with steps, a fire pit with chairs, a dining table for the evening and string lights overhead. Some suites also have a small plunge pool. Low path lights take you back to the lane after dark.", "o": [["Stargazing", 4], ["Thanks", null]] },
+        { "t": "There is a skylight right over the bed. Lie back on it, press E, and the whole night sky opens up over you. On a moonless night out here you can see the Milky Way from your pillow.", "o": [["What is inside?", 2], ["Thanks", null]] }
+      ]
+    }
+  },
+  "prompts": {
+    "bed": "lie back on the bed and stargaze",
+    "doorOpen": "close the door · or walk in",
+    "doorShut": "open the door",
+    "guest": "occupied tonight · a guest suite",
+    "home": "a private residence · future, subject to rezoning",
+    "tub": "slip into the hot tub",
+    "pool": "sit on the edge of the plunge pool",
+    "vaultDoorOpen": "close the doors · or walk in",
+    "vaultDoorShut": "open the doors",
+    "stage": "step up to the microphone"
+  },
+  "info": {
+    "lodge": { "t": "The Club Dome Suites", "k": "Guest suites of The Landing Club · Stage One", "p": "Seven geodesic dome suites along Lodge Lane, each on its own raised timber deck with a cedar barrel hot tub, a fire pit, an outdoor dining table and string lights; some have a plunge pool. Three sizes sleep four, five or six guests. The Model Suite is open to everyone." },
+    "commons": { "t": "The Commons Dome Suites", "k": "The glamping village of The Commons · Stage Three", "p": "Nine geodesic dome suites round the Glamp Loop, between the safari tents, each with a glass front to the desert, a wood stove, a king bed under a stargazing skylight and a private deck with a hot tub. The Model Suite beside the Commons circle is open, walk right in." },
+    "south": { "t": "South Ridge Dome Homes", "k": "Dome homes along the south edge · future, subject to rezoning", "p": "Six geodesic dome homes on South Ridge Lane with the open desert and the southern mountains behind them, each on a private deck with a hot tub, most with a plunge pool. The Model Home is open for a look. Future homes, subject to rezoning." },
+    "vaults": { "t": "The Grand Vault Domes", "k": "Pavilion Green · Stage One", "p": "Three vaults of soft white panels over square floors, both ends fully glazed in a great arch with glass doors: The Mesquite Room for dining, Saguaro Hall for weddings and celebrations, and Agave Studio for yoga and tea. Each stands on a timber deck with cable railings and string lights, beside the Grand Pavilion and The Chapel." }
+  },
+  "rooms": {
+    "living": ["The grand living room", "Sofas and armchairs in front of the glass", "Cream sofas and armchairs on a wool rug, facing the panoramic glass front. The sofa folds out into a bed for two more guests."],
+    "stove": ["The wood stove", "A real fire on cold desert nights", "A black steel wood stove on a stone hearth, its flue running straight up through the dome. Desert nights can drop near freezing in winter."],
+    "bed": ["The bed", "A king bed under the skylight", "The bed faces the glass, with a clear skylight above it. Press E to lie back and stargaze."],
+    "kitchen": ["The kitchenette", "Coffee, a sink and a two ring hob", "A walnut kitchenette with a stone top, a two ring hob, a sink, a fridge drawer and a coffee machine for the morning."],
+    "bath": ["The bathroom pod", "Rain shower, basin and WC", "A bathroom pod at the back of the dome: a rain shower, a stone basin, a toilet and warm towels behind a frosted door."],
+    "loft": ["The sleeping loft", "A queen bed over the bathroom", "In the Family Dome Suite a ladder climbs to a sleeping loft over the bathroom pod, with a queen bed tucked under the curve of the dome."],
+    "daybed": ["The daybed", "A fifth bed by the glass", "A deep daybed along the glass, for an afternoon nap in the sun or a fifth guest at night."],
+    "dining": ["The dining table", "Breakfast with the view", "A round walnut table by the kitchenette, set for four."],
+    "deck": ["The deck", "Hot tub, fire pit and dining", "A cedar barrel hot tub with steps, a fire pit with chairs, a dining table under string lights and, on some suites, a plunge pool."],
+    "menu": ["Today at The Mesquite Room", "Mesquite grill · bar · lounge", "Green chile stew · Mesquite grilled ribeye · Chiles rellenos · Citrus and prickly pear salad · Street corn · Churros with cajeta. Ask Lucia for the specials."],
+    "bar": ["The bar", "Local spirits and a zero proof list", "A walnut bar with a back bar of local spirits, a prickly pear margarita and a full zero proof list. Take a stool."],
+    "stage": ["The stage", "Band, DJ, speeches", "A raised stage at the back of the hall with a sound system and a microphone, the parquet dance floor in front of it."],
+    "tea": ["The tea bar", "Desert herbal teas", "Creosote and mint, prickly pear and hibiscus, valley chamomile and a cold brew for after class. Help yourself."],
+    "mats": ["The practice floor", "Sunrise flow, breathwork, sound baths", "Mats laid in an arc facing the glass, bolsters and blocks at the side, singing bowls for the sound bath."]
+  },
+  "light": { "glowColor": "#ffc983", "bulbColor": "#ffd59a", "bollardColor": "#ffb468", "tubColor": "#38c8ff", "linerGlow": 1.0 },
+  "progress": {
+    "chapter": "domes",
+    "stamps": { "lodge": "p_club_dome_suites", "commons": "p_commons_dome_suites", "south": "p_south_ridge_dome_homes", "dining": "p_mesquite_room", "hall": "p_saguaro_hall", "studio": "p_agave_studio" },
+    "activity": "dome_night",
+    "interiorStamp": "p_model_suite"
+  }
+}
