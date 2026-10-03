@@ -1474,7 +1474,36 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function uninstallRoads() { ROADS_T.mats.forEach(unwrapObc); ROADS_T.mats = []; }
   // ═════════════════════════ polished floors: screen-space reflections (tier 2) over a box-projected room probe (tiers 1 and 2) ═════════════════════════
   var _v = null;
+  // R9x (HANDOFF_R9_HITCHES.md 5.2): the same scan with the vertex reads, the matrix and the cross product written out on the arrays
+  // (the same arithmetic in the same order as Vector3's fromBufferAttribute, applyMatrix4, subVectors, crossVectors, length and
+  // divideScalar, so the result is bit-identical); it was 80 ms of the FBO's walk-in frame. ?r9x=0: the Vector3 loop above.
+  var R9XF = !!(window.R9 && R9.part("x"));
+  var FPV = null;
+  function fpSlowMesh(o, groups) {   // the Vector3 loop of floorPlanes for one mesh (an interleaved, half-float or normalized position)
+    if (!FPV) FPV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]; var a = FPV[0], b = FPV[1], c = FPV[2], e1 = FPV[3], e2 = FPV[4], n = FPV[5];
+    var pa = o.geometry.attributes.position, ix = o.geometry.index, m = o.matrixWorld; var cnt = ix ? ix.count : pa.count;
+    for (var i = 0; i + 2 < cnt; i += 3) { var i0 = ix ? ix.getX(i) : i, i1 = ix ? ix.getX(i + 1) : i + 1, i2 = ix ? ix.getX(i + 2) : i + 2; a.fromBufferAttribute(pa, i0).applyMatrix4(m); b.fromBufferAttribute(pa, i1).applyMatrix4(m); c.fromBufferAttribute(pa, i2).applyMatrix4(m);
+      e1.subVectors(b, a); e2.subVectors(c, a); n.crossVectors(e1, e2); var ar = n.length() * 0.5; if (ar < 1e-4) continue; n.divideScalar(ar * 2); if (n.y < 0.985) continue; var y = (a.y + b.y + c.y) / 3; var k = Math.round(y * 25);
+      var gr = groups[k] || (groups[k] = { y: 0, area: 0, box: [1e9, -1e9, 1e9, -1e9], meshes: [] }); gr.y += y * ar; gr.area += ar; gr.box[0] = Math.min(gr.box[0], a.x, b.x, c.x); gr.box[1] = Math.max(gr.box[1], a.x, b.x, c.x); gr.box[2] = Math.min(gr.box[2], a.z, b.z, c.z); gr.box[3] = Math.max(gr.box[3], a.z, b.z, c.z); if (gr.meshes.indexOf(o) < 0) gr.meshes.push(o); }
+  }
+  function floorPlanesFast(obj, want) {
+    var groups = {}; obj.updateMatrixWorld(true);
+    obj.traverse(function (o) { if (!o.isMesh || !o.geometry || !o.geometry.attributes.position || o.isInstancedMesh) return; if (want && !want(o)) return; var pa = o.geometry.attributes.position, ix = o.geometry.index, m = o.matrixWorld;
+      if (pa.isInterleavedBufferAttribute || pa.isFloat16BufferAttribute || pa.normalized || !pa.array || pa.itemSize < 3 || (ix && (ix.isInterleavedBufferAttribute || !ix.array || ix.itemSize !== 1))) { fpSlowMesh(o, groups); return; }
+      var A = pa.array, s = pa.itemSize, I = ix ? ix.array : null, e = m.elements, cnt = ix ? ix.count : pa.count, seen = {};
+      var e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4], e5 = e[5], e6 = e[6], e7 = e[7], e8 = e[8], e9 = e[9], e10 = e[10], e11 = e[11], e12 = e[12], e13 = e[13], e14 = e[14], e15 = e[15];
+      for (var i = 0; i + 2 < cnt; i += 3) { var i0 = I ? I[i] : i, i1 = I ? I[i + 1] : i + 1, i2 = I ? I[i + 2] : i + 2, x, y, z, w, j;
+        j = i0 * s; x = A[j]; y = A[j + 1]; z = A[j + 2]; w = 1 / (e3 * x + e7 * y + e11 * z + e15); var ax = (e0 * x + e4 * y + e8 * z + e12) * w, ay = (e1 * x + e5 * y + e9 * z + e13) * w, az = (e2 * x + e6 * y + e10 * z + e14) * w;
+        j = i1 * s; x = A[j]; y = A[j + 1]; z = A[j + 2]; w = 1 / (e3 * x + e7 * y + e11 * z + e15); var bx = (e0 * x + e4 * y + e8 * z + e12) * w, by = (e1 * x + e5 * y + e9 * z + e13) * w, bz = (e2 * x + e6 * y + e10 * z + e14) * w;
+        j = i2 * s; x = A[j]; y = A[j + 1]; z = A[j + 2]; w = 1 / (e3 * x + e7 * y + e11 * z + e15); var cx = (e0 * x + e4 * y + e8 * z + e12) * w, cy = (e1 * x + e5 * y + e9 * z + e13) * w, cz = (e2 * x + e6 * y + e10 * z + e14) * w;
+        var ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+        var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; var ar = Math.sqrt(nx * nx + ny * ny + nz * nz) * 0.5; if (ar < 1e-4) continue; if (ny * (1 / (ar * 2)) < 0.985) continue;
+        var yy = (ay + by + cy) / 3; var k = Math.round(yy * 25);
+        var gr = groups[k] || (groups[k] = { y: 0, area: 0, box: [1e9, -1e9, 1e9, -1e9], meshes: [] }); gr.y += yy * ar; gr.area += ar; gr.box[0] = Math.min(gr.box[0], ax, bx, cx); gr.box[1] = Math.max(gr.box[1], ax, bx, cx); gr.box[2] = Math.min(gr.box[2], az, bz, cz); gr.box[3] = Math.max(gr.box[3], az, bz, cz); if (!seen[k]) { seen[k] = 1; if (gr.meshes.indexOf(o) < 0) gr.meshes.push(o); } } });
+    var out = []; for (var k2 in groups) { var g = groups[k2]; g.y /= g.area; out.push(g); } out.sort(function (p, q) { return q.area - p.area; }); return out;
+  }
   function floorPlanes(obj, want) {
+    if (R9XF) return floorPlanesFast(obj, want);
     // upward faces of every mesh under obj, grouped by height: [{ y, area, box: [x0, x1, z0, z1] }] (largest first)
     var groups = {}; var a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), n = new THREE.Vector3();
     obj.updateMatrixWorld(true);

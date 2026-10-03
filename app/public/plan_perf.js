@@ -411,6 +411,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function drawSoon(g, opts, name) {
     if (!opts.detached) return true; var k = (/^(?:stream|lazy) (.+)$/.exec(name || "") || [])[1]; if (!k) return false;
     try { var PL = G("PLACE"); if (PL && PL[k] && PL[k].length) return true; } catch (e) {}
+    if (window.R9 && R9.part("x")) { try { var PTm = window.PLAN_TERMINAL; if (PTm && PTm.tset && PTm.tset.indexOf(k) >= 0) { P.n.r9tset = (P.n.r9tset || 0) + 1; return true; } } catch (e) {} }   // R9x: the FBO's furniture set is drawn at the first walk-in: its textures and buffers go up now, a slot at a time, not in the walk-in frame
     try { var IS = G("INSTSET"); for (var i = 0; i < IS.length; i++) if (IS[i].kind === k && IS[i].list && IS[i].list.length) return true; } catch (e) {}
     return false;
   }
@@ -521,6 +522,32 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     P.n.preModules = n; P.n.preModulesMs = Math.round(now() - t0);
   }
   function sampleCabin() { try { if (FLY.warm || FLY.on || typeof warmCabin !== "function") return; if (P.hemi && !P.hemi2) P.hemi.visible = false; warmCabin(); } catch (e) { note("pre cabin", e); } hemiFix(); }
+  // R9x (HANDOFF_R9_HITCHES.md 5.1): the action prompt (#prompt, a one-line pill with backdrop-filter: blur(10px)) gets a different
+  // Skia blur program for each size class of its blurred backdrop: the browser builds one the first time a pill of that width is
+  // composited. The short prompts inside an interior ("sit down", "step outside") need one nothing else uses, and it was built as you
+  // walked into your first interior, freezing the whole frame for 0.2 to 2.6 s (GPU process: GrGaussianConvolutionFragmentProcessor
+  // with a mirrored subset in y, D3D11 pixel shader link). Behind the loading screen we show invisible stand-ins of the prompt
+  // (0.4 per cent opaque, above the loading screen so they really are composited), one for every width from 96 to 820 px in half
+  // pixel steps, a batch at a time, so every one of those programs is built while the loading screen is up. ?r9x=0 turns it off.
+  async function r9WarmPrompt() {
+    var pr = document.getElementById("prompt"), ld = document.getElementById("load"); if (!pr || !ld || ld.classList.contains("off")) return 0;
+    var cs = getComputedStyle(pr), tpl = pr.cloneNode(true), b0 = pr.querySelector("b"), b1 = tpl.querySelector("b"), i, j;
+    for (i = 0; i < cs.length; i++) tpl.style.setProperty(cs[i], cs.getPropertyValue(cs[i]));
+    if (b0 && b1) { var bs = getComputedStyle(b0); for (i = 0; i < bs.length; i++) b1.style.setProperty(bs[i], bs.getPropertyValue(bs[i])); }
+    tpl.removeAttribute("id"); tpl.querySelectorAll("[id]").forEach(function (e) { e.removeAttribute("id"); }); tpl.setAttribute("aria-hidden", "true");
+    var t = tpl.querySelector("span") || tpl; t.innerHTML = "<b" + (b1 ? ' style="' + b1.getAttribute("style").replace(/"/g, "&quot;") + '"' : "") + ">E</b> &nbsp;";
+    var h = Math.round(pr.getBoundingClientRect().height) || 39, st = tpl.style;
+    [["opacity", "0.004"], ["transition", "none"], ["animation", "none"], ["z-index", "31"], ["transform", "translateX(-50%)"], ["box-sizing", "border-box"], ["height", h + "px"], ["min-height", "0"], ["max-width", "none"], ["white-space", "nowrap"], ["overflow", "hidden"], ["pointer-events", "none"], ["display", "block"], ["visibility", "visible"]].forEach(function (kv) { st.setProperty(kv[0], kv[1], "important"); });
+    var W = []; for (var w = 96; w <= 820; w += 0.5) W.push(w);
+    var BATCH = 80, n = 0, t0 = now();
+    for (i = 0; i < W.length; i += BATCH) {
+      if (ld.classList.contains("off") || now() - t0 > 8000) break;
+      var els = []; for (j = i; j < Math.min(W.length, i + BATCH); j++) { var c = tpl.cloneNode(true); c.style.setProperty("width", W[j] + "px", "important"); document.body.appendChild(c); els.push(c); n++; }
+      await nextFrame(); await nextFrame(); await nextFrame();
+      els.forEach(function (e) { e.remove(); });
+    }
+    P.n.r9prompt = n; P.n.r9promptMs = Math.round(now() - t0); return n;
+  }
   async function runPre(hold) { P.inFrame = (P.inFrame || 0) + 1; try { return await runPre0(hold); } finally { P.inFrame--; } }   /* R5: the pre-compile renders never wait for a link either */
   async function runPre0(hold) {
     var t0 = now(), msg = document.getElementById("loadmsg"), deadline = t0 + P.K.preHold;
@@ -534,8 +561,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     try { collectLights(); } catch (e) {}
     try { compileGroup(scene, false); } catch (e) { note("pre scene", e); }
     P.n.preIssued = renderer.info.programs.length - c0;
+    var pw = null; if (hold && window.R9 && R9.part("x")) { try { pw = r9WarmPrompt().catch(function (e) { note("pre prompt", e); }); } catch (e) { note("pre prompt", e); } }   // R9x: every width of the action prompt's blurred pill, invisibly, behind the loading screen, while the driver links the scene's programs
     if (P.r5 && P.r5.on && P.r5.ns && P.r5.ns.par) deadline = Math.max(deadline, now() + 45000);   /* R5: nothing blocks now, so the loading screen waits (animated) while the driver links, up to 45 s */
     for (;;) { var left = finishSome(now() + 40); var tot = renderer.info.programs.length; say("Preparing the graphics " + Math.round(100 * (tot - left) / Math.max(1, tot)) + "%"); if (!left || now() > deadline) break; await sleep(left ? 16 : 0); }
+    if (pw) { try { await pw; } catch (e) {} }
     P.n.preMs = Math.round(now() - t0); P.n.prePrograms = renderer.info.programs.length; pinPrograms();
     if (finishSome(0) > 0) P.queue(function () { return finishSome(now() + 3) === 0 ? true : "later"; });
   }

@@ -794,7 +794,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     PT.tsetP = window.PLAN_LOAD_KINDS(TSET).then(function (got) { PT.n.tsetMs = Math.round(performance.now() - PT.n.tsetT0); PT.n.tsetGot = got.length; PT.tsetDone = true; return got; }, function (err) { note("tset", err); PT.tsetP = null; return []; });
     return PT.tsetP;
   }
-  PT.tsetLoad = tsetLoad; PT.tsetMissing = tsetMissing;
+  PT.tsetLoad = tsetLoad; PT.tsetMissing = tsetMissing; PT.tset = TSET;   // R9x: plan_perf uploads this set's textures and buffers when it lands (HANDOFF_R9_HITCHES.md 5.2)
   function lazyFrame(e, inT, now) {
     if (PT.f0 === undefined) PT.f0 = now;
     if (inT && PT.tsetDone && !PT.tsetRetry && tsetMissing().length) { PT.tsetRetry = true; PT.tsetP = null; PT.tsetDone = false; }   // entering asks once more for what failed
