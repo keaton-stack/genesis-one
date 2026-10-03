@@ -1273,62 +1273,55 @@
   },
   "screen": "SOLPORT SUMMIT"
  },
- "crowd": {
-  "file": "/models/fest_crowd.bin",
-  "near": 260,
-  "counts": {
-   "stage": 160,
-   "bars": 80,
-   "trucks": 60,
-   "picnic": 120,
-   "lawn": 110,
-   "plaza": 70,
-   "truckGroups": 5,
-   "barGroups": 5
-  },
-  "palette": {
-   "skin": [
-    "f1d3b8",
-    "e8c19a",
-    "d9a877",
-    "c98f63",
-    "a86f46",
-    "8d5a3b",
-    "6b4226",
-    "4f3020"
+ "roam": {
+  "_about": "R10 (3 Oct 2026): the people who roam the campus (PLAN_ROAM in plan_festival.js) replace the baked crowd. Six to ten of them by the hour, a couple more for the Sunset DJ Set; a few take front-row seats for the keynote. names: one each (first names, the game's NPC style). lines: what they say now and then, by the kind of place; the zone lines under \"lines\" are used too.",
+  "names": [
+   "Ava",
+   "Luis",
+   "Naomi",
+   "Caleb",
+   "Sofia",
+   "Andre",
+   "Hana",
+   "Wes",
+   "Lucia",
+   "Omar",
+   "Grace",
+   "Mateo"
+  ],
+  "lines": {
+   "fire": [
+    "Nothing beats a fire bowl on a desert night.",
+    "Look at all those stars.",
+    "Five more minutes, then the Night Market.",
+    "Pull up a chair, there is room."
    ],
-   "shirt": [
-    "1c1f24",
-    "f5f1e6",
-    "2fae57",
-    "3a4a5e",
-    "8a8f98",
-    "4dde6f",
-    "2b2f6b",
-    "c7c2b6",
-    "6b4a2b",
-    "b8432f",
-    "222831",
-    "e9e4d8",
-    "5b3a7a",
-    "f4cd5a"
+   "forecourt": [
+    "That media wall is something else.",
+    "Meet you by the sails.",
+    "The keynote hall is through those doors.",
+    "The copper really glows at sunset."
    ],
-   "pants": [
-    "2b3a4a",
-    "1c1f24",
-    "6d5a3e",
-    "3a3a3a",
-    "4a5a6a",
-    "c8bca4",
-    "263040"
+   "lobby": [
+    "Badges are at the registration desk.",
+    "The keynote hall is down the corridor.",
+    "These lounges are so comfortable.",
+    "The breakout rooms are off the lobby."
    ],
-   "hair": [
-    "1c1512",
-    "3a2416",
-    "6b4226",
-    "c9a24d",
-    "2a2a2a",
-    "8a6a48"
+   "shuttle": [
+    "The shuttle should be here any minute.",
+    "Grand Loop to the terminal, then the FBO.",
+    "Good thing the stop has shade."
+   ],
+   "hello": [
+    "Hi there!",
+    "Enjoying the Summit?",
+    "The food trucks are along the west walk.",
+    "Have you been inside the arena yet?"
+   ],
+   "any": [
+    "Great day for it.",
+    "See you at the Side Stage later."
    ]
   }
  },

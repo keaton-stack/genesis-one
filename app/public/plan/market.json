@@ -115,5 +115,21 @@
     "sweets": ["Conchas out of the oven.", "Prickly pear, our best seller.", "Paletas, three flavours today."],
     "stall": ["Melons, sweet as sugar!", "Pecans, roasted today.", "Pottery, all handmade.", "Bring a can for the food drive."]
   },
+  "roam": {
+    "_about": "R10 (3 Oct 2026): the people who roam the Market Hall (both levels) and the Weekend Market (PLAN_ROAM in plan_festival.js) replace the baked crowd. Six to eight of them by the hour. names: one each (first names, the game's NPC style). lines: what they say now and then, by the kind of place.",
+    "names": ["Iris", "Diego", "June", "Felix", "Carmen", "Reza", "Talia", "Hugo", "Beatriz", "Noah"],
+    "lines": {
+      "order": ["Two of the green chile tamales, please.", "Could I get a cortado?", "What's the special today?", "Agua fresca, the watermelon one."],
+      "browse": ["Is this one handmade?", "Look at the glaze on this bowl.", "I need a basket like this.", "These textiles are beautiful."],
+      "stall": ["Those melons smell amazing.", "Grab some pecans for later?", "The pottery stall is my favourite.", "Let's drop a can at the food drive."],
+      "dine": ["This view of the vault never gets old.", "Save room for the conchas.", "Best patio in the hall.", "Another round of coffee?"],
+      "mezz": ["You can see the whole nave from up here.", "Look at those timber ribs.", "The globes are coming on."],
+      "kiosk": ["JetFinders flies out of the Stellar FBO.", "Awake.org has a stand here too."],
+      "busker": ["He's really good.", "Play another one!"],
+      "nave": ["Meet you by the big agave.", "Did you catch the keynote?", "The Night Market starts at nine.", "I'm heading to the festival lawn after this."],
+      "hello": ["Hi there.", "Enjoying the market?", "Try the green chile at Sonoran Kitchen.", "The terraces upstairs have the best view."],
+      "any": ["What a place.", "Let's do one more lap."]
+    }
+  },
   "progress": { "hall": "p_market_hall", "mezz": "p_market_mezzanine", "stalls": "p_weekend_market", "coffee": "p_market_coffee" }
 }

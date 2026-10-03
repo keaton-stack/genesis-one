@@ -2,9 +2,9 @@
 //   - the Market Hall (x -465..-140, z 8..46): a glass galleria 325 m long on 41 arched glulam timber ribs, the long axis east-west,
 //     glazed ends toward the mountains, two walk-in levels: a ground floor of food stalls and artisans behind copper and sandstone
 //     shopfronts, mezzanine restaurant terraces with railings, planter boxes and trailing plants, four stairs; big clay planters of
-//     agave, ocotillo, desert grasses and small trees down the travertine nave, globe pendants, partner kiosks, a busker corner, a
-//     crowd of shoppers, vendors and diners (posed people baked from the client's own rigs, instanced, two LODs) and a few live
-//     vendors and walkers (client avatars). Five entrances open north onto the stalls and the festival grounds.
+//     agave, ocotillo, desert grasses and small trees down the travertine nave, globe pendants, partner kiosks, a busker corner,
+//     live vendors with talk cards (client avatars) and, since R10 (3 Oct 2026), a few real people who roam both levels and the
+//     stalls (plan_festival's PLAN_ROAM; the baked crowd is gone). Five entrances open north onto the stalls and the grounds.
 //   - the Weekend Market (x -465..-250, z -18..0): two rows of canopy stalls facing an aisle (produce, crafts, coffee, textiles,
 //     pottery, flowers, baskets and the Giveback merch stand) under festoons of string lights, crates and baskets.
 //   - night: the glass glows warm from inside (emissive, no new lights; a few lamps go through the client's light pool).
@@ -705,105 +705,58 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function deferHook() {
     if (MK.off || !window.PLAN || !S || S.G === null) return; var t0 = nowMs();
-    try { buildAll(); } catch (e) { note("build", e); } try { spotsSetup(); } catch (e) { note("spots", e); } try { peopleList(); } catch (e) { note("people list", e); }
+    try { buildAll(); } catch (e) { note("build", e); } try { spotsSetup(); } catch (e) { note("spots", e); }
     MK.n.deferMs = Math.round(nowMs() - t0); MK.ready = true;
   }
 
-  // ───────────────────────── the crowd: posed people baked from the client's own rigs, drawn by four BatchedMeshes ─────────────────────────
-  // Each pose (two standing idles, two walk phases, a walk and a stand with a shopping bag, seated; for the m and f bodies) is the
-  // rig's skinned mesh posed by one of its clips and baked to a static mesh (body, skin and hair slots on their shared atlas), then
-  // simplified by a position-only clustering that keeps each kept triangle's own uvs (about 1.8k to 3.1k triangles near, 330 to 590
-  // far). Shirt, trousers, skin and bag colours are recoloured per person in the shader from a small data texture read by batch id
-  // (the client's own avatar tint rules). Per body one batch holds the near people (they cast shadows) and one the far ones.
-  var PPL = MK.ppl = { list: [], ready: false, poses: null, at: 0, cx: 1e9, cz: 1e9, near: 24, far: 210, bat: {} };
-  var POSES = [["idleA", "idle", 0.6], ["idleB", "idle", 2.4], ["walkA", "walk", 0.55], ["walkB", "walk", 2.65], ["walkBag", "walk", 1.6, 1], ["idleBag", "idle", 1.5, 1], ["sit", "sit", 2.0]];
-  var SHIRTS = [0xf5f1e6, 0x2a7a3e, 0xc0462d, 0x3a6ea5, 0xe0b040, 0x1c1f24, 0x6a3a8a, 0x8a4a2a, 0x6a8fb0, 0x2f8f8a, 0x9a3b52, 0x4a6b3a, 0xd8d0f0, 0x2b3a4a, 0xe07a30, 0xb8323a, 0x1f5f8f];
-  var PANTS = [0x2b3a4a, 0x1c1f24, 0x6d5a3e, 0xd9cdb5, 0x3a3d42, 0x5a4632, 0x8a8478, 0x30405a, 0x7a2a2a];
-  var SKINS = [0xf3d9c0, 0xe8c19a, 0xd9a877, 0xc98f63, 0xa86f46, 0x8d5a3b, 0x6b4226];
-  var BAGS = [0xc9a06a, 0x2a7a3e, 0xe8dcc4, 0x8a3a2a, 0x3a6ea5, 0xd9b26a];
-  function bakePose(b, clip, t) {
-    var Cc = CHAR[b]; if (!Cc || !Cc.clips || !Cc.clips[clip]) return null; var root = THREE.SkeletonUtils.clone(Cc.scene); root.scale.setScalar(Cc.scale); root.position.y = Cc.yoff;
-    var sk = [], hand = null; root.traverse(function (o) { if (o.isSkinnedMesh) sk.push(o); if (o.isBone && o.name === "RightHand") hand = o; }); var mixer = new THREE.AnimationMixer(root); mixer.clipAction(Cc.clips[clip]).play(); mixer.setTime(t); root.updateMatrixWorld(true);
-    var v = new THREE.Vector3(), r = new THREE.Vector3(), map = null, parts = [];
-    sk.forEach(function (m) { m.skeleton.update(); map = map || m.material.map; var g = m.geometry, pos = g.attributes.position, n = pos.count, P = new Float32Array(n * 3), RY = new Float32Array(n);
-      for (var i = 0; i < n; i++) { v.fromBufferAttribute(pos, i); r.copy(v).applyMatrix4(m.matrixWorld); RY[i] = r.y; m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); P[i * 3] = v.x; P[i * 3 + 1] = v.y; P[i * 3 + 2] = v.z; }
-      parts.push({ P: P, U: new Float32Array(g.attributes.uv.array), I: g.index ? g.index.array : null, n: n, RY: RY }); });
-    var nv = 0, ni = 0; parts.forEach(function (p) { nv += p.n; ni += p.I ? p.I.length : p.n; }); var P = new Float32Array(nv * 3), U = new Float32Array(nv * 2), RY = new Float32Array(nv), I = new Uint32Array(ni), ov = 0, oi = 0;
-    parts.forEach(function (p) { P.set(p.P, ov * 3); U.set(p.U, ov * 2); RY.set(p.RY, ov); if (p.I) for (var k = 0; k < p.I.length; k++) I[oi + k] = p.I[k] + ov; else for (var k2 = 0; k2 < p.n; k2++) I[oi + k2] = k2 + ov; ov += p.n; oi += p.I ? p.I.length : p.n; });
-    // feet on the ground (the walk clip carries the feet about 10 cm over the stance); the rest height normalised for the tint
-    var miny = 1e9, maxr = -1e9, minr = 1e9; for (var j = 0; j < nv; j++) { miny = Math.min(miny, P[j * 3 + 1]); maxr = Math.max(maxr, RY[j]); minr = Math.min(minr, RY[j]); } var lift = clip === "sit" ? 0 : -miny; for (var j2 = 0; j2 < nv; j2++) { P[j2 * 3 + 1] += lift; RY[j2] = (RY[j2] - minr) / Math.max(1e-6, maxr - minr) * 1.75; }
-    var hp = null; if (hand) { hand.getWorldPosition(v); hp = [v.x, v.y + lift, v.z]; }
-    return { P: P, U: U, I: I, RY: RY, map: map, n: nv, hand: hp };
-  }
-  // vertex clustering on position only (no cracks), the output unindexed: every kept triangle keeps the uvs and rest heights of its
-  // own original corners (so the atlas stays put across uv seams), smooth normals averaged per cluster, the original facing kept
-  function simplify(B, cell) {
-    var N = B.n, P = B.P, U = B.U, idx = B.I, F = idx.length / 3, cmap = new Map(), acc = [], cellOf = new Int32Array(N), ON = new Float32Array(N * 3), f, k;
-    for (f = 0; f < F; f++) { var i0 = idx[f * 3] * 3, i1 = idx[f * 3 + 1] * 3, i2 = idx[f * 3 + 2] * 3, ux = P[i1] - P[i0], uy = P[i1 + 1] - P[i0 + 1], uz = P[i1 + 2] - P[i0 + 2], vx = P[i2] - P[i0], vy = P[i2 + 1] - P[i0 + 1], vz = P[i2 + 2] - P[i0 + 2], nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; ON[i0] += nx; ON[i0 + 1] += ny; ON[i0 + 2] += nz; ON[i1] += nx; ON[i1 + 1] += ny; ON[i1 + 2] += nz; ON[i2] += nx; ON[i2 + 1] += ny; ON[i2 + 2] += nz; }
-    for (var v = 0; v < N; v++) { var key = (Math.floor(P[v * 3] / cell) + 512) * 1048576 + (Math.floor(P[v * 3 + 1] / cell) + 512) * 1024 + (Math.floor(P[v * 3 + 2] / cell) + 512); var c = cmap.get(key); if (c === undefined) { c = acc.length / 7; cmap.set(key, c); acc.push(0, 0, 0, 0, 0, 0, 0); } var o = c * 7; acc[o] += P[v * 3]; acc[o + 1] += P[v * 3 + 1]; acc[o + 2] += P[v * 3 + 2]; acc[o + 3] += ON[v * 3]; acc[o + 4] += ON[v * 3 + 1]; acc[o + 5] += ON[v * 3 + 2]; acc[o + 6]++; cellOf[v] = c; }
-    var keep = [], seen = new Set(); for (f = 0; f < F; f++) { var a = cellOf[idx[f * 3]], b = cellOf[idx[f * 3 + 1]], cc = cellOf[idx[f * 3 + 2]]; if (a === b || b === cc || a === cc) continue; var s0 = Math.min(a, b, cc), s2 = Math.max(a, b, cc), kk = s0 + "," + (a + b + cc - s0 - s2) + "," + s2; if (seen.has(kk)) continue; seen.add(kk); keep.push(f); }
-    var T = keep.length, BAGT = B.hand ? 24 : 0, PP = new Float32Array((T + BAGT) * 9), UU = new Float32Array((T + BAGT) * 6), NN = new Float32Array((T + BAGT) * 9), RR = new Float32Array((T + BAGT) * 3), cs = [0, 0, 0], vs = [0, 0, 0], pc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    for (var t = 0; t < T; t++) { f = keep[t]; for (k = 0; k < 3; k++) { vs[k] = idx[f * 3 + k]; cs[k] = cellOf[vs[k]]; var oo = cs[k] * 7, n = acc[oo + 6]; pc[k][0] = acc[oo] / n; pc[k][1] = acc[oo + 1] / n; pc[k][2] = acc[oo + 2] / n; }
-      var e1x = pc[1][0] - pc[0][0], e1y = pc[1][1] - pc[0][1], e1z = pc[1][2] - pc[0][2], e2x = pc[2][0] - pc[0][0], e2y = pc[2][1] - pc[0][1], e2z = pc[2][2] - pc[0][2], qx = e1y * e2z - e1z * e2y, qy = e1z * e2x - e1x * e2z, qz = e1x * e2y - e1y * e2x;
-      var j0 = vs[0] * 3, j1 = vs[1] * 3, j2 = vs[2] * 3, ox = (P[j1 + 1] - P[j0 + 1]) * (P[j2 + 2] - P[j0 + 2]) - (P[j1 + 2] - P[j0 + 2]) * (P[j2 + 1] - P[j0 + 1]), oy = (P[j1 + 2] - P[j0 + 2]) * (P[j2] - P[j0]) - (P[j1] - P[j0]) * (P[j2 + 2] - P[j0 + 2]), oz = (P[j1] - P[j0]) * (P[j2 + 1] - P[j0 + 1]) - (P[j1 + 1] - P[j0 + 1]) * (P[j2] - P[j0]);
-      var order = qx * ox + qy * oy + qz * oz < 0 ? [0, 2, 1] : [0, 1, 2];
-      for (var j = 0; j < 3; j++) { k = order[j]; var q = t * 3 + j, cc2 = cs[k] * 7, vv = vs[k]; PP[q * 3] = pc[k][0]; PP[q * 3 + 1] = pc[k][1]; PP[q * 3 + 2] = pc[k][2]; UU[q * 2] = U[vv * 2]; UU[q * 2 + 1] = U[vv * 2 + 1]; RR[q] = B.RY[vv]; var nx2 = acc[cc2 + 3], ny2 = acc[cc2 + 4], nz2 = acc[cc2 + 5], L = Math.sqrt(nx2 * nx2 + ny2 * ny2 + nz2 * nz2) || 1; NN[q * 3] = nx2 / L; NN[q * 3 + 1] = ny2 / L; NN[q * 3 + 2] = nz2 / L; } }
-    // a shopping bag hanging from the right hand (rest height 3 marks it: the shader paints it the person's bag colour)
-    if (B.hand) { var bx = B.hand[0], by = B.hand[1] - 0.05, bz = B.hand[2], bg = new THREE.BoxGeometry(0.3, 0.34, 0.13); bg.translate(bx, by - 0.2, bz); var hg = new THREE.BoxGeometry(0.02, 0.06, 0.1); hg.translate(bx, by - 0.01, bz); var parts2 = [bg.toNonIndexed(), hg.toNonIndexed()], q0 = T * 3;
-      parts2.forEach(function (g) { var pa = g.attributes.position, na = g.attributes.normal; for (var i = 0; i < pa.count; i++, q0++) { PP[q0 * 3] = pa.getX(i); PP[q0 * 3 + 1] = pa.getY(i); PP[q0 * 3 + 2] = pa.getZ(i); NN[q0 * 3] = na.getX(i); NN[q0 * 3 + 1] = na.getY(i); NN[q0 * 3 + 2] = na.getZ(i); RR[q0] = 3.0; } }); }
-    var g2 = new THREE.BufferGeometry(); g2.setAttribute("position", new THREE.BufferAttribute(PP, 3)); g2.setAttribute("uv", new THREE.BufferAttribute(UU, 2)); g2.setAttribute("normal", new THREE.BufferAttribute(NN, 3)); g2.setAttribute("aRestY", new THREE.BufferAttribute(RR, 1)); g2.computeBoundingSphere(); g2.computeBoundingBox(); return g2;
-  }
-  function peopleMat(map, data) {
-    var m = new THREE.MeshStandardMaterial({ map: map, roughness: 0.86, metalness: 0, envMapIntensity: 0.6 }); m.name = "mk_people";
-    m.onBeforeCompile = function (sh) { sh.uniforms.uPD = { value: data };
-      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute float aRestY; uniform sampler2D uPD; varying vec3 vShirt; varying vec3 vPants; varying vec3 vSkin; varying vec3 vBag; varying float vRestY;")
-        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvRestY = aRestY;\n#ifdef USE_BATCHING\n{ int pid = int(getIndirectIndex(gl_DrawID)) * 4; vShirt = texelFetch(uPD, ivec2(pid % 1024, pid / 1024), 0).rgb; vPants = texelFetch(uPD, ivec2((pid + 1) % 1024, (pid + 1) / 1024), 0).rgb; vSkin = texelFetch(uPD, ivec2((pid + 2) % 1024, (pid + 2) / 1024), 0).rgb; vBag = texelFetch(uPD, ivec2((pid + 3) % 1024, (pid + 3) / 1024), 0).rgb; }\n#else\nvShirt = vec3(0.8); vPants = vec3(0.2); vSkin = vec3(0.9, 0.76, 0.6); vBag = vec3(0.7, 0.55, 0.35);\n#endif");
-      sh.fragmentShader = sh.fragmentShader.replace("uniform vec3 diffuse;", "uniform vec3 diffuse; varying vec3 vShirt; varying vec3 vPants; varying vec3 vSkin; varying vec3 vBag; varying float vRestY;").replace("#include <map_fragment>", "#include <map_fragment>\nif (vRestY > 2.5) { diffuseColor.rgb = vBag; } else { float lum = dot(diffuseColor.rgb, vec3(0.333)); float sat = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)) - min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));\n float skinLike = smoothstep(0.06, 0.16, sat) * step(diffuseColor.b + 0.015, diffuseColor.r) * smoothstep(0.16, 0.32, lum) * (1.0 - smoothstep(0.86, 0.95, lum));\n vec3 skinC = diffuseColor.rgb * (vSkin / vec3(0.91, 0.76, 0.6)); float y = vRestY; float shoe = 1.0 - smoothstep(0.07, 0.12, y); float leg = (1.0 - smoothstep(0.92, 1.0, y)) * (1.0 - shoe); float torso = smoothstep(0.92, 1.0, y) * (1.0 - smoothstep(1.4, 1.46, y));\n vec3 c0 = diffuseColor.rgb; c0 = mix(c0, vPants * (0.32 + lum * 1.5), leg * (1.0 - skinLike)); c0 = mix(c0, vShirt * (0.45 + lum * 0.85), torso * (1.0 - skinLike)); c0 = mix(c0, vec3(0.92, 0.9, 0.86) * (0.4 + lum * 0.8), shoe * 0.85); diffuseColor.rgb = mix(c0, skinC, skinLike * 0.9 * (1.0 - shoe)); }");
-    };
-    m.customProgramCacheKey = function () { return "mk_people_b1"; }; return m;
-  }
-  // the people's places: shop vendors, customers and browsers, terrace diners and railing watchers, the nave (walkers, shoppers
-  // with bags, groups, planter seats), the stalls (vendors and shoppers); each with a pose variant, a body, colours and a facing
-  function peopleList() {
-    var L = layout(), R = rng(9911), out = PPL.list = [], yf = YF(), ym = YM(), yg = S.G + 0.04;
-    var vary = function (pose) { var r = R(); return pose === "walk" ? (r < 0.3 ? "walkBag" : r < 0.65 ? "walkA" : "walkB") : pose === "idle" ? (r < 0.2 ? "idleBag" : r < 0.6 ? "idleA" : "idleB") : "sit"; };
-    var add = function (x, y, z, ry, pose, role) { var b = R() < 0.5 ? "m" : "f"; out.push({ x: x, y: y, z: z, ry: ry, pose: role === "vendor" ? (R() < 0.5 ? "idleA" : "idleB") : vary(pose), b: b, role: role || "", sh: SHIRTS[Math.floor(R() * SHIRTS.length)], pa: PANTS[Math.floor(R() * PANTS.length)], sk: SKINS[Math.floor(R() * SKINS.length)], bag: BAGS[Math.floor(R() * BAGS.length)] }); };
-    L.shops.forEach(function (P, si) { var pre = shopPrefab(P.type), xs = P.n === 2 ? [-S.B / 2, S.B / 2] : [0]; xs.forEach(function (ox, k) { pre.slots.forEach(function (sl, j) { if (sl.role !== "vendor" && R() < 0.25) return; if (sl.role === "vendor" && j > 0 && R() < 0.5) return; var w = lw(P, sl.lx + ox, sl.lz); add(w[0], yf, w[1], (P.ry || 0) + sl.ry + (R() - 0.5) * 0.5, sl.pose, sl.role); }); }); });
-    L.terr.forEach(function (T) { terrPrefab(T.umb).slots.forEach(function (sl) { if (sl.pose === "sit" && R() < 0.3) return; if (sl.rail && R() < 0.5) return; if (T.land && sl.rail) return; var w = lw(T, sl.lx, sl.lz); add(w[0], ym, w[1], T.ry + sl.ry, sl.pose); }); });
-    for (var i = 0; i < 230; i++) { var x = lerp(S.X0 + 8, S.X1 - 8, R()), z = S.ZC + (R() < 0.5 ? -1 : 1) * (1.8 + R() * 6.4); if (blocked(x, z)) continue; var dir = R() < 0.5 ? -1 : 1; add(x, yf, z, dir > 0 ? PI / 2 + (R() - 0.5) * 0.5 : -PI / 2 + (R() - 0.5) * 0.5, R() < 0.8 ? "walk" : "idle"); }
-    L.planters.forEach(function (p, k) { for (var gi = 0; gi < 2; gi++) { var n = 2 + Math.floor(R() * 2), a0 = R() * TAU, cx = p.x + Math.sin(a0) * (p.r + 1.8), cz = p.z + Math.cos(a0) * (p.r + 1.8); if (blocked(cx, cz)) continue; for (var j = 0; j < n; j++) { var a = j * TAU / n + R() * 0.4; add(cx + Math.sin(a) * 0.65, yf, cz + Math.cos(a) * 0.65, a + PI, "idle"); } } });
-    L.planters.forEach(function (p) { if (!p.seat) return; for (var a = 0; a < 4; a++) { if (R() < 0.25) continue; var an = a * PI / 2 + PI / 4; add(p.x + Math.sin(an) * (p.r + 0.36), yf, p.z + Math.cos(an) * (p.r + 0.36), an, "sit"); } });
-    L.stalls.forEach(function (T) { stallGoods(T.type).slots.forEach(function (sl, j) { if (sl.role !== "vendor" && R() < 0.2) return; var w = lw(T, sl.lx, sl.lz); add(w[0], yg, w[1], T.ry + sl.ry, sl.pose, sl.role); }); });
-    for (var k2 = 0; k2 < 46; k2++) { var x2 = lerp(S.sx0 + 4, S.sx1 - 4, R()), z2 = lerp(S.sz0 + 6.0, S.sz1 - 6.0, R()); add(x2, yg, z2, (R() < 0.5 ? 1 : -1) * PI / 2 + (R() - 0.5) * 0.6, R() < 0.6 ? "walk" : "idle"); }
-    MK.n.people = out.length;
-  }
-  function blocked(x, z) { var L = layout(); if (L.planters.some(function (p) { return Math.hypot(p.x - x, p.z - z) < p.r + 0.7; })) return true; if (L.small.some(function (p) { return Math.hypot(p.x - x, p.z - z) < p.r + 0.6; })) return true; if (L.kiosks.some(function (k) { return Math.abs(k.x - x) < 2.6 && Math.abs(k.z - z) < 2.0; })) return true; if (S.stairs.some(function (q) { return x > Math.min(q.xb, q.xl) - 0.6 && x < Math.max(q.xb, q.xl) + 0.6 && Math.abs(z - (q.zIn + q.zOut) / 2) < 1.6; })) return true; if (L.busker && Math.hypot(L.busker.x - x, L.busker.z - z) < 1.8) return true; return false; }
-  // bake one pose a call (time-sliced from the frame hook while CHAR has loaded); then build the batches
-  function* bakeSteps() {
-    var poses = {}; for (var bi = 0; bi < 2; bi++) for (var i = 0; i < POSES.length; i++) { var b = bi ? "f" : "m", p = POSES[i], B = bakePose(b, p[1], p[2]); yield 0; if (!B) continue; if (!p[3]) B.hand = null; var near = simplify(B, 0.05); yield 0; var far = simplify(B, 0.16); poses[b + ":" + p[0]] = { near: near, far: far, map: B.map }; yield 0; }
-    PPL.poses = poses; var g = new THREE.Group(); g.name = "mk_people"; g.userData.noCull = true; var tri = [];
-    ["m", "f"].forEach(function (b) { var list = PPL.list.filter(function (q) { return q.b === b; }); var any = poses[b + ":idleA"]; if (!list.length || !any) return;
-      var H = Math.max(1, Math.ceil(list.length * 4 / 1024)), D = new Uint8Array(1024 * H * 4), data = new THREE.DataTexture(D, 1024, H, THREE.RGBAFormat); data.needsUpdate = true;
-      list.forEach(function (q, i) { [q.sh, q.pa, q.sk, q.bag].forEach(function (hx, k) { _pc.setHex(hx); var o = (i * 4 + k) * 4; D[o] = Math.round(_pc.r * 255); D[o + 1] = Math.round(_pc.g * 255); D[o + 2] = Math.round(_pc.b * 255); D[o + 3] = 255; }); });
-      var mat = peopleMat(any.map, data), mk = function (lod, cast) { var vc = 0, ids = {}; POSES.forEach(function (p) { var P = poses[b + ":" + p[0]]; if (P) vc += P[lod].attributes.position.count; }); var bm = new THREE.BatchedMesh(list.length, vc, 0, mat); bm.name = "mk_people_" + b + "_" + lod; bm.castShadow = cast; bm.receiveShadow = true; bm.sortObjects = false; bm.perObjectFrustumCulled = true; bm.userData.shSet = true; bm.userData.noShadow = !cast;
-        POSES.forEach(function (p) { var P = poses[b + ":" + p[0]]; if (P) { ids[p[0]] = bm.addGeometry(P[lod]); tri.push([b + p[0] + lod, P[lod].attributes.position.count / 3]); } });
-        list.forEach(function (q) { var id = bm.addInstance(ids[q.pose] !== undefined ? ids[q.pose] : ids.idleA); _e.set(0, q.ry, 0); _q.setFromEuler(_e); _m4.compose(_v1.set(q.x, q.y, q.z), _q, _v2.set(1, 1, 1)); bm.setMatrixAt(id, _m4); bm.setVisibleAt(id, false); q["id_" + lod] = id; });
-        bm.computeBoundingBox(); bm.computeBoundingSphere(); g.add(bm); return bm; };
-      PPL.bat[b] = { near: mk("near", true), far: mk("far", false), list: list }; list.forEach(function (q) { q.st = -1; }); });
-    scene.add(g); GR.people = g; PPL.ready = true; PPL.cx = 1e9; MK.n.peopleTris = tri;
-    try { var W = window.PLAN_PERF; if (W && W.warmGroup) W.warmGroup(g, { name: "market people" }); } catch (e) {}
-  }
-  var _pc = new THREE.Color();
-  // near (cast shadows) and far LODs by distance, nothing beyond PPL.far; only the changes are written
-  function peopleFrame(force) {
-    var cam = camera.position, mv = Math.hypot(cam.x - PPL.cx, cam.z - PPL.cz); if (!force && mv < 3 && nowMs() - PPL.at < 1500) return; PPL.cx = cam.x; PPL.cz = cam.z; PPL.at = nowMs();
-    var near2 = PPL.near * PPL.near, far2 = PPL.far * PPL.far, n = 0, f = 0;
-    for (var b in PPL.bat) { var B = PPL.bat[b]; for (var i = 0; i < B.list.length; i++) { var q = B.list[i], dx = q.x - cam.x, dz = q.z - cam.z, d2 = dx * dx + dz * dz, st = d2 > far2 ? 0 : d2 < near2 ? 1 : 2; if (st === 1) n++; else if (st === 2) f++; if (st === q.st && !force) continue; q.st = st; B.near.setVisibleAt(q.id_near, st === 1); B.far.setVisibleAt(q.id_far, st === 2); } }
-    MK.n.peopleNear = n; MK.n.peopleFar = f;
-  }
+  // ───────────────────────── R10: the people who roam the hall and the Weekend Market (PLAN_ROAM, the engine in plan_festival.js) ─────────────────────────
+  // Replaces the R7 baked crowd (1,065 posed shoppers and diners in BatchedMeshes) and the optional lane walkers. Six to eight of
+  // the client's rigged avatars by the hour (more at lunch and for the Night Market) on both levels: they order at the counters,
+  // browse the artisans, the goods shops and the stalls, climb the four stairs to dine on the terraces and lean on the railing,
+  // watch the busker, read the partner kiosks, sit on the planter rings and talk in pairs. Names and lines: market.json "roam".
+  // The live vendors (Rosa, Eli, Mara, Tomas) keep their counters and talk cards.
+  function marketArea() {
+    var RO = window.PLAN_ROAM; if (!RO || !RO.area || RO.off || MK.roamArea || !S || S.G === null) return; var L = layout(), RC = C("roam", {}), ym = YM(), yf = YF();
+    var def = { id: "market", max: 8, box: [-470, -24, -135, 50], perCat: true, pull: 4, people: (RC.names || []).map(function (n) { return { name: n }; }), lines: RC.lines || {},
+      ready: function () { return !!MK.ready; }, hideAll: function () { return !!MK.hideAll; },
+      levels: [{ base: function (x, z) { return planGroundAt(x, z); }, exact: true },
+        { base: null, band: [ym - 0.12, ym + 0.12], block: function (x, z) { return !S.inHall(x, z, -0.4); } }],
+      // the four stairs: up the treads (their heights follow the solids) to the landing, then onto the deck through the railing's gap
+      links: function () { return S.stairs.map(function (q) { var zm = (q.zIn + q.zOut) / 2, xf = q.xb - q.dir * 1.1, xt = (q.xt + q.xl) / 2, zd = q.zIn + q.s * 1.0;
+        return { a: { l: 0, x: xf, z: zm }, b: { l: 1, x: xt, z: zd }, pts: [[xf, yf, zm, 1], [q.xb, yf, zm, 1], [q.xt, ym, zm, 1], [xt, ym, zm, 1], [xt, ym, zd, 1]] }; }); },
+      entries: function () { return [{ x: S.X0 - 2.6, z: S.ZC, face: PI / 2 }, { x: S.X1 + 2.6, z: S.ZC, face: -PI / 2 }, { x: S.sx0 - 1.5, z: (S.sz0 + S.sz1) / 2, face: PI / 2 }, { x: -241.6, z: 6.4, face: 0, hand: "campus" }, { x: -176.6, z: 6.4, face: 0, hand: "campus" }]; },
+      seeds: function () { return def.entries().concat([{ x: -302, z: S.ZC }, { l: 1, x: S.bc(12), z: S.zs(-1, S.DE + 1.5) }, { l: 1, x: S.bc(12), z: S.zs(1, S.DE + 1.5) }]); },
+      pois: function () { var out = [], R = rng(5151);
+        // the counters and shelves of the ground floor shops (the customers' places of the R7 prefabs)
+        L.shops.forEach(function (P) { var pre = shopPrefab(P.type), xs = P.n === 2 ? [-S.B / 2, S.B / 2] : [0], look = P.type === "artisan" || P.type === "goods"; xs.forEach(function (ox) { pre.slots.forEach(function (sl) { if (sl.role === "vendor") return; var w = lw(P, sl.lx + ox, sl.lz); out.push({ kind: look ? "browse" : "order", line: look ? "browse" : "order", x: w[0], z: w[1], face: (P.ry || 0) + sl.ry, tag: P.type }); }); }); });
+        // the Weekend Market's stalls
+        L.stalls.forEach(function (T) { stallGoods(T.type).slots.forEach(function (sl) { if (sl.role === "vendor") return; var w = lw(T, sl.lx, sl.lz); out.push({ kind: "browse", line: "stall", x: w[0], z: w[1], face: T.ry + sl.ry, tag: "stall" }); }); });
+        // the mezzanine railing over the nave, the partner kiosks, the busker's corner
+        L.terr.forEach(function (T) { terrPrefab(T.umb).slots.forEach(function (sl) { if (!sl.rail || T.land) return; var w = lw(T, sl.lx, sl.lz); out.push({ kind: "look", line: "mezz", l: 1, x: w[0], z: w[1], face: T.ry + sl.ry, tag: "rail" }); }); });
+        L.kiosks.forEach(function (Kk) { var w = lw(Kk, 0, 2.1); out.push({ kind: "look", line: "kiosk", x: w[0], z: w[1], face: Math.atan2(Kk.x - w[0], Kk.z - w[1]), tag: "kiosk" }); });
+        if (L.busker) [-1.6, 0, 1.6].forEach(function (o) { var x = L.busker.x + o, z = L.busker.z - 2.6; out.push({ kind: "watch", line: "busker", x: x, z: z, face: Math.atan2(L.busker.x - x, L.busker.z - z), tag: "busker" }); });
+        // pairs talking in the nave, along the stalls, on the terraces
+        L.planters.forEach(function (p, i) { if (i % 2) return; out.push({ kind: "chat", line: "nave", x: p.x + 4.2, z: S.ZC + (i % 4 ? 3.2 : -3.2), face: R() * TAU, tag: "nave" }); });
+        for (var i = 0; i < 6; i++) out.push({ kind: "chat", line: "stall", x: lerp(S.sx0 + 10, S.sx1 - 10, (i + 0.5) / 6), z: (S.sz0 + S.sz1) / 2, face: PI / 2, tag: "stall" });
+        for (var j = 0; j < 6; j++) { var sd = j % 2 ? 1 : -1; out.push({ kind: "chat", line: "mezz", l: 1, x: S.bc(4 + j * 6) + 1.5, z: S.zs(sd, S.DE + 1.5), face: PI / 2, tag: "mezz" }); }
+        return out; },
+      // the terrace chairs (upstairs) and the planter rings (the nave) are places to sit
+      seatInfo: function (s) { if (!s.mk) return null; return s.y1 > ym - 0.5 ? { l: 1, kind: "sit", line: "dine", tag: "terrace" } : { l: 0, kind: "sit", line: "nave", tag: "planter" }; },
+      weight: function (p, h) { var meal = (h > 11.5 && h < 14) || (h > 17.5 && h < 22.5), night = h >= 21 && h < 23.5, k = p.kind, t = p.tag;
+        if (k === "order") return t === "coffee" ? (h < 11 ? 2.4 : 0.7) : meal ? 1.8 : 0.8;
+        if (k === "browse") return t === "stall" ? (h > 7 && h < 18.5 || night ? 1.6 : 0.4) : 0.9;
+        if (k === "sit") return t === "terrace" ? (meal ? 2.4 : 0.9) : 0.6;
+        if (k === "look") return t === "rail" ? 0.9 : 0.4;
+        if (k === "watch") return 0.6; if (k === "chat") return t === "nave" ? 0.9 : 0.5; return 0.5; },
+      // after an order at a counter, often a seat (a terrace chair upstairs or a planter ring)
+      next: function (A, c, last) { if (!last || last.kind !== "order" || Math.random() > 0.55) return null; var x = c.g.position.x, z = c.g.position.z, Lp = A.pois.filter(function (p) { return p.kind === "sit" && !p.by && !p.bad && Math.hypot(p.x - x, p.z - z) < 50; }); return Lp.length ? Lp[Math.floor(Math.random() * Lp.length)] : null; },
+      count: function (h) { return h >= 23.5 || h < 7 ? 6 : (h >= 12 && h < 14) || (h >= 21 && h < 23.5) ? 8 : 7; },
+      dur: { sit: [30, 80], chat: [15, 40], order: [8, 16], browse: [8, 20], look: [8, 18], watch: [15, 35] },
+      sameZone: function (c) { var p = c.g.position, q = player.position; return S.inHall(q.x, q.z, 0.5) === S.inHall(p.x, p.z, 0.5) && Math.abs(q.y - p.y) < 2.6; } };
+    MK.roamArea = RO.area(def); }
 
-  // ───────────────────────── live vendors (talk cards) and a few walkers: client avatars, only near the hall ─────────────────────────
-  MK.cast = MK.cast || []; MK.walkers = MK.walkers || [];
+  // ───────────────────────── live vendors (talk cards): client avatars, only near the hall ─────────────────────────
+  MK.cast = MK.cast || [];
   function vendorSpot(V) { var L = layout(); if (V.stall !== undefined) { var T = L.stalls[V.stall | 0]; if (!T) return null; var w = lw(T, 0.6, -1.5); return { x: w[0], z: w[1], y: S.G + 0.04, ry: T.ry }; }
     var target = (C("shops", [])[V.shop | 0] || {}).name; var P = L.shops.filter(function (q) { return q.def.name === target; })[0]; if (!P) return null; var w2 = lw(P, (P.n === 2 ? -S.B / 2 : 0) + 2.9, -2.1); return { x: w2[0], z: w2[1], y: YF(), ry: P.ry + 0.2 }; }
   function buildVendors() {
@@ -812,16 +765,6 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var c = { id: V.id, name: V.name, role: V.role, pos: [sp.x, sp.z], look: V.look, hat: null, outfit: null, greet: V.greet || ["Welcome."], talk: (V.talk || []).map(function (q) { return { t: q.t, o: q.o }; }), kw: [], g: g, rot: sp.ry };
       CAST.push(c); var hs = { x: sp.x, z: sp.z, r: 2.6, t: c.name, k: c.role + " · press E to talk", p: c.talk[0] ? c.talk[0].t : "", play: "npc:" + c.id }; hotspots.push(hs); (MK.hsList = MK.hsList || []).push(hs); MK.cast.push(c); });
     MK.n.vendors = MK.cast.length;
-  }
-  function buildWalkers() {
-    if (typeof avatar !== "function" || MK.walkers.length >= 6) return; var R = rng(515 + MK.walkers.length * 7), looks = [{ body: "m", skin: "e8c19a", shirt: "3a6ea5", pants: "2b3a4a", hair: 1, hairc: "3a2416" }, { body: "f", skin: "c98f63", shirt: "f5f1e6", pants: "1c1f24", hair: 2, hairc: "1c1512" }, { body: "m", skin: "8d5a3b", shirt: "c0462d", pants: "6d5a3e", hair: 3 }, { body: "f", skin: "f3d9c0", shirt: "2a7a3e", pants: "d9cdb5", hair: 1, hairc: "6b4226" }, { body: "m", skin: "d9a877", shirt: "e0b040", pants: "3a3d42", hair: 0 }, { body: "f", skin: "a86f46", shirt: "9a3b52", pants: "2b3a4a", hair: 2, hairc: "1c1512" }];
-    for (var i = MK.walkers.length, i1 = i + 1; i < looks.length && i < i1; i++) { var g = avatar("mk_walk_" + i, "", looks[i], i === 2 ? "hat_cap" : null, null); try { g.userData.label.visible = false; } catch (e) {} var lane = S.ZC + (i % 2 ? 5.2 : -5.0) + (R() - 0.5) * 1.2; var x0 = lerp(S.X0 + 20, S.X1 - 60, R()); g.position.set(x0, YF(), lane); scene.add(g); MK.walkers.push({ g: g, x0: S.X0 + 12, x1: S.X1 - 12, z: lane, dir: i % 2 ? 1 : -1, sp: 1.05 + R() * 0.35, pause: R() * 3 }); }
-  }
-  function walkersFrame(dt, near) {
-    MK.walkers.forEach(function (w) { var g = w.g; g.visible = near; if (!near) return; if (w.pause > 0) { w.pause -= dt; try { animateWalk(g, 0, dt); } catch (e) {} return; }
-      g.position.x += w.dir * w.sp * dt; var blockedAhead = layout().planters.some(function (p) { return Math.abs(p.x - g.position.x - w.dir * 1.2) < p.r + 0.4 && Math.abs(p.z - g.position.z) < p.r + 0.5; }) || layout().kiosks.some(function (k) { return Math.abs(k.x - g.position.x - w.dir * 1.5) < 2.2 && Math.abs(k.z - g.position.z) < 1.8; });
-      if (blockedAhead) g.position.z += (g.position.z > S.ZC ? 1 : -1) * dt * 1.2; else g.position.z += (w.z - g.position.z) * Math.min(1, dt * 0.5);
-      if (g.position.x < w.x0 || g.position.x > w.x1) { w.dir *= -1; w.pause = 2 + Math.random() * 3; } g.rotation.y = w.dir > 0 ? PI / 2 : -PI / 2; g.position.y = YF(); try { animateWalk(g, w.sp, dt); } catch (e) {} });
   }
 
   // ───────────────────────── interaction spots (E): coffee, food counters, the merch stand, kiosks, the busker ─────────────────────────
@@ -863,11 +806,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function bubbleFrame() { var t = nowMs(); for (var i = BUB.list.length - 1; i >= 0; i--) { var q = BUB.list[i]; if (t < q.t) continue; scene.remove(q.g); try { if (q.b.material.map) q.b.material.map.dispose(); q.b.material.dispose(); } catch (e) {} BUB.list.splice(i, 1); }
     if (t - BUB.at < 7000 || !player) return; var px = player.position.x, pz = player.position.z, py = player.position.y; for (var j = 0; j < MK.spots.length; j++) { var o = MK.spots[j]; if (!(o.shop || (o.stall && o.kind === "cart")) || Math.abs(py - o.y) > 1.6) continue; var d = Math.hypot(o.x - px, o.z - pz); if (d < 6.5 && d > 1.2) { vendorLine(o, false); if (nowMs() - BUB.at < 100) return; } } }
 
-  // ───────────────────────── every frame: the night look, near and far, the crowd, vendors, walkers, stamps ─────────────────────────
+  // ───────────────────────── every frame: the night look, near and far, the roaming people, vendors, stamps ─────────────────────────
   var FR = MK.fr = { t: 0, it: null, stamped: {} };
   function frameHook(dt, now) {
     if (MK.off || !MK.ready || !S) return; dt = Math.min(dt || 0.016, 0.1);
-    if (MK.hideAll) { for (var hk in GR) GR[hk].visible = false; (MK.cast || []).concat(MK.walkers || []).forEach(function (c) { c.g.visible = false; }); return; }
+    if (MK.hideAll) { for (var hk in GR) GR[hk].visible = false; (MK.cast || []).forEach(function (c) { c.g.visible = false; }); return; }
     try {
       var n = clamp((nightK() - 0.02) * 3.2, 0, 1), cam = camera.position, M = MAT;
       if (Math.abs(n - (FR.n === undefined ? -1 : FR.n)) > 0.004) { FR.n = n; ["trav", "earth", "wood", "wick"].forEach(function (k) { if (M[k]) M[k].emissiveIntensity = 0.16 * n; }); M.plain.emissiveIntensity = 0.05 * n; M.metal.emissiveIntensity = 0.03 * n;
@@ -879,12 +822,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       if (nowMs() > (FR.tagAt || 0)) { FR.tagAt = nowMs() + 250; var yf0 = YF(), inH = dh <= 0 && cam.y < yf0 + S.RT, side = dh > 0 && cam.x > S.X0 + 2 && cam.x < S.X1 - 2 && (cam.z < S.ZN || cam.z > S.ZS) && cam.y < yf0 + 9;
         // behind solid walls: the shops, terraces and deck plants face the nave (not seen from the plaza at eye level), the stall goods are not seen from inside the nave
         btag("shops", dh < 420 && !side); btag("terr", dh < 420 && !side); btag("green", dh < 360 && !side); btag("planters", dh < 420); btag("nave", dh < 360 && !side); btag("globes", dh < 900); btag("goods", dst < 360 && !inH); btag("festoons", dst < 600); btag("stallf", dst < 700); } vis("signs", dh < 520 || dst < 300); vis("stock", dh < 420 || dst < 300); vis("lights", dh < 200 || dst < 120); vis("batch", Math.min(dh, dst) < 2600);
-      // the crowd: baked once the rigs have loaded, its LODs re-sorted as the camera moves
-      if (!PPL.ready && !PPL.fail && typeof CHAR !== "undefined" && CHAR.m && CHAR.f && CHAR.m.clips && CHAR.m.clips.sit && (dh < 600 || dst < 600 || nowMs() - (FR.boot || (FR.boot = nowMs())) > 20000)) { if (!FR.it) FR.it = bakeSteps(); try { var r = window.PLAN_PERF && PLAN_PERF.step ? PLAN_PERF.step(FR.it, 6) : FR.it.next(); if (r && r.done) FR.it = null; } catch (e) { note("bake", e); PPL.fail = true; FR.it = null; } }
-      if (PPL.ready) { var pv = Math.min(dh, dst) < 280; if (GR.people.visible !== pv) GR.people.visible = pv; if (pv) peopleFrame(false); }
-      if (Math.min(dh, dst) < 160) { if (nowMs() > (FR.vAt || 0)) { FR.vAt = nowMs() + 700; FR.vk = (FR.vk || 0) + 1; if (FR.vk % 2) { try { buildVendors(); } catch (e) { note("vendors", e); } } else if (C("walkers", 0) > 0) { try { buildWalkers(); } catch (e) { note("walkers", e); } } } }
+      // the roaming people (PLAN_ROAM): the area registers once the hall is built
+      if (!MK.roamArea && nowMs() > (FR.raAt || 0)) { FR.raAt = nowMs() + 1000; try { marketArea(); } catch (e) { note("roam", e); } }
+      if (Math.min(dh, dst) < 160) { if (nowMs() > (FR.vAt || 0)) { FR.vAt = nowMs() + 1400; try { buildVendors(); } catch (e) { note("vendors", e); } } }
       if (FR.lock && GR[FR.lock]) GR[FR.lock].visible = false;
-      walkersFrame(dt, dh < 110); (MK.cast || []).forEach(function (c) { var dd = Math.hypot(c.g.position.x - cam.x, c.g.position.z - cam.z); c.g.visible = dd < 45 && !MK.hideCast; if (c.g.visible && !c.shOff) { c.shOff = true; c.g.traverse(function (o) { if (o.isMesh) { o.castShadow = false; o.userData.shSet = true; } }); } });
+      (MK.cast || []).forEach(function (c) { var dd = Math.hypot(c.g.position.x - cam.x, c.g.position.z - cam.z); c.g.visible = dd < 45 && !MK.hideCast; if (c.g.visible && !c.shOff) { c.shOff = true; c.g.traverse(function (o) { if (o.isMesh) { o.castShadow = false; o.userData.shSet = true; } }); } });
       bubbleFrame();
       // stamps: inside the hall, on the mezzanine, at the market
       if (player) { var px = player.position.x, pz = player.position.z, py = player.position.y; if (S.inHall(px, pz, -1) && !FR.stamped.hall) { FR.stamped.hall = 1; stamp("hall"); } if (S.inHall(px, pz, -1) && py > YM() - 0.4 && !FR.stamped.mezz) { FR.stamped.mezz = 1; stamp("mezz"); } if (S.inStalls(px, pz, 1) && !FR.stamped.stalls) { FR.stamped.stalls = 1; stamp("stalls"); } }
@@ -893,12 +835,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── hooks, API, debug ─────────────────────────
   MK.impl = { handleE: handleE, prompt: promptFrame, frame: frameHook };
-  MK.api = { site: site, layout: layout, YF: function () { return YF(); }, YM: function () { return YM(); }, nearSpot: nearSpot, bake: bakePose, simplify: simplify };
+  MK.api = { site: site, layout: layout, YF: function () { return YF(); }, YM: function () { return YM(); }, nearSpot: nearSpot };
   MK.debug = {
     // stand the player at (x, z) on the floor (or the deck with up) facing yaw
     at: function (x, z, up, yw) { player.position.set(x, (up ? YM() : YF()) + 0.02, z); if (yw !== undefined) yaw = yw; return [x, z]; },
     cam: function (px, py, pz, tx, ty, tz, fov) { window.__cam = [px, YF() + py, pz, tx, YF() + ty, tz, fov || 0]; try { updateCulling(true); } catch (e) {} return window.__cam; },
-    people: function () { peopleFrame(true); return [MK.n.peopleNear, MK.n.peopleFar]; },
     counts: function () { var o = {}; for (var k in GR) { var c = 0, t = 0; GR[k].traverse(function (m) { if (m.isMesh) { c++; var g = m.geometry; var tr = (g.index ? g.index.count : g.attributes.position.count) / 3; t += m.isBatchedMesh ? 0 : tr * (m.isInstancedMesh ? m.count : 1); } }); o[k] = [c, Math.round(t)]; } o.batchTris = Math.round(MK.n.tris || 0); o.instances = MK.n.instances; return o; }
   };
   (function hookAll() {

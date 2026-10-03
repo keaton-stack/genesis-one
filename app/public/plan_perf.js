@@ -1106,6 +1106,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     D.K = (R.domElement.height / 2) / Math.tan(cam.fov * Math.PI / 360); D.cam = cam; D.scene = G("scene");
   }
   var _sp = new THREE.Vector3();
+  // R10 (VR, plan_vr.js): the eye cameras. In the headset a mesh more than 30 m away and under 3 px (radius) of an eye is not drawn (vrPx times the desktop
+  // limit; draw submission, twice per frame, is what bounds the VR frame), and each eye skips what lies outside its own frustum.
+  var _ep = new THREE.Vector3(), _efm = new THREE.Matrix4(), _esp = new THREE.Sphere(); D.vrPx = +((Q.match(/[?&]vrpx=([0-9.]+)/) || [])[1]) || 4; D.n.skipEye = 0;
+  function eyeOut(cam, c, r) { var f = R0.info.render.frame; if (cam.__r10f !== f || !cam.__r10fr) { cam.__r10f = f; cam.__r10fr = (cam.__r10fr || new THREE.Frustum()).setFromProjectionMatrix(_efm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); } _esp.center.copy(c); _esp.radius = r; return !cam.__r10fr.intersectsSphere(_esp); }
+  var R0 = null;
   function lit(m) { return !!m && (m.isMeshStandardMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial) && !m.emissiveMap && !(m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity) > 0.02); }
   function lodGeo(S2, tt, i, ci) {   // the geometry a tier's part i is drawn with in cascade ci (null: as it is; false: not at all)
     if (!D.lod) return null; var want = ci >= 2 ? 2 : ci === 1 && tt === 0 ? 1 : 0; if (want <= tt) return null;
@@ -1117,7 +1122,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // here reads a dropped array (bounds are computed only while the data is there, batches skip such meshes)
   function dropped(geo) { var a = geo.attributes; for (var k in a) if (a[k] && a[k].r6free) return true; return !!(geo.index && geo.index.r6free); }
   function wrapDraw(R) {
-    if (D.installed || !R) return; D.installed = true; var rbd = R.renderBufferDirect;
+    if (D.installed || !R) return; D.installed = true; R0 = R; var rbd = R.renderBufferDirect;
     R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
       if (sc === null && D.csm !== null && obj && cam.isOrthographicCamera === true) { var ci = D.cams.get(cam);
         if (ci !== undefined) {
@@ -1128,14 +1133,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
               sub = lodGeo(tf.S, tf.t, tf.i, ci); if (sub === false) { D.n.skipSh++; return; }
               if (sub || cnt !== obj.count) { var c0 = obj.count; obj.count = cnt; if (sub) D.n.lodSh++; try { return rbd.call(this, cam, sc, sub || geo, mat, obj, grp); } finally { obj.count = c0; } } } }
           else if (geo && obj.isMesh === true) { if (ci >= 2 && obj.isSkinnedMesh === true) { D.n.skipSh++; return; } var bs = geo.boundingSphere; if (bs === null && !dropped(geo)) { geo.computeBoundingSphere(); bs = geo.boundingSphere; } if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < (ci >= 2 ? 5 : 2) * D.texel[ci]) { D.n.skipSh++; return; } } } }
-      else if (D.px && cam === D.cam && sc === D.scene && obj && obj.isMesh === true && obj.isInstancedMesh !== true && geo) { var bs2 = geo.boundingSphere; if (bs2 === null && !dropped(geo)) { geo.computeBoundingSphere(); bs2 = geo.boundingSphere; }
-        if (bs2) { _sp.copy(bs2.center).applyMatrix4(obj.matrixWorld); var dist = _sp.distanceTo(cam.position); if (dist > 30) { var px = bs2.radius * obj.matrixWorld.getMaxScaleOnAxis() / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35)) { D.n.skipPx++; return; } } } }
+      else if (D.px && (cam === D.cam || cam.r10eye === true) && sc === D.scene && obj && obj.isMesh === true && obj.isInstancedMesh !== true && geo) { var bs2 = geo.boundingSphere; if (bs2 === null && !dropped(geo)) { geo.computeBoundingSphere(); bs2 = geo.boundingSphere; }
+        if (bs2) { _sp.copy(bs2.center).applyMatrix4(obj.matrixWorld); var eye = cam.r10eye === true, cpos = eye ? _ep.setFromMatrixPosition(cam.matrixWorld) : cam.position, dist = _sp.distanceTo(cpos), rad = bs2.radius * obj.matrixWorld.getMaxScaleOnAxis();
+          if (eye && obj.isSkinnedMesh !== true && eyeOut(cam, _sp, rad)) { D.n.skipEye++; return; }   /* R10: three culls against both eyes' joint frustum; each eye draws only what is in its own */
+          if (dist > 30) { var px = rad / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35) * (eye ? D.vrPx : 1)) { D.n.skipPx++; return; } } } }
       return rbd.apply(this, arguments);
     };
   }
   // buildings' far LOD distance (high and ultra)
   function lodDist() {
-    if (!D.lod) return; var IS = G("INSTSET"), Qs = G("QUAL"), SP = G("MODEL_SPECS"); if (!IS || !Qs) return; var hiT = Qs.level === "high" || Qs.level === "ultra";
+    if (!D.lod) return; var IS = G("INSTSET"), Qs = G("QUAL"), SP = G("MODEL_SPECS"); if (!IS || !Qs) return; var hiT = Qs.level === "high" || Qs.level === "ultra" || !!(window.PLAN_VR && window.PLAN_VR.on);   /* R10: in VR (medium or low draw range) the buildings keep the short far-LOD distance */
     for (var s = 0; s < IS.length; s++) { var S2 = IS[s]; if (!S2.far || S2.lodR === undefined) continue; var sp = SP && SP[S2.kind]; if (sp && sp.prop) continue;
       if (S2.r6lod0 === undefined || S2.lodR !== S2.r6lodSet) S2.r6lod0 = S2.lodR;
       var want = hiT ? Math.max(90, S2.r6lod0 * 0.6) : S2.r6lod0; if (S2.lodR !== want) { S2.lodR = want; S2.r6lodSet = want; D.n.lodSet = (D.n.lodSet || 0) + 1; } }

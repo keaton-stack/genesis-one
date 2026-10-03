@@ -4,18 +4,18 @@
 // fire bowls, saguaros, palo verdes, agave beds, boulders, bins, wayfinding and schedule boards), the campus paths (to Link Plaza
 // and the Landside Walk, the arena forecourt and the Market Hall), the shuttle drop-off off Terminal Drive with a shuttle stop
 // and parked carts, perimeter desert planting, and the campus event life (an in-game schedule on the boards, the LED screen and
-// a HUD toast; an instanced crowd baked from the client's own rigs that gathers by event; a few rigged staff; ambient lines;
+// a HUD toast; R10: a few real people who roam the campus (PLAN_ROAM, below); a few rigged staff; ambient lines;
 // a dance battle on the floor in front of the Side Stage; seats at every picnic table; passport stamps and an info point).
 // Classic script, loaded before client.js; hooks into window.PLAN_HOOKS { world, terrain, defer, frame }. All names, copy,
-// positions and the schedule: plan/festival.json. The crowd's baked poses: models/fest_crowd.bin (127 KB).
+// positions and the schedule: plan/festival.json. R10 (3 Oct 2026): the baked crowd (models/fest_crowd.bin) is gone.
 // Performance: no real lights (a few lamps feed the client's light pool), every static part merged into one mesh per material
-// (nine materials in all), the crowd is six instanced draws gated per zone in the vertex shader, its blob shadows one more.
+// (nine materials in all). The roaming people are the client's own rigged avatars (see PLAN_ROAM at the end of this file).
 // ?fest=0 turns the module off. window.PLAN_FESTIVAL: n (counters), errs, cfg, api, debug.
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
 (function () {
   "use strict";
   var FE = window.PLAN_FESTIVAL = window.PLAN_FESTIVAL || {};
-  FE.errs = FE.errs || []; FE.n = FE.n || {}; FE.ver = "r7";
+  FE.errs = FE.errs || []; FE.n = FE.n || {}; FE.ver = "r10";
   if (/[?&]fest=0\b/.test(location.search)) { FE.off = true; return; }
   var PI = Math.PI, TAU = PI * 2;
   function note(tag, e) { try { if (FE.errs.length < 50) FE.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (FE.errs.length <= 6) console.warn("plan_festival " + tag, e); } catch (x) {} }
@@ -476,108 +476,76 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     FE.lamps.push({ x: sh.x, y: gh(sh.x, sh.z) + 2.5, z: sh.z, c: 0xfff0d8, k: 8, d: 12, tag: "drop" });
   }
 
-  // ───────────────────────── the crowd: people baked from the client's own rigs (two poses per motion, blended in the shader) ─────────────────────────
-  // models/fest_crowd.bin holds, for the male and female body, a decimated mesh (about 1,900 and 1,650 triangles, clustered on the
-  // bind pose) and its positions in two frames of each motion (idle, chat, dance1, dance2, sit). Every person is an instance:
-  // clothing, skin and hair colours per instance by body region (from the rig's bone weights), a phase and a rate, a zone and a
-  // rank; a zone's level (from the schedule) decides in the vertex shader how many of its people are there. Eight draws in all.
-  var CR = FE.crowd || (FE.crowd = { data: null, loading: false, meshes: [], inst: [], g: null, lvl: [0, 0, 0, 0, 0], tgt: [0, 0, 0, 0, 0], u: null, bubble: null, bubbleAt: 0, nextBubble: 0 });
-  var MOTIONS = { stand: "idle", idle: "idle", dance: "dance", dance2: "dance2", sit: "sit" };
-  function loadCrowd() { if (CR.data || CR.loading) return; CR.loading = true; var url = C("crowd.file", "/models/fest_crowd.bin") + "?v=" + (window.BUILD || "dev"); try { if (window.AV) url = window.AV(url); } catch (e) {}
-    fetch(url).then(function (r) { if (!r.ok) throw new Error("crowd " + r.status); return r.arrayBuffer(); }).then(function (buf) { var dv = new DataView(buf); var magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3)); if (magic !== "FCR1") throw new Error("crowd magic"); var jl = dv.getUint32(4, true); var meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, jl))); CR.data = { meta: meta, buf: buf, base: 8 + jl }; FE.n.crowdBytes = buf.byteLength; }).catch(function (e) { note("crowd load", e); CR.loading = false; CR.failed = true; }); }
-  function crowdGeo(body, motion) {
-    var D = CR.data, m = D.meta.bodies[body], q = 1 / D.meta.q, base = D.base; if (!m || !m.poses[motion]) return null;
-    var idx = new Uint16Array(D.buf.slice(base + m.idx[0], base + m.idx[0] + m.idx[1])), reg = new Uint8Array(D.buf, base + m.reg[0], m.reg[1]);
-    var P = m.poses[motion].map(function (r) { var a = new Int16Array(D.buf.slice(base + r[0], base + r[0] + r[1])), f = new Float32Array(a.length); for (var i = 0; i < a.length; i++) f[i] = a[i] * q; return f; });
-    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(P[0], 3)); g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeVertexNormals();
-    var g2 = new THREE.BufferGeometry(); g2.setAttribute("position", new THREE.BufferAttribute(P[1], 3)); g2.setIndex(new THREE.BufferAttribute(idx, 1)); g2.computeVertexNormals();
-    g.setAttribute("posB", new THREE.BufferAttribute(P[1], 3)); g.setAttribute("nrmB", g2.attributes.normal); var rf = new Float32Array(reg.length); for (var k = 0; k < reg.length; k++) rf[k] = reg[k]; g.setAttribute("reg", new THREE.BufferAttribute(rf, 1));
-    g.computeBoundingSphere(); return g;
-  }
-  function crowdMat() {
-    if (MAT.crowd) return MAT.crowd; CR.u = { uZ: { value: [0, 0, 0, 0, 0] }, uHide: { value: new THREE.Vector4(0, 0, 0, 0) } };
-    var m = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 }); m.name = "fest_crowd";
-    m.onBeforeCompile = function (sh) { sh.uniforms.uT = U.uT; sh.uniforms.uZ = CR.u.uZ; sh.uniforms.uHide = CR.u.uHide;
-      sh.vertexShader = "attribute vec3 posB;\nattribute vec3 nrmB;\nattribute float reg;\nattribute vec3 iSk;\nattribute vec3 iSh;\nattribute vec3 iPa;\nattribute vec3 iHa;\nattribute vec4 iPar;\nuniform float uT;\nuniform float uZ[5];\nuniform vec4 uHide;\nvarying vec3 vFc;\n" +
-        sh.vertexShader.replace("#include <beginnormal_vertex>", "float fw = 0.5 + 0.5 * sin(uT * iPar.y + iPar.x);\nvec3 objectNormal = normalize(mix(normal, nrmB, fw));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3(tangent.xyz);\n#endif")
-          .replace("#include <begin_vertex>", "vec3 transformed = mix(position, posB, fw);\n{ int zi = int(iPar.z + 0.5); float lv = zi == 0 ? uZ[0] : zi == 1 ? uZ[1] : zi == 2 ? uZ[2] : zi == 3 ? uZ[3] : uZ[4]; float on = step(iPar.w, lv);\n#ifdef USE_INSTANCING\n vec2 io = vec2(instanceMatrix[3][0], instanceMatrix[3][2]); on *= step(uHide.w, length(io - uHide.xz));\n#endif\n transformed *= on; }\n" +
-            "vFc = reg < 0.5 ? iSk : reg < 1.5 ? iSh : reg < 2.5 ? iPa : reg < 3.5 ? vec3(0.055, 0.05, 0.048) : reg < 4.5 ? iHa : iSk;");
-      sh.fragmentShader = "varying vec3 vFc;\n" + sh.fragmentShader.replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= vFc;"); };
-    m.customProgramCacheKey = function () { return "fest_crowd"; }; MAT.crowd = m;
-    var bc = document.createElement("canvas"); bc.width = bc.height = 64; var x = bc.getContext("2d"), gr = x.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, "rgba(0,0,0,0.5)"); gr.addColorStop(0.6, "rgba(0,0,0,0.22)"); gr.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-    var bt = new THREE.CanvasTexture(bc); var b = new THREE.MeshBasicMaterial({ map: bt, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }); b.name = "fest_blob";
-    b.onBeforeCompile = function (sh) { sh.uniforms.uZ = CR.u.uZ; sh.uniforms.uHide = CR.u.uHide; sh.vertexShader = "attribute vec4 iPar;\nuniform float uZ[5];\nuniform vec4 uHide;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n{ int zi = int(iPar.z + 0.5); float lv = zi == 0 ? uZ[0] : zi == 1 ? uZ[1] : zi == 2 ? uZ[2] : zi == 3 ? uZ[3] : uZ[4]; float on = step(iPar.w, lv);\n#ifdef USE_INSTANCING\n vec2 io = vec2(instanceMatrix[3][0], instanceMatrix[3][2]); on *= step(uHide.w, length(io - uHide.xz));\n#endif\n transformed *= on; }"); };
-    b.customProgramCacheKey = function () { return "fest_blob"; }; MAT.blob = b; return m;
-  }
-  // where everyone stands: [x, z, yaw, zone, rank, motion, body]
-  function crowdSpots() {
-    var R = rng(70707), out = [], cnt = C("crowd.counts", {}), Z = { stage: 0, bars: 1, trucks: 2, picnic: 3, lawn: 4 };
-    var add = function (x, z, yaw, zone, rank, motion) { out.push([x, z, yaw + (R() - 0.5) * 0.5, Z[zone], clamp(rank, 0.001, 0.999), motion, R() < 0.5 ? "m" : "f"]); };
-    var beds = C("site.beds", []) || []; var near = function (x, z, r) { if (nearStrip(x, z, 0.35)) return true; for (var b = 0; b < beds.length; b++) { var bd = beds[b]; if (Math.hypot(x - bd.c[0], z - bd.c[1]) < bd.r + 0.6) return true; } for (var i = 0; i < out.length; i++) if (Math.abs(out[i][0] - x) < r && Math.abs(out[i][1] - z) < r && Math.hypot(out[i][0] - x, out[i][1] - z) < r) return true; for (var j = 0; j < SOL.length; j++) { var s = SOL[j]; if (s.seat) continue; if (Math.abs(s.x - x) < s.hw + s.hd + r && Math.abs(s.z - z) < s.hw + s.hd + r) { var c = Math.cos(s.ry), sn = Math.sin(s.ry), dx = x - s.x, dz = z - s.z; var lx = dx * c - dz * sn, lz = dx * sn + dz * c; if (Math.abs(lx) < s.hw + r * 0.6 && Math.abs(lz) < s.hd + r * 0.6) return true; } } return false; };
-    // the dance floor: rows facing the stage, nearest the stage fill first
-    var D = FE.dance; if (D) { var fx = Math.sin(D.yaw), fz = Math.cos(D.yaw), px = fz, pz = -fx, n = 0, want = cnt.stage || 100; var face = Math.atan2(-fx, -fz);
-      for (var a = -D.d / 2 + 0.8; a < D.d / 2 && n < want * 2; a += 1.05) for (var b = -D.w / 2 + 0.6; b < D.w / 2; b += 1.0) { var x = D.x + fx * a + px * b + (R() - 0.5) * 0.45, z = D.z + fz * a + pz * b + (R() - 0.5) * 0.45; if (near(x, z, 0.55)) continue; var dist = (a + D.d / 2) / D.d, rk = dist * 0.65 + R() * 0.35; var mo = R(); add(x, z, face, "stage", rk, mo < 0.45 ? "dance" : mo < 0.82 ? "dance2" : "stand"); n++; } }
-    // bars: an arc in front of each counter
-    (C("site.bars", []) || []).forEach(function (B, bi) { var c = Math.cos(B.face), s = Math.sin(B.face), cz = B.small ? 1.0 : B.d / 2 + 0.6, k = B.small ? 8 : Math.round((cnt.bars || 50) * 0.45);
-      for (var i = 0, tries = 0; i < k && tries < 400; tries++) { var lx = (R() - 0.5) * (B.w + 2.5), lz = cz + 0.9 + R() * 4.2; var x = B.x + lx * c + lz * s, z = B.z - lx * s + lz * c; if (near(x, z, 0.62)) continue; var tx = B.x + lx * 0.6 * c + cz * s, tz = B.z - lx * 0.6 * s + cz * c; var rk = (lz - cz) / 5.5 * 0.6 + R() * 0.4; if (R() < 0.45 && lz > cz + 1.8) { var a = R() * TAU, ox = Math.cos(a) * 0.55, oz = Math.sin(a) * 0.55; if (near(x + ox, z + oz, 0.5) || near(x - ox, z - oz, 0.5)) continue; add(x + ox, z + oz, Math.atan2(-ox, -oz), "bars", rk, "stand"); add(x - ox, z - oz, Math.atan2(ox, oz), "bars", rk, "stand"); i += 2; continue; } add(x, z, Math.atan2(tx - x, tz - z), "bars", rk, "stand"); i++; } });
-    // bars: standing circles a little further out, drinks in hand
-    (C("site.bars", []) || []).forEach(function (B) { if (B.small) return; var c = Math.cos(B.face), s = Math.sin(B.face); for (var i = 0, tries = 0; i < (cnt.barGroups || 5) && tries < 300; tries++) { var lx = (R() - 0.5) * (B.w + 6), lz = B.d / 2 + 5 + R() * 5; var gx = B.x + lx * c + lz * s, gz = B.z - lx * s + lz * c; if (near(gx, gz, 1.4)) continue; var m = 3 + Math.floor(R() * 2), rr = 0.75 + m * 0.1, rk = 0.15 + R() * 0.85; for (var k = 0; k < m; k++) { var a = k / m * TAU + R() * 0.3, x = gx + Math.cos(a) * rr, z = gz + Math.sin(a) * rr; add(x, z, Math.atan2(gx - x, gz - z), "bars", rk, "stand"); } i++; } });
-    // trucks: a queue at each window, people eating nearby
-    (C("site.trucks", []) || []).forEach(function (T) { var c = Math.cos(T.face), s = Math.sin(T.face), w = function (lx, lz) { return [T.x + lx * c + lz * s, T.z - lx * s + lz * c]; }; var wx = -3.4 + 0.26 * 5.6;
-      for (var q = 0; q < 6; q++) { var p = w(wx + Math.sin(q * 0.7) * 0.4, 1.9 + q * 0.95); var p0 = w(wx, 1.2); add(p[0], p[1], Math.atan2(p0[0] - p[0], p0[1] - p[1]), "trucks", q / 6 * 0.5 + R() * 0.1, "idle"); }
-      for (var i = 0, tries = 0; i < (cnt.truckGroups || 4) && tries < 300; tries++) { var lx = -3.5 + R() * 8, lz = 4 + R() * 6; var gc = w(lx, lz); if (near(gc[0], gc[1], 1.4)) continue; var m = 2 + Math.floor(R() * 3), rr = 0.65 + m * 0.1, rk = 0.2 + R() * 0.8; for (var k = 0; k < m; k++) { var a = k / m * TAU + R() * 0.4, x = gc[0] + Math.cos(a) * rr, z = gc[1] + Math.sin(a) * rr; add(x, z, Math.atan2(gc[0] - x, gc[1] - z), "trucks", rk, "stand"); } i++; } });
-    // picnic: the bench seats (sitting, facing the table)
-    SOL.forEach(function (sd, i) { if (!sd.seat || !sd.picnic) return; add(sd.x, sd.z, sd.face, "picnic", R(), "sit"); out[out.length - 1][2] = sd.face; out[out.length - 1][7] = sd; });
-    // the lawn: small circles of people talking
-    var lawn = smoothClosed(C("site.lawn", []), 4), want2 = cnt.lawn || 60, got = 0;
-    for (var tries2 = 0; got < want2 && tries2 < 600; tries2++) { var bb = C("site.bounds"); var gx = lerp(-229, -171, R()), gz = lerp(-152, -76, R()); if (!inPoly(lawn, gx, gz) || near(gx, gz, 1.6)) continue; var m = 2 + Math.floor(R() * 4), rr = 0.75 + m * 0.12, rk = R(); for (var k2 = 0; k2 < m && got < want2; k2++) { var a2 = k2 / m * TAU + R() * 0.4, x2 = gx + Math.cos(a2) * rr, z2 = gz + Math.sin(a2) * rr; add(x2, z2, Math.atan2(gx - x2, gz - z2), "lawn", clamp(rk + (R() - 0.5) * 0.2, 0, 1), R() < 0.75 ? "stand" : "idle"); got++; } }
-    // the plaza: more circles on the decomposed granite, clear of the furniture, the lawn and the dance floor
-    var bnd = C("site.bounds", [-245, -165, -132, -30]), want3 = cnt.plaza || 0, got3 = 0;
-    for (var tries3 = 0; got3 < want3 && tries3 < 1500; tries3++) { var hx2 = lerp(bnd[0] + 2, bnd[2] - 2, R()), hz2 = lerp(bnd[1] + 2, bnd[3] - 2, R()); if (inPoly(lawn, hx2, hz2) || onFloor(hx2, hz2) || near(hx2, hz2, 2.0)) continue; var m3 = 2 + Math.floor(R() * 3), r3 = 0.7 + m3 * 0.12, rk3 = R(); for (var k3 = 0; k3 < m3 && got3 < want3; k3++) { var a3 = k3 / m3 * TAU + R() * 0.4, x3 = hx2 + Math.cos(a3) * r3, z3 = hz2 + Math.sin(a3) * r3; add(x3, z3, Math.atan2(hx2 - x3, hz2 - z3), "lawn", clamp(rk3 + (R() - 0.5) * 0.2, 0, 1), R() < 0.8 ? "stand" : "idle"); got3++; } }
-    return out;
-  }
-  // every person is a record; each (body, motion) has a near mesh (about 1,300 triangles a person) and a far one (about 430).
-  // Twice a second (or when you move 4 m, a zone level moves, or you sit down) the visible people are written into the two
-  // meshes by their distance to the camera: only the people a zone needs are drawn, each at the detail its distance needs.
-  var NEAR_D = 32;
-  function buildCrowd() {
-    if (CR.g || !CR.data) return; var t0 = nowMs(); crowdMat(); var spots = crowdSpots(), pal = C("crowd.palette", {}), R = rng(4242); var g = new THREE.Group(); g.name = "fest crowd"; g.userData.noCull = true; CR.g = g; CR.spots = spots;
-    var hx = function (s) { return new THREE.Color("#" + s).multiplyScalar(0.72); }, pick = function (a) { return a[Math.floor(R() * a.length)]; };
-    var N = spots.length, MT = CR.mt = new Float32Array(N * 16), CO = CR.co = new Float32Array(N * 12), PA = CR.pa = new Float32Array(N * 4), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3();
-    spots.forEach(function (s, i) { var y = gh(s[0], s[1]) + 0.06; s.y = y; var ss = (s[6] === "f" ? 0.97 : 1.0) * (0.94 + R() * 0.1); sc.set(ss, ss, ss); q.setFromAxisAngle(up, s[2]); m4.compose(new THREE.Vector3(s[0], y, s[1]), q, sc); m4.toArray(MT, i * 16);
-      hx(pick(pal.skin || ["e0b48e"])).toArray(CO, i * 12); hx(pick(pal.shirt || ["3a4a5e"])).toArray(CO, i * 12 + 3); hx(pick(pal.pants || ["2b3a4a"])).toArray(CO, i * 12 + 6); hx(pick(pal.hair || ["2a2a2a"])).toArray(CO, i * 12 + 9);
-      var mo = s[5]; PA[i * 4] = R() * TAU; PA[i * 4 + 1] = mo === "dance" || mo === "dance2" ? 5.6 + R() * 1.6 : mo === "sit" ? 0.9 + R() * 0.5 : 1.0 + R() * 0.8; PA[i * 4 + 2] = s[3]; PA[i * 4 + 3] = s[4]; });
-    var by = {}; spots.forEach(function (s, i) { var k = s[6] + ":" + MOTIONS[s[5]]; (by[k] || (by[k] = [])).push(i); });
-    var B = C("site.bounds", [-245, -165, -132, -30]), sph = new THREE.Sphere(new THREE.Vector3((B[0] + B[2]) / 2, gh((B[0] + B[2]) / 2, (B[1] + B[3]) / 2) + 1, (B[1] + B[3]) / 2), 95);
-    var mk = function (geo, mat, n, name, attrs) { var im = new THREE.InstancedMesh(geo, mat, n); im.name = name; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); attrs.forEach(function (a) { var at = new THREE.InstancedBufferAttribute(new Float32Array(n * a[1]), a[1]); at.setUsage(THREE.DynamicDrawUsage); geo.setAttribute(a[0], at); }); im.count = 0; im.boundingSphere = sph.clone(); im.castShadow = false; im.receiveShadow = true; im.userData.shSet = true; g.add(im); CR.meshes.push(im); return im; };
-    var AT = [["iSk", 3], ["iSh", 3], ["iPa", 3], ["iHa", 3], ["iPar", 4]];
-    CR.groups = Object.keys(by).map(function (k) { var parts = k.split(":"), ids = by[k]; var gF = crowdGeo(parts[0], parts[1]), gL = crowdGeo(parts[0] + "_lo", parts[1]) || crowdGeo(parts[0], parts[1]); if (!gF) return null; return { k: k, ids: ids, full: mk(gF, MAT.crowd, ids.length, "fest crowd " + k, AT), low: mk(gL, MAT.crowd, ids.length, "fest crowd lo " + k, AT) }; }).filter(Boolean);
-    var bq = new THREE.PlaneGeometry(1.0, 1.0); bq.rotateX(-PI / 2); var bm = new THREE.InstancedMesh(bq, MAT.blob, N); bm.name = "fest crowd blobs"; bm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); var bat = new THREE.InstancedBufferAttribute(new Float32Array(N * 4), 4); bat.setUsage(THREE.DynamicDrawUsage); bq.setAttribute("iPar", bat); bm.count = 0; bm.boundingSphere = sph.clone(); bm.castShadow = false; bm.receiveShadow = false; bm.renderOrder = 2; g.add(bm); CR.blob = bm;
-    scene.add(g); FE.n.crowd = N; FE.n.crowdMeshes = CR.meshes.length + 1; FE.n.crowdMs = Math.round(nowMs() - t0); CR.last = null; crowdUpdate(true);
-    try { var W = window.PLAN_PERF; if (W && W.warmGroup) W.warmGroup(g, { name: "fest crowd" }); } catch (e) {}
-  }
-  var _bm = new THREE.Matrix4();
-  function crowdUpdate(force) {
-    if (!CR.groups) return; var cam = camera.position, L = CR.last, hide = CR.hideAt; var key = CR.lvl.map(function (v) { return Math.round(v * 50); }).join(",") + "|" + (hide ? hide[0].toFixed(1) + "," + hide[1].toFixed(1) : "");
-    if (!force && L && Math.abs(L.x - cam.x) + Math.abs(L.z - cam.z) < 4 && L.key === key) return; CR.last = { x: cam.x, z: cam.z, key: key }; var t0 = nowMs();
-    var MT = CR.mt, CO = CR.co, PA = CR.pa, S = CR.spots, nb = 0, bmA = CR.blob.instanceMatrix.array, bpA = CR.blob.geometry.attributes.iPar.array, tris = 0;
-    CR.groups.forEach(function (G) { var nf = 0, nl = 0; var F = G.full, Lo = G.low, fa = F.geometry.attributes, la = Lo.geometry.attributes;
-      for (var j = 0; j < G.ids.length; j++) { var i = G.ids[j], s = S[i]; if (s[4] > CR.lvl[s[3]] + 0.002) continue; if (hide && Math.abs(s[0] - hide[0]) < 0.45 && Math.abs(s[1] - hide[1]) < 0.45) continue;
-        var d = Math.hypot(s[0] - cam.x, s[1] - cam.z), M = d < NEAR_D ? F : Lo, A = d < NEAR_D ? fa : la, o = d < NEAR_D ? nf++ : nl++;
-        M.instanceMatrix.array.set(MT.subarray(i * 16, i * 16 + 16), o * 16); A.iSk.array.set(CO.subarray(i * 12, i * 12 + 3), o * 3); A.iSh.array.set(CO.subarray(i * 12 + 3, i * 12 + 6), o * 3); A.iPa.array.set(CO.subarray(i * 12 + 6, i * 12 + 9), o * 3); A.iHa.array.set(CO.subarray(i * 12 + 9, i * 12 + 12), o * 3); A.iPar.array.set(PA.subarray(i * 4, i * 4 + 4), o * 4);
-        if (d < 80) { _bm.makeTranslation(s[0], s.y + 0.04, s[1]); _bm.toArray(bmA, nb * 16); bpA[nb * 4 + 2] = s[3]; bpA[nb * 4 + 3] = 0; nb++; } }
-      [[F, fa, nf], [Lo, la, nl]].forEach(function (q) { q[0].count = q[2]; if (q[2]) { q[0].instanceMatrix.needsUpdate = true; ["iSk", "iSh", "iPa", "iHa", "iPar"].forEach(function (k) { q[1][k].needsUpdate = true; }); } }); tris += nf * (F.geometry.index.count / 3) + nl * (Lo.geometry.index.count / 3); });
-    CR.blob.count = nb; if (nb) { CR.blob.instanceMatrix.needsUpdate = true; CR.blob.geometry.attributes.iPar.needsUpdate = true; } FE.n.crowdTris = Math.round(tris); FE.n.crowdShown = nb; FE.n.crowdUpd = (FE.n.crowdUpd || 0) + 1; FE.n.crowdUpdMs = +(nowMs() - t0).toFixed(2);
-  }
-  // ambient lines: a bubble over someone in the busiest zone near you
-  function bubbleFrame(now) {
-    if (CR.bubble && now - CR.bubbleAt > 5500) { scene.remove(CR.bubble); try { CR.bubble.material.map.dispose(); CR.bubble.material.dispose(); } catch (e) {} CR.bubble = null; }
-    if (!CR.spots || CR.bubble || now < CR.nextBubble || !player || FE.noBubbles) return; CR.nextBubble = now + 9000 + Math.random() * 7000;
-    var px = player.position.x, pz = player.position.z, best = null, bd = 16, names = ZONES, fx = 0, fz = -1; try { fx = -Math.sin(yaw); fz = -Math.cos(yaw); } catch (e) {}
-    for (var i = 0; i < CR.spots.length; i++) { var s = CR.spots[i]; if (s[4] > CR.lvl[s[3]]) continue; var dx = s[0] - px, dz = s[1] - pz, d = Math.hypot(dx, dz); if (d < bd && d > 4 && (dx * fx + dz * fz) > d * 0.3 && Math.random() < 0.35) { bd = d; best = s; } }
-    if (!best) return; var L = C("lines." + names[best[3]], []); if (!L.length || typeof makeBubble !== "function") return;
-    try { var b = makeBubble(L[Math.floor(Math.random() * L.length)]); b.position.set(best[0], gh(best[0], best[1]) + (best[5] === "sit" ? 1.75 : 2.3), best[1]); scene.add(b); CR.bubble = b; CR.bubbleAt = now; FE.n.bubbles = (FE.n.bubbles || 0) + 1; } catch (e) { note("bubble", e); }
-  }
+  // ───────────────────────── R10: the people who roam the campus (PLAN_ROAM, the engine at the end of this file) ─────────────────────────
+  // Replaces the R7 baked crowd (models/fest_crowd.bin, 844 instanced people). Six to ten of the client's rigged avatars by the hour
+  // (a couple more for the Sunset DJ Set): they walk the grounds, the walks, the forecourt and the drop-off, queue at the trucks,
+  // stand at the bars, sit at the picnic tables, the lounge chairs, the bar stools and the forecourt benches, dance at the DJ set,
+  // gather at the fire bowls after dark, talk in pairs, read the boards, step into the arena lobby (plan_convention's routes) and,
+  // for the keynote, take a few front-row seats in the hall and leave when it ends. Names and lines: festival.json "roam".
+  var CR = FE.crowd || (FE.crowd = { lvl: [0, 0, 0, 0, 0], tgt: [0, 0, 0, 0, 0] });
+  function campusArea() {
+    var RO = window.PLAN_ROAM; if (!RO || !RO.area || RO.off || FE.roamArea) return; var site = C("site", {}), RC = C("roam", {}), beds = site.beds || [];
+    var conv = function () { var P = window.PLAN_CONV; return P && P.ready && P.api && P.api.roam ? P.api.roam() : null; };
+    var EVS = null, evs = function () { if (EVS) return EVS; var E = sched().filter(function (e) { return e.id === "keynote"; })[0]; EVS = E ? [{ id: "keynote", from: E.start - 0.5, start: E.start, end: E.end, max: 9, keep: 1 }] : []; return EVS; };
+    var gb = site.bounds || [-245, -165, -132, -30], lawnP = smoothClosed(site.lawn || [], 5);
+    var lift = function (x, z) { if (x > gb[0] - 1 && x < gb[2] + 1 && z > gb[1] - 0.5 && z < gb[3] + 0.5) return onFloor(x, z) ? 0.14 : inPoly(lawnP, x, z) ? 0.1 : 0.06; if (x > -314 && x < -250 && z > -142 && z < -38) return 0.05; return 0; };
+    var PH = null, plantHash = function () { if (PH) return PH; PH = {}; (FE.landProc || []).forEach(function (q) { var r = 0.55 * (q[4] || 1) + 0.3, x0 = Math.floor((q[1] - r) / 4), x1 = Math.floor((q[1] + r) / 4), z0 = Math.floor((q[2] - r) / 4), z1 = Math.floor((q[2] + r) / 4); for (var ix = x0; ix <= x1; ix++) for (var iz = z0; iz <= z1; iz++) (PH[ix + "," + iz] = PH[ix + "," + iz] || []).push([q[1], q[2], r]); }); return PH; };
+    var hourId = function (h) { var e = eventAt(h); return e ? e.id : "quiet"; };
+    var def = { id: "campus", max: 10, box: [-305, -181, -113, 10], perCat: true, pull: 4, people: (RC.names || []).map(function (n) { return { name: n }; }), lines: Object.assign({}, C("lines", {}), RC.lines || {}),
+      ready: function () { var P = window.PLAN_CONV; return FE.ready && (!P || P.off || P.ready); },
+      // the standing height: the ground plus the drawn surface over it (the grounds' decomposed granite, the lawn, the dance floor's pavers)
+      levels: [{ base: function (x, z) { return planGroundAt(x, z) + lift(x, z); }, exact: true, block: function (x, z) {
+        var V = conv(); if (V) { if (V.inside(x, z)) return true; for (var i = 0; i < V.beds.length; i++) { var b = V.beds[i]; if (x > b[0] - 0.3 && x < b[2] + 0.3 && z > b[1] - 0.3 && z < b[3] + 0.3) return true; } }
+        for (var j = 0; j < beds.length; j++) { var B = beds[j]; if (Math.hypot(x - B.c[0], z - B.c[1]) < B.r + 0.35) return true; }
+        // the procedural plants (brittlebush, agave, grass, rocks) of the beds, the perimeter and the walks' edges have no collision of their own
+        var H = plantHash(), key = Math.floor(x / 4) + "," + Math.floor(z / 4), L = H[key]; if (L) for (var m = 0; m < L.length; m++) if (Math.hypot(x - L[m][0], z - L[m][1]) < L[m][2]) return true;
+        if (nearStrip(x, z, 0.3)) return true; if (z > 9.4) return true; if (x > -121 && (z < -81 || z > -65)) return true; return false; } }],
+      entries: function () { var sh = C("dropoff.shelter", { x: -205, z: -170.5 }); return [{ x: sh.x + 3.5, z: sh.z - 1.2, face: PI, tag: "shuttle" }, { x: -119.5, z: -73, face: -PI / 2, tag: "link" }, { x: -241.6, z: 6.6, face: PI, tag: "hall", hand: "market" }, { x: -176.6, z: 6.6, face: PI, tag: "hall", hand: "market" }]; },
+      seeds: function () { var h = C("hub", { x: -190, z: -112 }); return def.entries().concat([{ x: h.x, z: h.z }, { x: -262, z: -90 }]); },
+      pois: function () { var out = [], R = rng(1717), add = function (p) { out.push(p); };
+        // the bars: along each counter
+        (site.bars || []).forEach(function (B) { var c = Math.cos(B.face), s = Math.sin(B.face), cz = B.small ? 1.0 : B.d / 2 + 0.6, n = B.small ? 2 : 4; for (var i = 0; i < n; i++) { var lx = -B.w * 0.35 + B.w * 0.7 * i / (n - 1), lz = cz + 0.75; add({ kind: "bar", line: "bars", x: B.x + lx * c + lz * s, z: B.z - lx * s + lz * c, face: Math.atan2(-s, -c), tag: B.id }); } });
+        // the trucks: two places at each serving window
+        (site.trucks || []).forEach(function (T) { if (!T.F || !T.win) return; var w = T.F.w(T.win[0], T.win[1]); [[-0.3, 2.3], [0.7, 3.3]].forEach(function (q) { var p = T.F.w(T.win[0] + q[0], T.win[1] + q[1]); add({ kind: "order", line: "trucks", x: p[0], z: p[1], face: Math.atan2(w[0] - p[0], w[1] - p[1]), tag: T.id }); }); });
+        // the dance floor (the DJ set): facing the stage
+        var D = FE.dance; if (D) { var fx = Math.sin(D.yaw), fz = Math.cos(D.yaw), px = fz, pz = -fx, face = Math.atan2(-fx, -fz); for (var a = 0; a < 3; a++) for (var b = 0; b < 4; b++) { var aa = -D.d / 2 + 2.5 + a * (D.d - 5) / 2, bb = -D.w / 2 + 3 + b * (D.w - 6) / 3; add({ kind: "dance", line: "stage", x: D.x + fx * aa + px * bb + (R() - 0.5), z: D.z + fz * aa + pz * bb + (R() - 0.5), face: face + (R() - 0.5) * 0.5 }); } }
+        // the fire bowls after dark
+        (site.firebowls || []).forEach(function (p) { for (var i = 0; i < 2; i++) { var an = R() * TAU; add({ kind: "fire", line: "fire", x: p[0] + Math.sin(an) * 2.0, z: p[1] + Math.cos(an) * 2.0, face: an + PI }); } });
+        // talking in pairs on the lawn and the plaza, in the sails' shade on the forecourt
+        var lawn = smoothClosed(site.lawn || [], 4), bnd = site.bounds || [-245, -165, -132, -30];
+        for (var t = 0, n = 0; t < 500 && n < 10; t++) { var x = -229 + R() * 58, z = -152 + R() * 76; if (!inPoly(lawn, x, z) || onFloor(x, z)) continue; add({ kind: "chat", line: "lawn", x: x, z: z, face: R() * TAU, tag: "lawn" }); n++; }
+        for (var t2 = 0, n2 = 0; t2 < 500 && n2 < 8; t2++) { var x2 = bnd[0] + 4 + R() * (bnd[2] - bnd[0] - 8), z2 = -70 + R() * 36; if (inPoly(lawn, x2, z2) || onFloor(x2, z2)) continue; add({ kind: "chat", line: "picnic", x: x2, z: z2, face: R() * TAU, tag: "plaza" }); n2++; }
+        [[-272, -63], [-262, -117], [-292, -126], [-292, -54]].forEach(function (q) { add({ kind: "chat", line: "forecourt", x: q[0] + 1.5, z: q[1], face: R() * TAU, tag: "sail" }); });
+        // reading the schedule boards, the wayfinding signs, the grounds' sign
+        (site.boards || []).concat(site.wayfinding || []).forEach(function (bd) { [0, PI].forEach(function (o) { var f = (bd.face || 0) + o; add({ kind: "look", line: "lawn", x: bd.x + Math.sin(f) * 2.2, z: bd.z + Math.cos(f) * 2.2, face: f + PI, dur: [5, 10], tag: "sign" }); }); });
+        // the shuttle stop, a look along each walk, the arena's media wall from the promenade
+        var sh = C("dropoff.shelter", { x: -205, z: -170.5 }); add({ kind: "wait", line: "shuttle", x: sh.x - 3, z: sh.z - 1.2, face: PI, dur: [10, 22], tag: "shuttle" });
+        [[-121, -73, PI / 2], [-182, -20, PI], [-236, -20, PI], [-205, -166, PI]].forEach(function (q) { add({ kind: "look", line: "lawn", x: q[0], z: q[1], face: q[2], dur: [4, 9], tag: "walk" }); });
+        [[-262, -95], [-266, -86], [-270, -92], [-258, -84]].forEach(function (q) { add({ kind: "look", line: "forecourt", x: q[0], z: q[1], face: -PI / 2, dur: [8, 16], tag: "ledwall" }); });
+        // the arena's lobby and the keynote's front rows: scripted routes from plan_convention
+        var V = conv(); if (V) { V.lobby.forEach(function (p) { add(p); }); V.keynote.forEach(function (p) { add(p); }); }
+        return out; },
+      seatInfo: function (s) { if (s.fest) { if (s.picnic) return { kind: "sit", line: "picnic", tag: "picnic" }; var bar = (site.bars || []).some(function (B) { return Math.hypot(B.x - s.x, B.z - s.z) < 8; }); return { kind: "sit", line: bar ? "bars" : s.z < -166 ? "shuttle" : "lawn", tag: bar ? "stool" : s.z < -166 ? "shelter" : "lounge" }; }
+        if (s.tag === "conv") { var V = conv(); if (!V || V.inside(s.x, s.z)) return null; return { kind: "sit", line: "forecourt", tag: "bench" }; } return null; },
+      // the share of each kind of place by the hour (divided by how many of that kind there are)
+      weight: function (p, h) { var id = hourId(h), n = nightK(), k = p.kind, t = p.tag;
+        if (p.lobby) return h > 7 && h < 19 ? 0.45 : 0.08;
+        if (k === "dance") return id === "djset" ? 14 : 0;
+        if (k === "fire") return n > 0.25 ? 2.6 : 0.05;
+        if (k === "bar") return (t === "cart" ? 0.5 : 1.0) * (id === "social" || id === "djset" ? 2.6 : id === "market" ? 1.6 : id === "quiet" ? 0.6 : 0.8);
+        if (k === "order") return id === "lunch" ? 2.2 : id === "coffee" ? (t === "coffee" ? 5 : 0.6) : id === "quiet" ? 0.08 : 0.7;
+        if (k === "sit") return t === "picnic" ? (id === "lunch" || id === "social" ? 3.2 : 1.0) : t === "lounge" ? (n > 0.25 ? 1.6 : 0.6) : t === "stool" ? (id === "social" || id === "djset" ? 1.4 : 0.5) : t === "bench" ? 1.6 : 0.5;
+        if (k === "chat") return t === "lawn" ? 1.6 : t === "plaza" ? 1.2 : 1.2;
+        if (k === "look") return t === "ledwall" ? 1.3 : t === "sign" ? 0.6 : 0.7;
+        if (k === "wait") return 0.5; return 0.5; },
+      // after an order at a truck, often a seat at a picnic table nearby
+      next: function (A, c, last) { if (!last || last.kind !== "order" || Math.random() > 0.65) return null; var x = c.g.position.x, z = c.g.position.z, L = A.pois.filter(function (p) { return p.tag === "picnic" && !p.by && !p.bad && Math.hypot(p.x - x, p.z - z) < 45; }); return L.length ? L[Math.floor(Math.random() * L.length)] : null; },
+      count: function (h) { var id = hourId(h), E = evs()[0]; if (E && h >= E.from && h < E.end) return 10; return id === "djset" ? 10 : id === "lunch" || id === "social" ? 9 : id === "builders" || id === "market" ? 8 : id === "coffee" ? 7 : 6; },
+      events: evs,
+      dur: { sit: [25, 70], chat: [15, 40], bar: [15, 35], order: [8, 16], dance: [40, 90], fire: [30, 70], look: [6, 14], wait: [10, 25], browse: [10, 20] },
+      visible: function (c) { var V = conv(), p = c.g.position; return !V || V.vis(p.x, p.y, p.z); },
+      sameZone: function (c) { var V = conv(), p = c.g.position; return !V || V.zone(p.x, p.y + 1, p.z) === V.camZone(); } };
+    FE.roamArea = RO.area(def); }
 
   // ───────────────────────── the staff: a few rigged people from the client (host, DJ, bartenders, cooks), built when you come near ─────────────────────────
   var ST = FE.staff || (FE.staff = { list: [], built: false, idx: 0, plan: null });
@@ -630,17 +598,14 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var n = clamp((nightK() - 0.02) * 3.2, 0, 1); U.uT.value = (U.uT.value + dt) % 10000; U.uNight.value = n; U.uEm.value = 0.25 + 3.4 * n; U.uEmA.value = 0.1 + 0.85 * n; U.uGlow.value = 0.28 * n; U.uDay.value = 1 - n; U.uScreen.value = 1.25 + 0.9 * n;
       var cam = camera.position, hb = C("hub", { x: -190, z: -112 }), dc = Math.hypot(cam.x - hb.x, cam.z - hb.z);
       if (FE.main) FE.main.visible = dc < 1100; if (FE.flames) FE.flames.visible = dc < 320; U.uBeam.value = n * clamp(CR.lvl[0] * 1.3, 0, 1); if (FE.beams) FE.beams.visible = U.uBeam.value > 0.01 && dc < 700; if (FE.glows) FE.glows.visible = n > 0.02 && dc < 700;
-      if (CR.g) CR.g.visible = dc < C("crowd.near", 260) && !(typeof inside !== "undefined" && inside);
-      // crowd levels follow the schedule (eased), people at a seat you sit on step aside
+      // the event levels follow the schedule (eased): they set how hard the stage beams work after dark
       if (FR.k % 15 === 1) { var L = levels(hourNow()), qk = FE.qk || (FE.qk = (function () { try { return QUAL.level === "low" ? 0.5 : QUAL.level === "medium" ? 0.7 : 1; } catch (e) { return 1; } })()); ZONES.forEach(function (z, i) { CR.tgt[i] = (L[z] || 0) * qk; }); }
-      for (var i = 0; i < 5; i++) { CR.lvl[i] += (CR.tgt[i] - CR.lvl[i]) * Math.min(1, dt * 0.6); if (CR.u) CR.u.uZ.value[i] = CR.lvl[i]; }
-      CR.hideAt = (typeof SIT !== "undefined" && SIT.on && player) ? [player.position.x, player.position.z] : null; if (FR.k % 15 === 2 && CR.g && CR.g.visible) crowdUpdate(false);
-      if (!CR.g && CR.data && dc < 600) buildCrowd(); else if (!CR.data && !CR.loading && !CR.failed && dc < 900) loadCrowd();
+      for (var i = 0; i < 5; i++) CR.lvl[i] += (CR.tgt[i] - CR.lvl[i]) * Math.min(1, dt * 0.6);
+      if (!FE.roamArea && FR.k % 30 === 13) campusArea();
       // pooled lamps: real light only through the client's light pool (these lamps are hidden; the pool reads them)
       (FE.lightObjs || []).forEach(function (l) { l.intensity = dc < 220 ? l.userData.k0 * n : 0; });
       if (FR.k % 60 === 7) { redrawBoard(false); redrawScreen(false); }
       if (FR.k % 10 === 3) toastFrame(); if (FR.k % 30 === 11) stampFrame(); if (FR.k % 20 === 5 && dc < 220) staffFrame(); staffAnim(dt);
-      if (FR.k % 12 === 9 && dc < 200) bubbleFrame(nowMs());
     } catch (e) { note("frame", e); }
   }
 
@@ -772,17 +737,17 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     step("merge", function () { KS.build(main, true); FE.n.tris = Math.round(K.tris + KS.tris); K.build(main); var fl = new THREE.Group(); fl.name = "fest flames"; KF.build(fl, true); fl.traverse(function (o) { if (o.isMesh) { o.renderOrder = 3; o.castShadow = false; } }); main.add(fl); FE.flames = fl; var bg = new THREE.Group(); bg.name = "fest beams"; KB.build(bg, true); bg.traverse(function (o) { if (o.isMesh) { o.renderOrder = 4; o.castShadow = false; o.receiveShadow = false; } }); main.add(bg); FE.beams = bg; var gg = new THREE.Group(); gg.name = "fest glow"; KG.build(gg, true); gg.traverse(function (o) { if (o.isMesh) { o.renderOrder = 2; o.castShadow = false; o.receiveShadow = false; } }); main.add(gg); FE.glows = gg; scene.add(main); });
     step("lamps", function () { FE.lightObjs = FE.lamps.map(function (L) { var l = new THREE.PointLight(L.c, 0, L.d * 1.3, 1.4); l.position.set(L.x, L.y, L.z); l.userData.k0 = L.k * 4.0; l.userData.tag = L.tag; scene.add(l); return l; }); });
     step("perf", function () { var W = window.PLAN_PERF; if (W && W.warmGroup) W.warmGroup(main, { name: "fest grounds" }); });
-    var nm = 0; main.traverse(function (o) { if (o.isMesh) nm++; }); FE.n.meshes = nm; FE.n.solids = SOL.length; FE.n.deferMs = Math.round(nowMs() - t0); FE.ready = true; loadCrowd();
+    var nm = 0; main.traverse(function (o) { if (o.isMesh) nm++; }); FE.n.meshes = nm; FE.n.solids = SOL.length; FE.n.deferMs = Math.round(nowMs() - t0); FE.ready = true;
   }
 
   // ───────────────────────── hooks, API, debug ─────────────────────────
-  FE.api = { eventAt: eventAt, nextEvent: nextEvent, levels: levels, onFloor: onFloor, buildCrowd: buildCrowd, showToast: showToast };
+  FE.api = { eventAt: eventAt, nextEvent: nextEvent, levels: levels, onFloor: onFloor, showToast: showToast };
   FE.debug = {
     // pin the in-game hour (the harness way): timeOffset so that dayT() is h / 24
     hour: function (h) { try { timeOffset = (h / 24) * DAY_SECONDS - ((Date.now() / 1000) % DAY_SECONDS); } catch (e) {} return hourNow(); },
     levels: function () { return { lvl: CR.lvl.slice(), tgt: CR.tgt.slice(), ev: (eventAt(hourNow()) || {}).id || "quiet" }; },
     full: function () { for (var i = 0; i < 5; i++) { CR.lvl[i] = CR.tgt[i] = 1; } return true; },
-    stats: function () { var o = { n: FE.n, errs: FE.errs.slice(), crowd: CR.spots ? CR.spots.length : 0, staff: ST.list.length, lamps: (FE.lightObjs || []).length }; return o; }
+    stats: function () { var o = { n: FE.n, errs: FE.errs.slice(), roam: window.PLAN_ROAM && PLAN_ROAM.stats ? PLAN_ROAM.stats().campus : null, staff: ST.list.length, lamps: (FE.lightObjs || []).length }; return o; }
   };
   (function hookAll() {
     var set = function (phase, name, fn) { var list = window.PLAN_HOOKS[phase]; for (var i = 0; i < list.length; i++) if (list[i] && list[i].name === name) { list[i].fn = fn; return; } list.push({ name: name, fn: fn }); };
@@ -791,4 +756,292 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     set("defer", "festDefer", function () { deferHook(); });
     set("frame", "festFrame", function (dt, now) { frameHook(dt, now); });
   })();
+})();
+// ───────────────────────── R10 (3 Oct 2026): PLAN_ROAM, a few real people who roam the campus and the Market Hall ─────────────────────────
+// Replaces the R7 baked crowds (the festival's 844 instanced people, the Market Hall's 1,065 posed shoppers, the arena's seated
+// audience). Each area registers with PLAN_ROAM.area(def): plan_festival the Solport Summit campus (forecourt, grounds, paths,
+// drop-off, the arena lobby and the keynote's front rows through plan_convention), plan_market the Market Hall (both levels) and
+// the Weekend Market. An area gives its box, its walkable levels, places to go (seats, counters, stalls, bars, the dance floor,
+// chat spots, scripted routes into the arena), entries, and a target count by the hour (6 to 10). The engine rasterises the
+// client's SOLIDS and COLLIDERS plus the area's own keep-outs (beds, the arena's glass) into a 0.5 m walk grid per level (once,
+// time sliced), finds paths with a time-sliced A* (stairs are links between levels), and drives the client's own rigged avatars
+// the way the client's wanderers do: avatar(), animateWalk() (walk, idle, sit and dance clips, the mixer slowed by distance and
+// out of view, the far body LOD), npcSay() and makeBubble().
+// Performance: avatars are pooled (built one at a time, never disposed), not drawn or animated past 150 m, behind walls (arena
+// interiors, through plan_convention) or off area, cast no shadows (the client's contact blob instead), skinned bounds come from
+// R9s (one sphere per rig), the grid and path work is held to about 2.5 ms of a frame. ?roam=0 turns it off.
+// window.PLAN_ROAM: n, errs, A (areas), area(def), stats(), near(x, z, r), debug.
+(function () {
+  "use strict";
+  var RO = window.PLAN_ROAM = window.PLAN_ROAM || {}; RO.errs = RO.errs || []; RO.n = RO.n || {}; RO.A = RO.A || {}; RO.ver = "r10";
+  if (/[?&]roam=0\b/.test(location.search)) { RO.off = true; RO.area = function () { return null; }; RO.stats = function () { return { off: true }; }; RO.near = function () { return false; }; return; }
+  var PI = Math.PI, TAU = PI * 2, CELL = 0.5, STEPUP = 0.45, HEAD = 1.85, RAD = 0.32, SQ2 = Math.SQRT2;
+  var DRAW = 110, LABEL = 22, ACT_IN = 420, ACT_OUT = 520;
+  function note(tag, e) { try { if (RO.errs.length < 50) RO.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (RO.errs.length <= 6) console.warn("plan_roam " + tag, e); } catch (x) {} }
+  function now() { return performance.now(); }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function hour() { try { return dayT() * 24; } catch (e) { return 12; } }
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function angTo(a, b) { var d = b - a; return Math.atan2(Math.sin(d), Math.cos(d)); }
+  function lowTier() { try { return QUAL.level === "low"; } catch (e) { return false; } }
+  function inClient() { try { return !!inside; } catch (e) { return false; } }
+
+  RO.area = function (def) { if (!def || !def.id) return null; var A = RO.A[def.id]; if (A) { A.def = def; return A; } A = RO.A[def.id] = { id: def.id, def: def, st: "wait", gen: null, G: null, pois: [], npcs: [], jobs: [], job: null, on: false, spawnAt: 0, n: { paths: 0, fails: 0, warps: 0, spawned: 0, left: 0, said: 0 }, ev: {} }; return A; };
+
+  // ───────── the walk grid: per level a walkable flag and a standing height per 0.5 m cell ─────────
+  function cellIx(G, x, z) { var ix = Math.floor((x - G.x0) / CELL), iz = Math.floor((z - G.z0) / CELL); if (ix < 0 || iz < 0 || ix >= G.nx || iz >= G.nz) return -1; return iz * G.nx + ix; }
+  function cx(G, j) { return G.x0 + ((j % G.nx) + 0.5) * CELL; }
+  function cz(G, j) { return G.z0 + (Math.floor(j / G.nx) + 0.5) * CELL; }
+  // every cell whose centre lies in a solid's footprint grown by r: fn(j)
+  function forCells(G, s, r, fn) { var c = Math.cos(s.ry || 0), sn = Math.sin(s.ry || 0), ex = Math.abs(s.hw * c) + Math.abs(s.hd * sn) + r, ez = Math.abs(s.hw * sn) + Math.abs(s.hd * c) + r;
+    var ix0 = Math.max(0, Math.floor((s.x - ex - G.x0) / CELL)), ix1 = Math.min(G.nx - 1, Math.floor((s.x + ex - G.x0) / CELL)), iz0 = Math.max(0, Math.floor((s.z - ez - G.z0) / CELL)), iz1 = Math.min(G.nz - 1, Math.floor((s.z + ez - G.z0) / CELL));
+    for (var iz = iz0; iz <= iz1; iz++) { var z = G.z0 + (iz + 0.5) * CELL - s.z; for (var ix = ix0; ix <= ix1; ix++) { var x = G.x0 + (ix + 0.5) * CELL - s.x, lx = x * c - z * sn, lz = x * sn + z * c; if (Math.abs(lx) <= s.hw + r && Math.abs(lz) <= s.hd + r) fn(iz * G.nx + ix); } } }
+  function forCircle(G, x0, z0, r, fn) { var ix0 = Math.max(0, Math.floor((x0 - r - G.x0) / CELL)), ix1 = Math.min(G.nx - 1, Math.floor((x0 + r - G.x0) / CELL)), iz0 = Math.max(0, Math.floor((z0 - r - G.z0) / CELL)), iz1 = Math.min(G.nz - 1, Math.floor((z0 + r - G.z0) / CELL));
+    for (var iz = iz0; iz <= iz1; iz++) for (var ix = ix0; ix <= ix1; ix++) { var dx = G.x0 + (ix + 0.5) * CELL - x0, dz = G.z0 + (iz + 0.5) * CELL - z0; if (dx * dx + dz * dz <= r * r) fn(iz * G.nx + ix); } }
+  function* gridGen(A) {
+    var d = A.def, b = d.box, nx = Math.ceil((b[2] - b[0]) / CELL), nz = Math.ceil((b[3] - b[1]) / CELL), N = nx * nz, t = now(), t0 = t, i, k;
+    var G = { x0: b[0], z0: b[1], nx: nx, nz: nz, N: N, lv: [], links: new Map() }; yield "big";
+    var sol = []; for (i = 0; i < SOLIDS.length; i++) { var s = SOLIDS[i], e = s.hw + s.hd + RAD + 0.5; if (s.x + e < b[0] || s.x - e > b[2] || s.z + e < b[1] || s.z - e > b[3]) continue; if (d.skipSolid && d.skipSolid(s)) continue; sol.push(s); }
+    yield "big"; sol.sort(function (p, q) { return p.y1 - q.y1; }); yield "big";
+    var col = []; for (i = 0; i < COLLIDERS.length; i++) { var c = COLLIDERS[i]; if (c[0] + c[2] + 1 < b[0] || c[0] - c[2] - 1 > b[2] || c[1] + c[2] + 1 < b[1] || c[1] - c[2] - 1 > b[3]) continue; col.push(c); }
+    yield 0;
+    for (var li = 0; li < d.levels.length; li++) {
+      var LV = d.levels[li], W = new Uint8Array(N), Y = new Float32Array(N); G.lv.push({ W: W, Y: Y });
+      for (var iz = 0; iz < nz; iz++) { var z = b[1] + (iz + 0.5) * CELL; for (var ix = 0; ix < nx; ix++) { var x = b[0] + (ix + 0.5) * CELL, j = iz * nx + ix, y = LV.base ? LV.base(x, z) : NaN; if (y === y) { Y[j] = y; W[j] = 1; } else Y[j] = -1e9; } if (now() - t > 2) { yield 0; t = now(); } }
+      // floors: a solid whose top is a step over the cell (a slab, a tread, a kerb) or in the level's band raises it; the tops go in order
+      for (k = 0; k < sol.length; k++) { (function (s) { if (s.seat) return; var top = s.y1; forCells(G, s, 0, function (j) { if (LV.band) { if (top >= LV.band[0] && top <= LV.band[1] && top > Y[j]) { Y[j] = top; W[j] = 1; } } else if (W[j] && top > Y[j] && top <= Y[j] + STEPUP) Y[j] = top; }); })(sol[k]); if ((k & 3) === 3 && now() - t > 2) { yield 0; t = now(); } }
+      // blocks: anything between a step and head height over the cell, grown by the body's radius; seats always (people sit, not walk, on them)
+      for (k = 0; k < sol.length; k++) { (function (s) { forCells(G, s, RAD, function (j) { if (!W[j]) return; var st = Y[j]; if (s.y0 >= st + HEAD) return; if (s.seat ? s.y1 > st + 0.1 : s.y1 > st + STEPUP) W[j] = 0; }); })(sol[k]); if ((k & 3) === 3 && now() - t > 2) { yield 0; t = now(); } }
+      if (li === 0) for (k = 0; k < col.length; k++) { forCircle(G, col[k][0], col[k][1], col[k][2] + RAD, function (j) { W[j] = 0; }); if ((k & 15) === 15 && now() - t > 2) { yield 0; t = now(); } }
+      if (LV.block) for (var j2 = 0; j2 < N; j2++) { if (W[j2] && LV.block(cx(G, j2), cz(G, j2), Y[j2])) W[j2] = 0; if ((j2 & 255) === 255 && now() - t > 2) { yield 0; t = now(); } }
+    }
+    // links between levels (stairs): both ends snapped to a walkable cell
+    (d.links ? d.links() : []).forEach(function (L) { var a = snap(G, L.a.l, L.a.x, L.a.z, 1.5), c = snap(G, L.b.l, L.b.x, L.b.z, 1.5); if (a < 0 || c < 0) { A.n.badLinks = (A.n.badLinks || 0) + 1; return; } var na = L.a.l * N + a, nb = L.b.l * N + c, len = 0; for (var q = 1; q < L.pts.length; q++) len += Math.hypot(L.pts[q][0] - L.pts[q - 1][0], L.pts[q][2] - L.pts[q - 1][2]);
+      var add = function (from, to, pts) { var l = G.links.get(from) || []; l.push({ to: to, cost: len / CELL, pts: pts }); G.links.set(from, l); }; add(na, nb, L.pts); add(nb, na, L.pts.slice().reverse()); });
+    // keep what can be reached from the area's seeds (the entries, the hub): islands behind walls drop out
+    var LN = N * G.lv.length, mark = new Uint8Array(LN), Q = new Int32Array(LN), qh = 0, qt = 0;
+    (d.seeds ? d.seeds() : []).forEach(function (p) { var j = snap(G, p.l || 0, p.x, p.z, 2); if (j >= 0) { var nd = (p.l || 0) * N + j; if (!mark[nd]) { mark[nd] = 1; Q[qt++] = nd; } } });
+    var NB = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    while (qh < qt) { var nd2 = Q[qh++], l2 = (nd2 / N) | 0, j3 = nd2 - l2 * N, Wl = G.lv[l2].W, Yl = G.lv[l2].Y, jx = j3 % nx, jz = (j3 / nx) | 0;
+      for (var m = 0; m < 8; m++) { var ax = jx + NB[m][0], az = jz + NB[m][1]; if (ax < 0 || az < 0 || ax >= nx || az >= nz) continue; var jn = az * nx + ax; if (!Wl[jn] || Math.abs(Yl[jn] - Yl[j3]) > STEPUP) continue; if (m >= 4 && (!Wl[jz * nx + ax] || !Wl[az * nx + jx])) continue; var nn = l2 * N + jn; if (!mark[nn]) { mark[nn] = 1; Q[qt++] = nn; } }
+      var lk = G.links.get(nd2); if (lk) for (var q2 = 0; q2 < lk.length; q2++) if (!mark[lk[q2].to]) { mark[lk[q2].to] = 1; Q[qt++] = lk[q2].to; }
+      if ((qh & 1023) === 1023 && now() - t > 2) { yield 0; t = now(); } }
+    var walk = 0; for (var l3 = 0; l3 < G.lv.length; l3++) { var W3 = G.lv[l3].W; for (var j4 = 0; j4 < N; j4++) { if (W3[j4] && !mark[l3 * N + j4]) W3[j4] = 0; if (W3[j4]) walk++; } }
+    // the search buffers (one search at a time per area)
+    G.gS = new Float32Array(LN); G.par = new Int32Array(LN); G.seen = new Uint32Array(LN); G.closed = new Uint32Array(LN); G.gen = 0; G.hI = new Int32Array(LN + 1024); G.hF = new Float32Array(LN + 1024);
+    A.G = G; yield "big"; var tp = now(); buildPois(A); A.n.poiMs = +(now() - tp).toFixed(1); A.n.cells = N; A.n.walk = walk; A.n.levels = G.lv.length; A.n.gridMs = Math.round(now() - t0); A.n.solids = sol.length; A.n.colliders = col.length;
+  }
+  // the nearest walkable cell within r metres of (x, z) on level l, or -1
+  function snap(G, l, x, z, r) { var Lv = G.lv[l]; if (!Lv) return -1; var j = cellIx(G, x, z); if (j >= 0 && Lv.W[j]) return j; var best = -1, bd = 1e9, n = Math.ceil(r / CELL), ix = Math.floor((x - G.x0) / CELL), iz = Math.floor((z - G.z0) / CELL);
+    for (var dz = -n; dz <= n; dz++) for (var dx = -n; dx <= n; dx++) { var ax = ix + dx, az = iz + dz; if (ax < 0 || az < 0 || ax >= G.nx || az >= G.nz) continue; var jj = az * G.nx + ax; if (!Lv.W[jj]) continue; var ddx = G.x0 + (ax + 0.5) * CELL - x, ddz = G.z0 + (az + 0.5) * CELL - z, dd = ddx * ddx + ddz * ddz; if (dd < bd && dd <= r * r) { bd = dd; best = jj; } } return best; }
+  function walkable(A, l, x, z) { var G = A.G; if (!G || !G.lv[l]) return false; var j = cellIx(G, x, z); return j >= 0 && !!G.lv[l].W[j]; }
+  // standing height on level l at (x, z): bilinear over the walkable cell centres round it
+  function hAt(A, l, x, z) { var G = A.G, Lv = G.lv[l], fx = (x - G.x0) / CELL - 0.5, fz = (z - G.z0) / CELL - 0.5, ix = Math.floor(fx), iz = Math.floor(fz), tx = fx - ix, tz = fz - iz, s = 0, w = 0, j0 = cellIx(G, x, z), y0 = j0 >= 0 ? Lv.Y[j0] : -1e9;
+    for (var k = 0; k < 4; k++) { var ax = ix + (k & 1), az = iz + (k >> 1); if (ax < 0 || az < 0 || ax >= G.nx || az >= G.nz) continue; var j = az * G.nx + ax, y = Lv.Y[j]; if (y < -1e8 || (y0 > -1e8 && Math.abs(y - y0) > 0.3)) continue; var wk = ((k & 1) ? tx : 1 - tx) * ((k >> 1) ? tz : 1 - tz); s += y * wk; w += wk; } return w > 0 ? s / w : y0; }
+  // a straight walk on one level: every sample walkable and no step taller than a stair
+  function los(A, l, x0, z0, x1, z1) { var G = A.G, Lv = G.lv[l], L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / (CELL * 0.45))), py = null;
+    for (var i = 0; i <= n; i++) { var t = i / n, j = cellIx(G, x0 + (x1 - x0) * t, z0 + (z1 - z0) * t); if (j < 0 || !Lv.W[j]) return false; var y = Lv.Y[j]; if (py !== null && Math.abs(y - py) > STEPUP) return false; py = y; } return true; }
+
+  // ───────── paths: a weighted A* over the cells of every level and the links, a few thousand nodes a frame ─────────
+  function heapPush(G, n, f) { var i = G.hn++; if (i >= G.hI.length) { G.hn--; return; } while (i > 0) { var p = (i - 1) >> 1; if (G.hF[p] <= f) break; G.hI[i] = G.hI[p]; G.hF[i] = G.hF[p]; i = p; } G.hI[i] = n; G.hF[i] = f; }
+  function heapPop(G) { var top = G.hI[0], n = --G.hn; if (n > 0) { var x = G.hI[n], f = G.hF[n], i = 0; for (;;) { var a = 2 * i + 1, c = a + 1; if (a >= n) break; var m = c < n && G.hF[c] < G.hF[a] ? c : a; if (G.hF[m] >= f) break; G.hI[i] = G.hI[m]; G.hF[i] = G.hF[m]; i = m; } G.hI[i] = x; G.hF[i] = f; } return top; }
+  function jobStart(A, J) { var G = A.G, N = G.N; G.gen++; G.hn = 0; var s = J.sl * N + J.sj; J.goal = J.gl * N + J.gj; J.gx = J.gj % G.nx; J.gz = (J.gj / G.nx) | 0; G.gS[s] = 0; G.seen[s] = G.gen; G.par[s] = -1; heapPush(G, s, 0); J.s = s; J.exp = 0; J.on = true; }
+  var NB8 = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, SQ2], [1, -1, SQ2], [-1, 1, SQ2], [-1, -1, SQ2]];
+  function jobRun(A, J, until) { var G = A.G, N = G.N, nx = G.nx, nz = G.nz, gen = G.gen;
+    while (G.hn > 0) { if ((J.exp & 127) === 127 && now() > until) return false; var n = heapPop(G); if (G.closed[n] === gen) continue; G.closed[n] = gen; J.exp++; if (n === J.goal) { J.found = true; return true; } if (J.exp > (J.maxExp || 160000)) return true;
+      var l = (n / N) | 0, j = n - l * N, Lv = G.lv[l], W = Lv.W, Y = Lv.Y, jx = j % nx, jz = (j / nx) | 0, g0 = G.gS[n];
+      for (var m = 0; m < 8; m++) { var ax = jx + NB8[m][0], az = jz + NB8[m][1]; if (ax < 0 || az < 0 || ax >= nx || az >= nz) continue; var jn = az * nx + ax; if (!W[jn] || Math.abs(Y[jn] - Y[j]) > STEPUP) continue; if (m >= 4 && (!W[jz * nx + ax] || !W[az * nx + jx])) continue; relax(G, J, n, l * N + jn, g0 + NB8[m][2], ax, az, gen); }
+      var lk = G.links.get(n); if (lk) for (var q = 0; q < lk.length; q++) { var t = lk[q].to, tj = t % N; relax(G, J, n, t, g0 + lk[q].cost, tj % nx, (tj / nx) | 0, gen); } }
+    return true; }
+  function relax(G, J, from, to, g, ax, az, gen) { if (G.closed[to] === gen) return; if (G.seen[to] === gen && G.gS[to] <= g) return; G.seen[to] = gen; G.gS[to] = g; G.par[to] = from; var dx = Math.abs(ax - J.gx), dz = Math.abs(az - J.gz), h = dx + dz + (SQ2 - 2) * Math.min(dx, dz); heapPush(G, to, g + h * 1.25); }
+  // the node chain to points: cell centres (string-pulled per level) and the links' own points (with their heights)
+  function jobPath(A, J) { var G = A.G, N = G.N, chain = [], n = J.goal, guard = 0; while (n >= 0 && guard++ < 200000) { chain.push(n); if (n === J.s) break; n = G.par[n]; } chain.reverse();
+    var out = [], run = []; var flush = function () { if (!run.length) return; var l = run[0][2], i = 0, keep = [run[0]];
+      while (i < run.length - 1) { var step = Math.min(40, run.length - 1 - i), j = i + 1; while (step >= 1) { var k = i + step; if (los(A, l, run[i][0], run[i][1], run[k][0], run[k][1])) { j = k; break; } step = step >> 1; } keep.push(run[j]); i = j; }
+      var fin = [keep[0]]; for (var q = 1; q < keep.length; q++) { var a = fin[fin.length - 1], nx2 = keep[q + 1]; if (nx2 && los(A, l, a[0], a[1], nx2[0], nx2[1])) continue; fin.push(keep[q]); }
+      fin.forEach(function (p) { out.push({ x: p[0], z: p[1], l: l }); }); run = []; };
+    for (var k = 0; k < chain.length; k++) { var nd = chain[k], l = (nd / N) | 0, j = nd - l * N; if (k > 0) { var prev = chain[k - 1], pl = (prev / N) | 0; var lk = G.links.get(prev), link = null; if (lk) for (var q = 0; q < lk.length; q++) if (lk[q].to === nd) link = lk[q]; if (link && (pl !== l || Math.hypot(cx(G, prev % N) - cx(G, j), cz(G, prev % N) - cz(G, j)) > CELL * 2)) { flush(); link.pts.forEach(function (p) { out.push({ x: p[0], y: p[1], z: p[2], l: -1, s: !!p[3] }); }); } }
+      run.push([cx(G, j), cz(G, j), l]); }
+    flush(); return out; }
+  function pathJobs(A, until) { if (!A.G) return; for (var guard = 0; guard < 8 && now() < until; guard++) { var J = A.job; if (!J) { J = A.job = A.jobs.shift(); if (!J) return; if (J.dead) { A.job = null; continue; } jobStart(A, J); }
+      var done = false; try { done = jobRun(A, J, until); } catch (e) { note("path", e); done = true; J.found = false; } if (!done) return; A.job = null; A.n.paths++; var pts = null; if (J.found) { try { pts = jobPath(A, J); } catch (e) { note("path pts", e); } } else A.n.fails++; if (!J.dead) J.cb(pts); } }
+  function requestPath(A, l0, x0, z0, l1, x1, z1, cb) { var G = A.G; var sj = snap(G, l0, x0, z0, 2.5), gj = snap(G, l1, x1, z1, 1.6); if (sj < 0 || gj < 0) { cb(null); return null; } var J = { sl: l0, sj: sj, gl: l1, gj: gj, cb: cb }; A.jobs.push(J); return J; }
+
+  // ───────── places: POIs from the area (seats get an approach cell and a seated pose) ─────────
+  function seatPoi(A, s, kind, extra) {
+    var face = typeof s.face === "number" ? s.face : null, long = s.hw > s.hd, cands = [];
+    var dirs = face !== null ? [face, face + PI, face + PI / 2, face - PI / 2] : (long ? [s.ry, s.ry + PI] : [s.ry + PI / 2, s.ry - PI / 2]);
+    var l = extra && extra.l || 0, dep = face !== null ? Math.max(s.hw, s.hd) : (long ? s.hd : s.hw);
+    for (var i = 0; i < dirs.length; i++) { var f = dirs[i], ax = s.x + Math.sin(f) * (dep + 0.42), az = s.z + Math.cos(f) * (dep + 0.42); if (walkable(A, l, ax, az)) { cands.push([ax, az, f]); break; } }
+    if (!cands.length) return null; var c = cands[0], sitFace = face !== null ? face : c[2];
+    var p = { kind: kind || "sit", l: l, x: c[0], z: c[1], face: sitFace, seat: s, sx: s.x, sz: s.z, sy: s.y1, back: Math.min(face !== null ? (Math.abs(Math.cos(angTo(sitFace, s.ry || 0))) > 0.7 ? s.hd : s.hw) : dep, 0.32) - 0.03 };
+    if (extra) for (var k in extra) if (p[k] === undefined || k === "w" || k === "dur" || k === "tag") p[k] = extra[k]; return p; }
+  function buildPois(A) { var d = A.def, out = [];
+    (d.pois ? d.pois(A) : []).forEach(function (p) { if (!p) return; if (p.seatSolid) { var sp = seatPoi(A, p.seatSolid, p.kind, p); if (sp) out.push(sp); return; } if (p.via) { out.push(p); return; } var j = snap(A.G, p.l || 0, p.x, p.z, 1.2); if (j < 0) return; p.l = p.l || 0; out.push(p); });
+    // every other seat in the box on a walkable level becomes a place to sit (the module's filter decides)
+    if (d.seats !== false) for (var i = 0; i < SOLIDS.length; i++) { var s = SOLIDS[i]; if (!s.seat || s.roamSkip) continue; var b = d.box; if (s.x < b[0] || s.x > b[2] || s.z < b[1] || s.z > b[3]) continue; var info = d.seatInfo ? d.seatInfo(s) : { l: 0 }; if (!info) continue; var q = seatPoi(A, s, info.kind || "sit", info); if (q) out.push(q); }
+    // chat spots come in pairs (two people facing each other)
+    out.forEach(function (p, i) { p.i = i; p.by = null; if (p.kind === "chat" && !p.pair && p.mate !== false) { var ang = typeof p.face === "number" ? p.face : Math.random() * TAU, ox = Math.sin(ang) * 1.1, oz = Math.cos(ang) * 1.1; if (walkable(A, p.l, p.x + ox, p.z + oz)) { var q2 = { kind: "chat", l: p.l, x: p.x + ox, z: p.z + oz, face: ang + PI, w: p.w, tag: p.tag, pair: p, i: out.length }; p.pair = q2; p.face = ang; out.push(q2); } } });
+    A.pois = out; A.n.pois = out.length; var by = {}; A.catN = {}; out.forEach(function (p) { p.cat = p.kind + ":" + (p.tag || ""); A.catN[p.cat] = (A.catN[p.cat] || 0) + 1; by[p.kind] = (by[p.kind] || 0) + 1; }); A.n.poiKinds = by; }
+
+  // ───────── the people: the client's avatars, pooled per area ─────────
+  var SKINS = ["f3d9c0", "e8c19a", "d9a877", "c98f63", "a86f46", "8d5a3b", "6b4226", "4f3020"], PANTS = ["2b3a4a", "1c1f24", "6d5a3e", "3a3d42", "c8bca4", "4a5a6a", "263040", "5a4632"];
+  var SHIRTS = ["f5f1e6", "2a7a3e", "c0462d", "3a6ea5", "e0b040", "1c1f24", "6a3a8a", "8a4a2a", "2f8f8a", "9a3b52", "d8d0f0", "e07a30", "4dde6f", "8a8f98"], HAIRC = ["1c1512", "3a2416", "6b4226", "c9a24d", "2a2a2a", "8a6a48", "15100c"];
+  var HAIRS_F = [2, 4, 6, 8, 9, 10, 11, 0, 7], HAIRS_M = [1, 3, 5, 6, 7, 0, 11, 1, 3], HATS = ["hat_cap", "hat_trucker", "hat_cowboy", "hat_beanie"], OUTFITS = ["outfit_desert", "outfit_ranch"];
+  // a look per person: the palettes walked with strides that never repeat a neighbour's shirt, trousers or skin; some wear their own
+  // hair (the wigs are the heaviest part of a near person), one in four a hat, one in seven an outfit
+  function lookFor(A, k) { var p = (A.def.people || [])[k] || {}, f = p.body ? p.body === "f" : k % 2 === 0, o = 0; for (var q = 0; q < A.id.length; q++) o += A.id.charCodeAt(q) * (q + 1); o = o % 97;
+    var look = { body: f ? "f" : "m", skin: p.skin || SKINS[(k * 3 + o) % SKINS.length], shirt: p.shirt || SHIRTS[(k * 5 + o * 3) % SHIRTS.length], pants: p.pants || PANTS[(k * 3 + o + 1) % PANTS.length], hair: p.hair !== undefined ? p.hair : (k >> 1) % 2 ? 0 : (f ? HAIRS_F : HAIRS_M)[(k * 2 + o) % 9], hairc: p.hairc || HAIRC[(k * 4 + o) % HAIRC.length], shoes: p.shoes || (k % 3 ? "f5f1e6" : "2a2320") };
+    var hat = p.hat !== undefined ? p.hat : (k % 4 === 1 ? HATS[((k >> 2) + o) % HATS.length] : null), outfit = p.outfit !== undefined ? p.outfit : (k % 7 === 3 ? OUTFITS[(k + o) % 2] : null); return { look: look, hat: hat, outfit: outfit, name: p.name || ("Guest " + (k + 1)) }; }
+  function makeNpc(A, k) { var L = lookFor(A, (A.nb = (A.nb || 0) + 1) - 1); var g = avatar("roam_" + k, L.name, L.look, L.hat, L.outfit); try { g.userData.label.scale.set(1.4, 0.36, 1); } catch (e) {}
+    var c = { A: A, k: k, g: g, name: L.name, st: "off", poi: null, path: null, pi: 0, sp: rnd(1.08, 1.42), t: 0, l: 0, y: 0, lastSay: 0, bub: null, bubAt: 0, sh: 0, said: 0, kindLast: "" }; noShadow(c); A.n.built = (A.n.built || 0) + 1; return c; }
+  // no shadow casting (the wig and hat meshes load a moment later, so this runs a few times); once the wig is in, its programs and
+  // uploads are prepared through plan_perf's warm-up queue (compiled in parallel, not at first sight)
+  function noShadow(c) { c.g.traverse(function (o) { if (o.isMesh) { o.castShadow = false; o.userData.shSet = true; } }); var b = c.g.userData.blob; if (b) b.visible = !c.g.userData.sit; c.sh++; if (c.sh === 3 && !c.warm) { c.warm = true; try { if (window.PLAN_PERF && PLAN_PERF.warmGroup) PLAN_PERF.warmGroup(c.g, { name: "roam person" }); } catch (e) {} } }
+  function hideNpc(c) { var g = c.g; if (g.parent) g.parent.remove(g); c.st = "off"; release(c); c.path = null; dropBubble(c); if (g.userData.sitOff) try { sitClear(g); } catch (e) {} g.userData.sit = false; g.userData.dance = null; if (g.userData.label) g.userData.label.position.y = 2.3; c.warp = false; c.ev = null; c.leaving = false; c.at = null; }
+  function release(c) { if (c.poi) { if (c.poi.by === c) c.poi.by = null; c.poi = null; } }
+  function dropBubble(c) { if (!c.bub) return; c.g.remove(c.bub); try { c.bub.material.map.dispose(); c.bub.material.dispose(); } catch (e) {} c.bub = null; }
+  // the client's speech bubble, wrapped to two lines (its own cuts a long line short)
+  function makeBub(text) { var cv = document.createElement("canvas"); cv.width = 512; cv.height = 150; var x = cv.getContext("2d"); x.font = "500 28px 'Space Grotesk', system-ui, sans-serif"; x.textAlign = "center";
+    var lines = [""]; text.split(" ").forEach(function (w) { var cur = lines[lines.length - 1], t = cur ? cur + " " + w : w; if (cur && x.measureText(t).width > 456) lines.push(w); else lines[lines.length - 1] = t; }); lines = lines.slice(0, 2);
+    var w = 36 + Math.max.apply(null, lines.map(function (l) { return Math.min(470, x.measureText(l).width); })), h = 20 + 36 * lines.length, y0 = 75 - h / 2; x.fillStyle = "rgba(245,241,230,.95)"; x.beginPath(); if (x.roundRect) x.roundRect(256 - w / 2, y0, w, h, 16); else x.rect(256 - w / 2, y0, w, h); x.fill();
+    x.fillStyle = "#0a1610"; lines.forEach(function (l, i) { x.fillText(l, 256, y0 + 38 + i * 36); }); var tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false })); sp.scale.set(4.4, 1.29, 1); sp.position.y = 3.2; return sp; }
+  function bubble(c, text) { dropBubble(c); var b = makeBub(text); if (c.g.userData.sit) b.position.y = 2.5; c.g.add(b); c.bub = b; c.bubAt = now(); c.A.n.said++; }
+
+  // ───────── choosing where to go ─────────
+  function freePoi(p) { if (p.by || p.bad) return false; if (p.seat) { try { if (SIT.on && Math.abs(player.position.x - p.sx) < 0.6 && Math.abs(player.position.z - p.sz) < 0.6) return false; } catch (e) {} } return true; }
+  function choose(A, c, h) { var d = A.def, best = null, tot = 0, cand = [], x = c.g.position.x, z = c.g.position.z;
+    for (var i = 0; i < A.pois.length; i++) { var p = A.pois[i]; if (p.ev || !freePoi(p)) continue; var w = d.weight ? d.weight(p, h, c) : (p.w || 1); if (!(w > 0)) continue; if (d.perCat) w /= A.catN[p.cat] || 1; var px = p.via ? p.via[0][0] : p.x, pz = p.via ? p.via[0][2] : p.z, dd = Math.hypot(px - x, pz - z);
+      w *= dd < 6 ? 0.25 : dd < 160 ? 1 : 0.4; if (p.kind === c.kindLast) w *= 0.35; if (A.pin) { var dp = Math.hypot(px - A.pin[0], pz - A.pin[1]); if (dp < 70) w *= 1 + (A.def.pull || 2.5) * (1 - dp / 70); } if (p.kind === "chat" && p.pair && p.pair.by) w *= 6; cand.push([p, w]); tot += w; }
+    var r = Math.random() * tot; for (var k = 0; k < cand.length; k++) { r -= cand[k][1]; if (r <= 0) { best = cand[k][0]; break; } } return best || (cand.length ? cand[0][0] : null); }
+  // send c to p: a grid path to p (or to the start of p's scripted route), then the route
+  function goTo(A, c, p, then) { release(c); c.poi = p; p.by = c; c.st = "plan"; c.t = 0; c.warp = false; var x = c.g.position.x, z = c.g.position.z, tx = p.via ? p.via[0][0] : p.x, tz = p.via ? p.via[0][2] : p.z, tl = p.via ? (p.viaL || 0) : p.l;
+    c.job = requestPath(A, c.l, x, z, tl, tx, tz, function (pts) { c.job = null; if (c.poi !== p || c.st !== "plan") return; if (!pts || !pts.length) { p.bad = (p.bad || 0) + 1; release(c); c.st = "act"; c.t = rnd(1.5, 3); return; }
+      if (p.via) p.via.forEach(function (q) { pts.push({ x: q[0], y: q[1], z: q[2], l: -1, s: !!q[3] }); }); c.path = pts; c.pi = 0; c.st = "walk"; c.then = then || null; }); if (!c.job && c.st === "plan") { c.st = "act"; c.t = 2; } }
+  function nextPlace(A, c, h) { var leaving = c.poi; if (leaving && leaving.via && c.at === leaving) { c.path = leaving.via.slice().reverse().map(function (q) { return { x: q[0], y: q[1], z: q[2], l: -1, s: !!q[3] }; }); c.pi = 0; c.st = "walk"; c.back = true; release(c); c.at = null; return; }
+    c.at = null; var p = A.def.next ? A.def.next(A, c, leaving, h) : null; if (!p) p = choose(A, c, h); if (!p) { c.st = "act"; c.t = rnd(3, 6); return; } goTo(A, c, p); }
+  function arrive(A, c) { var p = c.poi; c.path = null; c.at = p; c.back = false; if (!p) { c.st = "act"; c.t = rnd(2, 5); return; } c.st = "act"; var D = p.exit ? [0, 0] : p.dur || A.def.dur && A.def.dur[p.kind] || [8, 20]; c.t = rnd(D[0], D[1]); c.kindLast = p.kind; c.l = p.l >= 0 ? p.l : c.l;
+    if (p.seat || p.sitAt) { c.sit0 = [c.g.position.x, c.g.position.y, c.g.position.z]; c.sitK = 0; }
+    if (p.kind === "dance") { c.g.userData.dance = { clip: pick(["dance1", "dance2", "dance3", "dance4"]), until: Infinity }; }
+    if (p.ev && !c.ev) c.t = rnd(2, 6); }
+  function standUp(c) { var g = c.g, u = g.userData; if (u.sitOff) try { sitClear(g); } catch (e) {} u.sit = false; u.dance = null; var p = c.at; if (p && p.via) { var q = p.via[p.via.length - 1]; g.position.set(q[0], q[1], q[2]); } else if (p && (p.seat || p.sitAt)) g.position.set(p.x, hAt(c.A, p.l || 0, p.x, p.z), p.z); var b = u.blob; if (b) b.visible = true; if (u.label) u.label.position.y = 2.3; c.sitK = -1; }
+
+  // ───────── every frame ─────────
+  var FR = RO.fr = RO.fr || { k: 0 };
+  function camIn(A) { var b = A.def.box, cp = camera.position, dx = Math.max(b[0] - cp.x, 0, cp.x - b[2]), dz = Math.max(b[1] - cp.z, 0, cp.z - b[3]); return Math.hypot(dx, dz); }
+  function areaFrame(A, dt, h, until) {
+    var d = A.def; if (!d.ready || !d.ready()) return; var dist = camIn(A), wantOn = dist < (A.on ? ACT_OUT : ACT_IN) && !inClient() && !(d.off && d.off());
+    if (A.st === "wait" && (dist < 760 || (FR.t0 && now() - FR.t0 > 40000))) { A.st = "grid"; A.gen = gridGen(A); }
+    if (A.st === "grid") { var tg = now(); try { while (now() < until) { var r = A.gen.next(); if (r.done) { A.gen = null; A.st = "ready"; break; } if (r.value === "big") break; } } catch (e) { note("grid " + A.id, e); A.st = "fail"; } tg = now() - tg; if (tg > (RO.n.tGrid || 0)) RO.n.tGrid = +tg.toFixed(2); return; }
+    if (A.st !== "ready") return;
+    // the client measures its sit pose once per body on the first sit (a skinned pass over the rig): done here, one body a frame, before anyone sits
+    if ((FR.fit || 0) < 2 && typeof sitFitOf === "function" && typeof CHAR !== "undefined" && CHAR.m && CHAR.f && CHAR.m.clips && CHAR.m.clips.sit && CHAR.f.clips && CHAR.f.clips.sit) { try { sitFitOf({ userData: { body: FR.fit ? "f" : "m" } }); } catch (e) {} FR.fit = (FR.fit || 0) + 1; return; }
+    if (!wantOn) { if (A.on) { A.npcs.forEach(hideNpc); A.on = false; A.jobs.length = 0; A.job = null; } return; }
+    if (!A.on) { A.on = true; A.first = true; A.spawnAt = 0; }
+    var tq = now(); pathJobs(A, until); tq = now() - tq; if (tq > (RO.n.tPath || 0)) RO.n.tPath = +tq.toFixed(2);
+    var pb = d.box, pp = player.position; A.pin = pp.x > pb[0] && pp.x < pb[2] && pp.z > pb[1] && pp.z < pb[3] ? [pp.x, pp.z] : null;
+    // the low tier keeps two fewer (never under six), except while an event needs its people (the keynote's seats)
+    var target = d.count ? d.count(h) : 8, inEv = d.events && d.events().some(function (E) { return h >= E.from && h < E.end; }); if (lowTier() && !inEv) target = Math.max(6, target - 2); A.target = target;
+    var live = A.npcs.filter(function (c) { return c.st !== "off" && !c.leaving; }).length;
+    // arrivals: fill up quietly (in place while nobody sees the spot, else from an entry out of view), one person at a time
+    if (live < target && now() > A.spawnAt && typeof avatar === "function" && typeof CHAR !== "undefined" && CHAR.m && CHAR.f && CHAR.m.clips && CHAR.m.clips.sit) {
+      A.spawnAt = now() + (A.first ? 120 : rnd(2500, 6000)); var c = null; for (var i = 0; i < A.npcs.length; i++) if (A.npcs[i].st === "off") { c = A.npcs[i]; break; }
+      // a free avatar from another area's pool before a new one is built (the pools stay small whichever way people move)
+      if (!c) for (var ok in RO.A) { var B = RO.A[ok]; if (B === A) continue; for (var bi = 0; bi < B.npcs.length && !c; bi++) if (B.npcs[bi].st === "off") { c = B.npcs[bi]; B.npcs.splice(bi, 1); c.A = A; A.npcs.push(c); } if (c) break; }
+      if (!c && A.npcs.length < (d.max || 10) && (RO.n.built || 0) < (RO.maxBuilt || 22)) { try { var tm = now(); c = makeNpc(A, RO.n.built || 0); tm = now() - tm; if (tm > (RO.n.tMake || 0)) RO.n.tMake = +tm.toFixed(2); A.npcs.push(c); RO.n.built = (RO.n.built || 0) + 1; } catch (e) { note("npc", e); } }
+      if (c) { var ts = now(); spawn(A, c, h); ts = now() - ts; if (ts > (RO.n.tSpawn || 0)) RO.n.tSpawn = +ts.toFixed(2); } if (live + 1 >= target) A.first = false; }
+    // departures: someone out of view walks to an entry and is gone
+    if (live > target && FR.k % 90 === 7) { var cand = A.npcs.filter(function (c2) { return c2.st !== "off" && !c2.leaving && !c2.ev && !c2.g.userData.sit; }); if (cand.length) leave(A, pick(cand)); }
+    if (d.events) eventFrame(A, h);
+    var tn = now(); for (var j = 0; j < A.npcs.length; j++) { var c3 = A.npcs[j]; if (c3.st === "off") continue; try { npcFrame(A, c3, dt, h); } catch (e) { note("npc frame", e); } } tn = now() - tn; if (tn > (RO.n.tNpc || 0)) RO.n.tNpc = +tn.toFixed(2);
+    ambient(A, h); }
+  function spawn(A, c, h) { var d = A.def, cp = camera.position, p = null, inPlace = A.first;
+    if (inPlace) { for (var t = 0; t < 30 && !p; t++) { var q = choose(A, c, h); if (q && !q.via && Math.hypot(q.x - cp.x, q.z - cp.z) > 45) p = q; } }
+    if (p) { c.l = p.l; c.g.position.set(p.x, hAt(A, p.l, p.x, p.z), p.z); c.g.rotation.y = typeof p.face === "number" ? p.face : Math.random() * TAU; if (!c.g.parent) scene.add(c.g); c.poi = p; p.by = c; arrive(A, c); c.t *= Math.random(); c.y = c.g.position.y; A.n.spawned++; return; }
+    var E = (d.entries ? d.entries() : []).filter(function (e) { var y = hAt(A, e.l || 0, e.x, e.z); return Math.hypot(e.x - cp.x, e.z - cp.z) > 30 && !npcInView(new THREE.Vector3(e.x, y + 1, e.z)); }); if (!E.length) { A.spawnAt = now() + 1500; return; }
+    var e = pick(E); c.l = e.l || 0; c.g.position.set(e.x, hAt(A, c.l, e.x, e.z), e.z); c.y = c.g.position.y; c.g.rotation.y = e.face || 0; if (!c.g.parent) scene.add(c.g); c.st = "act"; c.t = 0.1; c.at = null; c.leaving = false; A.n.spawned++; }
+  function leave(A, c) { var E = A.def.entries ? A.def.entries() : []; if (!E.length) { hideNpc(c); return; } var x = c.g.position.x, z = c.g.position.z, best = null, bd = 1e9; E.forEach(function (e) { var dd = Math.hypot(e.x - x, e.z - z); if (dd < bd) { bd = dd; best = e; } });
+    if (c.g.userData.sit || c.g.userData.dance) standUp(c); c.leaving = true; var p = { kind: "exit", l: best.l || 0, x: best.x, z: best.z, exit: true, hand: best.hand || null }; goTo(A, c, p); A.n.left++; }
+  function liveN(A) { var n = 0; for (var i = 0; i < A.npcs.length; i++) if (A.npcs[i].st !== "off" && !A.npcs[i].leaving) n++; return n; }
+  // an exit into the next area hands the person over (the campus to the Market Hall and back) when that area has room
+  function transfer(c, B) { var A = c.A; if (!B || B === A || !B.on || B.st !== "ready" || liveN(B) >= (B.target || 0)) return false; var i = A.npcs.indexOf(c); if (i < 0) return false; A.npcs.splice(i, 1); release(c); c.A = B; c.l = 0; c.at = null; c.leaving = false; c.st = "act"; c.t = 0.2; c.path = null; B.npcs.push(c); A.n.out = (A.n.out || 0) + 1; B.n.inn = (B.n.inn || 0) + 1; return true; }
+  var _v = new THREE.Vector3();
+  function npcFrame(A, c, dt, h) {
+    var g = c.g, u = g.userData, cp = camera.position, d = Math.hypot(g.position.x - cp.x, g.position.z - cp.z), vis = d < DRAW && (!A.def.visible || A.def.visible(c)); if (A.def.hideAll && A.def.hideAll()) vis = false;
+    var inV = vis && npcInView(_v.set(g.position.x, g.position.y + 1, g.position.z));
+    // warps: on the way to (or from) an event seat, someone nobody sees can skip the walk
+    if ((c.warp || (c.ev && hour() >= c.ev.start)) && c.st === "walk" && !inV && d > 30 && c.path && c.path.length) { var last = c.path[c.path.length - 1]; g.position.set(last.x, last.y !== undefined ? last.y : hAt(A, c.poi ? c.poi.l : 0, last.x, last.z), last.z); A.n.warps++; c.warp = false; c.path = null; if (c.back) { c.st = "act"; c.t = 0.05; c.back = false; c.at = null; } else arrive(A, c); }
+    if (c.st === "walk") walkStep(A, c, dt, d);
+    else if (c.st === "act") { c.t -= dt; var tt = now(); actStep(A, c, dt, d, h); tt = now() - tt; if (tt > (RO.n.tAct || 0)) RO.n.tAct = +tt.toFixed(2); if (c.t <= 0) { if (c.at && c.at.exit) { if (!inV || d > 60 || c.t < -20) { if (c.at.hand && transfer(c, RO.A[c.at.hand])) return; hideNpc(c); } return; } if (c.ev && c.at && c.at.ev && hour() < c.ev.end) { c.t = 2; } else { if (u.sit || u.dance) standUp(c); nextPlace(A, c, h); } } }
+    else if (c.st === "plan") { c.t += dt; if (c.t > 8) { if (c.job) c.job.dead = true; c.job = null; release(c); c.st = "act"; c.t = 1; } }
+    if (g.visible !== vis) g.visible = vis; if (!vis) return;
+    if (c.sh < 6 && (FRAME_N + c.k) % 60 === 0) { var tw = now(); noShadow(c); tw = now() - tw; if (tw > (RO.n.tWarm || 0)) RO.n.tWarm = +tw.toFixed(2); }
+    var lab = u.label; if (lab) { var lv = d < LABEL && !(c.at && c.at.quiet && c.st === "act") && (!A.def.sameZone || A.def.sameZone(c)); if (lab.visible !== lv) lab.visible = lv; }
+    if (c.bub && (now() - c.bubAt > 5200 || d > 30)) dropBubble(c);
+    var sp = c.st === "walk" && !c.wait ? c.sp : 0, ta = now(); try { animateWalk(g, sp, dt); } catch (e) { note("anim", e); } ta = now() - ta; if (ta > (RO.n.tAnim || 0)) RO.n.tAnim = +ta.toFixed(2);
+    // a hello when you walk up to someone standing about (once in a while, like the client's wanderers)
+    var dpl = player ? Math.hypot(g.position.x - player.position.x, g.position.z - player.position.z) : 1e9;
+    if (dpl < 3.2 && c.st === "act" && !u.sit && !u.dance && now() - c.lastSay > 40000 && Math.abs(player.position.y - g.position.y) < 1.5) { c.lastSay = now(); var L = A.def.lines && (A.def.lines.hello || A.def.lines.any); if (L && L.length && typeof npcSay === "function") { try { npcSay({ g: g, name: c.name }, pick(L)); c.bub = g.userData.bubble; c.bubAt = now(); g.userData.bubble = null; } catch (e) {} } c.t = Math.max(c.t, 3); }
+  }
+  function walkStep(A, c, dt, d) { var g = c.g, P = c.path; if (!P || c.pi >= P.length) { arrive(A, c); return; } var tgt = P[c.pi], px = g.position.x, pz = g.position.z, dx = tgt.x - px, dz = tgt.z - pz, L = Math.hypot(dx, dz);
+    // somebody in the way (the player or another walker a step ahead): wait a moment
+    c.wait = false; if (c.waitT === undefined) c.waitT = 0; var fx = L > 1e-4 ? dx / L : 0, fz = L > 1e-4 ? dz / L : 0;
+    if (player && c.waitT < 2.5) { var bx = player.position.x - px, bz = player.position.z - pz, ahead = bx * fx + bz * fz; if (ahead > 0 && ahead < 1.1 && Math.abs(bx * fz - bz * fx) < 0.55 && Math.abs(player.position.y - g.position.y) < 1.5) c.wait = true; }
+    if (!c.wait && c.waitT < 2.5) for (var i = 0; i < A.npcs.length; i++) { var o = A.npcs[i]; if (o === c || o.st === "off") continue; var ox = o.g.position.x - px, oz = o.g.position.z - pz; if (Math.abs(ox) > 1.2 || Math.abs(oz) > 1.2) continue; var ah = ox * fx + oz * fz; if (ah > 0.15 && ah < 0.95 && Math.abs(ox * fz - oz * fx) < 0.5 && (o.st !== "walk" || o.k < c.k)) { c.wait = true; break; } }
+    if (c.wait) { c.waitT += dt; return; } c.waitT = Math.max(0, c.waitT - dt * 0.5);
+    var step = c.sp * dt; if (L <= step + 0.05) { g.position.x = tgt.x; g.position.z = tgt.z; c.pi++; if (tgt.l >= 0) c.l = tgt.l; } else { g.position.x += fx * step; g.position.z += fz * step; }
+    var y; if (tgt.y !== undefined) { var pr = c.pi > 0 ? P[c.pi - 1] : null; if (tgt.y !== undefined && pr && pr.y !== undefined) { var seg = Math.hypot(tgt.x - pr.x, tgt.z - pr.z) || 1, k = clamp(1 - Math.hypot(tgt.x - g.position.x, tgt.z - g.position.z) / seg, 0, 1); y = pr.y + (tgt.y - pr.y) * k; } else y = tgt.y; if (d < 60 && tgt.s) { try { var sy = surfaceAt(g.position.x, g.position.z, y + STEPUP); if (sy > y - 0.25 && sy < y + 0.25) y = sy; } catch (e) {} } }
+    else { y = hAt(A, c.l, g.position.x, g.position.z); var LV = A.def.levels[c.l]; if (d < 40 && LV.base && LV.exact) { var by = LV.base(g.position.x, g.position.z); if (Math.abs(by - y) < 0.12) y = by; } }
+    if (y > -1e8) { g.position.y = Math.abs(y - g.position.y) > 1.2 ? y : g.position.y + (y - g.position.y) * Math.min(1, dt * 14); }
+    if (L > 0.05) { var want = Math.atan2(fx, fz); g.rotation.y += angTo(g.rotation.y, want) * Math.min(1, dt * 7); }
+    if (c.pi >= P.length) { if (c.back) { c.back = false; c.warp = false; c.st = "act"; c.t = 0.05; c.at = null; } else arrive(A, c); } }
+  function actStep(A, c, dt, d, h) { var g = c.g, u = g.userData, p = c.at;
+    if (p && (p.seat || p.sitAt) && c.sitK >= 0 && c.sitK < 1) { c.sitK = Math.min(1, c.sitK + dt * 3); var s0 = c.sit0, sx = p.sitAt ? p.sitAt[0] : p.sx, sy = p.sitAt ? p.sitAt[1] : p.sy, sz = p.sitAt ? p.sitAt[2] : p.sz, k = c.sitK;
+      g.position.set(s0[0] + (sx - s0[0]) * k, s0[1] + (sy - s0[1]) * k, s0[2] + (sz - s0[2]) * k); g.rotation.y += angTo(g.rotation.y, p.face) * Math.min(1, dt * 10); if (k >= 1 && !u.sit) { g.rotation.y = p.face; u.sit = true; try { sitOffset(g, p.back !== undefined ? p.back : 0.22); } catch (e) {} if (u.blob) u.blob.visible = false; if (u.label) u.label.position.y = 1.7; } return; }
+    if (u.sit) return; var face = p && typeof p.face === "number" ? p.face : null;
+    if (p && p.kind === "chat" && p.pair && p.pair.by && p.pair.by.at === p.pair) { var o = p.pair.by.g.position; face = Math.atan2(o.x - g.position.x, o.z - g.position.z); }
+    if (player && !u.dance && (!p || p.kind !== "chat")) { var dpl = Math.hypot(player.position.x - g.position.x, player.position.z - g.position.z); if (dpl < 3.5 && Math.abs(player.position.y - g.position.y) < 1.5) face = Math.atan2(player.position.x - g.position.x, player.position.z - g.position.z); }
+    if (face !== null) g.rotation.y += angTo(g.rotation.y, face) * Math.min(1, dt * 3); }
+  // ambient lines: now and then someone you can see says something that fits where they are (a bubble, not the chat log)
+  function ambient(A, h) { if (!A.def.lines || now() < (A.sayAt || 0)) return; A.sayAt = now() + rnd(7000, 13000); var cp = camera.position, best = null, bd = 1e9;
+    for (var i = 0; i < A.npcs.length; i++) { var c = A.npcs[i]; if (c.st !== "act" || !c.at || c.at.quiet || c.bub || !c.g.visible) continue; var d = Math.hypot(c.g.position.x - cp.x, c.g.position.z - cp.z); if (d < 3 || d > 24) continue; if (A.def.sameZone && !A.def.sameZone(c)) continue; if (!npcInView(_v.set(c.g.position.x, c.g.position.y + 1, c.g.position.z))) continue; var sc = d + Math.random() * 10; if (c.at.kind === "chat" && c.at.pair && c.at.pair.by) sc -= 8; if (sc < bd) { bd = sc; best = c; } }
+    if (!best) return; var L = A.def.lines[best.at.line || best.at.kind] || A.def.lines.any; if (!L || !L.length) return; bubble(best, pick(L)); }
+  // events (the keynote): a few people are sent to the event's seats before it starts, sit through it, then go on with their day
+  function eventFrame(A, h) { (A.def.events() || []).forEach(function (E) { var on = h >= E.from && h < E.end, st = A.ev[E.id] || (A.ev[E.id] = { sent: 0 });
+      if (!on) { A.npcs.forEach(function (c) { if (c.ev === E) { c.ev = null; c.warp = true; if (c.at && c.at.ev && c.st === "act") c.t = Math.min(c.t, rnd(2, 25)); } }); st.sent = 0; return; }
+      if (FR.k % 30 !== 3) return; var seats = A.pois.filter(function (p) { return p.ev === E.id; }), busy = A.npcs.filter(function (c) { return c.ev === E; }).length; if (busy >= Math.min(E.max, seats.length)) return;
+      var free = seats.filter(function (p) { return !p.by; }); if (!free.length) return; var cand = A.npcs.filter(function (c) { return c.st !== "off" && !c.ev && !c.leaving; }); if (cand.length <= (E.keep || 0)) return;
+      var c = pick(cand), p = pick(free); if (c.g.userData.sit || c.g.userData.dance) standUp(c); c.ev = E; c.warp = h >= E.start - 0.05; goTo(A, c, p); st.sent++; }); }
+
+  // ───────── hooks: the frame, seats the player can take, a door near people ─────────
+  RO.near = function (x, z, r) { for (var k in RO.A) { var A = RO.A[k]; if (!A.on) continue; for (var i = 0; i < A.npcs.length; i++) { var c = A.npcs[i]; if (c.st === "off") continue; var p = c.g.position; if (Math.abs(p.x - x) < r && Math.abs(p.z - z) < r) return true; } } return false; };
+  function seatTaken(sd) { for (var k in RO.A) { var A = RO.A[k]; if (!A.on) continue; for (var i = 0; i < A.npcs.length; i++) { var c = A.npcs[i], p = c.at || c.poi; if (c.st === "off" || !p || !(p.seat || p.sitAt)) continue; var sx = p.sitAt ? p.sitAt[0] : p.sx, sz = p.sitAt ? p.sitAt[2] : p.sz; if (Math.abs(sx - sd.x) < 0.4 && Math.abs(sz - sd.z) < 0.4) return true; } } return false; }
+  function install() { if (FR.inst) return; FR.inst = true; try { var o = nearestSeat; nearestSeat = function () { var r = o.apply(this, arguments); try { if (r && seatTaken(r)) return null; } catch (e) {} return r; }; FR.o = o; } catch (e) { note("wrap seat", e); } }
+  function frameHook(dt) {
+    if (RO.off || typeof SOLIDS === "undefined" || !player || !camera) return; dt = Math.min(dt || 0.016, 0.1); FR.k++; if (!FR.t0) FR.t0 = now(); install();
+    var t = now(), until = t + (RO.budget || 2.5), h = hour();
+    for (var k in RO.A) { try { areaFrame(RO.A[k], dt, h, until); } catch (e) { note("area " + k, e); } }
+    RO.n.ms = +(now() - t).toFixed(2); if (RO.n.ms > (RO.n.msMax || 0)) RO.n.msMax = RO.n.ms; }
+  (function hook() { window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] }; var L = window.PLAN_HOOKS.frame; for (var i = 0; i < L.length; i++) if (L[i] && L[i].name === "roamFrame") { L[i].fn = frameHook; return; } L.push({ name: "roamFrame", fn: frameHook }); })();
+
+  RO.stats = function () { var o = { ms: RO.n.ms, msMax: RO.n.msMax, errs: RO.errs.length }; for (var k in RO.A) { var A = RO.A[k], s = {}; A.npcs.forEach(function (c) { s[c.st] = (s[c.st] || 0) + 1; }); var vis = A.npcs.filter(function (c) { return c.st !== "off" && c.g.visible; }).length;
+      var sit = A.npcs.filter(function (c) { return c.st !== "off" && c.g.userData.sit; }).length; o[k] = { st: A.st, on: A.on, target: A.target, built: A.npcs.length, states: s, visible: vis, sitting: sit, n: A.n }; } return o; };
+  RO.debug = {
+    // the walk grid of an area as a PNG data URL (level l): walkable cells light, heights tinted, POIs red, entries blue
+    png: function (id, l, scale) { var A = RO.A[id]; if (!A || !A.G) return null; var G = A.G, Lv = G.lv[l || 0], s = scale || 2, cv = document.createElement("canvas"); cv.width = G.nx * s; cv.height = G.nz * s; var x = cv.getContext("2d"), im = x.createImageData(G.nx, G.nz), lo = 1e9, hi = -1e9;
+      for (var j = 0; j < G.N; j++) if (Lv.W[j]) { lo = Math.min(lo, Lv.Y[j]); hi = Math.max(hi, Lv.Y[j]); } for (var j2 = 0; j2 < G.N; j2++) { var o = j2 * 4; if (Lv.W[j2]) { var k = (Lv.Y[j2] - lo) / Math.max(0.1, hi - lo); im.data[o] = 120 + 120 * k; im.data[o + 1] = 200; im.data[o + 2] = 120 + 100 * (1 - k); } else { im.data[o] = 30; im.data[o + 1] = 30; im.data[o + 2] = 34; } im.data[o + 3] = 255; }
+      var c0 = document.createElement("canvas"); c0.width = G.nx; c0.height = G.nz; c0.getContext("2d").putImageData(im, 0, 0); x.imageSmoothingEnabled = false; x.drawImage(c0, 0, 0, G.nx * s, G.nz * s);
+      A.pois.forEach(function (p) { if ((p.l || 0) !== (l || 0) && !p.via) return; var px = p.via ? p.via[0][0] : p.x, pz = p.via ? p.via[0][2] : p.z; x.fillStyle = p.seat ? "#ff9f1a" : p.via ? "#c040ff" : "#ff3030"; x.fillRect((px - G.x0) / CELL * s - s, (pz - G.z0) / CELL * s - s, s * 2, s * 2); });
+      (A.def.entries ? A.def.entries() : []).forEach(function (e) { x.fillStyle = "#30a0ff"; x.fillRect((e.x - G.x0) / CELL * s - 2 * s, (e.z - G.z0) / CELL * s - 2 * s, s * 4, s * 4); });
+      A.npcs.forEach(function (c) { if (c.st === "off") return; x.fillStyle = "#ffffff"; x.fillRect((c.g.position.x - G.x0) / CELL * s - s, (c.g.position.z - G.z0) / CELL * s - s, s * 2, s * 2); if (c.path) { x.strokeStyle = "rgba(255,255,255,0.7)"; x.beginPath(); c.path.forEach(function (q, i) { var qx = (q.x - G.x0) / CELL * s, qz = (q.z - G.z0) / CELL * s; if (i) x.lineTo(qx, qz); else x.moveTo(qx, qz); }); x.stroke(); } });
+      return cv.toDataURL("image/png"); },
+    npcs: function (id) { var A = RO.A[id]; if (!A) return null; return A.npcs.map(function (c) { var p = c.g.position; return { name: c.name, st: c.st, l: c.l, x: +p.x.toFixed(1), y: +p.y.toFixed(2), z: +p.z.toFixed(1), poi: c.poi ? c.poi.kind + (c.poi.tag ? ":" + c.poi.tag : "") : null, at: c.at ? c.at.kind : null, vis: c.g.visible, sit: !!c.g.userData.sit, ev: c.ev ? c.ev.id : null, path: c.path ? c.path.length - c.pi : 0 }; }); },
+    // check every path point and the ground under each person against the walk grid
+    audit: function (id) { var A = RO.A[id]; if (!A || !A.G) return null; var bad = []; A.npcs.forEach(function (c) { if (c.st === "off" || !c.path) return; for (var i = 1; i < c.path.length; i++) { var a = c.path[i - 1], b = c.path[i]; if (a.l < 0 || b.l < 0 || a.l !== b.l) continue; if (!los(A, a.l, a.x, a.z, b.x, b.z)) bad.push([c.name, i, a.x.toFixed(1), a.z.toFixed(1), b.x.toFixed(1), b.z.toFixed(1)]); } }); return bad; },
+    check: function (secs) { return new Promise(function (res) { var t0 = now(), n = 0, bad = [], f = function () { for (var k in RO.A) { var A = RO.A[k]; if (!A.G || !A.on) continue; A.npcs.forEach(function (c) { if (c.st !== "walk" || !c.path) return; var tg = c.path[Math.min(c.pi, c.path.length - 1)], pr = c.path[Math.max(0, c.pi - 1)]; if (tg.l < 0 || (pr && pr.l < 0)) return; n++; var p = c.g.position; if (snap(A.G, c.l, p.x, p.z, 0.36) < 0 && bad.length < 40) bad.push([k, c.name, +p.x.toFixed(2), +p.z.toFixed(2), c.l]); }); } if (now() - t0 < secs * 1000) requestAnimationFrame(f); else res({ samples: n, off: bad.length, bad: bad }); }; requestAnimationFrame(f); }); },
+    follow: function (id, name) { var A = RO.A[id]; if (!A) return null; for (var i = 0; i < A.npcs.length; i++) if (A.npcs[i].name === name || (name === undefined && A.npcs[i].st === "walk")) return A.npcs[i]; return null; },
+    send: function (id, name, kind, tag, near) { var A = RO.A[id]; if (!A) return null; var c = RO.debug.follow(id, name); if (!c) return null; var L = A.pois.filter(function (p) { return p.kind === kind && (!tag || p.tag === tag) && freePoi(p) && (!near || Math.hypot((p.x || p.via[0][0]) - near[0], (p.z || p.via[0][2]) - near[1]) < near[2]); }); if (!L.length) return "no " + kind; if (c.g.userData.sit || c.g.userData.dance) standUp(c); goTo(A, c, pick(L)); return c.name; },
+    los: function (id, l, x0, z0, x1, z1) { return los(RO.A[id], l, x0, z0, x1, z1); }, walkable: function (id, l, x, z) { return walkable(RO.A[id], l, x, z); }, h: function (id, l, x, z) { return hAt(RO.A[id], l, x, z); }
+  };
 })();

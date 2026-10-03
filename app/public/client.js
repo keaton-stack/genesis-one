@@ -7,8 +7,10 @@
 const room = new URLSearchParams(location.search).get("room") || "main";
 // R8 (placement): ?r8=0 turns every R8 placement change off (trunk seating, ground cover mask, surface sampler, module seat fixes)
 const R8 = window.R8ON = !/[?&]r8=0\b/.test(location.search);
+// R10: the VR mode (plan_vr.js). A standalone headset's browser (Quest, Pico) gets the phone defaults: the half-resolution asset tier and medium quality
+const VRX = window.PLAN_VR || { on: false, loop: false, tick: false, dx: 0, dz: 0 }; const XR_STANDALONE = /OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent);
 // asset tier: phones and weak machines load the half-resolution texture set and the models_m pack (same models, textures capped at 512)
-const ASSET = (() => { const stored = localStorage.getItem("g1:quality"); const weak = (navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4); const tier = stored === "low" || (weak && stored !== "high" && stored !== "ultra") ? "m" : "d"; const texm = new Set(["adobe.jpg", "adobe_n.jpg", "adobe_r.jpg", "apron.jpg", "apron_n.jpg", "apron_r.jpg", "corrugated.jpg", "corrugated_n.jpg", "corrugated_r.jpg", "detail.jpg", "detail2.jpg", "detail2_n.jpg", "detail_n.jpg", "dirt.jpg", "dirt_n.jpg", "dirt_r.jpg", "ground.jpg", "jet_carpet.jpg", "jet_gold.jpg", "jet_leather.jpg", "jet_wall.jpg", "jet_walnut.jpg", "region_ground.jpg", "rock.jpg", "rock_n.jpg", "sand.jpg", "sand2.jpg", "sand2_n.jpg", "sand_n.jpg", "sign_course.jpg", "sign_expanse.jpg", "sign_flightline.jpg", "sign_genesis.jpg", "sign_golf.jpg", "sign_homebase.jpg", "sign_landing.jpg", "sign_obby.jpg", "sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "terrazzo.jpg", "tile.jpg", "tile_n.jpg", "tile_r.jpg", "travertine.jpg", "turf.jpg", "turf_n.jpg", "turf_r.jpg", "wicker.jpg", "wood.jpg", "wood_n.jpg", "wood_r.jpg"]);
+const ASSET = (() => { const stored = localStorage.getItem("g1:quality"); const weak = (navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || XR_STANDALONE || (navigator.deviceMemory && navigator.deviceMemory <= 4); const tier = stored === "low" || (weak && stored !== "high" && stored !== "ultra") ? "m" : "d"; const texm = new Set(["adobe.jpg", "adobe_n.jpg", "adobe_r.jpg", "apron.jpg", "apron_n.jpg", "apron_r.jpg", "corrugated.jpg", "corrugated_n.jpg", "corrugated_r.jpg", "detail.jpg", "detail2.jpg", "detail2_n.jpg", "detail_n.jpg", "dirt.jpg", "dirt_n.jpg", "dirt_r.jpg", "ground.jpg", "jet_carpet.jpg", "jet_gold.jpg", "jet_leather.jpg", "jet_wall.jpg", "jet_walnut.jpg", "region_ground.jpg", "rock.jpg", "rock_n.jpg", "sand.jpg", "sand2.jpg", "sand2_n.jpg", "sand_n.jpg", "sign_course.jpg", "sign_expanse.jpg", "sign_flightline.jpg", "sign_genesis.jpg", "sign_golf.jpg", "sign_homebase.jpg", "sign_landing.jpg", "sign_obby.jpg", "sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "terrazzo.jpg", "tile.jpg", "tile_n.jpg", "tile_r.jpg", "travertine.jpg", "turf.jpg", "turf_n.jpg", "turf_r.jpg", "wicker.jpg", "wood.jpg", "wood_n.jpg", "wood_r.jpg"]);
   return { tier, models: tier === "m" ? "/models_m" : "/models", tex: (url) => { if (tier !== "m" || typeof url !== "string") return url; const m = url.match(/^\/(?:tex\/)?([a-z0-9_]+\.(?:jpg|png))(\?.*)?$/); return m && texm.has(m[1]) ? "/tex_m/" + m[1] + (m[2] || "") : url; } }; })();
 { const _load = THREE.TextureLoader.prototype.load; THREE.TextureLoader.prototype.load = function (url, ...rest) { return _load.call(this, ASSET.tex(url), ...rest); }; }
 // every glTF loader gets the meshopt decoder: the model packs are meshopt-compressed
@@ -27,7 +29,7 @@ function gltfLoader() { const l = new THREE.GLTFLoader(); if (typeof MeshoptDeco
 // 3. A WebGL context loss can no longer be restored from memory once data was dropped: the page offers a reload instead.
 // ?r6=0 turns all of it off.
 const R6 = window.R6MEM = (() => {
-  const Q = location.search, lv = localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) ? "medium" : "high");
+  const Q = location.search, lv = localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) || XR_STANDALONE ? "medium" : "high");
   const imgCap = +((Q.match(/[?&]r6img=(\d+)/) || [])[1]) || (lv === "ultra" || lv === "high" ? 2048 : 1024);
   const ktxCap = +((Q.match(/[?&]r6ktx=(\d+)/) || [])[1]) || (lv === "ultra" ? 1e9 : 2048);
   const ormCap = +((Q.match(/[?&]r6orm=(\d+)/) || [])[1]) || (lv === "ultra" || lv === "high" ? 1024 : 512);
@@ -322,7 +324,7 @@ function sweepShadows(force) { if (!shadowAll()) return; const now = performance
    disposed material leaves the map (it is set up again if it is ever compiled again). */
 const R9K = window.R9.part("k"); function r9CsmForget(e) { try { if (CSMX.csm) CSMX.csm.shaders.delete(e.target); } catch (x) {} }
 function initCSM() {
-  const level = localStorage.getItem("g1:quality") || (((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent)) ? "medium" : "high");
+  const level = localStorage.getItem("g1:quality") || (((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) || XR_STANDALONE) ? "medium" : "high");
   const want = { high: 3, ultra: 4 }[level] || 0; const far = { high: 520, ultra: 900 }[level] || 520; if (!want || !THREE.CSM || /nocsm/.test(location.search)) return;
   try {
     const csm = new THREE.CSM({ camera, parent: scene, cascades: want, maxFar: far, mode: "custom", customSplitsCallback: (n, near, far, target) => { const t = n >= 4 ? [0.03, 0.09, 0.3, 1] : [0.045, 0.18, 1]; for (const v of t) target.push(v); }, shadowMapSize: 2048, shadowBias: -0.00018, lightDirection: new THREE.Vector3(0.6, -0.7, -0.3).normalize(), lightIntensity: 1.25, lightNear: 1, lightFar: 2600, lightMargin: 320 });
@@ -337,7 +339,7 @@ initCSM();
 function updateCSM() { const c = CSMX.csm; if (!c) return; if (camera.fov !== CSMX.fov || camera.aspect !== CSMX.aspect || camera.near !== CSMX.near) { CSMX.fov = camera.fov; CSMX.aspect = camera.aspect; CSMX.near = camera.near; c.updateFrustums(); }
   const above = camera.position.y - (typeof getH === "function" ? getH(camera.position.x, camera.position.z) : 0); const wantFar = Math.max(CSMX.far, Math.min(2400, CSMX.far + Math.max(0, above - 14) * 6)); if (Math.abs(wantFar - CSMX.lastFar) > CSMX.lastFar * 0.15) { CSMX.lastFar = wantFar; c.maxFar = wantFar; c.updateFrustums(); }
   c.update(); }
-function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (typeof POST !== "undefined" && POST.rt) POST.resize(); }
+function resize() { if (VRX.on) { VRX.resized = true; return; } renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (typeof POST !== "undefined" && POST.rt) POST.resize(); }
 addEventListener("resize", resize); resize();
 
 // sky dome with gradient, sun glow and a cloud layer drawn from noise
@@ -3236,16 +3238,16 @@ function collideOthers(x, z, r, vehicleId) { let hit = false; const py = player.
   return [x, z, hit]; }
 
 function frame() {
-  requestAnimationFrame(frame);
+  if (VRX.loop) { if (!VRX.tick) { VRX.parked = true; return; } } else requestAnimationFrame(frame);   // R10: in VR the headset's frames call frame() (plan_vr.js)
   const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; FRAME_N++;
   if (!player) { renderer.render(scene, camera); return; }
   groundGuard(dt);   // never under the map, never NaN: first, before anything reads the position (a NaN distance throws in the concert audio)
   if (now - cullAt > 250 || Math.abs(Math.atan2(Math.sin(yaw - cullYaw), Math.cos(yaw - cullYaw))) > 0.3) { cullAt = now; updateCulling(false); }
   renderer.shadowMap.needsUpdate = FLY.on || SITES.ride || SITES.bride ? true : QUAL.q.shadowEvery <= 1 ? true : (FRAME_N % QUAL.q.shadowEvery) === 0;
-  { const ms = now - lastT; if (ms < 250) { QUAL.dynAcc = (QUAL.dynAcc || 0) + ms; QUAL.dynN = (QUAL.dynN || 0) + 1; if (QUAL.dynN >= 90) { const avg = QUAL.dynAcc / QUAL.dynN; QUAL.dynAcc = 0; QUAL.dynN = 0; const d0 = QUAL.dyn === undefined ? 1 : QUAL.dyn; let d = d0; if (avg > 30 && !FLY.on) d = Math.max(0.6, d - 0.12); else if (avg < 13 && d < 1) d = Math.min(1, d + 0.06); if (d !== d0) { QUAL.dyn = d; renderer.setPixelRatio(Math.min(devicePixelRatio, QUAL.q.pr * d)); CAM.pr = renderer.getPixelRatio(); if (POST.resize) POST.resize(); } } } if (ms < 250) { QUAL.slowAcc += ms; QUAL.slowN++; } if (QUAL.slowN >= 600) { const avg = QUAL.slowAcc / QUAL.slowN; QUAL.slowAcc = 0; QUAL.slowN = 0; if (avg > 36 && !QUAL.suggested && (QUAL.level === "high" || QUAL.level === "ultra") && !FLY.on) { QUAL.suggested = true; applyQuality("medium", true); setStatus("Switched to Medium quality for a smoother frame rate · change it under SETTINGS"); } } }
+  if (!VRX.on) { const ms = now - lastT; if (ms < 250) { QUAL.dynAcc = (QUAL.dynAcc || 0) + ms; QUAL.dynN = (QUAL.dynN || 0) + 1; if (QUAL.dynN >= 90) { const avg = QUAL.dynAcc / QUAL.dynN; QUAL.dynAcc = 0; QUAL.dynN = 0; const d0 = QUAL.dyn === undefined ? 1 : QUAL.dyn; let d = d0; if (avg > 30 && !FLY.on) d = Math.max(0.6, d - 0.12); else if (avg < 13 && d < 1) d = Math.min(1, d + 0.06); if (d !== d0) { QUAL.dyn = d; renderer.setPixelRatio(Math.min(devicePixelRatio, QUAL.q.pr * d)); CAM.pr = renderer.getPixelRatio(); if (POST.resize) POST.resize(); } } } if (ms < 250) { QUAL.slowAcc += ms; QUAL.slowN++; } if (QUAL.slowN >= 600) { const avg = QUAL.slowAcc / QUAL.slowN; QUAL.slowAcc = 0; QUAL.slowN = 0; if (avg > 36 && !QUAL.suggested && (QUAL.level === "high" || QUAL.level === "ultra") && !FLY.on) { QUAL.suggested = true; applyQuality("medium", true); setStatus("Switched to Medium quality for a smoother frame rate · change it under SETTINGS"); } } }
   // adaptive resolution: if frames run long, drop the pixel ratio a notch; raise it again when there is headroom
   { const ft = CAM.prLast ? now - CAM.prLast : 0; CAM.prLast = now; if (!CAM.prT0) CAM.prT0 = now;
-    if (!FLY.on && now - CAM.prT0 > 8000 && ft > 0 && ft < 200) { if (!CAM.pr) CAM.pr = renderer.getPixelRatio(); const S = CAM.prS || (CAM.prS = []); S.push(ft); if (S.length >= 150) { S.sort((a, b) => a - b); const med = S[S.length >> 1]; S.length = 0; const cap = Math.min(devicePixelRatio, QUAL.q.pr || 1); let pr = CAM.pr; if (CAM.prBad && now - CAM.prBadAt > 120000) CAM.prBad = 0;
+    if (!FLY.on && !VRX.on && now - CAM.prT0 > 8000 && ft > 0 && ft < 200) { if (!CAM.pr) CAM.pr = renderer.getPixelRatio(); const S = CAM.prS || (CAM.prS = []); S.push(ft); if (S.length >= 150) { S.sort((a, b) => a - b); const med = S[S.length >> 1]; S.length = 0; const cap = Math.min(devicePixelRatio, QUAL.q.pr || 1); let pr = CAM.pr; if (CAM.prBad && now - CAM.prBadAt > 120000) CAM.prBad = 0;
       if (med > 26 && pr > 0.85) { CAM.prBad = pr; CAM.prBadAt = now; pr = Math.max(0.85, +(pr - 0.15).toFixed(2)); } else if (med < 18.5 && pr < cap - 0.01) { const up = Math.min(cap, +(pr + 0.15).toFixed(2)); if (!CAM.prBad || up < CAM.prBad - 0.01) pr = up; }
       if (pr !== CAM.pr) { CAM.pr = pr; renderer.setPixelRatio(pr); resize(); } } } }
   if (FLY.on) updateFlyIn(dt);
@@ -3280,6 +3282,7 @@ function frame() {
       nx = player.position.x + (onIce || airborne && (slide.x || slide.z) ? slide.x : mv.x) * dt; nz = player.position.z + (onIce || airborne && (slide.x || slide.z) ? slide.z : mv.z) * dt;
       if (Math.hypot(mv.x, mv.z) > 0.4) { const want = Math.atan2(mv.x, mv.z); let d = want - player.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); player.rotation.y += d * Math.min(1, dt * 12); }
     }
+    if (VRX.on && (VRX.dx || VRX.dz) && !cartMode && !SIT.on && !RIDE_ON.id) { nx += VRX.dx; nz += VRX.dz; } VRX.dx = 0; VRX.dz = 0;   // R10: a step in the room
     if (!onLand(nx, nz)) { nx = player.position.x; nz = player.position.z; cartSpeed = 0; } [nx, nz] = collide(nx, nz, cartMode ? 1.4 : 0.6); [nx, nz] = collideSolids(nx, nz, player.position.y, cartMode ? 1.2 : 0.32, cartMode ? 1.2 : 1.6);
     { const ho = collideOthers(nx, nz, cartMode ? 1.35 : 0.5, null); if (ho[2]) { if (cartMode && Math.abs(cartSpeed) > 4) { cartSpeed *= -0.35; sfx("bump"); emitDust(ho[0], player.position.y, ho[1], 8, 1.2, 0.8); BUMP.at = performance.now(); } else if (cartMode) cartSpeed *= 0.6; } nx = ho[0]; nz = ho[1]; }
     if (cartMode && waterDepthAt(nx, nz) > 0.5) { nx = player.position.x; nz = player.position.z; cartSpeed *= 0.5; }
@@ -3304,10 +3307,10 @@ function frame() {
       if (!cartMode && !airborne && !inside && spd > 0.5) { FX.stepDist += spd * dt; if (FX.stepDist > (spd > 6 ? 1.15 : 0.72)) { FX.stepDist = 0; FX.side = -FX.side; stamp(FX.prints, nx + Math.cos(ry) * 0.17 * FX.side, surf, nz - Math.sin(ry) * 0.17 * FX.side, ry, 1); sfx("step"); if (spd > 6) emitDust(nx, surf, nz, 2, 0.5, 0.5); } }
       if (cartMode && !airborne && Math.abs(cartSpeed) > 3) { FX.trackDist += Math.abs(cartSpeed) * dt; FX.dustAcc += Math.abs(cartSpeed) * dt; const bx = nx - Math.sin(ry) * 0.9, bz = nz - Math.cos(ry) * 0.9; if (FX.trackDist > 0.95) { FX.trackDist = 0; if (RIDEV.kind === "bike") stamp(FX.tracks, bx, surf, bz, ry, 1, 0.7); else for (const sd of [-1, 1]) stamp(FX.tracks, bx + Math.cos(ry) * 0.6 * sd, surf, bz - Math.sin(ry) * 0.6 * sd, ry, 1); } if (FX.dustAcc > 1.2) { FX.dustAcc = 0; emitDust(bx, surf, bz, 2 + Math.floor(Math.abs(cartSpeed) / 10), 1.3, 0.9 + Math.abs(cartSpeed) / 30); } } }
   } else if (golf.playing) { updateGolf(dt); animateWalk(player, 0, dt); }
-  updateSites(dt, now); updateStopBoards(now); updateVehicles(dt); updateBalls(); updateCourse(); updateFX(dt, now); updateBuild(); if (!COVER.ready) { if (COVER.list) coverStep(5); else if (COVER.wait && FRAME_N > 24) { COVER.wait = false; try { coverBegin(); } catch (e) { console.warn("R8 cover", e); COVER.ready = true; } } } if ((FRAME_N & 7) === 0) updateNearDetail(); if ((FRAME_N & 15) === 0) syncProps(); updateMinigames(dt, now); updateTraffic(dt, now); updateEnvironment(now); updateCast(dt, now); updateDevil(dt, now); if ((FRAME_N & 1) === 0) drawCompass(now); if (!HUD.gameOwner && !DRAG.showing && !golf.playing && !DANCE.on && !RIDE.on && !SITES.bride) $("#game").classList.remove("on"); HUD.gameOwner = null;
+  updateSites(dt, now); updateStopBoards(now); updateVehicles(dt); updateBalls(); updateCourse(); updateFX(dt, now); updateBuild(); if (!COVER.ready) { if (COVER.list) coverStep(5); else if (COVER.wait && FRAME_N > 24) { COVER.wait = false; try { coverBegin(); } catch (e) { console.warn("R8 cover", e); COVER.ready = true; } } } if ((FRAME_N & 7) === 0) updateNearDetail(); if ((FRAME_N & 15) === 0) syncProps(); updateMinigames(dt, now); updateTraffic(dt, now); updateEnvironment(now); updateCast(dt, now); updateDevil(dt, now); if ((FRAME_N & 1) === 0 && !VRX.on) drawCompass(now); if (!HUD.gameOwner && !DRAG.showing && !golf.playing && !DANCE.on && !RIDE.on && !SITES.bride) $("#game").classList.remove("on"); HUD.gameOwner = null;
   if (riding && riding.kind !== "jet" && FX.dust && Math.abs(vSpeed) > 3) { const V = VEH[riding.id]; if (V) { FX.dustAcc += Math.abs(vSpeed) * dt; if (FX.dustAcc > 1.3) { FX.dustAcc = 0; const ry = V.g.rotation.y; emitDust(V.g.position.x - Math.sin(ry) * 1.6, V.g.position.y, V.g.position.z - Math.cos(ry) * 1.6, 3, 1.6, 1.1); } } } if (!golf.playing && player.userData.arms && !airborne && !cartMode) { /* arms rest */ }
   const px = player.position.x, pz = player.position.z, gh = getH(px, pz);
-  { const fovT = arcFrozen() ? 48 : riding ? (riding.kind === "jet" ? FOV_BASE() + 8 : FOV_BASE() + 2 + Math.min(10, Math.abs(vSpeed) * 0.3)) : cartMode ? FOV_BASE() + Math.min(14, Math.abs(cartSpeed) * 0.32) : FOV_BASE() + 7 * runK; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); } }
+  { const fovT = arcFrozen() ? 48 : riding ? (riding.kind === "jet" ? FOV_BASE() + 8 : FOV_BASE() + 2 + Math.min(10, Math.abs(vSpeed) * 0.3)) : cartMode ? FOV_BASE() + Math.min(14, Math.abs(cartSpeed) * 0.32) : FOV_BASE() + 7 * runK; if (!VRX.on && Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); } }
   if (!(FPV && !riding && !cartMode && !inside && !golf.playing)) { CAM.fpvInit = false; if (player && player.userData.walk && FPV) player.userData.walk.visible = true; }
   const planCam = PLAN_MODE && planHooks("interior", dt, now);   // a plan interior hook (tunnel box) that returns true has placed the camera itself
   if (planCam) { /* camera placed by the interior hook */ }
@@ -3334,6 +3337,7 @@ function frame() {
     CAM.dist += (dist - CAM.dist) * smoothK(dt, dist < CAM.dist ? 14 : 5); const sd = CAM.dist;
     const cx = px - fwd[0] * sd * Math.cos(pitch), cz = pz - fwd[1] * sd * Math.cos(pitch); const baseY = player.position.y - bobY; const cy = Math.max(getH(cx, cz) + roadLiftAt(cx, cz) + 1.2,baseY + h * (sd / 9.5) + 1.2); camTarget.set(cx, cy, cz); if (camera.position.distanceToSquared(camTarget) > 3600) { CAM.snap = Math.max(CAM.snap || 0, 1); }   /* a jump of the player (the saved position arriving from the server, a warp) re-seats the camera instead of swooping across the site */
     camera.position.lerp(camTarget, CAM.snap ? 1 : smoothK(dt, cartMode ? 12 : 16)); if (CAM.snap) { CAM.snap--; CAM.init = false; } camLook(px, baseY + 1.6, pz, dt, 26); }
+  if (VRX.on) VRX.camera(dt, planCam);   // R10: the headset is the player's head (plan_vr.js)
   r9Text("#coords", `${Math.round(px)} E · ${Math.round(pz)} S · ${Math.round(gh + (T.base_elev_m || 0))} m${cartMode ? ` · ${RIDEV.kind !== "cart" ? "bike " : ""}${Math.round(Math.abs(cartSpeed) * 3.6)} km/h${cartHeat > 0.05 ? ` · boost ${Math.round(Math.max(0, 1 - cartHeat) * 100)}%` : ""}` : ""}`);
   if (view) {
     for (const [id, p] of Object.entries(view.players)) {
@@ -3356,7 +3360,7 @@ function frame() {
     }
     for (const [id, a] of avatars) if (!view.players[id]) { scene.remove(a.g); avatars.delete(id); r5DropAvatar(a.g); }
   }
-  SWAY.t.value = now / 1000; WIN.u.uTime.value = now / 1000; updateLots(); updateTutorial(now); updateSfx(dt); updateFauna(dt, now); updateGuide(dt, now); updateZone(dt); if ((FRAME_N & 1) === 0 || $("#mm").classList.contains("big")) drawMinimap(); updateSky(dt); updateCSM(); sweepShadows(false); updateAudio(dt); updateDetails(dt, now); updateVoice(now); updateNPC(dt, now); updateDrag(now); updateLightPool(); if (PLAN_MODE) { planFrame(dt, now); planA2Frame(dt, now); planHooks("frame", dt, now); }
+  SWAY.t.value = now / 1000; WIN.u.uTime.value = now / 1000; updateLots(); updateTutorial(now); updateSfx(dt); updateFauna(dt, now); updateGuide(dt, now); updateZone(dt); if (!VRX.on && ((FRAME_N & 1) === 0 || $("#mm").classList.contains("big"))) drawMinimap(); updateSky(dt); updateCSM(); sweepShadows(false); updateAudio(dt); updateDetails(dt, now); updateVoice(now); updateNPC(dt, now); updateDrag(now); updateLightPool(); if (PLAN_MODE) { planFrame(dt, now); planA2Frame(dt, now); planHooks("frame", dt, now); }
   renderFrame();
 }
 
@@ -4706,7 +4710,7 @@ const QUAL_DEF = {
   high: { pr: 1.25, shadow: 2048, shadowEvery: 2, ao: true, bloom: true, rays: true, refl: 3, range: 1.0, grass: true, pebbles: true, csm: 3, csmFar: 520, smaa: true, aoK: 0.55, label: "High · cascaded shadows on everything, ambient occlusion, SMAA" },
   ultra: { pr: 1.5, shadow: 2048, shadowEvery: 1, ao: true, bloom: true, rays: true, refl: 1, range: 1.3, grass: true, pebbles: true, csm: 4, csmFar: 900, smaa: true, aoK: 0.7, label: "Ultra · four cascades every frame, ambient occlusion, SMAA, longest view range" },
 };
-const QUAL = { level: localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) ? "medium" : "high"), q: null, slowAcc: 0, slowN: 0, suggested: false }; QUAL.q = QUAL_DEF[QUAL.level] || QUAL_DEF.high;
+const QUAL = { level: localStorage.getItem("g1:quality") || ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent) || XR_STANDALONE ? "medium" : "high"), q: null, slowAcc: 0, slowN: 0, suggested: false }; QUAL.q = QUAL_DEF[QUAL.level] || QUAL_DEF.high;
 function applyQuality(level, silent) {
   const q = QUAL_DEF[level] || QUAL_DEF.high; QUAL.level = level; QUAL.q = q; if (!silent) localStorage.setItem("g1:quality", level);
   QUAL.dyn = 1; if (typeof renderer !== "undefined") { renderer.setPixelRatio(Math.min(devicePixelRatio, q.pr)); CAM.pr = renderer.getPixelRatio(); CAM.prBad = 0; if (CAM.prS) CAM.prS.length = 0; if (POST.resize) POST.resize(); const wantShadow = q.shadow > 0; if (renderer.shadowMap.enabled !== wantShadow) { renderer.shadowMap.enabled = wantShadow; sun.castShadow = wantShadow; scene.traverse((o) => { if (o.material) { for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.needsUpdate = true; } }); } if (wantShadow && sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } } renderer.shadowMap.needsUpdate = true; }
@@ -4765,6 +4769,7 @@ function initPost() {
   POST.resize();
 }
 function renderFrame() {
+  if (VRX.on) { VRX.render(); return; }   // R10: no post pass per eye; the scene with the renderer's tone mapping (plan_vr.js)
   if (!POST.rt || !POST.on || document.body.classList.contains("photo")) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.render(scene, camera); renderer.toneMapping = THREE.NoToneMapping; return; }
   if (QUAL.q.refl > 0 && (FRAME_N % QUAL.q.refl) === 0 && !FLY.on) renderReflection();
   renderer.setRenderTarget(POST.rt); renderer.render(scene, camera); if (!POST.black) { POST.black = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); POST.black.needsUpdate = true; POST.white = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); POST.white.needsUpdate = true; }

@@ -10,7 +10,10 @@
 //   - inside (built near, time sliced, drawn only from inside or through the glass): the Grand Lobby (registration, wayfinding,
 //     lounges, planters), the Keynote Hall (a stage with layered LED walls, a lighting truss with beams, a folded copper ceiling,
 //     red sandstone side walls with saguaros, about 4,500 instanced seats on a flat floor and raked tiers with stepped aisles, a
-//     seated audience, a speaker), two breakout rooms; sit in an aisle seat to watch, or "Watch the keynote" from the portal.
+//     speaker), two breakout rooms; sit in an aisle seat to watch, or "Watch the keynote" from the portal.
+//   - R10 (3 Oct 2026): the baked seated audience is gone. The people are the roaming ones of plan_festival's PLAN_ROAM: this
+//     module gives them routes into the lobby and, for the keynote, to a few front-row seats (api.roam), opens the doors for them,
+//     and says which of them can be seen from where (the lobby through the glass, the hall only from inside).
 // No new real lights (a few lamps through the client's light pool), shared materials with stable program keys, instancing.
 // ?conv=0 turns the module off. window.PLAN_CONV: n (counters), errs, cfg, site, api, debug.
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
@@ -18,7 +21,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   "use strict";
   var CV = window.PLAN_CONV = window.PLAN_CONV || {};
   var R9V = !!(window.R9 && window.R9.part("v"));   // R9 (HANDOFF_R9_HITCHES.md): ?r9v=0 turns this module's hitch fixes off (finer build steps)
-  CV.errs = CV.errs || []; CV.n = CV.n || { builds: 0, disposes: 0 }; CV.ver = "r7a";
+  CV.errs = CV.errs || []; CV.n = CV.n || { builds: 0, disposes: 0 }; CV.ver = "r10";
   if (/[?&]conv=0\b/.test(location.search)) { CV.off = true; return; }
   var PI = Math.PI, TAU = PI * 2;
   function note(tag, e) { try { if (CV.errs.length < 50) CV.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (CV.errs.length <= 6) console.warn("plan_convention " + tag, e); } catch (x) {} }
@@ -584,7 +587,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     doorPose(); return D; }
   var _dm = new THREE.Matrix4(), _dq = new THREE.Quaternion(), _dv = new THREE.Vector3(), _ds = new THREE.Vector3(1, 1, 1);
   function doorPose() { var D = SITE.doors; if (!D) return; var k = 0; D.pairs.forEach(function (p, i) { var o = D.open[i]; [-1, 1].forEach(function (sd) { var off = sd * (p.w / 4 + o * (p.w / 2 - 0.1)); D.gI.leaves[k].position.set(p.u - 0.12, 1.42, p.v + off); k++; }); }); }
-  function doorFrame(dt) { var D = SITE.doors; if (!D) return; var q = w2l(player.position.x, player.position.z), ch = false; D.pairs.forEach(function (p, i) { var near = Math.abs(q[0] - p.u) < 5.5 && Math.abs(q[1] - p.v) < p.w * 0.9 + 1.5; var o = D.open[i], t = near ? 1 : 0; if (o !== t) { D.open[i] = clamp(o + (t > o ? 1 : -1) * dt * 1.8, 0, 1); ch = true; } }); if (ch) doorPose(); }
+  function doorFrame(dt) { var D = SITE.doors; if (!D) return; var q = w2l(player.position.x, player.position.z), ch = false, RO = window.PLAN_ROAM; D.pairs.forEach(function (p, i) { var near = Math.abs(q[0] - p.u) < 5.5 && Math.abs(q[1] - p.v) < p.w * 0.9 + 1.5; if (!near && RO && RO.near) { var dw = l2w(p.u, p.v); near = RO.near(dw[0], dw[1], 4.6); } var o = D.open[i], t = near ? 1 : 0; if (o !== t) { D.open[i] = clamp(o + (t > o ? 1 : -1) * dt * 1.8, 0, 1); ch = true; } }); if (ch) doorPose(); }
 
   // ───────────────────────── the walls everyone collides with (made once, at the defer hook) ─────────────────────────
   // in the arena frame: [u0, v0, u1, v1, y1, thickness]; the solids are oriented boxes along each segment
@@ -675,37 +678,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     for (var j = 0; j < Hh.flatN; j++) rows.push({ u: Hh.flat0 + j * Hh.flatP, y: 0, i: j, rake: false });
     for (var i = 0; i < Hh.rakeN; i++) rows.push({ u: Hh.rake0 + i * Hh.rakeP + 0.12, y: Hh.rakeR * (i + 1), i: Hh.flatN + i, rake: true, p0: Hh.rake0 - 0.5 + i * Hh.rakeP, p1: Hh.rake0 + 0.5 + i * Hh.rakeP });
     return (S.rows = rows); }
-  function seatList() { var S = SITE; if (S.seats) return S.seats; var R = rng(S.seed * 101 + 9), out = []; hallRows().forEach(function (row) { S.sec.forEach(function (sec, si) { var n = Math.round((sec[1] - sec[0]) / 0.56); for (var k = 0; k < n; k++) { var v = sec[0] + 0.28 + k * 0.56; var end = k === 0 || k === n - 1; var watch = row.rake && row.i === SITE.hall.flatN + 4 && si === 1 && (k === 21 || k === 22); var occ = watch ? false : end ? R() < 0.45 : R() < 0.93;
+  function seatList() { var S = SITE; if (S.seats) return S.seats; var R = rng(S.seed * 101 + 9), out = []; hallRows().forEach(function (row) { S.sec.forEach(function (sec, si) { var n = Math.round((sec[1] - sec[0]) / 0.56); for (var k = 0; k < n; k++) { var v = sec[0] + 0.28 + k * 0.56; var end = k === 0 || k === n - 1; var watch = row.rake && row.i === SITE.hall.flatN + 4 && si === 1 && (k === 21 || k === 22); var occ = false;
         out.push({ u: row.u, v: v, y: row.y, row: row.i, sec: si, k: k, n: n, end: end, occ: occ, watch: watch, aisleV: k === 0 ? sec[0] - 0.9 : sec[1] + 0.9 }); } }); }); return (S.seats = out); }
   // the theatre seat, facing -u, origin on the floor under the seat's middle: cushion, reclined back, arm and standard (one geometry)
   function seatGeo() { var K = new Kit(), fab = [0.2, 0.22, 0.32], dk = [0.08, 0.08, 0.09]; K.box("s", fab, 0.46, 0.09, 0.5, -0.04, 0.45, 0); K.box("s", fab, 0.08, 0.62, 0.5, 0.25, 0.82, 0, 0, 0, 0, -0.16); K.box("s", dk, 0.5, 0.06, 0.06, 0.02, 0.66, 0.28); K.box("s", dk, 0.42, 0.62, 0.05, 0.08, 0.31, 0.28); return K.merge().s; }
-  // a seated figure facing -u: clothes (thighs, torso, arms), skin (head, neck, hands), two hair styles; four geometries, one material
-  function personGeos() { if (CV.pg) return CV.pg; var K = new Kit(), w = [1, 1, 1];
-    K.box("c", w, 0.42, 0.15, 0.36, -0.12, 0.52, 0); K.place("c", new THREE.CylinderGeometry(0.15, 0.18, 0.56, 7), w, 0.1, 0.85, 0, 0, 0, -0.1, 0.75, 1, 1.25);
-    [-1, 1].forEach(function (s) { K.box("c", w, 0.1, 0.42, 0.1, 0.06, 0.84, s * 0.215, 0, 0, 0, -0.35); K.box("c", w, 0.32, 0.09, 0.09, -0.12, 0.62, s * 0.17); });
-    K.sph("k", w, 0.1, 0.08, 1.34, 0, 7, 1, 1.18, 1); K.cyl("k", w, 0.045, 0.05, 0.12, 0.09, 1.18, 0, 6); [-1, 1].forEach(function (s) { K.box("k", w, 0.1, 0.05, 0.08, -0.3, 0.63, s * 0.12); });
-    K.place("h", new THREE.SphereGeometry(0.104, 7, 4, 0, TAU, 0, PI * 0.5), w, 0.09, 1.355, 0, 0, 0, 0, 1, 1.1, 1);
-    K.place("l", new THREE.SphereGeometry(0.106, 7, 4, 0, TAU, 0, PI * 0.55), w, 0.092, 1.355, 0, 0, 0, 0, 1, 1.1, 1); K.box("l", w, 0.07, 0.34, 0.22, 0.17, 1.2, 0, 0, 0, 0, 0.1);
-    var G = K.merge(); return (CV.pg = { c: G.c, k: G.k, h: G.h, l: G.l }); }
   // the sandstone strata: ledges that stand out at their foot and recede upward, broken along the wall (metres out of the wall)
   function strata(u, y) { var k = y / 0.62 + 0.35 * Math.sin(u * 0.11 + y * 0.7) + 0.2 * Math.sin(u * 0.37); var f = k - Math.floor(k); var led = 0.13 * Math.pow(1 - f, 2.2); var bump = 0.03 * Math.sin(u * 1.7 + y * 3.1) * Math.sin(u * 0.53 - y * 1.3); return led + bump + 0.05 * Math.sin(u * 0.21 + Math.floor(k) * 1.7); }
-  // the finer seated figure for the rows nearest the camera (about 700 triangles): clothes, skin and four hair shapes
-  var NEAR_N = 140;
-  function personHi() { if (CV.ph) return CV.ph; var K = new Kit(), w = [1, 1, 1];
-    K.place("c", rbox(0.4, 0.17, 0.4, 0.06, 1), w, -0.12, 0.52, 0); K.place("c", rbox(0.25, 0.56, 0.42, 0.09, 2), w, 0.1, 0.86, 0, 0, 0, -0.1);
-    [-1, 1].forEach(function (s) { K.place("c", rbox(0.11, 0.36, 0.11, 0.045, 1), w, 0.07, 0.88, s * 0.235, 0, 0, -0.35); K.place("c", rbox(0.32, 0.1, 0.1, 0.04, 1), w, -0.12, 0.63, s * 0.18); K.sph("c", w, 0.075, 0.12, 1.08, s * 0.17, 8, 1, 0.8, 1); });
-    K.place("k", new THREE.SphereGeometry(0.1, 14, 10), w, 0.08, 1.34, 0, 0, 0, 0, 0.95, 1.18, 0.9); K.cyl("k", w, 0.045, 0.052, 0.13, 0.09, 1.18, 0, 8); [-1, 1].forEach(function (s) { K.place("k", rbox(0.1, 0.05, 0.08, 0.02, 1), w, -0.3, 0.63, s * 0.12); K.sph("k", w, 0.022, 0.085, 1.33, s * 0.093, 6, 0.6, 1, 1); });
-    var cap = function (k, thl, sy) { K.place(k, new THREE.SphereGeometry(0.106, 14, 6, 0, TAU, 0, PI * thl), w, 0.094, 1.355, 0, 0, 0, 0, 1.0, sy || 1.12, 0.95); };
-    cap("h0", 0.48); cap("h1", 0.55); K.place("h1", rbox(0.09, 0.3, 0.2, 0.04, 1), w, 0.16, 1.22, 0, 0, 0, 0.12); cap("h2", 0.5); K.sph("h2", w, 0.06, 0.2, 1.4, 0, 8); cap("h3", 0.62, 1.2); K.place("h3", rbox(0.08, 0.18, 0.23, 0.04, 1), w, 0.13, 1.27, 0, 0, 0, 0.2);
-    var G = K.merge(); return (CV.ph = G); }
-  // every few frames: the NEAR_N people nearest the camera move from the cheap figures to the finer ones (and back)
-  var _zm = new THREE.Matrix4().makeScale(0, 0, 0), _cl = new THREE.Color();
-  function nearPeople(L, cu, cy, cv) {
-    if (!L || !L.occ || !L.hi) return; var lst = []; L.occ.forEach(function (s) { var d = (s.u - cu) * (s.u - cu) + (s.v - cv) * (s.v - cv) + (s.y + 1 - cy) * (s.y + 1 - cy); if (d < 400) lst.push([d, s]); }); lst.sort(function (a, b) { return a[0] - b[0]; }); lst = lst.slice(0, NEAR_N).map(function (q) { return q[1]; });
-    var lo = L.lo, put = function (s, on) { var M = on ? _zm : s.m; lo.c.setMatrixAt(s.li, M); lo.k.setMatrixAt(s.li, M); (s.hair === "l" ? lo.l : lo.h).setMatrixAt(s.hi, M); };
-    L.near.forEach(function (s) { if (lst.indexOf(s) < 0) put(s, false); }); lst.forEach(function (s) { put(s, true); });
-    var cnt = { c: 0, k: 0, h0: 0, h1: 0, h2: 0, h3: 0 }; lst.forEach(function (s) { var hk = "h" + (s.hair === "l" ? (s.hs % 2 ? 1 : 3) : (s.hs % 2 ? 0 : 2)); [["c", s.cc], ["k", s.ck], [hk, s.ch]].forEach(function (q) { var im = L.hi[q[0]], i = cnt[q[0]]++; im.setMatrixAt(i, s.m); im.setColorAt(i, _cl.setRGB(q[1][0], q[1][1], q[1][2])); }); });
-    for (var q in L.hi) { var im = L.hi[q]; im.count = cnt[q]; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; } [lo.c, lo.k, lo.h, lo.l].forEach(function (im) { im.instanceMatrix.needsUpdate = true; }); L.near = lst; }
   function trussK(K, A, B, w) { w = w || 0.42; var d = new THREE.Vector3().subVectors(B, A), L = d.length(); d.normalize(); var up = V3(0, 1, 0), sd = new THREE.Vector3().crossVectors(d, up).normalize(), u2 = new THREE.Vector3().crossVectors(sd, d).normalize();
     var co = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(function (q) { return sd.clone().multiplyScalar(q[0] * w / 2).addScaledVector(u2, q[1] * w / 2); });
     co.forEach(function (o) { K.tube("metal", [0.75, 0.76, 0.78], A.clone().add(o), B.clone().add(o), 0.025, 5); });
@@ -767,20 +745,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     L.meshes = []; yield* buildSteps(K, L.g, bases, {}, L.meshes); L.tris = Math.round(K.tris);
     L.models = modelSet(L.g, [["saguaro_mid", sag], ["agave_cluster", ag]], L);
     yield 1;
-    // the seats and the audience (instanced; per-instance colour)
-    var seats = seatList(), sg = seatGeo(), sI = new THREE.InstancedMesh(sg, B.fabric, seats.length), PG = personGeos(), occ = seats.filter(function (s) { return s.occ; });
-    var pc = new THREE.InstancedMesh(PG.c, B.fabric, occ.length), pk = new THREE.InstancedMesh(PG.k, B.fabric, occ.length), nh = 0, nl = 0; occ.forEach(function (s) { s.hair = R() < 0.42 ? "l" : "h"; if (s.hair === "l") nl++; else nh++; });
-    var ph = new THREE.InstancedMesh(PG.h, B.fabric, Math.max(1, nh)), pl = new THREE.InstancedMesh(PG.l, B.fabric, Math.max(1, nl)); ph.count = nh; pl.count = nl;
-    var col = new THREE.Color(), shirts = ["15171c", "1b1d22", "22252c", "2c3038", "8a8680", "474b55", "17291f", "352a20", "5e4c3c", "7d786f", "1d2a42", "3d1f1f", "101010", "2a3e58"], skins = ["f3d9c0", "e8c19a", "d9a877", "c98f63", "a86f46", "8d5a3b", "6b4429"], hairs = ["0c0a08", "15100c", "1d1510", "261b13", "33251a", "141210", "2a2420", "100d0b"];
-    var ih = 0, il = 0, mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), pp = new THREE.Vector3(), sc = new THREE.Vector3();
+    // the seats (instanced; per-instance colour). R10: no seated audience; the roaming people take a few front-row seats for the keynote
+    var seats = seatList(), sg = seatGeo(), sI = new THREE.InstancedMesh(sg, B.fabric, seats.length);
+    var col = new THREE.Color(), mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), pp = new THREE.Vector3(), sc = new THREE.Vector3();
     seats.forEach(function (s, i) { qq.setFromEuler(_e.set(0, 0, 0)); mm.compose(pp.set(s.u, s.y, s.v), qq, sc.set(1, 1, 1)); sI.setMatrixAt(i, mm); var t = 0.85 + R() * 0.22; sI.setColorAt(i, col.setRGB(t, t, t)); });
-    occ.forEach(function (s, i) { var k = 0.93 + R() * 0.12; qq.setFromEuler(_e.set(0, (R() - 0.5) * 0.35, (R() - 0.5) * 0.08)); mm.compose(pp.set(s.u + 0.02, s.y, s.v + (R() - 0.5) * 0.04), qq, sc.set(k, k * (0.96 + R() * 0.08), k)); pc.setMatrixAt(i, mm); pk.setMatrixAt(i, mm);
-      pc.setColorAt(i, col.set("#" + shirts[Math.floor(R() * shirts.length)]).multiplyScalar(0.8 + R() * 0.3)); pk.setColorAt(i, col.set("#" + skins[Math.floor(R() * skins.length)]).multiplyScalar(0.38)); s.li = i; s.m = mm.clone(); s.cc = pc.instanceColor ? [pc.instanceColor.array[i * 3], pc.instanceColor.array[i * 3 + 1], pc.instanceColor.array[i * 3 + 2]] : [0.2, 0.2, 0.2]; s.ck = [pk.instanceColor.array[i * 3], pk.instanceColor.array[i * 3 + 1], pk.instanceColor.array[i * 3 + 2]];
-      var hc = col.set("#" + hairs[Math.floor(R() * hairs.length)]); s.ch = [hc.r, hc.g, hc.b]; s.hs = Math.floor(R() * 4); if (s.hair === "l") { s.hi = il; pl.setMatrixAt(il, mm); pl.setColorAt(il++, hc); } else { s.hi = ih; ph.setMatrixAt(ih, mm); ph.setColorAt(ih++, hc); } });
-    [sI, pc, pk, ph, pl].forEach(function (im, i) { im.name = "cv " + ["seats", "people", "skin", "hair", "hair2"][i]; im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); im.computeBoundingBox && im.computeBoundingBox(); L.g.add(im); });
-    L.seatsI = sI; L.people = occ.length; L.occ = occ; L.lo = { c: pc, k: pk, h: ph, l: pl };
-    // the people nearest the camera swap to a finer figure (rounded shoulders, a smooth head, four hair shapes), at most NEAR_N
-    var HG = personHi(); L.hi = {}; ["c", "k", "h0", "h1", "h2", "h3"].forEach(function (q) { var im = new THREE.InstancedMesh(HG[q], B.fabric, NEAR_N); im.count = 0; im.setColorAt(0, col.setRGB(1, 1, 1)); im.name = "cv near " + q; im.castShadow = false; im.receiveShadow = true; im.frustumCulled = false; L.g.add(im); L.hi[q] = im; }); L.near = [];
+    sI.name = "cv seats"; sI.castShadow = false; sI.receiveShadow = true; sI.computeBoundingSphere(); if (sI.computeBoundingBox) sI.computeBoundingBox(); L.g.add(sI);
+    L.seatsI = sI; L.people = 0;
     // the seat blocks you cannot walk through (one per row and section), the aisle seats you can sit in (a pool near you)
     hallRows().forEach(function (row) { S.sec.forEach(function (sec) { so(row.u + 0.05, (sec[0] + sec[1]) / 2, 0.66, sec[1] - sec[0], row.y - 0.2, row.y + 0.88); }); });
     yield 1;
@@ -802,7 +772,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var S = SITE, B = intMats(), M = mats(), K = new Kit(), sol = L.solids, R = rng(S.seed * 5 + 41), ce = 5.0;
     var bases = { carpet: B.carpet, paint: B.paint, wood: B.wood, sand: B.sand, dark: B.dark, metal: B.metal, copper: B.copper, led: M.led, emit: M.emit };
     var so = function (u, v, w, d, y0, y1) { var c = l2w(u, v); var s = addSolid(c[0], c[1], 0, w, d, S.G + y0, S.G + y1, "conv"); if (s) sol.push(s); return s; };
-    var chairs = [], free = [], people = [];
+    var chairs = [], free = [];
     S.brk.forEach(function (Bk, bi) { var u0 = Bk.u0, u1 = Bk.u1, v0 = Bk.v0, v1 = Bk.v1, uc = (u0 + u1) / 2, vc = (v0 + v1) / 2, w = u1 - u0, d = v1 - v0;
       var fg = new THREE.PlaneGeometry(w, d); fg.rotateX(-PI / 2); var fu = fg.attributes.uv; for (var q = 0; q < fu.count; q++) fu.setXY(q, fu.getX(q) * w / 3, fu.getY(q) * d / 3); K.place("carpet", fg, bi ? [1.6, 1.3, 1.1] : [1.2, 1.3, 1.6], uc, 0.06, vc);
       var cg = new THREE.PlaneGeometry(w, d); cg.rotateX(PI / 2); K.place("paint", cg, [0.62, 0.58, 0.54], uc, ce, vc);
@@ -816,15 +786,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       K.box("wood", [0.55, 0.42, 0.32], 3.0, 0.25, d - 2, u0 + 1.5, 0.125, vc); so(u0 + 1.5, vc, 3.0, d - 2, -0.5, 0.25);
       var lv = vc + (bi ? -4.6 : 4.6); K.box("wood", [0.9, 0.85, 0.8], 0.5, 1.1, 0.65, u0 + 1.6, 0.8, lv); K.box("copper", [1, 0.92, 0.85], 0.02, 0.85, 0.55, u0 + 1.86, 0.8, lv); so(u0 + 1.6, lv, 0.6, 0.7, 0.25, 1.35);
       // the chairs: two blocks of seven across a centre aisle, nine rows deep; about half taken
-      for (var r = 0; r < 9; r++) for (var sd = -1; sd <= 1; sd += 2) for (var k = 0; k < 7; k++) { var cu = u0 + 5.2 + r * 1.05, cv0 = vc + sd * (1.0 + k * 0.62); var occ = R() < (k === 0 ? 0.25 : 0.55); chairs.push([cu, cv0]); if (occ) people.push([cu, cv0]); else if (k === 0) free.push({ u: cu - 0.02, v: cv0, y: 0, aisleV: vc, brk: Bk.id, end: true }); }
+      for (var r = 0; r < 9; r++) for (var sd = -1; sd <= 1; sd += 2) for (var k = 0; k < 7; k++) { var cu = u0 + 5.2 + r * 1.05, cv0 = vc + sd * (1.0 + k * 0.62); chairs.push([cu, cv0]); if (k === 0) free.push({ u: cu - 0.02, v: cv0, y: 0, aisleV: vc, brk: Bk.id, end: true }); }
       for (var r2 = 0; r2 < 9; r2++) [-1, 1].forEach(function (sd2) { so(u0 + 5.2 + r2 * 1.05 + 0.05, vc + sd2 * (1.0 + 3 * 0.62), 0.55, 7 * 0.62, -0.2, 0.84); });
       [[u1 - 1.2, v0 + 1.2], [u1 - 1.2, v1 - 1.2], [u0 + 1.0, v0 + 1.0], [u0 + 1.0, v1 - 1.0]].forEach(function (p) { K.place("sand", lathe([[0, 0], [0.42, 0], [0.5, 0.62], [0, 0.62]], 16), [0.7, 0.6, 0.5], p[0], 0.06, p[1]); so(p[0], p[1], 1.0, 1.0, -0.2, 0.7); (L.plants = L.plants || []).push([p[0], 0.66, p[1], R() * 6, 0.65]); });
     });
     yield 1;
     L.meshes = []; yield* buildSteps(K, L.g, bases, {}, L.meshes); L.tris = Math.round(K.tris);
     var cI = new THREE.InstancedMesh(chairGeo(), B.fabric, chairs.length), mm = new THREE.Matrix4(), col = new THREE.Color(); chairs.forEach(function (c, i) { mm.makeTranslation(c[0], 0.06, c[1]); cI.setMatrixAt(i, mm); var t = 0.85 + R() * 0.2; cI.setColorAt(i, col.setRGB(t, t, t)); }); cI.name = "cv chairs"; cI.castShadow = false; cI.computeBoundingSphere(); L.g.add(cI);
-    var PG = personGeos(), shirts = ["1c1f26", "e8e4dc", "3a3f4a", "283a5c", "8a6f55", "1f3b2c", "5b2d2d"], skins = ["f3d9c0", "e8c19a", "d9a877", "c98f63", "a86f46", "8d5a3b"], hairs = ["1a1410", "3d2a1c", "8a6a44", "6f6a64"];
-    ["c", "k", "h"].forEach(function (pk, j) { var im = new THREE.InstancedMesh(PG[pk], B.fabric, people.length); people.forEach(function (p, i) { var k2 = 0.94 + ((i * 37) % 11) / 100; mm.compose(_v1.set(p[0] + 0.02, 0.06, p[1]), _q.setFromEuler(_e.set(0, ((i * 13) % 7 - 3) * 0.04, 0)), _v2.set(k2, k2, k2)); im.setMatrixAt(i, mm); im.setColorAt(i, col.set("#" + (j === 0 ? shirts[i % shirts.length] : j === 1 ? skins[(i * 3) % skins.length] : hairs[(i * 5) % hairs.length]))); }); im.name = "cv brk " + pk; im.castShadow = false; im.computeBoundingSphere(); L.g.add(im); });
     L.models = modelSet(L.g, [["yucca_cluster", L.plants || []]], L);
     S.brkFree = free;
     L.lights = []; S.brk.forEach(function (Bk) { var l = new THREE.PointLight(0xffe2c0, 0, 22, 1.3); l.position.set((Bk.u0 + Bk.u1) / 2, 4.2, (Bk.v0 + Bk.v1) / 2); l.userData.k0 = 5; L.g.add(l); L.lights.push(l); });
@@ -835,7 +803,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var IT = CV.it = CV.it || { lobby: null, hall: null, brk: null, sb: null };
   var R_LOBBY = 230, R_LOBBY_DROP = 300, R_IN = 95, R_IN_DROP = 170;
   function newL(name) { var g = new THREE.Group(); g.name = name; g.position.set(SITE.cx, SITE.G, SITE.cz); g.userData.noBatch = true; g.userData.interior = true; return { g: g, solids: [], lights: [] }; }
-  function finishL(L, name) { try { CV.fr.np = null; } catch (e) {} scene.add(L.g); L.g.updateMatrixWorld(true); try { if (window.PLAN_PERF && PLAN_PERF.warmGroup) PLAN_PERF.warmGroup(L.g, { name: name }); } catch (e) {} return L; }
+  function finishL(L, name) { scene.add(L.g); L.g.updateMatrixWorld(true); try { if (window.PLAN_PERF && PLAN_PERF.warmGroup) PLAN_PERF.warmGroup(L.g, { name: name }); } catch (e) {} return L; }
   function disposeL(key) { var L = IT[key]; if (!L) return; try { scene.remove(L.g); L.solids.forEach(function (sd) { var i = SOLIDS.indexOf(sd); if (i >= 0) SOLIDS.splice(i, 1); }); L.g.traverse(function (o) { if ((o.isMesh || o.isInstancedMesh) && o.geometry && !o.userData.noDispose && !o.geometry.userData.cvKeep) o.geometry.dispose(); if (o.isInstancedMesh && o.dispose) o.dispose(); }); } catch (e) { note("dispose " + key, e); } IT[key] = null; CV.n.disposes++; }
   function distArena(x, z) { var q = w2l(x, z); return Math.max(0, (eK(q[0], q[1]) - 1) * 70); }
   function interiorFrame() {
@@ -916,6 +884,33 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     openNearest = function () { try { if (CV.impl.handleE()) return; } catch (e) { note("E", e); } return o.openNearest.apply(this, arguments); };
   }
 
+  // ───────────────────────── R10: routes for the roaming people (PLAN_ROAM in plan_festival.js): the lobby and the keynote's front rows ─────────────────────────
+  // Every route starts on the forecourt outside a door pair and is a list of world points [x, y, z] (y: the floor) that keeps clear of
+  // the lobby's desk, totems, columns, planters and lounges, then the corridor, a side portal, the cross aisle, an inner aisle and the
+  // leg room of a row. The keynote seats are in the flat rows nearest the stage (the "Watch the keynote" seat stays free).
+  function roamApi() {
+    if (!SITE || !CV.ready) return null; if (CV.roamApi) return CV.roamApi; var S = SITE, G = S.G, yIn = G + 0.06, ug = uAt(0, S.gk), lanes = [-6.45, -2.15, 2.15, 6.45];
+    var P = function (u, v, y) { var w = l2w(u, v); return [w[0], y === undefined ? yIn : y, w[1]]; };
+    var head = function (v0) { var w = l2w(ug + 6, v0), y = G; try { y = planGroundAt(w[0], w[1]); } catch (e) {} return [[w[0], y, w[1]], P(ug + 1.2, v0), P(ug - 4, v0)]; };
+    var lobby = [], keynote = [];
+    [[-1.6, 1], [2.4, 2]].forEach(function (q) { lobby.push({ kind: "browse", line: "lobby", lobby: true, via: head(lanes[q[1]]).concat([P(50, q[0]), P(45.7, q[0])]), face: -PI / 2, dur: [8, 16], tag: "desk" }); });
+    [[-6, 0], [6, 3]].forEach(function (q) { lobby.push({ kind: "look", line: "lobby", lobby: true, via: head(lanes[q[1]]).concat([P(72.6, q[0])]), face: -PI / 2, dur: [6, 12], tag: "totem" }); });
+    [-1, 1].forEach(function (sd) { var h0 = head(lanes[sd < 0 ? 0 : 3]);
+      lobby.push({ kind: "sit", line: "lobby", lobby: true, via: h0.concat([P(62, sd * 19), P(55.8, sd * 27.4), P(54.95, sd * 29.2)]), sitAt: P(53.85, sd * 29.6, G + 0.48), face: PI / 2, back: 0.25, dur: [25, 50], tag: "sofa" });
+      lobby.push({ kind: "sit", line: "lobby", lobby: true, via: h0.concat([P(62, sd * 19), P(57.4, sd * 27.6), P(57.5, sd * 29.2)]), sitAt: P(58.15, sd * 29.6, G + 0.48), face: -PI / 2, back: 0.25, dur: [25, 50], tag: "sofa" }); });
+    var c1 = { kind: "chat", line: "lobby", lobby: true, via: head(lanes[1]).concat([P(66, -2.6)]), face: PI / 2, dur: [15, 30], tag: "lobby" }, c2 = { kind: "chat", line: "lobby", lobby: true, via: head(lanes[2]).concat([P(67.2, -2.6)]), face: -PI / 2, dur: [15, 30], tag: "lobby" }; c1.pair = c2; c2.pair = c1; lobby.push(c1, c2);
+    // the flat rows nearest the stage, and a few in the first raked rows (in front of the "Watch the keynote" seat, so that view has people in it)
+    var rows = hallRows(), cu = (S.hall.cross[0] + S.hall.cross[1]) / 2, Hh = S.hall, fN = Hh.flatN;
+    [[1, 1, 3], [1, 1, 4], [2, 1, 20], [2, 1, 21], [3, 1, 40], [4, 1, 12], [2, 2, 1], [fN + 1, 1, 20], [fN + 2, 1, 24], [fN + 2, 1, 17], [fN + 3, 1, 26], [fN + 1, 1, 13]].forEach(function (q, i) { var row = rows[q[0]], sec = S.sec[q[1]], v = sec[0] + 0.28 + q[2] * 0.56, sd = v < 0 ? -1 : 1, av = sd * 13.3, lu = row.u - 0.46, up = [];
+      if (row.rake) for (var j = 0; j <= row.i - fN; j++) up.push(P(Hh.rake0 + j * Hh.rakeP, av, G + 0.06 + Hh.rakeR * (j + 1)));
+      var via = head(lanes[sd < 0 ? 1 : 2]).concat([P(62, sd * 19), P(50, sd * 31), P(42, sd * 34.9), P(cu, sd * 34.9), P(cu, sd * 31.6), P(cu, av)], up, [P(lu, av, G + 0.06 + row.y), P(lu, v, G + 0.06 + row.y)]);
+      keynote.push({ kind: "keynote", ev: "keynote", quiet: true, via: via, sitAt: P(row.u - 0.02, v, G + row.y + 0.5), face: -PI / 2, back: 0.2, dur: [600, 900], tag: "seat" + i }); });
+    var api = { lobby: lobby, keynote: keynote, beds: (S.beds || []).slice(), door: head(0)[0],
+      inside: function (x, z) { var q = w2l(x, z); return eK(q[0], q[1]) < S.gk + 0.012; },
+      zone: function (x, y, z) { return zoneOf(x, y, z); }, camZone: function () { return CV.zone || null; },
+      vis: function (x, y, z) { var zn = zoneOf(x, y + 1, z); if (!zn) return true; if (zn === "lobby") return !!(IT.lobby && IT.lobby.g.visible); if (zn === "hall" || zn === "corr") return !!(IT.hall && IT.hall.g.visible); if (zn === "brk") return !!(IT.brk && IT.brk.g.visible); return false; } };
+    return (CV.roamApi = api); }
+
   // ───────────────────────── the staff: the lobby host and the keynote speaker (client avatars in the CAST, talk cards on E) ─────────────────────────
   function buildStaff() {
     var ST = C("staff", null); if (!ST || typeof avatar !== "function") return; CV.cast = CV.cast || [];
@@ -982,8 +977,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var t = U.uTime.value;
       ["lobby", "hall", "brk"].forEach(function (k) { var L = IT[k]; if (!L) return; var on = L.g.visible; L.lights.forEach(function (l) { l.intensity = on ? l.userData.k0 * (k === "lobby" ? 0.55 + 0.6 * n : 1) : 0; }); });
       if (nowMs() > (FR.modAt || 0)) { FR.modAt = nowMs() + 2000; ["lobby", "hall", "brk"].forEach(function (k) { var L = IT[k]; if (L && L.pending && L.pending.length) { var p = L.pending; L.pending = []; L.models = (L.models || []).concat(modelSet(L.g, p, L)); } }); }
-      if (IT.hall && IT.hall.g.visible) { var cq = w2l(cam.x, cam.z); if (!FR.np || Math.abs(FR.np[0] - cq[0]) + Math.abs(FR.np[1] - cam.y) + Math.abs(FR.np[2] - cq[1]) > 0.8) { FR.np = [cq[0], cam.y, cq[1]]; try { nearPeople(IT.hall, cq[0], cam.y - SITE.G, cq[1]); } catch (e) { note("near people", e); } } beamFrame(IT.hall, t); IU.uPulse.value = Math.sin(t * 0.9) * 0.5 + Math.sin(t * 2.3) * 0.5; IT.hall.beams.im.material.uniforms.uK.value = 1; }
-      if (dp < 40) doorFrame(dt); if (dp < 120 && (FR.nb = (FR.nb || 0) + 1) % 60 === 0) nearBlock();
+      if (IT.hall && IT.hall.g.visible) { beamFrame(IT.hall, t); IU.uPulse.value = Math.sin(t * 0.9) * 0.5 + Math.sin(t * 2.3) * 0.5; IT.hall.beams.im.material.uniforms.uK.value = 1; }
+      if (dp < 40 || dc < 200) doorFrame(dt); if (dp < 120 && (FR.nb = (FR.nb || 0) + 1) % 60 === 0) nearBlock();
       if (close) { seatPool(); sitFrame(); }
       if (nowMs() > (FR.staffAt || 0)) { FR.staffAt = nowMs() + 2000; try { buildStaff(); } catch (e) { note("staff", e); } }
       (CV.cast || []).forEach(function (c) { var dd = Math.hypot(c.g.position.x - cam.x, c.g.position.z - cam.z); c.g.visible = c.cvStage ? !!(IT.hall && IT.hall.g.visible) && dd < 80 : dd < 60 && (!CV.zone || CV.zone === "lobby" || CV.zone === "corr"); });
@@ -994,7 +989,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── hooks, API, debug ─────────────────────────
   CV.impl = { handleE: handleE, frame: frameHook, cam: camHook };
-  CV.api = { resolveSite: resolveSite, l2w: l2w, w2l: w2l, zoneOf: zoneOf, watchKeynote: watchKeynote, seatList: seatList, prof: prof, surf: surf };
+  CV.api = { resolveSite: resolveSite, l2w: l2w, w2l: w2l, zoneOf: zoneOf, watchKeynote: watchKeynote, seatList: seatList, prof: prof, surf: surf, roam: roamApi };
   CV.debug = {
     // a camera in the arena frame: eye (u, y, v) looking at (tu, ty, tv), heights above the pad
     cam: function (u, y, v, tu, ty, tv, fov) { var a = l2w(u, v), b = l2w(tu, tv); window.__cam = [a[0], SITE.G + y, a[1], b[0], SITE.G + ty, b[1], fov || 0]; try { player.visible = false; if (player.userData.label) player.userData.label.visible = false; } catch (e) {} try { updateCulling(true); } catch (e) {} return window.__cam; },
@@ -1004,7 +999,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     at: function (u, v, y, yawW) { var w = l2w(u, v); player.position.set(w[0], SITE.G + (y || 0) + 0.02, w[1]); if (yawW !== undefined) yaw = yawW; return [w[0], w[1]]; },
     build: function (k) { var map = { lobby: [buildLobbySteps, "conv lobby"], hall: [buildHallSteps, "conv hall"], brk: [buildBreakSteps, "conv breakouts"] }; var q = map[k]; if (!q || IT[k]) return !!IT[k]; var L = newL(q[1]), it = q[0](L), r, ts = [], t1; do { t1 = nowMs(); r = it.next(); ts.push(+(nowMs() - t1).toFixed(1)); } while (!r.done); IT[k] = finishL(L, q[1]); return { steps: ts, tris: L.tris, meshes: L.meshes.length }; },
     drop: function (k) { disposeL(k); return true; },
-    counts: function () { var o = {}; ["lobby", "hall", "brk"].forEach(function (k) { var L = IT[k]; if (!L) return; var m = 0, tr = 0; L.g.traverse(function (q) { if (q.isMesh) { m++; var gi = q.geometry; var t = gi.index ? gi.index.count / 3 : gi.attributes.position.count / 3; tr += q.isInstancedMesh ? t * q.count : t; } }); o[k] = { meshes: m, tris: Math.round(tr), solids: L.solids.length, vis: L.g.visible }; }); var em = 0, et = 0; EX.g.traverse(function (q) { if (q.isMesh) { em++; var gi = q.geometry; var t = gi.index ? gi.index.count / 3 : gi.attributes.position.count / 3; et += q.isInstancedMesh ? t * q.count : t; } }); o.exterior = { meshes: em, tris: Math.round(et), solids: (EX.solids || []).length }; o.seats = seatList().length; o.people = IT.hall ? IT.hall.people : 0; return o; }
+    counts: function () { var o = {}; ["lobby", "hall", "brk"].forEach(function (k) { var L = IT[k]; if (!L) return; var m = 0, tr = 0; L.g.traverse(function (q) { if (q.isMesh) { m++; var gi = q.geometry; var t = gi.index ? gi.index.count / 3 : gi.attributes.position.count / 3; tr += q.isInstancedMesh ? t * q.count : t; } }); o[k] = { meshes: m, tris: Math.round(tr), solids: L.solids.length, vis: L.g.visible }; }); var em = 0, et = 0; EX.g.traverse(function (q) { if (q.isMesh) { em++; var gi = q.geometry; var t = gi.index ? gi.index.count / 3 : gi.attributes.position.count / 3; et += q.isInstancedMesh ? t * q.count : t; } }); o.exterior = { meshes: em, tris: Math.round(et), solids: (EX.solids || []).length }; o.seats = seatList().length; o.people = 0; return o; }
   };
   (function hookAll() {
     var set = function (phase, name, fn) { var list = window.PLAN_HOOKS[phase]; for (var i = 0; i < list.length; i++) if (list[i] && list[i].name === name) { list[i].fn = fn; return; } list.push({ name: name, fn: fn }); };
