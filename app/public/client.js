@@ -5,6 +5,8 @@
 
 // ───────────────────────────── net ─────────────────────────────
 const room = new URLSearchParams(location.search).get("room") || "main";
+// R8 (placement): ?r8=0 turns every R8 placement change off (trunk seating, ground cover mask, surface sampler, module seat fixes)
+const R8 = window.R8ON = !/[?&]r8=0\b/.test(location.search);
 // asset tier: phones and weak machines load the half-resolution texture set and the models_m pack (same models, textures capped at 512)
 const ASSET = (() => { const stored = localStorage.getItem("g1:quality"); const weak = (navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4); const tier = stored === "low" || (weak && stored !== "high" && stored !== "ultra") ? "m" : "d"; const texm = new Set(["adobe.jpg", "adobe_n.jpg", "adobe_r.jpg", "apron.jpg", "apron_n.jpg", "apron_r.jpg", "corrugated.jpg", "corrugated_n.jpg", "corrugated_r.jpg", "detail.jpg", "detail2.jpg", "detail2_n.jpg", "detail_n.jpg", "dirt.jpg", "dirt_n.jpg", "dirt_r.jpg", "ground.jpg", "jet_carpet.jpg", "jet_gold.jpg", "jet_leather.jpg", "jet_wall.jpg", "jet_walnut.jpg", "region_ground.jpg", "rock.jpg", "rock_n.jpg", "sand.jpg", "sand2.jpg", "sand2_n.jpg", "sand_n.jpg", "sign_course.jpg", "sign_expanse.jpg", "sign_flightline.jpg", "sign_genesis.jpg", "sign_golf.jpg", "sign_homebase.jpg", "sign_landing.jpg", "sign_obby.jpg", "sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "terrazzo.jpg", "tile.jpg", "tile_n.jpg", "tile_r.jpg", "travertine.jpg", "turf.jpg", "turf_n.jpg", "turf_r.jpg", "wicker.jpg", "wood.jpg", "wood_n.jpg", "wood_r.jpg"]);
   return { tier, models: tier === "m" ? "/models_m" : "/models", tex: (url) => { if (tier !== "m" || typeof url !== "string") return url; const m = url.match(/^\/(?:tex\/)?([a-z0-9_]+\.(?:jpg|png))(\?.*)?$/); return m && texm.has(m[1]) ? "/tex_m/" + m[1] + (m[2] || "") : url; } }; })();
@@ -605,6 +607,20 @@ addSway(M.scrub, 0.9);
 // geometry is used, it is drawn with the main model's materials); a kind without a mobile LOD falls back to models/lod
 // kinds that never had a far LOD file (accessories and the arcade cabinets): skip the request instead of logging a 404
 const NO_LOD = new Set(["racer", "pinball", "claw", "cab", "acc_shades", "acc_shades_m", "acc_shades_f", "acc_cowboy", "acc_cowboy_m", "acc_cowboy_f", "acc_cap", "acc_cap_m", "acc_cap_f", "acc_beanie", "acc_beanie_m", "acc_beanie_f"]);
+// R8: a tree model is normalised by its whole bounding box, so where leaf cards hang lower than the trunk (palo verde 0.83 m,
+// ironwood 0.39 m, desert willow 0.30 m) the trunk stood that far above the ground and the tree hovered over its grate. For a tall
+// swaying prop whose opaque parts (trunk, roots) start higher than its alpha-tested foliage, the model frame is moved down so the
+// trunk base is at y = 0 (the foliage below it goes under the surface). Applied to the full model and the stream's proxy alike
+// (each from its own file), and through m.norm to the far LOD, so every tier and every module that instances the kind agrees.
+function r8TrunkDrop(spec, parts, norm, height) {
+  if (!R8 || !spec || !spec.prop || !spec.sway || !(height > 2.6)) return 0;
+  const leafy = (m) => !!m && (m.alphaTest > 0.05 || m.transparent || /leaf|leaves|frond/i.test(m.name || ""));
+  let all = Infinity, solid = Infinity;
+  for (const p of parts) { const a = p.geometry && p.geometry.attributes.position; if (!a || p.noShadow) continue; let mn = Infinity; for (let i = 0; i < a.count; i++) { const y = a.getY(i); if (y < mn) mn = y; } if (mn < all) all = mn; if (!leafy(p.material) && mn < solid) solid = mn; }
+  const d = solid - all; if (!isFinite(d) || d < 0.05 || d > height * 0.4) return 0;
+  for (const p of parts) if (p.geometry) { p.geometry.translate(0, -d, 0); p.geometry.computeBoundingBox(); p.geometry.computeBoundingSphere(); }
+  if (norm) norm.premultiply(new THREE.Matrix4().makeTranslation(0, -d, 0)); return d;
+}
 function loadLod(loader, k) {
   if (NO_LOD.has(k)) return;
   const lodUrl = (dir) => `${dir}/${k}.glb?v=${window.BUILD || 0}`, mob = ASSET.tier === "m" && !(window.ASSET_V && !window.ASSET_V[`/models_m/lod/${k}.glb`]);
@@ -667,7 +683,8 @@ async function loadModels() {
       const norm = spec.raw ? new THREE.Matrix4() : new THREE.Matrix4().makeRotationY(spec.rot || 0).multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-c.x, -box.min.y, -c.z));
       const parts = [];
       root.traverse((o) => { if (!o.isMesh) return; const geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); sanitizeTangents(geo); if ((o.material.name || "") === "glass") { parts.push({ geometry: geo, material: glassMaterial(), noShadow: true, noReceive: true }); return; } if ((o.material.name || "") === "winframe") { parts.push({ geometry: geo, material: frameMaterial() }); return; } const mat = wrapMat(o.material); mat.side = THREE.DoubleSide; mat.transparent = false; mat.depthWrite = true; const hasPbr = !!(mat.roughnessMap || mat.metalnessMap); if (spec.vehicle) { mat.roughness = 0.42; mat.metalness = 0.45; mat.envMapIntensity = 1.0; } else if (hasPbr) { mat.roughness = 1.0; mat.metalness = 0.3; if (mat.normalMap) mat.normalScale.set(1, 1); } else { mat.roughness = 0.8; mat.metalness = 0; } if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 8; mat.emissiveMap = mat.map; mat.emissive = new THREE.Color(0xffb870); mat.emissiveIntensity = 0; } if (!spec.prop && !spec.vehicle) { buildingMats.push(mat); /* night glow of a facade without a window mask: the master-plan kinds a warm hint, the older ones half their legacy glow (a whole lit facade read as floodlit) */ if (window.PLAN) mat.userData.glowK = window.PLAN_MODEL_SPECS && window.PLAN_MODEL_SPECS[k] ? 0.14 : 0.32; } if (spec.sway) addSway(mat, spec.sway); else if (k === "terminal" && mat.metalnessMap) { addWindowsCut(mat); const gm = mat.clone(); addWindowsGlass(gm); addSurfaceDetail(mat); parts.push({ geometry: geo, material: mat }); parts.push({ geometry: geo, material: gm, noShadow: true }); return; } else if (WIN.kinds.has(k) && mat.metalnessMap) { mat.userData.win = true; addRoughFloor(mat); } else if (hasPbr && !spec.vehicle) addRoughFloor(mat); if (!spec.prop && !spec.vehicle && !spec.sway && (localStorage.getItem("g1:quality") || "high") !== "low") addSurfaceDetail(mat); parts.push({ geometry: geo, material: mat }); });
-      MODELS[k] = { parts, norm, bottom: box.min.y, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: spec.prop || spec.vehicle ? 0 : baseLift(parts, Math.max(sz.x, sz.z) * s) }; if (!lazy) setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); if (!spec.vehicle && lazy !== "stream" && (!lazy || INSTSET.some((q) => q.kind === k))) loadLod(loader, k);
+      const trunkDrop = r8TrunkDrop(spec, parts, norm, sz.y * s);   /* R8: a tree stands on its trunk, not on the leaf cards hanging below it */
+      MODELS[k] = { parts, norm, bottom: box.min.y, trunkDrop, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: spec.prop || spec.vehicle ? 0 : baseLift(parts, Math.max(sz.x, sz.z) * s) }; if (!lazy) setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); if (!spec.vehicle && lazy !== "stream" && (!lazy || INSTSET.some((q) => q.kind === k))) loadLod(loader, k);
     }, undefined, () => { if (!lazy) setLoad(0.15 + 0.4 * (++done / kinds.length)); res(); });
   });
   /* P2A: with the streamer (plan_stream.js) a kind that has a far LOD file starts as a proxy made from that light file; the full model streams in after the world is built */ const PSm = window.PLAN_STREAM && window.PLAN_STREAM.attach({ loader, loadOne }) ? window.PLAN_STREAM : null;
@@ -946,7 +963,7 @@ function planZone(x, z) { const P = window.PLAN; for (const id of PLAN_WASH) { c
 // the game yaw of a plan building (IMPL orientation rule): rot is already the yaw; facing_deg (0 north, 90 east) points the front along (sin b, -cos b)
 function planYaw(b) { if (typeof b.rot === "number") return b.rot; if (typeof b.facing_deg === "number") { const a = b.facing_deg * Math.PI / 180; return Math.atan2(Math.sin(a), -Math.cos(a)); } return planHash(b.id || "") * 6.283; }
 function planHash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; }
-function planGroundAt(x, z) { return getH(x, z) + roadLiftAt(x, z); }      // the walkable surface (ground plus any ribbon or plaza lift)
+function planGroundAt(x, z) { if (XG.walkReady && !inside) { const g = getH(x, z), w = walkAt(x, z); return w !== null && w > g ? w : g; } return getH(x, z) + roadLiftAt(x, z); }   // R8: after the walk grid is built, the drawn surface exactly (the capsule fringe 0.5 m past a walk's edge floated props over the terrain)      // the walkable surface (ground plus any ribbon or plaza lift)
 function planKeepout(poly) { if (poly && poly.length >= 3) PLAN_KEEP_POLY.push({ poly, bb: planBB(poly) }); }
 function planClean(t) { return String(t || "").replace(/\s*\((?:t|s)\s*-?\d+(?:\.\d+)?(?:,\s*[ts]\s*-?\d+(?:\.\d+)?)?\)/g, "").replace(/\s*\(-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\)/g, "").split(String.fromCharCode(8212)).join(", ").replace(/\s{2,}/g, " ").trim(); }
 function planShortName(n) { return String(n || "").replace(/\s*\([^)]*\)/g, "").split(",")[0].trim(); }
@@ -1144,17 +1161,29 @@ function propBaseR(kind) { const m = MODELS[kind]; if (!m) return 0; if (m.baseR
   const lim = Math.min(0.35, top * 0.08); let r = 0; for (const p of m.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < lim) { const d = Math.hypot(a.getX(i), a.getZ(i)); if (d > r) r = d; } } m.baseR = Math.min(r, m.radius || r); return m.baseR; }
 // a prop stands on the drawn surface (terrain, or the walk, deck, bed or park patch under it); on a slope it settles to the lowest point
 // under its foot so no edge hangs in the air (the uphill side beds in), never sinking more than a fifth of its height
-function seatY(kind, e, m) { const x = e[0], z = e[2]; const c = planGroundAt(x, z); const sp = MODEL_SPECS[kind] || {}; const h = (m.height || 1) * e[4]; const tree = !!sp.sway && h > 2.6, plant = !!sp.sway && !tree;
+// R8: where a tree's trunk meets the ground in its own frame (the centre of its trunk's lowest band; the model is centred on its
+// canopy, so a leaning trunk stands up to half a metre off the origin and a tree on a bank was seated by the ground under the canopy)
+function treeBaseXZ(m) { if (m.trunkXZ !== undefined) return m.trunkXZ; let v = null; try { const leafy = (q) => !!q && (q.alphaTest > 0.05 || q.transparent || /leaf|leaves|frond/i.test(q.name || "")); const parts = m.parts.filter((p) => p.geometry && !p.noShadow && !leafy(p.material)); let mn = Infinity; for (const p of parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) { const y = a.getY(i); if (y < mn) mn = y; } }
+    let sx = 0, sz = 0, n = 0; for (const p of parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (a.getY(i) < mn + 0.06) { sx += a.getX(i); sz += a.getZ(i); n++; } } if (n) v = [sx / n, sz / n]; } catch (e) { v = null; } m.trunkXZ = v; return v; }
+function seatY(kind, e, m) { let x = e[0], z = e[2]; const sp = MODEL_SPECS[kind] || {}; const h = (m.height || 1) * e[4]; const tree = !!sp.sway && h > 2.6, plant = !!sp.sway && !tree;
+  if (tree && R8) { const tb = treeBaseXZ(m); if (tb) { const cs = Math.cos(e[3]), sn = Math.sin(e[3]); x += (tb[0] * cs + tb[1] * sn) * e[4]; z += (-tb[0] * sn + tb[1] * cs) * e[4]; if (walkAt(x, z) === null && walkAt(e[0], e[2]) !== null) { x = e[0]; z = e[2]; } } }   /* R8: sampled where the trunk stands (the tree's own spot when that is on a walk, a grate or a bed and the trunk base falls just past its rastered edge) */
+  const c = planGroundAt(x, z);
   const r = propBaseR(kind) * e[4] * (tree ? 0.5 : 0.7); if (r < 0.12) return c;
-  if (plant) { const d = Math.max(0.35, r); const gx = (planGroundAt(x + d, z) - planGroundAt(x - d, z)) / (2 * d), gz = (planGroundAt(x, z + d) - planGroundAt(x, z - d)) / (2 * d); const sl = Math.hypot(gx, gz);
+  // R8: on a drawn walk (paving, a deck, a bed, a grate) only the same walk under the foot counts: a sample past a lifted walk's edge,
+  // on a kerb or across a step used to read as a slope and sank benches, trees and plants into the paving or tipped them over
+  const wc = R8 ? walkAt(x, z) : null; const G = wc === null ? planGroundAt : (qx, qz) => { const w = walkAt(qx, qz); return w === null || Math.abs(w - wc) > 0.25 ? c : planGroundAt(qx, qz); };
+  if (plant) { const d = Math.max(0.35, r); const gx = (G(x + d, z) - G(x - d, z)) / (2 * d), gz = (G(x, z + d) - G(x, z - d)) / (2 * d); const sl = Math.hypot(gx, gz);
     if (sl > 1.1 && h < 1.6) { e.hide = true; return c; }   // a small shrub on a near-vertical bank: left out rather than hung on the cliff
     if (sl > 0.1) { const k = 0.65; const n = new THREE.Vector3(-gx, 1, -gz).normalize().lerp(_iup, 1 - k).normalize(); const qa = new THREE.Quaternion().setFromUnitVectors(_iup, n); e.q = qa.multiply(new THREE.Quaternion().setFromAxisAngle(_iup, e[3])).toArray(); }
     return Math.max(c - Math.max(0.1, 0.25 * h), c - (1 - 0.65) * sl * r - 0.02); }
-  if (/rock|boulder|stone/.test(kind)) { const d = Math.max(0.5, r); const gx = (planGroundAt(x + d, z) - planGroundAt(x - d, z)) / (2 * d), gz = (planGroundAt(x, z + d) - planGroundAt(x, z - d)) / (2 * d); const sl = Math.hypot(gx, gz);   // a rock leans into its slope and beds in on the uphill side
+  if (/rock|boulder|stone/.test(kind)) { const d = Math.max(0.5, r); const gx = (G(x + d, z) - G(x - d, z)) / (2 * d), gz = (G(x, z + d) - G(x, z - d)) / (2 * d); const sl = Math.hypot(gx, gz);   // a rock leans into its slope and beds in on the uphill side
     if (sl > 0.08 && !e.q) { const n = new THREE.Vector3(-gx, 1, -gz).normalize().lerp(_iup, 0.5).normalize(); e.q = new THREE.Quaternion().setFromUnitVectors(_iup, n).multiply(new THREE.Quaternion().setFromAxisAngle(_iup, e[3])).toArray(); }
     return Math.max(c - 0.5 * h, c - 0.5 * sl * r - 0.04); }
-  let mn = c; for (let k = 0; k < 8; k++) { const a = k * 0.7854 + 0.39; const hh = planGroundAt(x + Math.cos(a) * r, z + Math.sin(a) * r); if (hh < mn) mn = hh; }
-  const cap = tree ? Math.min(1.1, 0.25 * h) : Math.max(0.12, Math.min(0.6, 0.22 * h)); return Math.max(c - cap, Math.min(c, mn + 0.03)); }
+  let mn = c; for (let k = 0; k < 8; k++) { const a = k * 0.7854 + 0.39; const hh = G(x + Math.cos(a) * r, z + Math.sin(a) * r); if (hh < mn) mn = hh; }
+  const cap = tree ? (R8 ? 0.04 : Math.min(1.1, 0.25 * h)) : Math.max(0.12, Math.min(0.6, 0.22 * h)); return Math.max(c - cap, Math.min(c, mn + 0.03)); }   // R8: a tree on a bank keeps its trunk on the ground at its centre (it sank up to a quarter of its height)
+// R8: seat one engine placement on the drawn surface now (a module that hangs solids or seats on it before the post-DEFER pass)
+function planSeatEntry(kind, e, yAt) { const m = MODELS[kind]; if (!m || !e) return e ? e[1] : 0; const sp = MODEL_SPECS[kind] || {}; const y = typeof yAt === "number" ? yAt : sp.vehicle ? planGroundAt(e[0], e[2]) : seatY(kind, e, m); const dy = y - e[1];
+  e[1] = y; e.y0 = y; if (e.sol) { e.sol.y0 += dy; e.sol.y1 += dy; } const S = INSTSET.find((q) => q.kind === kind); if (S) { const i = S.list.indexOf(e); if (i >= 0) { instMatrix(e, m, new THREE.Matrix4()).toArray(S.mats, i * 16); S.n = -1; S.nf = -1; S.nf2 = -1; } } return y; }
 // after DEFER (the walk grid is the drawn surface): instanced props used bare terrain, so plants on a boardwalk, a promenade or the
 // Club Walk median bed were buried up to 0.9 m and shrubs on creek banks hung over the slope; placements another pass moved on
 // purpose since instancing (a module lifting something onto a deck) are left where they are
@@ -1914,6 +1943,7 @@ async function buildWorld() {
   scene.add(ribbon(site.runway, 30, M.asphalt, 0.35)); scene.add(ribbon(site.runway, 0.9, M.stripe, 0.55, true));
   for (const tw of site.taxiways) scene.add(ribbon(tw, 12, M.taxi, 0.3)); for (const ap of site.aprons) if (ap.length >= 3) scene.add(polygon(ap, M.apron, 0.28));
   { const L = PLAN_MODE ? Math.hypot(site.runway[1][0] - site.runway[0][0], site.runway[1][1] - site.runway[0][1]) : 2300, n = PLAN_MODE ? Math.round(L / 60) : Math.floor(L / 60), step = PLAN_MODE ? L / n : 60, inst = new THREE.InstancedMesh(new THREE.SphereGeometry(0.35, 6, 5), M.rwLight, n * 2 + 2); const mt = new THREE.Matrix4(); let k = 0; for (let i = 0; i <= n; i++) for (const s of [-16.5, 16.5]) { const p = along(-L / 2 + i * step, s); mt.makeTranslation(p[0], getH(p[0], p[1]) + 0.6, p[1]); inst.setMatrixAt(k++, mt); } inst.count = k; scene.add(inst);
+    if (R8) { const st = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.07, 0.3, 6).translate(0, 0.15, 0), M.steel, k); const sm = new THREE.Matrix4(), sv = new THREE.Vector3(); for (let i = 0; i < k; i++) { inst.getMatrixAt(i, sm); sv.setFromMatrixPosition(sm); sm.makeTranslation(sv.x, getH(sv.x, sv.z) - 0.02, sv.z); st.setMatrixAt(i, sm); } st.count = k; scene.add(st); }   /* R8: the edge lights stand on frangible stalks (the globes hung 0.25 m over the ground) */
     if (PLAN_MODE) planRunwayMarkings(L); }
 
   if (PLAN_MODE) buildPlanWorld(site); else {   // ───── the legacy layout (no plan.json) ─────
@@ -2058,11 +2088,11 @@ async function buildWorld() {
   // plan: the plan is already checked against every road and building, so the legacy road clearance and dedupe passes (radius circles) stay off; no lake, no ponds
   if (!PLAN_MODE) clearRoadBuildings(); tidyPlacements(); if (!PLAN_MODE) dedupeBuildings(); if (!XG.graded) addPools(); if (!PLAN_MODE) { buildLake(); digPonds(); } if (!XG.graded) flattenPads();
   if (PLAN_MODE && !XG.graded) { planHooks("terrain"); planOverflowPlazas(); }   // terrain hooks: after the pad grading, before instancing and the ground mesh
-  buildInstances(); if (PLAN_MODE) { try { planVehicleLods(); } catch (e) { console.warn("INT vehicle lods", e); } } buildGround(); buildPoolMeshes(); buildMinigames(); if (PLAN_MODE) DEFER.push(() => planHooks("defer")); for (const f of DEFER) f(); DEFER.length = 0; if (PLAN_MODE) { try { planSeatProps(); } catch (e) { console.warn("X seat", e); } try { planFoundations(); } catch (e) { console.warn("X foundations", e); } try { let nf = 0; for (const c of A2.cull || []) if (c.o && /^(golf|course|garden|impact plaza|cart hub)$/.test(c.o.name)) nf += planFootings(c.o); XG.footings = nf; } catch (e) { console.warn("INT footings", e); } } buildRuts(); sweepShadows(true); buildTerraces(); buildLightPool(); if (!PLAN_MODE) buildWater(); buildPondMeshes(); buildContactShadows(); buildHomeKits(); if (!PLAN_MODE) buildTaxiLines(); buildShuttles(); buildSolarLights(); buildWanderers(); if (PLAN_MODE) planSnapPeople(); buildFX(); initPost(); autoInstance();
+  buildInstances(); if (PLAN_MODE) { try { planVehicleLods(); } catch (e) { console.warn("INT vehicle lods", e); } } buildGround(); buildPoolMeshes(); buildMinigames(); if (PLAN_MODE) DEFER.push(() => { XG.walkReady = R8; planHooks("defer"); }); for (const f of DEFER) f(); DEFER.length = 0; if (PLAN_MODE) { try { planSeatProps(); } catch (e) { console.warn("X seat", e); } try { planFoundations(); } catch (e) { console.warn("X foundations", e); } try { let nf = 0; for (const c of A2.cull || []) if (c.o && /^(golf|course|garden|impact plaza|cart hub)$/.test(c.o.name)) nf += planFootings(c.o); XG.footings = nf; } catch (e) { console.warn("INT footings", e); } } buildRuts(); sweepShadows(true); buildTerraces(); buildLightPool(); if (!PLAN_MODE) buildWater(); buildPondMeshes(); buildContactShadows(); buildHomeKits(); if (!PLAN_MODE) buildTaxiLines(); buildShuttles(); buildSolarLights(); buildWanderers(); if (PLAN_MODE) planSnapPeople(); buildFX(); initPost(); autoInstance();
   // door portals: a lit frame and a mat at every enterable door
   { const portals = []; for (const kind of DOOR_KINDS) for (const e of PLACE[kind] || []) { if (!MODELS[kind]) continue; const rr = MODELS[kind].radius * e[4], df = doorF(kind); portals.push([e[0] + Math.sin(e[3]) * rr * df, e[1], e[2] + Math.cos(e[3]) * rr * df, e[3]]); }
     const matG = new THREE.InstancedMesh(new THREE.BoxGeometry(2.6, 0.06, 1.4), new THREE.MeshStandardMaterial({ color: 0x3a2e26, roughness: 1 }), portals.length); const frameG = new THREE.InstancedMesh(new THREE.TorusGeometry(1.35, 0.05, 6, 24, Math.PI), M.green, portals.length); const mt = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-    portals.forEach((pp, i) => { q.setFromAxisAngle(up, pp[3]); mt.compose(new THREE.Vector3(pp[0] + Math.sin(pp[3]) * 0.9, pp[1] + 0.06, pp[2] + Math.cos(pp[3]) * 0.9), q, new THREE.Vector3(1, 1, 1)); matG.setMatrixAt(i, mt); mt.compose(new THREE.Vector3(pp[0], pp[1] + 0.1, pp[2]), q, new THREE.Vector3(1, 1, 1)); frameG.setMatrixAt(i, mt); });
+    portals.forEach((pp, i) => { q.setFromAxisAngle(up, pp[3]); mt.compose(new THREE.Vector3(pp[0] + Math.sin(pp[3]) * 0.9, pp[1] + 0.06, pp[2] + Math.cos(pp[3]) * 0.9), q, new THREE.Vector3(1, 1, 1)); matG.setMatrixAt(i, mt); mt.compose(new THREE.Vector3(pp[0], pp[1] + (R8 ? 0.03 : 0.1), pp[2]), q, new THREE.Vector3(1, 1, 1)); frameG.setMatrixAt(i, mt);   /* R8: the frame's feet on the door mat, not 5 cm over it */ });
     scene.add(matG); scene.add(frameG); DETAILS.portals = frameG; if (PLAN_MODE) planInstCull([matG, frameG], 220); }
   // soft contact shadow under every building so it sits on the ground
   { const geo = new THREE.CircleGeometry(1, 20); geo.rotateX(-Math.PI / 2); let n = 0; for (const k in PLACE) if (!MODEL_SPECS[k].prop && !MODEL_SPECS[k].vehicle) n += PLACE[k].length;
@@ -3229,7 +3259,7 @@ function frame() {
       if (!cartMode && !airborne && !inside && spd > 0.5) { FX.stepDist += spd * dt; if (FX.stepDist > (spd > 6 ? 1.15 : 0.72)) { FX.stepDist = 0; FX.side = -FX.side; stamp(FX.prints, nx + Math.cos(ry) * 0.17 * FX.side, surf, nz - Math.sin(ry) * 0.17 * FX.side, ry, 1); sfx("step"); if (spd > 6) emitDust(nx, surf, nz, 2, 0.5, 0.5); } }
       if (cartMode && !airborne && Math.abs(cartSpeed) > 3) { FX.trackDist += Math.abs(cartSpeed) * dt; FX.dustAcc += Math.abs(cartSpeed) * dt; const bx = nx - Math.sin(ry) * 0.9, bz = nz - Math.cos(ry) * 0.9; if (FX.trackDist > 0.95) { FX.trackDist = 0; if (RIDEV.kind === "bike") stamp(FX.tracks, bx, surf, bz, ry, 1, 0.7); else for (const sd of [-1, 1]) stamp(FX.tracks, bx + Math.cos(ry) * 0.6 * sd, surf, bz - Math.sin(ry) * 0.6 * sd, ry, 1); } if (FX.dustAcc > 1.2) { FX.dustAcc = 0; emitDust(bx, surf, bz, 2 + Math.floor(Math.abs(cartSpeed) / 10), 1.3, 0.9 + Math.abs(cartSpeed) / 30); } } }
   } else if (golf.playing) { updateGolf(dt); animateWalk(player, 0, dt); }
-  updateSites(dt, now); updateStopBoards(now); updateVehicles(dt); updateBalls(); updateCourse(); updateFX(dt, now); updateBuild(); if ((FRAME_N & 7) === 0) updateNearDetail(); if ((FRAME_N & 15) === 0) syncProps(); updateMinigames(dt, now); updateTraffic(dt, now); updateEnvironment(now); updateCast(dt, now); updateDevil(dt, now); if ((FRAME_N & 1) === 0) drawCompass(now); if (!HUD.gameOwner && !DRAG.showing && !golf.playing && !DANCE.on && !RIDE.on && !SITES.bride) $("#game").classList.remove("on"); HUD.gameOwner = null;
+  updateSites(dt, now); updateStopBoards(now); updateVehicles(dt); updateBalls(); updateCourse(); updateFX(dt, now); updateBuild(); if (!COVER.ready) { if (COVER.list) coverStep(5); else if (COVER.wait && FRAME_N > 24) { COVER.wait = false; try { coverBegin(); } catch (e) { console.warn("R8 cover", e); COVER.ready = true; } } } if ((FRAME_N & 7) === 0) updateNearDetail(); if ((FRAME_N & 15) === 0) syncProps(); updateMinigames(dt, now); updateTraffic(dt, now); updateEnvironment(now); updateCast(dt, now); updateDevil(dt, now); if ((FRAME_N & 1) === 0) drawCompass(now); if (!HUD.gameOwner && !DRAG.showing && !golf.playing && !DANCE.on && !RIDE.on && !SITES.bride) $("#game").classList.remove("on"); HUD.gameOwner = null;
   if (riding && riding.kind !== "jet" && FX.dust && Math.abs(vSpeed) > 3) { const V = VEH[riding.id]; if (V) { FX.dustAcc += Math.abs(vSpeed) * dt; if (FX.dustAcc > 1.3) { FX.dustAcc = 0; const ry = V.g.rotation.y; emitDust(V.g.position.x - Math.sin(ry) * 1.6, V.g.position.y, V.g.position.z - Math.cos(ry) * 1.6, 3, 1.6, 1.1); } } } if (!golf.playing && player.userData.arms && !airborne && !cartMode) { /* arms rest */ }
   const px = player.position.x, pz = player.position.z, gh = getH(px, pz);
   { const fovT = arcFrozen() ? 48 : riding ? (riding.kind === "jet" ? FOV_BASE() + 8 : FOV_BASE() + 2 + Math.min(10, Math.abs(vSpeed) * 0.3)) : cartMode ? FOV_BASE() + Math.min(14, Math.abs(cartSpeed) * 0.32) : FOV_BASE() + 7 * runK; if (Math.abs(camera.fov - fovT) > 0.05) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix(); } }
@@ -4311,6 +4341,202 @@ function buildGrass() {
   spots.forEach(([x, z, k], i) => { pp.set(x, getH(x, z) - 0.02, z); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6.283); sc.set(k, k * (0.8 + rnd() * 0.5), k); m.compose(pp, q, sc); im.setMatrixAt(i, m); });
   im.frustumCulled = false; im.receiveShadow = true; scene.add(im); NEAR.grass = im; im.castShadow = shadowAll();
 }
+// R8: the near pebbles and rocks keep to open desert ground. Their mask used to skip only the runway, golf, the painted plaza circles
+// and (rocks only) the road capsules, and re-seeded on getH, which the trench floors answer: so they lay on turf and infields, on every
+// paved walk, plaza, apron and taxiway and on the Link ramps. COVER is a 1 m raster of every drawn surface near the ground (the up
+// faces of every opaque static mesh within 1.5 m of the terrain, except the meshes that are the desert ground itself: the terrain and
+// the park's ground patches), built once after the world in 5 ms slices (no long task; pebbles stay hidden until it is done), from
+// geometry the R6 drop has not freed yet. A spot is desert when no cover, walk surface, trench floor, keep-out polygon, building,
+// ribbon, plaza, golf surface or runway is under it.
+const COVER = { C: 1, CH: 64, chunks: new Map(), ready: false, list: null, i: 0, t: 0, n: 0, tris: 0, cells: 0, skipped: 0, ms: 0, on: R8 && !/[?&]r8cover=0\b/.test(location.search) };
+function coverSet(gx, gz) { const CH = COVER.CH; const kx = Math.floor(gx / CH), kz = Math.floor(gz / CH); const key = kx * 100003 + kz; let a = COVER.chunks.get(key); if (!a) COVER.chunks.set(key, a = new Uint8Array(CH * CH / 8)); const i = (gz - kz * CH) * CH + (gx - kx * CH); if (!(a[i >> 3] & (1 << (i & 7)))) { a[i >> 3] |= 1 << (i & 7); COVER.cells++; } }
+// R8: the plants and small posts that may stand in a drawn cover (CQ, filled in coverBegin): the exact height of the top up face under
+// each one (its trunk base for a tree), found in the same pass over the triangles
+const CQ = { x: [], z: [], c: [], top: null, ref: [], cells: new Map(), coarse: new Map() };
+function coverGet(gx, gz) { const CH = COVER.CH; const kx = Math.floor(gx / CH), kz = Math.floor(gz / CH); const a = COVER.chunks.get(kx * 100003 + kz); if (!a) return false; const i = (gz - kz * CH) * CH + (gx - kx * CH); return !!(a[i >> 3] & (1 << (i & 7))); }
+// the four cells round the nearest cell corner: the raster grown by half a cell, so nothing lies on the edge of a surface
+function coverAt(x, z) { const gx = Math.floor(x / COVER.C - 0.5), gz = Math.floor(z / COVER.C - 0.5); return coverGet(gx, gz) || coverGet(gx + 1, gz) || coverGet(gx, gz + 1) || coverGet(gx + 1, gz + 1); }
+function coverBegin() { if (!COVER.on || !T || !H) { COVER.ready = true; return; } const L = []; const bb = new THREE.Box3(), mw = new THREE.Matrix4();
+  const engine = new Set([NEAR.pebbles, NEAR.rocks, NEAR.grass]); for (const S of INSTSET) for (const im of S.insts.concat(S.far || [], S.far2 || [])) engine.add(im);   /* props and buildings: the building footprints are NEAR.blocked */
+  const low = (b) => { if (b.max.x - b.min.x > 3000 || b.max.z - b.min.z > 3000 || b.max.x < T.xmin || b.min.x > T.xmax || b.max.z < T.zmin || b.min.z > T.zmax) return false; const cx = Math.min(T.xmax, Math.max(T.xmin, (b.min.x + b.max.x) / 2)), cz = Math.min(T.zmax, Math.max(T.zmin, (b.min.z + b.max.z) / 2)); return b.min.y <= sampleGrid(H, T, cx, cz) + 3 + (b.max.x - b.min.x + b.max.z - b.min.z) * 0.08; };   /* something of it near the ground (not a roof, a canopy or a sign on a pole) */
+  scene.traverse((o) => { if (!o.isMesh || o.isSkinnedMesh || !o.geometry || engine.has(o)) return; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (!m || m.alphaTest > 0.05 || (m.transparent && m.depthWrite === false) || m.colorWrite === false || GROUND_MATS.includes(m)) return;
+    const g = o.geometry, pa = g.attributes.position; if (!pa || pa.isInterleavedBufferAttribute) return; if (pa.r6free || (g.index && g.index.r6free)) { COVER.skipped++; return; }
+    o.updateWorldMatrix(true, false);
+    if (o.isBatchedMesh) { if (/people|crowd/.test(o.name || "")) return; const info = o._instanceInfo || []; const rg = {}; for (let k = 0; k < info.length; k++) { const gid = o.getGeometryIdAt(k); if (gid < 0 || !o.getVisibleAt(k)) continue; const r = o.getGeometryRangeAt(gid, rg); if (!r) continue; o.getMatrixAt(k, mw); mw.premultiply(o.matrixWorld); if (o.getBoundingBoxAt(gid, bb) === null) continue; bb.applyMatrix4(mw); if (!low(bb)) continue; const ixd = !!g.index; L.push({ o, k: -2, m: mw.toArray(), t0: ixd ? r.indexStart : r.vertexStart, t1: ixd ? r.indexStart + r.indexCount : r.vertexStart + r.vertexCount }); } return; }   /* R8: the market's batched pieces, each by its own matrix */
+    if (!g.boundingBox) g.computeBoundingBox();
+    if (o.isInstancedMesh) { const tri = (g.index ? g.index.count : pa.count) / 3; if (tri > 6000 || !o.count) return; for (let k = 0; k < o.count; k++) { mw.fromArray(o.instanceMatrix.array, k * 16).premultiply(o.matrixWorld); if (!(Math.abs(mw.elements[5]) + Math.abs(mw.elements[1]) + Math.abs(mw.elements[9]) > 1e-4)) continue; bb.copy(g.boundingBox).applyMatrix4(mw); if (low(bb)) L.push({ o, k }); } return; }
+    bb.copy(g.boundingBox).applyMatrix4(o.matrixWorld); if (low(bb)) L.push({ o, k: -1 }); });
+  COVER.list = L; COVER.i = 0; COVER.t = 0; COVER.n = L.length; try { coverQueries(); } catch (e) { console.warn("R8 cover queries", e); } }
+function coverQueries() { if (!PLAN_MODE) return; const VEG = /saguaro|cactus|cholla|pear|organ|agave|yucca|ocotillo|succulent|quiver/;
+  for (const S of INSTSET) { const sp = MODEL_SPECS[S.kind] || {}, m = MODELS[S.kind]; if (!m || !sp.prop) continue; if (!(sp.sway || VEG.test(S.kind) || /^e1_(opost|tpost|pillar|lantern)$|planter/.test(S.kind)) || /lamp/.test(S.kind)) continue; const tree = !!sp.sway && m.height > 2.6; const tb = tree ? treeBaseXZ(m) : null;
+    for (let i = 0; i < S.list.length; i++) { const e = S.list[i]; if (e.hide || e.seated || e.y0 === undefined || Math.abs(e[1] - e.y0) > 1e-4) continue; let x = e[0], z = e[2]; if (tb) { const cs = Math.cos(e[3]), sn = Math.sin(e[3]); x += (tb[0] * cs + tb[1] * sn) * e[4]; z += (-tb[0] * sn + tb[1] * cs) * e[4]; }
+      const c = planGroundAt(x, z); if (e[1] > c + 0.02 || e[1] < c - 1.2) continue; const q = CQ.x.length; CQ.x.push(x); CQ.z.push(z); CQ.c.push(c); CQ.ref.push([S, i]); const k = Math.floor(x) * 100003 + Math.floor(z); let a = CQ.cells.get(k); if (!a) CQ.cells.set(k, a = []); a.push(q); const k2 = Math.floor(x / 16) * 100003 + Math.floor(z / 16); let b = CQ.coarse.get(k2); if (!b) CQ.coarse.set(k2, b = []); b.push(q); } }
+  CQ.top = new Float32Array(CQ.x.length).fill(-1e9); }
+function coverStep(budget) { const t0 = performance.now(); const L = COVER.list; const C = COVER.C;
+  const mw = COVER.mw || (COVER.mw = new THREE.Matrix4());
+  while (COVER.i < L.length) { const job = L[COVER.i], o = job.o; const g = o.geometry, pa = g.attributes.position; if (!pa || pa.r6free || (g.index && g.index.r6free)) { COVER.skipped++; COVER.i++; COVER.t = 0; continue; }
+    if (job.m) mw.fromArray(job.m); else if (job.k >= 0) mw.fromArray(o.instanceMatrix.array, job.k * 16).premultiply(o.matrixWorld); else mw.copy(o.matrixWorld);
+    const P = pa.array, ix = g.index ? g.index.array : null, n = job.t1 !== undefined ? job.t1 : ix ? ix.length : pa.count; const el = mw.elements; const m0 = Array.isArray(o.material) ? o.material[0] : o.material; const ds = m0.side === THREE.DoubleSide, neg = mw.determinant() < 0;
+    const W = (i, k) => el[k] * P[i * 3] + el[4 + k] * P[i * 3 + 1] + el[8 + k] * P[i * 3 + 2] + el[12 + k];
+    let t = COVER.t || job.t0 || 0; for (; t + 2 < n; t += 3) { if ((t & 1023) === 0 && performance.now() - t0 > budget) { COVER.t = t; COVER.ms += performance.now() - t0; return; }
+      const a = ix ? ix[t] : t, b = ix ? ix[t + 1] : t + 1, c = ix ? ix[t + 2] : t + 2; const ax = W(a, 0), ay = W(a, 1), az = W(a, 2), bx = W(b, 0), by = W(b, 1), bz = W(b, 2), cx = W(c, 0), cy = W(c, 1), cz = W(c, 2);
+      const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az; let ny = uz * vx - ux * vz; const L2 = Math.hypot(uy * vz - uz * vy, ny, ux * vy - uy * vx); if (L2 < 1e-9) continue; ny /= L2; if (neg) ny = -ny; if (!(ds ? Math.abs(ny) > 0.45 : ny > 0.45)) continue;
+      const mx = (ax + bx + cx) / 3, mz = (az + bz + cz) / 3; if (mx < T.xmin || mx > T.xmax || mz < T.zmin || mz > T.zmax) continue; const tg = sampleGrid(H, T, mx, mz), my = (ay + by + cy) / 3; if (my < tg - 0.4 || my > tg + 1.5) continue;
+      COVER.tris++; const x0 = Math.floor(Math.min(ax, bx, cx) / C), x1 = Math.floor(Math.max(ax, bx, cx) / C), z0 = Math.floor(Math.min(az, bz, cz) / C), z1 = Math.floor(Math.max(az, bz, cz) / C);
+      const den = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+      if (CQ.top && Math.abs(den) > 1e-12) { const big = (x1 - x0 + 1) * (z1 - z0 + 1) > 256; const G = big ? CQ.coarse : CQ.cells, D = big ? 16 : 1; const gx0 = Math.floor(Math.min(ax, bx, cx) / D), gx1 = Math.floor(Math.max(ax, bx, cx) / D), gz0 = Math.floor(Math.min(az, bz, cz) / D), gz1 = Math.floor(Math.max(az, bz, cz) / D);
+        if ((gx1 - gx0 + 1) * (gz1 - gz0 + 1) <= 4096) for (let gx = gx0; gx <= gx1; gx++) for (let gz = gz0; gz <= gz1; gz++) { const qs = G.get(gx * 100003 + gz); if (!qs) continue; for (const q of qs) { const px = CQ.x[q], pz = CQ.z[q]; const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / den, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / den; if (l1 < -1e-4 || l2 < -1e-4 || 1 - l1 - l2 < -1e-4) continue; const h = l1 * ay + l2 * by + (1 - l1 - l2) * cy; if (h > CQ.top[q] && h <= CQ.c[q] + 0.35) CQ.top[q] = h; } } }
+      if (x1 - x0 <= 1 && z1 - z0 <= 1) { for (let gx = x0; gx <= x1; gx++) for (let gz = z0; gz <= z1; gz++) coverSet(gx, gz); continue; }
+      if ((x1 - x0 + 1) * (z1 - z0 + 1) > 250000) continue; if (Math.abs(den) < 1e-12) continue;
+      coverSet(Math.floor(ax / C), Math.floor(az / C)); coverSet(Math.floor(bx / C), Math.floor(bz / C)); coverSet(Math.floor(cx / C), Math.floor(cz / C));
+      for (let gx = x0; gx <= x1; gx++) for (let gz = z0; gz <= z1; gz++) { const px = (gx + 0.5) * C, pz = (gz + 0.5) * C; const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / den, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / den; if (l1 < -0.02 || l2 < -0.02 || 1 - l1 - l2 < -0.02) continue; coverSet(gx, gz); } }
+    COVER.i++; COVER.t = 0; }
+  COVER.ms += performance.now() - t0; COVER.ready = true; COVER.list = null; NEAR.at = [1e9, 1e9]; try { r8CoverSeat(); } catch (e) { console.warn("R8 cover seat", e); } console.log("R8 cover: " + COVER.n + " meshes and instances, " + COVER.tris + " surface triangles, " + COVER.cells + " cells covered" + (COVER.skipped ? ", " + COVER.skipped + " freed meshes skipped" : "") + " in " + Math.round(COVER.ms) + " ms"); }
+// R8: a plant, a planter or a module's small post or bollard placed on the terrain or the walk grid where a module drew a thin cover
+// over it (the convention and festival decomposed granite and beds, the gbank court, an enrich bed, a kerb run) was bedded in that cover by
+// its thickness: it is lifted by the exact cover height under it (up to 0.35 m), keeping its own bedding on a slope. Only placements no
+// module seated itself; lamps (heads, bins and strings hang from them) and the buildings are left alone.
+function r8CoverSeat() { if (!R8 || !PLAN_MODE || !CQ.top) return; const t0 = performance.now(); let n = 0; const mtx = new THREE.Matrix4(); const dirty = new Set();
+  for (let q = 0; q < CQ.top.length; q++) { const top = CQ.top[q]; if (top < -1e8) continue; const dy = top - CQ.c[q]; if (dy < 0.02 || dy > 0.35) continue; const [S, i] = CQ.ref[q]; const e = S.list[i], m = MODELS[S.kind]; if (!e || !m) continue;
+    e[1] += dy; e.y0 = e[1]; if (e.sol) { e.sol.y0 += dy; e.sol.y1 += dy; } instMatrix(e, m, mtx).toArray(S.mats, i * 16); dirty.add(S); n++; }
+  for (const S of dirty) { S.n = -1; S.nf = -1; S.nf2 = -1; } CQ.cells.clear(); CQ.coarse.clear(); CQ.x = []; CQ.z = []; CQ.c = []; CQ.ref = []; CQ.top = null;
+  XG.coverSeat = n; if (n) cullAt = 0; console.log("R8 cover seat: " + n + " plants and posts lifted onto the drawn cover in " + Math.round(performance.now() - t0) + " ms"); }
+// open desert ground: the near pebbles and rocks only lie where this is true
+function nearDesertAt(x, z) { if (walkAt(x, z) !== null || coverAt(x, z)) return false; if (window.PLAN_FLOOR) { try { if (typeof window.PLAN_FLOOR(x, z) === "number") return false; } catch (e) {} }
+  if (PLAN_MODE) { if (planPolyBlocked(x, z) || planNearRoad(x, z, 1.0)) return false; } return true; }
+// R8: the placement audit (debug, run from the console or the harness: await PLAN_AUDIT.run()). Every placed prop instance (the engine's
+// instancing and the modules' instanced meshes) against the drawn surface under its feet (a tree's trunk), and every rock and pebble
+// (the near pools re-seeded on a grid of player positions) on a surface that is not open desert. Surfaces: the terrain (or a trench
+// floor), the up faces of every opaque static and batched mesh, and of the modules' instanced plinths, planters, pads and boxes.
+// Reports floating (no foot touches, > 5 cm) and sunken (every foot under, > 5 cm) by category and area; details in PLAN_AUDIT.last.
+// It reads geometry arrays the R6 drop may have freed (they are read back from the GPU): run it in a test session, not in play.
+async function planAudit() {
+  const T0 = performance.now(); const UP = 1.0, TOL = 0.05;
+  const out = { counts: {}, byArea: {}, worst: {}, rocks: {}, notes: [] };
+  const _m = new THREE.Matrix4(), _v = new THREE.Vector3();
+  const terrain = (x, z) => { const f = window.PLAN_FLOOR ? window.PLAN_FLOOR(x, z) : null; if (typeof f === "number") return f; if (H && x > T.xmin && x < T.xmax && z > T.zmin && z < T.zmax) return sampleGrid(H, T, x, z); if (HR) return sampleGrid(HR, TR, x, z); return 0; };
+  const areaOf = (x, z) => { try { const d = planDistrictAt(x, z); if (d) return d.id; return planZone(x, z); } catch (e) { return "?"; } };
+  const VEG = /saguaro|cactus|cholla|pear|organ|agave|yucca|ocotillo|succulent|quiver|palm|bush|shrub|tree|verde|mesquite|willow|ironwood|olive|grass|flower|leaf/;
+  // the lowest band of a geometry set's vertices (its feet), as 9 representatives in its own space
+  const leafy = (m) => !!m && (m.alphaTest > 0.05 || m.transparent || /leaf|leaves|frond/i.test(m.name || ""));
+  const solidGeos = (parts) => { const s = parts.filter((p) => p.geometry && !p.noShadow && !leafy(p.material)); return (s.length ? s : parts).map((p) => p.geometry); };
+  const footCache = new Map();
+  function footOf(key, geos, model) { if (footCache.has(key)) return footCache.get(key); let mn = Infinity, mx = -Infinity;
+    for (const g of geos) { const a = g && g.attributes.position; if (!a) continue; for (let i = 0; i < a.count; i++) { const y = a.getY(i); if (y < mn) mn = y; if (y > mx) mx = y; } }
+    const band = Math.min(0.06, Math.max(0.02, (mx - mn) * 0.015)); let pts = [];
+    // a model with geometry below its origin (legs set into the ground, foliage under a trunk) stands on its origin plane
+    const base = model && mn < -0.01 ? 0 : mn;
+    for (const g of geos) { const a = g && g.attributes.position; if (!a) continue; for (let i = 0; i < a.count; i++) { const y = a.getY(i); if (y >= base - 0.005 && y < base + band) pts.push([a.getX(i), base, a.getZ(i)]); } }
+    if (!pts.length) { for (const g of geos) { const a = g && g.attributes.position; if (!a) continue; for (let i = 0; i < a.count; i++) { const y = a.getY(i); if (y < mn + band) pts.push([a.getX(i), base, a.getZ(i)]); } } }   /* legs set below the origin: the origin plane is the foot */
+    let cx = 0, cz = 0; for (const p of pts) { cx += p[0]; cz += p[2]; } cx /= pts.length || 1; cz /= pts.length || 1; const rep = [[cx, pts.length ? pts[0][1] : mn, cz]];
+    for (let k = 0; k < 8; k++) { const dx = Math.cos(k * 0.785), dz = Math.sin(k * 0.785); let best = null, bd = -Infinity; for (const p of pts) { const d = (p[0] - cx) * dx + (p[2] - cz) * dz; if (d > bd) { bd = d; best = p; } } if (best && bd > 0.02) rep.push(best); }
+    const r = { pts: rep, h: mx - mn, mn }; footCache.set(key, r); return r; }
+  const catOf = (kind, sp, m) => { const k = kind.toLowerCase(); if (/pillar/.test(k)) return "sign"; if (/rock|boulder|stone|pebble/.test(k)) return "rock"; if (/bench|seat|chair|lounger|sofa/.test(k)) return "bench"; if (/lamp|lantern|light|bollard/.test(k)) return "lamp"; if (/bin|_bin|trash|litter/.test(k)) return "bin"; if (/planter|pot\b|pot_/.test(k)) return "planter"; if (/sign|post|marker|kiosk|board|pillar/.test(k)) return "sign"; if (/table|ramada|pergola|umbrella|firering|fire/.test(k)) return "furniture";
+    if (/saguaro|cactus|cholla|pear|organ|agave|yucca|ocotillo|succulent|quiver/.test(k)) return "cactus"; if (sp && sp.sway && m && m.height > 2.6) return "tree"; if (sp && sp.sway) return "shrub"; if (sp && sp.vehicle) return "vehicle"; return "other"; };
+  const GK = new Map(); for (const k in MODELS) { const m = MODELS[k]; if (!m || !m.parts) continue; for (const p of m.parts) if (p.geometry) GK.set(p.geometry, k); for (const g of m.lodGeos || []) GK.set(g, k + "~lod"); for (const g of (m.farGeos && m.farGeos.geos) || []) GK.set(g, k + "~far"); }
+  const instSeen = new Set(); const skipIM = new Set([NEAR.pebbles, NEAR.rocks, NEAR.grass].filter(Boolean));
+  // ── items ──
+  const items = []; const instSurf = [];   // instSurf: { geo, mats: [matrix per instance], own: [key], label }
+  INSTSET.forEach((S, si) => { const sp = MODEL_SPECS[S.kind] || {}, m = MODELS[S.kind]; for (const im of S.insts.concat(S.far || [], S.far2 || [])) instSeen.add(im); if (!m) return;
+    if (sp.prop && /planter|plinth|pillar|ramada|pergola|table|firering|tank|pot/.test(S.kind)) instSurf.push({ geos: m.parts.map((p) => p.geometry), S, si, label: "inst:" + S.kind });
+    if (!(sp.prop || sp.vehicle)) return; const treeK = !!sp.sway && m.height > 2.6; const f = footOf("K:" + S.kind, treeK ? solidGeos(m.parts) : m.parts.map((p) => p.geometry), true);   /* a tree stands on its trunk, a shrub on its foliage */ const cat = catOf(S.kind, sp, m);
+    for (let i = 0; i < S.list.length; i++) { const e = S.list[i]; if (e.hide || !(e[4] > 0)) continue; _m.fromArray(S.mats, i * 16); const feet = f.pts.map((p) => { _v.set(p[0], p[1], p[2]).applyMatrix4(_m); return [_v.x, _v.y, _v.z]; }); items.push({ cat, kind: S.kind, src: "inst", x: e[0], z: e[2], feet, own: 1e9 + si * 1e5 + i }); } });
+  // module instanced meshes: the parts of one model share a matrix (grouped by parent, count and first matrix)
+  const groups = new Map(); scene.updateMatrixWorld(true);
+  scene.traverse((o) => { if (!o.isInstancedMesh || instSeen.has(o) || skipIM.has(o) || o.isSkinnedMesh || !o.count) return; const im = o.instanceMatrix.array; const key = (o.parent ? o.parent.uuid : "") + "|" + o.count + "|" + Array.from(im.slice(12, 15)).map((v) => v.toFixed(2)).join(","); let g = groups.get(key); if (!g) groups.set(key, g = []); g.push(o); });
+  let modInst = 0, gi = 0; const clusters = new Map();   /* procedural pieces of one build within 1.5 m of each other: one item (a sign's post, plinth and panel) */
+  for (const [, list] of groups) { gi++; const o0 = list[0]; const kk = list.map((o) => GK.get(o.geometry)).filter(Boolean); if (kk.length && /~(lod|far)$/.test(kk[0])) continue; const kind = kk.length ? kk[0] : null;
+    let p = o0, path = []; while (p && p !== scene) { if (p.name) path.push(p.name); p = p.parent; } const names = kind ? "K=" + kind : list.map((o) => (o.material && o.material.name) || o.geometry.type).join("+"); const label = ((path.reverse().join("/") || "root") + ":" + names).slice(0, 100);
+    const prim = !kind;   /* a procedural piece (no model kind): judged with its neighbours of the same build */
+    const flat = list.every((o) => /^(Plane|Circle|Ring)Geometry$/.test(o.geometry.type)) || list.every((o) => o.material && (o.material.isMeshBasicMaterial || (o.material.transparent && o.material.depthWrite === false)));
+    const veg = kind ? (VEG.test(kind) || !!(MODEL_SPECS[kind] || {}).sway) : list.some((o) => o.material && (o.material.alphaTest > 0.05 || VEG.test((o.material.name || "").toLowerCase())));
+    const cat = kind ? catOf(kind, MODEL_SPECS[kind], MODELS[kind]) : catOf(label, null, null);
+    if (!veg && !flat) { const geos = list.map((o) => o.geometry); let tri = 0; for (const g of geos) tri += (g.index ? g.index.count : g.attributes.position.count) / 3; if (tri <= 6000) instSurf.push({ list, gi, label: "mod:" + label, par: o0.parent && o0.parent !== scene ? o0.parent.uuid : null }); }
+    if (flat) continue;   // decals, glows and painted marks lie on the surface on purpose
+    const treeM = kind && MODEL_SPECS[kind] && MODEL_SPECS[kind].sway && MODELS[kind] && MODELS[kind].height > 2.6; const solidList = treeM ? list.filter((o) => !leafy(o.material)) : []; const parts = (solidList.length ? solidList : list).map((o) => ({ o, f: footOf("G:" + o.geometry.uuid + (kind ? "k" : ""), [o.geometry], !!kind) }));
+    const small = prim && parts.every((q) => q.o.geometry.attributes.position.count <= 4000);   /* a procedural piece may be turned any way (a tyre laid flat): its feet are found in world space */
+    for (let i = 0; i < o0.count; i++) { let best = null; for (const q of parts) { _m.fromArray(q.o.instanceMatrix.array, i * 16).premultiply(q.o.matrixWorld); let feet;
+        if (small) { const a = q.o.geometry.attributes.position; const W = []; let mn = Infinity, mx = -Infinity; for (let k = 0; k < a.count; k++) { _v.set(a.getX(k), a.getY(k), a.getZ(k)).applyMatrix4(_m); W.push([_v.x, _v.y, _v.z]); if (_v.y < mn) mn = _v.y; if (_v.y > mx) mx = _v.y; } const band = Math.min(0.06, Math.max(0.02, (mx - mn) * 0.015)); const pts = W.filter((w) => w[1] < mn + band); let cx = 0, cz = 0; for (const w of pts) { cx += w[0]; cz += w[2]; } cx /= pts.length; cz /= pts.length; feet = [[cx, mn, cz]]; for (let k = 0; k < 8; k++) { const dx = Math.cos(k * 0.785), dz = Math.sin(k * 0.785); let b = null, bd = -Infinity; for (const w of pts) { const d = (w[0] - cx) * dx + (w[2] - cz) * dz; if (d > bd) { bd = d; b = w; } } if (b && bd > 0.02) feet.push(b); } }
+        else feet = q.f.pts.map((pp) => { _v.set(pp[0], pp[1], pp[2]).applyMatrix4(_m); return [_v.x, _v.y, _v.z]; });
+        const lo = Math.min(...feet.map((f) => f[1])); if (!best || lo < best.lo) best = { lo, feet }; }
+      const sc = _v.setFromMatrixScale(_m).y; if (!(sc > 1e-4)) continue; const it = { cat, kind: label, src: prim ? "prim" : "mod", x: best.feet[0][0], z: best.feet[0][2], feet: best.feet, own: gi * 65536 + i, par: o0.parent && o0.parent !== scene ? o0.parent.uuid : null }; modInst++;
+      if (prim && it.par) { const gx = Math.floor(it.x / 1.5), gz = Math.floor(it.z / 1.5); let cl = null; for (let a = -1; a <= 1 && !cl; a++) for (let b = -1; b <= 1 && !cl; b++) { const L = clusters.get(it.par + "|" + (gx + a) + "|" + (gz + b)); if (L) for (const c of L) if (Math.hypot(c.x - it.x, c.z - it.z) < 1.4) { cl = c; break; } }
+        if (cl) { cl.feet.push(...it.feet); cl.n++; } else { const k = it.par + "|" + gx + "|" + gz; const L = clusters.get(k) || []; L.push(Object.assign(it, { n: 1, own: -2 })); clusters.set(k, L); } } else items.push(it); } }
+  for (const L of clusters.values()) for (const cl of L) items.push(cl);
+  out.notes.push("items " + items.length + " (module instanced " + modInst + ")");
+  // ── rocks and pebbles: every rock placement, and the near pools re-seeded on a grid of player positions ──
+  const rockPts = [];
+  for (const it of items) if (it.cat === "rock") rockPts.push({ src: it.src === "inst" ? "placed" : "module", kind: it.kind, x: it.x, z: it.z, y: Math.min(...it.feet.map((q) => q[1])), own: it.own });
+  if (NEAR.pebbles && QUAL.q.pebbles) { const sp = player.position.clone(); const step = 110; let n = 0;
+    for (let x = T.xmin + 60; x < T.xmax - 60; x += step) for (let z = T.zmin + 60; z < T.zmax - 60; z += step) { if (!onLand(x, z)) continue; player.position.set(x, 0, z); NEAR.at = [1e9, 1e9]; updateNearDetail(); for (const [im, nm] of [[NEAR.pebbles, "pebble"], [NEAR.rocks, "nearRock"]]) { const a = im.instanceMatrix.array; for (let i = 0; i < im.count; i++) rockPts.push({ src: "near", kind: nm, x: a[i * 16 + 12], y: a[i * 16 + 13], z: a[i * 16 + 14], own: -1 }); } n++; }
+    player.position.copy(sp); NEAR.at = [1e9, 1e9]; updateNearDetail(); out.notes.push("near pool samples " + n); }
+  // ── query points (1 m cells) ──
+  const QX = [], QZ = [], QY = [], QO = [], QP = []; const cells = new Map(); const C = 1;
+  const addQ = (x, y, z, own, par) => { const i = QX.length; QX.push(x); QY.push(y); QZ.push(z); QO.push(own); QP.push(par || null); const k = Math.floor(x / C) * 100003 + Math.floor(z / C); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(i); return i; };
+  for (const it of items) if (it.cat !== "rock") it.q = it.feet.map((f) => addQ(f[0], f[1], f[2], it.own, it.par));
+  for (const r of rockPts) r.q = addQ(r.x, r.y, r.z, r.own);
+  const N = QX.length; const below = new Float32Array(N).fill(-1e9), above = new Float32Array(N).fill(1e9), belowS = new Int32Array(N).fill(-1), terr = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const t = terrain(QX[i], QZ[i]); terr[i] = t; if (t <= QY[i] + UP) below[i] = t; else above[i] = t; }
+  const coarse = new Set(); for (let i = 0; i < N; i++) coarse.add(Math.floor(QX[i] / 20) * 100003 + Math.floor(QZ[i] / 20));
+  const SURF = [];   // labels (an object or a string)
+  let tris = 0;
+  // raster the up faces of world-space triangles W (xyz) / index ix into the query cells
+  function raster(W, ix, n, ds, neg, si, own, par, t0) {
+    for (let t = t0 || 0; t + 2 < n; t += 3) { const a = ix ? ix[t] : t, b = ix ? ix[t + 1] : t + 1, c = ix ? ix[t + 2] : t + 2; const ax = W[a * 3], ay = W[a * 3 + 1], az = W[a * 3 + 2], bx = W[b * 3], by = W[b * 3 + 1], bz = W[b * 3 + 2], cx = W[c * 3], cy = W[c * 3 + 1], cz = W[c * 3 + 2];
+      const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az; let ny = uz * vx - ux * vz; const nx = uy * vz - uz * vy, nz = ux * vy - uy * vx; const L = Math.hypot(nx, ny, nz); if (L < 1e-9) continue; ny /= L; if (neg) ny = -ny; if (!(ds ? Math.abs(ny) > 0.5 : ny > 0.5)) continue; tris++;
+      const den = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz); if (Math.abs(den) < 1e-12) continue;
+      const x0 = Math.floor(Math.min(ax, bx, cx) / C), x1 = Math.floor(Math.max(ax, bx, cx) / C), z0 = Math.floor(Math.min(az, bz, cz) / C), z1 = Math.floor(Math.max(az, bz, cz) / C); if ((x1 - x0 + 1) * (z1 - z0 + 1) > 40000) continue;
+      for (let gx = x0; gx <= x1; gx++) for (let gz = z0; gz <= z1; gz++) { const L2 = cells.get(gx * 100003 + gz); if (!L2) continue; for (const q of L2) { if (own !== undefined && QO[q] === own) continue; if (par && QP[q] === par) continue; const px = QX[q], pz = QZ[q]; const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / den, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / den, l3 = 1 - l1 - l2; if (l1 < -1e-4 || l2 < -1e-4 || l3 < -1e-4) continue; const h = l1 * ay + l2 * by + l3 * cy;
+          if (h <= QY[q] + UP) { if (h > below[q]) { below[q] = h; belowS[q] = si; } } else if (h < above[q]) above[q] = h; } } } }
+  const toWorld = (g, el, W, v0, v1) => { const pa = g.attributes.position; const P = pa.array; const stride = pa.isInterleavedBufferAttribute ? pa.data.stride : 3; const off = pa.isInterleavedBufferAttribute ? pa.offset : 0; for (let i = v0 || 0; i < (v1 === undefined ? pa.count : v1); i++) { const x = P[i * stride + off], y = P[i * stride + off + 1], z = P[i * stride + off + 2]; W[i * 3] = el[0] * x + el[4] * y + el[8] * z + el[12]; W[i * 3 + 1] = el[1] * x + el[5] * y + el[9] * z + el[13]; W[i * 3 + 2] = el[2] * x + el[6] * y + el[10] * z + el[14]; } return W; };
+  const matOK = (m0) => !(!m0 || (m0.transparent && m0.depthWrite === false) || m0.alphaTest > 0.05 || m0.colorWrite === false || m0.isMeshBasicMaterial && m0.blending === THREE.AdditiveBlending);
+  // static meshes
+  const bb = new THREE.Box3(); let nm = 0;
+  scene.traverse((o) => { if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return; const m0 = Array.isArray(o.material) ? o.material[0] : o.material; if (!matOK(m0)) return; if (GROUND_MATS.includes(m0) && o.geometry.type === "PlaneGeometry") return;   /* the terrain itself (sampled from its grid instead) */
+    let p = o; while (p) { if (p === player || (p.userData && (p.userData.avatar || p.userData.isPlayer))) return; p = p.parent; }
+    if (o.isBatchedMesh) { if (/people|crowd/.test(o.name || "")) return; const g = o.geometry; const W = new Float32Array(g.attributes.position.count * 3); const si = SURF.length; SURF.push(o); const info = o._instanceInfo || []; const rg = {}, bm = new THREE.Matrix4(); nm++;
+      for (let k = 0; k < info.length; k++) { const gid = o.getGeometryIdAt(k); if (gid < 0 || !o.getVisibleAt(k)) continue; const r = o.getGeometryRangeAt(gid, rg); if (!r) continue; o.getMatrixAt(k, bm); bm.premultiply(o.matrixWorld); toWorld(g, bm.elements, W, r.vertexStart, r.vertexStart + r.vertexCount); if (g.index) raster(W, g.index.array, r.indexStart + r.indexCount, m0.side === THREE.DoubleSide, bm.determinant() < 0, si, undefined, undefined, r.indexStart); else raster(W, null, r.vertexStart + r.vertexCount, m0.side === THREE.DoubleSide, bm.determinant() < 0, si, undefined, undefined, r.vertexStart); } return; }   /* each batched piece by its own matrix */
+    const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox(); bb.copy(g.boundingBox).applyMatrix4(o.matrixWorld); if (bb.max.x - bb.min.x > 4000) return; let hit = false;
+    for (let cx = Math.floor(bb.min.x / 20); cx <= Math.floor(bb.max.x / 20) && !hit; cx++) for (let cz = Math.floor(bb.min.z / 20); cz <= Math.floor(bb.max.z / 20); cz++) if (coarse.has(cx * 100003 + cz)) { hit = true; break; }
+    if (!hit) return; nm++; const si = SURF.length; SURF.push(o); const W = toWorld(g, o.matrixWorld.elements, new Float32Array(g.attributes.position.count * 3)); raster(W, g.index ? g.index.array : null, g.index ? g.index.count : g.attributes.position.count, m0.side === THREE.DoubleSide, o.matrixWorld.determinant() < 0, si); });
+  // instanced surfaces (planters, plinths, boxes, pads): per instance, never under its own instance
+  let ni = 0; const mw = new THREE.Matrix4();
+  for (const s of instSurf) { const si = SURF.length; SURF.push(s.label);
+    if (s.S) { const S = s.S; for (const g of s.geos) { if (!g) continue; const W = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < S.list.length; i++) { const e = S.list[i]; if (e.hide || !coarse.has(Math.floor(e[0] / 20) * 100003 + Math.floor(e[2] / 20))) continue; mw.fromArray(S.mats, i * 16); toWorld(g, mw.elements, W); raster(W, g.index ? g.index.array : null, g.index ? g.index.count : g.attributes.position.count, false, mw.determinant() < 0, si, 1e9 + s.si * 1e5 + i); ni++; } } }
+    else for (const o of s.list) { const g = o.geometry; const m0 = Array.isArray(o.material) ? o.material[0] : o.material; if (!matOK(m0)) continue; const W = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < o.count; i++) { mw.fromArray(o.instanceMatrix.array, i * 16).premultiply(o.matrixWorld); if (!coarse.has(Math.floor(mw.elements[12] / 20) * 100003 + Math.floor(mw.elements[14] / 20))) continue; toWorld(g, mw.elements, W); raster(W, g.index ? g.index.array : null, g.index ? g.index.count : g.attributes.position.count, m0.side === THREE.DoubleSide, mw.determinant() < 0, si, s.gi * 65536 + i, s.par); ni++; } } }
+  out.notes.push("surface meshes " + nm + ", instanced surface instances " + ni + ", up triangles " + tris);
+  const MN = new Map(); try { for (const k in M) if (M[k] && M[k].isMaterial) MN.set(M[k], "M." + k); } catch (e) {} try { const pm = planMats(); for (const k in pm) if (pm[k] && pm[k].isMaterial) MN.set(pm[k], "PM." + k); } catch (e) {}
+  const TN = new Map(); try { for (const k in TEX) if (TEX[k] && TEX[k].isTexture) TN.set(TEX[k].source, k); } catch (e) {}
+  const slabel = (si) => { if (si < 0) return "terrain"; const o = SURF[si]; if (typeof o === "string") return o; const m = Array.isArray(o.material) ? o.material[0] : o.material; if (m && m.name) return m.name; if (MN.has(m)) return MN.get(m); let p = o, path = []; while (p && p !== scene) { if (p.name) path.push(p.name); p = p.parent; } return (path.reverse().join("/") || "root") + "#" + (m ? (m.color ? m.color.getHexString() : "") : "") + (m && m.map ? "+" + (TN.get(m.map.source) || "map") : "") + "|" + o.geometry.type.replace("Geometry", ""); };
+  const surf = (q) => below[q] > -1e8 ? below[q] : above[q];
+  // ── props: floating (no foot touches) / sunken (every foot under the surface) ──
+  const bump = (k, area, cat) => { const C2 = out.counts[k] = out.counts[k] || {}; C2[cat] = (C2[cat] || 0) + 1; const A2 = out.byArea[k] = out.byArea[k] || {}; A2[area] = (A2[area] || 0) + 1; };
+  const W2 = { floating: [], sunken: [] }; let checked = 0;
+  const onBuilding = (it) => { try { return !!NEAR.blocked && NEAR.blocked(it.x, it.z); } catch (e) { return false; } };   /* a building model (its plinth, porch or deck) is not sampled */
+  for (const it of items) { if (it.cat === "rock" || /cabinR2|interior/.test(it.kind)) continue; const gaps = it.q.map((q) => QY[q] - surf(q)); const mn = Math.min(...gaps), mx = Math.max(...gaps); checked++;
+    if (it.src === "prim" && mn > 0.6) continue;   // procedural pieces hung or mounted well above the surface on purpose (sign panels, lamp heads)
+    const area = areaOf(it.x, it.z); const sm = slabel(belowS[it.q[0]]);
+    if (mn > TOL) { const nb = onBuilding(it); if (nb) out.onBuilding = (out.onBuilding || 0) + 1; bump("floating", area, it.cat); W2.floating.push([+mn.toFixed(3), it.cat, it.kind, +it.x.toFixed(1), +it.z.toFixed(1), area, sm, it.src, nb ? "near a building model (its plinth or deck is not sampled)" : ""]); }
+    else if (mx < -TOL && it.src !== "prim") { bump("sunken", area, it.cat); W2.sunken.push([+mx.toFixed(3), it.cat, it.kind, +it.x.toFixed(1), +it.z.toFixed(1), area, sm, it.src]); } }
+  out.checked = checked; W2.floating.sort((a, b) => b[0] - a[0]); W2.sunken.sort((a, b) => a[0] - b[0]); out.list = W2;
+  const byKind = {}; for (const k of ["floating", "sunken"]) for (const w of W2[k]) { const kk = k + " " + w[2]; byKind[kk] = (byKind[kk] || 0) + 1; } out.byKind = Object.entries(byKind).sort((a, b) => b[1] - a[1]);
+  // ── rocks on a surface that is not open desert ──
+  const RS = {}, RA = {}, RW = []; let rockBad = 0;
+  for (const r of rockPts) { const q = r.q; const si = belowS[q]; let why = null;
+    if (si >= 0 && below[q] > terr[q] - 0.02) why = "mesh:" + slabel(si);
+    else if (window.PLAN_FLOOR && typeof window.PLAN_FLOOR(r.x, r.z) === "number") why = "trench floor";
+    else if (walkAt(r.x, r.z) !== null) why = "walk grid";
+    else if (golfSurface(r.x, r.z) !== "rough") why = "golf";
+    else { for (const pq of PLAZAS) if (Math.hypot(r.x - pq[0], r.z - pq[1]) < pq[2]) { why = "painted plaza"; break; } }
+    if (!why && planPolyBlocked(r.x, r.z)) why = "keep-out poly";
+    if (!why && distToRunway(r.x, r.z) < 16) why = "runway";
+    if (!why && nearRoad(r.x, r.z, 0)) why = "road";
+    if (!why) continue; rockBad++; const key = r.src + " " + r.kind.replace(/_\d+$/, "") + " | " + why; RS[key] = (RS[key] || 0) + 1; const area = areaOf(r.x, r.z); const ak = r.src + " | " + area; RA[ak] = (RA[ak] || 0) + 1; RW.push([r.src, r.kind, +r.x.toFixed(1), +r.z.toFixed(1), area, why]); }
+  out.rocks = { total: rockPts.length, bad: rockBad, near: rockPts.filter((r) => r.src === "near").length };
+  out.rockSurf = Object.entries(RS).sort((a, b) => b[1] - a[1]); out.rockArea = Object.entries(RA).sort((a, b) => b[1] - a[1]); out.rockList = RW;
+  out.ms = Math.round(performance.now() - T0); PLAN_AUDIT.last = out; return { counts: out.counts, rocks: out.rocks, ms: out.ms, notes: out.notes, checked, onBuilding: out.onBuilding || 0 };
+}
+window.PLAN_AUDIT = { run: planAudit, last: null };
 function buildNearDetail() {
   const pebMat = new THREE.MeshStandardMaterial({ color: 0xa8957a, roughness: 0.95 }), rockMat = new THREE.MeshStandardMaterial({ map: TEX.rock, normalMap: TEX.rockN, color: 0xd9c6a6, roughness: 0.95 });
   NEAR.pebbles = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.075, 0), pebMat, 4500); NEAR.rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.22, 1), rockMat, 110);
@@ -4319,13 +4545,14 @@ function buildNearDetail() {
   for (const l of LOTS) { const key = Math.floor(l.x / 40) + "," + Math.floor(l.z / 40); let arr = NEAR.grid.get(key); if (!arr) NEAR.grid.set(key, arr = []); arr.push([l.x, l.z, 11]); }
   NEAR.blocked = (x, z) => { const cell = NEAR.grid.get(Math.floor(x / 40) + "," + Math.floor(z / 40)); if (!cell) return false; for (const [bx, bz, r] of cell) if (Math.hypot(bx - x, bz - z) < r) return true; return false; };
   for (const im of [NEAR.pebbles, NEAR.rocks]) { im.frustumCulled = false; im.receiveShadow = true; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(im.instanceMatrix.count * 3).fill(1), 3); im.instanceColor.setUsage(THREE.DynamicDrawUsage); im.count = 0; scene.add(im); } NEAR.rocks.castShadow = true; NEAR.pebbles.castShadow = shadowAll();
+  COVER.wait = true;   /* R8: rastered from frame 24 (coverBegin) */
 }
 function updateNearDetail() {
-  if (!NEAR.pebbles || !player || !T) return; if (FLY.on || !QUAL.q.pebbles) { NEAR.pebbles.visible = NEAR.rocks.visible = false; return; } NEAR.pebbles.visible = NEAR.rocks.visible = !inside; const px = player.position.x, pz = player.position.z; if (Math.hypot(px - NEAR.at[0], pz - NEAR.at[1]) < 12) return; NEAR.at = [px, pz];
+  if (!NEAR.pebbles || !player || !T) return; if (FLY.on || !QUAL.q.pebbles) { NEAR.pebbles.visible = NEAR.rocks.visible = false; return; } NEAR.pebbles.visible = NEAR.rocks.visible = !inside && COVER.ready; if (!COVER.ready) return; const px = player.position.x, pz = player.position.z; if (Math.hypot(px - NEAR.at[0], pz - NEAR.at[1]) < 12) return; NEAR.at = [px, pz];
   const hash = (a, b, c) => { const v = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return v - Math.floor(v); };
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3(), eu = new THREE.Euler(), _pc = new THREE.Color();
   const fill = (im, n, R, cell, sMin, sMax, k0, roads, c0, c1) => { let k = 0; const c0x = Math.floor((px - R) / cell), c1x = Math.floor((px + R) / cell), c0z = Math.floor((pz - R) / cell), c1z = Math.floor((pz + R) / cell); const per = Math.max(1, Math.round(n / ((c1x - c0x + 1) * (c1z - c0z + 1))));
-    for (let cx = c0x; cx <= c1x && k < n; cx++) for (let cz = c0z; cz <= c1z && k < n; cz++) for (let i = 0; i < per && k < n; i++) { const x = (cx + hash(cx, cz, i + k0)) * cell, z = (cz + hash(cx, cz, i + 31 + k0)) * cell; if (Math.hypot(x - px, z - pz) > R || !onLand(x, z)) continue; if (distToRunway(x, z) < 18 || (LAKE.level && waterDepthAt(x, z) > 0) || pondAt(x, z) || golfSurface(x, z) !== "rough") continue; { let onPlaza = false; for (const pq of PLAZAS) if (Math.hypot(x - pq[0], z - pq[1]) < pq[2] - 4) { onPlaza = true; break; } if (onPlaza) continue; } if (roads && nearRoad(x, z, 2.5)) continue; if (NEAR.blocked(x, z)) continue;
+    for (let cx = c0x; cx <= c1x && k < n; cx++) for (let cz = c0z; cz <= c1z && k < n; cz++) for (let i = 0; i < per && k < n; i++) { const x = (cx + hash(cx, cz, i + k0)) * cell, z = (cz + hash(cx, cz, i + 31 + k0)) * cell; if (Math.hypot(x - px, z - pz) > R || !onLand(x, z)) continue; if (distToRunway(x, z) < 18 || (LAKE.level && waterDepthAt(x, z) > 0) || pondAt(x, z) || golfSurface(x, z) !== "rough") continue; { let onPlaza = false; for (const pq of PLAZAS) if (Math.hypot(x - pq[0], z - pq[1]) < pq[2] + (R8 ? 0.5 : -4)) { onPlaza = true; break; } if (onPlaza) continue; } if (roads && (PLAN_MODE && R8 ? planNearRoad(x, z, 2.5) : nearRoad(x, z, 2.5))) continue; if (NEAR.blocked(x, z) || (R8 && !nearDesertAt(x, z))) continue;   /* R8: open desert only */
       const sz = sMin + hash(cx, cz, i + 7 + k0) * (sMax - sMin); pos.set(x, getH(x, z) + sz * 0.05, z); q.setFromEuler(eu.set(hash(cx, cz, i + 9) * 3, hash(cx, cz, i + 11) * 6.28, 0)); sc.set(sz * (0.8 + hash(cx, cz, i + 13) * 0.7), sz * 0.55, sz); m.compose(pos, q, sc); const tn = c0 + hash(cx, cz, i + 17) * c1; _pc.setRGB(tn, tn * (0.9 + hash(cx, cz, i + 19) * 0.15), tn * 0.85); im.setColorAt(k, _pc); im.setMatrixAt(k++, m); }
     im.count = k; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; };
   fill(NEAR.pebbles, shadowAll() ? 2200 : 1300, 40, 3.4, 0.55, 1.4, 0, false, 0.6, 0.55); fill(NEAR.rocks, shadowAll() ? 110 : 70, 60, 14, 0.5, 1.1, 100, true, 0.8, 0.35);

@@ -1096,7 +1096,7 @@
       "id": "convention",
       "n": 13,
       "name": "Solport Convention Center",
-      "sub": "The main arena, the Market Hall and the Festival Grounds beside the Stellar FBO",
+      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Car Park and the Market Garden beside the Stellar FBO",
       "ink": "#8a4a22",
       "stamps": [
         {
@@ -1218,6 +1218,70 @@
           "kind": "local",
           "name": "Tomas",
           "org": "The Weekend Market"
+        },
+        {
+          "n": 250,
+          "id": "p_solar_park",
+          "name": "The Solar Car Park",
+          "x": -355,
+          "z": 89,
+          "r": 55
+        },
+        {
+          "n": 251,
+          "id": "p_sp_shuttle_hub",
+          "name": "The Shuttle Hub",
+          "x": -449.7,
+          "z": 89.5,
+          "r": 14
+        },
+        {
+          "n": 252,
+          "id": "p_market_garden",
+          "name": "The Market Garden",
+          "x": -195,
+          "z": 92,
+          "r": 40
+        },
+        {
+          "n": 253,
+          "id": "p_sp_ride_loop",
+          "name": "The Grand Loop from the Shuttle Hub",
+          "x": -462.5,
+          "z": 91,
+          "r": 0.3
+        },
+        {
+          "n": 254,
+          "id": "p_sp_charge",
+          "name": "Plugged in at a solar charger",
+          "x": -400,
+          "z": 71.5,
+          "r": 0.3
+        },
+        {
+          "n": 255,
+          "id": "p_garden_stand",
+          "name": "Fresh from the farm stand",
+          "x": -224.3,
+          "z": 58.5,
+          "r": 0.3
+        },
+        {
+          "n": 256,
+          "id": "p_sp_greenhouse",
+          "name": "Inside the greenhouse",
+          "x": -175.5,
+          "z": 77,
+          "r": 0.3
+        },
+        {
+          "n": 257,
+          "id": "t_marisol",
+          "talk": "marisol_sp",
+          "kind": "local",
+          "name": "Marisol",
+          "org": "Farmer, Market Garden"
         }
       ]
     }

@@ -1,0 +1,87 @@
+{
+  "_about": "R8 Solar Car Park, Shuttle Hub and Market Garden (plan_solarpark.js). Every name and line of copy. Rules: no em dashes, no percentages, no fees, no prices.",
+  "version": 1,
+  "names": {
+    "park": "SOLAR CAR PARK",
+    "parkSub": "SHUTTLE HUB · EV CHARGING · MARKET GARDEN",
+    "hubSign": "SHUTTLE HUB · SOLAR CAR PARK",
+    "mapSub": "ELECTRIC SHUTTLE · ALL THREE STAGES",
+    "mapFoot": "PRESS F BESIDE THE SHUTTLE TO RIDE",
+    "garden": "MARKET GARDEN",
+    "gardenSub": "Grown here for the Market Hall",
+    "stand": "FARM STAND",
+    "standSub": "PICKED THIS MORNING, 50 M FROM THE MARKET HALL",
+    "menuT": "TODAY"
+  },
+  "hubs": [
+    { "name": "Solar Car Park", "x": -449.5, "z": 98 },
+    { "name": "Market Garden", "x": -233, "z": 57 }
+  ],
+  "zones": [
+    { "name": "The Solar Car Park", "label": "Solar Car Park", "center": [-355, 89], "r": 80, "k": "Solport Convention Center · park, charge, ride", "poly": [[-466, 47], [-244, 47], [-244, 130], [-466, 130]], "col": "#4dde6f33" },
+    { "name": "The Market Garden", "label": "Market Garden", "center": [-191, 92], "r": 45, "k": "Solport Convention Center · grown for the Market Hall", "poly": [[-244, 51], [-190, 51], [-190, 68.5], [-138, 68.5], [-138, 128], [-244, 128]], "col": "#9fd36a33" }
+  ],
+  "info": {
+    "park": ["Solar Car Park", "Solport Convention Center · park under the sun", "Thirty-five steel carport canopies carry the panels that run the campus: shade for every bay by day, LED light under every canopy after dark. Seventy chargers serve the EV bays, the accessible bays are by the Shuttle Hub, and the walk along the Market Hall takes you to its doors and on to the arena and the Festival Grounds."],
+    "hub": ["Shuttle Hub", "Grand Loop · bike share · cart share · drop-off", "The Grand Loop electric shuttle calls here on every lap, then runs to the Convention Center drop-off, Link Plaza and the Stellar Aviation FBO, round all three stages to Main Street and the Commons and back. The board shows the next shuttle. Bikes and carts are free to borrow: leave them in any share bay."],
+    "ev": ["EV charging", "Solar Car Park · charge under the canopy", "Every pedestal has two cables and serves the green bays beside it. The canopies above feed the chargers by day; the campus battery carries them through the night."],
+    "charge": ["Plugged in", "Solar Car Park · EV charging", "The screen wakes, the ring turns green and the canopy overhead does the rest. A full charge while you are at the summit."],
+    "garden": ["Market Garden", "Solport Convention Center · a working desert farm", "Raised timber and corten beds of chiles, squash, herbs, greens and tomatoes, rows of corn, a citrus, pomegranate and olive orchard and a hoop greenhouse, all on drip lines. Everything goes fifty metres to the Market Hall kitchens, and what is left goes on the farm stand."],
+    "greenhouse": ["The greenhouse", "Market Garden · seedlings and winter greens", "Twin-wall glazing on galvanised hoops. Every bed in the garden starts here as a seedling tray, and the winter greens grow here through the cold months."],
+    "orchard": ["The orchard", "Market Garden · citrus, pomegranate, olive", "Navel oranges and Meyer lemons, Wonderful pomegranates and olives for the Market Hall's own oil, each tree on its own ring of mulch and its own drip emitter."],
+    "coop": ["The coop", "Market Garden · eggs for the Market Hall", "Six hens and a raised coop with nest boxes. They eat the kitchen scraps, turn the compost and lay the eggs for the Market Hall's breakfast menu."],
+    "compost": ["Compost bins", "Market Garden · nothing leaves the campus", "Three bays: fresh, turning and finished. Kitchen scraps from the Market Hall, chicken litter and garden trimmings go in; finished compost goes back on the beds."]
+  },
+  "prompts": { "stand": "buy fresh produce at the farm stand", "charge": "plug in at the charger" },
+  "venue": { "title": "Market Garden farm stand", "k": "Picked this morning, a short walk from the Market Hall", "items": ["meal", "coffee"] },
+  "menu": ["Chiles and peppers", "Summer squash", "Sweet corn", "Heirloom tomatoes", "Salad greens", "Oranges and lemons", "Pomegranates", "Fresh eggs"],
+  "gardenList": ["Chiles · squash · corn", "Tomatoes · greens · herbs", "Citrus · pomegranate · olive", "Eggs from our hens", "Farm stand open daily"],
+  "lines": {
+    "stand": ["Fresh this morning.", "The chiles are hot today.", "Take a lemon, they are on us.", "Corn was picked an hour ago."],
+    "charge": ["Charging.", "Plugged in under the sun.", "Ring is green."]
+  },
+  "farmer": {
+    "id": "marisol_sp",
+    "name": "Marisol",
+    "role": "Farmer, Market Garden",
+    "look": { "body": "f", "skin": "a86f46", "shirt": "4a6b3a", "pants": "5a4632", "hair": 2, "hairc": "1c1512" },
+    "hat": "hat_cowboy",
+    "greet": ["Welcome to the garden.", "Mind the hens.", "Everything here is grown 50 m from Sonoran Kitchen."],
+    "talk": [
+      { "t": "Welcome to the Market Garden. Everything you see is grown 50 m from Sonoran Kitchen and the rest of the Market Hall: chiles, squash, corn, greens, tomatoes, herbs, citrus and eggs.", "o": [["How do you farm in the desert?", 1], ["What goes to the Market Hall?", 2], ["Can I buy something?", 3], ["Just looking, thanks", null]] },
+      { "t": "Raised beds full of compost, drip lines under every plant and shade from the trellises. Not a drop is wasted: the water goes to the roots, never into the air. The greenhouse starts every seedling.", "o": [["Good to know", null]] },
+      { "t": "Most of it. Rosa at Sonoran Kitchen takes the chiles, corn and squash for her bowls, the coffee bar gets the citrus, and the eggs go to breakfast. The kitchens send their scraps back for the compost.", "o": [["A proper loop", null]] },
+      { "t": "The farm stand is right here. Whatever the kitchens did not take this morning is on the counter.", "o": [["Thanks", null]] }
+    ]
+  },
+  "extras": [
+    { "x": -455.4, "z": 88.2, "ry": -1.5708, "sit": true, "look": { "body": "m", "skin": "e8c19a", "shirt": "3a6ea5", "pants": "2b3a4a", "hair": 1, "hairc": "3a2416" } },
+    { "x": -457.3, "z": 93.6, "ry": -1.3, "look": { "body": "f", "skin": "8d5a3b", "shirt": "f5f1e6", "pants": "1c1f24", "hair": 2, "hairc": "1c1512" } }
+  ],
+  "hub": { "carts": [[-444.2, 101.6, 3.1416], [-444.2, 105.2, 3.1416], [-444.2, 108.8, 3.1416]] },
+  "transit": {
+    "stops": [["Solar Car Park (Shuttle Hub)", -462.5, 91], ["Convention Center (drop-off)", -205, -173.9]],
+    "hubMatch": "solar car park",
+    "hubSpeed": 5,
+    "baySpeed": 6,
+    "posts": [
+      { "match": "solar car park", "x": -458.9, "z": 81.4, "ry": -1.5708 },
+      { "match": "convention center", "x": -211.6, "z": -170.4, "ry": 3.1416 }
+    ]
+  },
+  "board": {
+    "title": "GRAND LOOP · SHUTTLE HUB",
+    "next": "NEXT SHUTTLE",
+    "boarding": "NOW BOARDING",
+    "colDest": "TO",
+    "colEta": "ARRIVES IN",
+    "dests": [
+      { "label": "Convention Center", "sub": "drop-off", "match": "convention center" },
+      { "label": "Stellar Aviation FBO", "sub": "Arrivals Court", "match": "arrivals court" },
+      { "label": "Main Street", "sub": "Four Corners", "match": "four corners" },
+      { "label": "The Commons", "sub": "Commons Circle", "match": "commons" }
+    ]
+  },
+  "routeMap": ["Solar Car Park", "Convention Center", "Link Plaza", "Arrivals Court (FBO)", "Crossing Plaza", "North Gate", "Night Field Gate", "Launch Complex", "Arcade Bay", "Stagecoach Stop", "Four Corners (Main Street)", "Corral Plaza", "Outpost Gate", "The Commons", "South Gate", "Golf Gate", "Flight Line Gate", "Propeller Plaza"],
+  "progress": { "park": "p_solar_park", "hub": "p_sp_shuttle_hub", "garden": "p_market_garden", "ride": "p_sp_ride_loop", "charge": "p_sp_charge", "stand": "p_garden_stand", "greenhouse": "p_sp_greenhouse", "farmer": "t_marisol" }
+}

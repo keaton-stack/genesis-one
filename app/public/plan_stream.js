@@ -79,7 +79,8 @@
           var parts = [];
           root.traverse(function (o) { if (!o.isMesh) return; var geo = o.geometry.clone(); geo.applyMatrix4(new THREE.Matrix4().copy(norm).multiply(o.matrixWorld)); try { sanitizeTangents(geo); } catch (e) {} if (window.R6MEM && R6MEM.hold) R6MEM.hold(geo);   /* R6: read again at the swap */ var pm = procMat(o.material); parts.push(pm.glass ? { geometry: geo, material: pm.mat, noShadow: true, noReceive: true } : { geometry: geo, material: pm.mat }); });
           if (!parts.length) { PS.n.proxyFail++; return res(false); }
-          var m = { norm: norm, bottom: box.min.y, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: 0, proxy: true };
+          var td = 0; try { if (typeof r8TrunkDrop === "function") td = r8TrunkDrop(spec, parts, norm, sz.y * s); } catch (e) {}   /* R8: trunk base at y = 0, as the full model will be */
+          var m = { norm: norm, bottom: box.min.y, trunkDrop: td, radius: Math.max(sz.x, sz.z) * s / 2, height: sz.y * s, sx: sz.x * s, sz: sz.z * s, sink: 0, proxy: true };
           Object.defineProperty(m, "_pp", { value: parts, writable: true, enumerable: false, configurable: true });
           Object.defineProperty(m, "parts", { get: function () { leak(k); return this._pp; }, set: function (v) { this._pp = v; }, enumerable: true, configurable: true });
           m.sink = spec.prop || spec.vehicle ? 0 : baseLift(parts, Math.max(sz.x, sz.z) * s);
