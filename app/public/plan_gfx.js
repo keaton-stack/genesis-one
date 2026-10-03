@@ -1682,6 +1682,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     } catch (e) { note("r9 warm probes", e); }
     GX.n.r9warmProbes = (GX.n.r9warmProbes || 0) + n; return n;
   };
+  GX.r9watch = interiorWatch;   // R9y: plan_perf builds the FBO once, hidden, to prepare its programs (HANDOFF_R9_HITCHES.md 5.2)
   GX._dbg = { TR: TR, SH: SH, PROBES: PROBES, IN: IN, SITE: SITE, CL: function () { return CL; }, floorsUniforms: floorsUniforms };
   // ═════════════════════════ registration (last: every table above is initialised by now) ═════════════════════════
   hook("world", "gfxWorld", worldHook); hook("defer", "gfxDefer", deferHook); hook("frame", "gfxFrame", frameHook);

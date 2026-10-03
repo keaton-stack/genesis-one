@@ -548,6 +548,77 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     }
     P.n.r9prompt = n; P.n.r9promptMs = Math.round(now() - t0); return n;
   }
+  // R9y (HANDOFF_R9_HITCHES.md 5.2): the FBO's furniture set (plan_terminal's TSET) loads lazily, 16 to 27 s after it is asked for,
+  // so the boot's room sample never saw it. On the first walk-in the room then needed about six new programs at once (the set's
+  // materials, and the box-projected copies plan_gfx makes of the floor-level materials for its room probe, before and after the
+  // probe's first capture). Three of them at 1.1 s each tied up the driver and a frame waited 0.1 to 0.9 s. Once the set has
+  // landed, while the player is outdoors, we build the room once in a single task (as the boot's sample does: entered and left in
+  // the same task, so no frame ever draws it; the screen fade, the sound and the network move are held for that task), keep a
+  // compile stand-in of every material it uses (and each probe copy a second time with a probe-sized cube), and then compile one
+  // program at a time, the next only when the last has linked. Walking in then finds them all ready. ?r9y=0 turns it off.
+  var R9Y = P.r9y = { st: 0, jobs: null, i: 0, cur: null, t: 0, n: { built: 0, jobs: 0, compiled: 0, skipped: 0, ms: 0, waitMs: 0 } };
+  function r9yOn() { return !!(window.R9 && R9.part("y")); }
+  function r9yCalm() { try { if (inside || riding || (FLY && FLY.on) || document.hidden) return false; if (typeof ARC !== "undefined" && ARC.on) return false; if (typeof golf !== "undefined" && golf.playing) return false; if (typeof cartMode !== "undefined" && cartMode) return false; if (typeof SIT !== "undefined" && SIT.on) return false; if (typeof airborne !== "undefined" && airborne) return false; var L = document.getElementById("load"); if (L && !L.classList.contains("off")) return false; } catch (e) { return false; } return true; }
+  function r9yClone(m) {   // a stand-in that compiles to the same program: the same parameters, hooks and program key
+    var c = m.clone(); var own = function (k) { return Object.prototype.hasOwnProperty.call(m, k); };
+    if (own("onBeforeCompile")) c.onBeforeCompile = m.onBeforeCompile; if (own("customProgramCacheKey")) c.customProgramCacheKey = m.customProgramCacheKey; if (m._userObc !== undefined) c._userObc = m._userObc; c.name = m.name; return c;
+  }
+  function r9yBuild() {
+    var e = PLACE.terminal[0], door = { kind: "terminal", i: 0, e: e, r: MODELS.terminal.radius * e[4] }, GXm = window.PLAN_GFX, jobs = [], seen = new Set(), t0 = now();
+    var keep = { p: player.position.clone(), yaw: yaw, pitch: pitch, ry: player.rotation.y, cp: camera.position.clone(), cq: camera.quaternion.clone() };
+    var W = window, held = {}; ["fade", "sfx", "pushMove", "updateCulling", "spawnHallWalkers", "solidifyGroup"].forEach(function (k) { if (typeof W[k] === "function") { held[k] = W[k]; W[k] = function () {}; } });   // held for this one task: the screen fade, the sound, the network move, and what only a real visit needs (culling, the hall's people, the room's collision)
+    var cube = null; try { if (GXm && !GXm.r9cube) GXm.r9cube = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter }); cube = GXm && GXm.r9cube ? GXm.r9cube.texture : null; } catch (x) {}
+    P.inFrame = (P.inFrame || 0) + 1;
+    try {
+      enterInterior(door); R9Y.n.enterMs = Math.round(now() - t0);
+      if (inside && inside.g) {
+        try { if (GXm && GXm.r9watch) GXm.r9watch(); } catch (x) { note("r9y floor", x); }
+        inside.g.updateMatrixWorld(true);
+        inside.g.traverse(function (o) { if (!o.isMesh || o.isSkinnedMesh || o.isBatchedMesh || !o.geometry) return; var ms = Array.isArray(o.material) ? o.material : [o.material];
+          ms.forEach(function (m) { if (!m || !m.isMaterial) return; var key = m.uuid + (o.isInstancedMesh ? "|i" + (o.instanceColor ? "c" : "") : ""); if (seen.has(key)) return; seen.add(key);
+            var c = r9yClone(m), px = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, c, 1) : new THREE.Mesh(o.geometry, c);
+            if (o.isInstancedMesh && o.instanceColor) px.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(3), 3);
+            px.castShadow = o.castShadow; px.receiveShadow = o.receiveShadow; px.frustumCulled = false; px.matrixAutoUpdate = false; px.matrix.copy(o.matrixWorld); px.matrixWorld.copy(o.matrixWorld);
+            var g = new THREE.Group(); g.name = "r9y stand-in"; g.add(px); var env0 = c.envMap;
+            jobs.push({ g: g, m: c, env: env0 });
+            var probe = false; try { probe = !!(o.userData && o.userData.gfxProbe) || /gfx:boxproj/.test(m.customProgramCacheKey()); } catch (x) {}
+            if (probe && cube && c.isMeshStandardMaterial) jobs.push({ g: g, m: c, env: cube, cube: true });   // the same copy after the probe's first capture
+          }); });
+      }
+    } catch (x) { note("r9y build", x); }
+    finally {
+      var tl = now(); try { if (inside) leaveInterior(); } catch (x) { note("r9y leave", x); } R9Y.n.leaveMs = Math.round(now() - tl);
+      try { if (GXm && GXm.r9watch) GXm.r9watch(); } catch (x) {}
+      P.inFrame--;
+      for (var k in held) W[k] = held[k];
+      player.position.copy(keep.p); yaw = keep.yaw; pitch = keep.pitch; player.rotation.y = keep.ry; camera.position.copy(keep.cp); camera.quaternion.copy(keep.cq);
+    }
+    R9Y.jobs = jobs; R9Y.i = 0; R9Y.n.built++; R9Y.n.jobs = jobs.length; R9Y.n.buildMs = Math.round(now() - t0);
+  }
+  function r9yReady(m) { var cp = null; try { cp = renderer.properties.get(m).currentProgram; } catch (e) {} return !cp || !cp.isReady || cp.isReady(); }
+  function r9yFrame() {
+    if (R9Y.st >= 3 || !r9yOn()) return; var PTm = window.PLAN_TERMINAL;
+    if (!R9Y.fw) { R9Y.fw = true; var f0 = window.fade; if (typeof f0 === "function") window.fade = function () { R9Y.fadeAt = now(); return f0.apply(this, arguments); }; }   // a door's fade to black: the build can hide behind it
+    if (R9Y.st === 0) {
+      if (!P.readyAt || !PTm || !PTm.tsetDone || (PTm.tsetMissing && PTm.tsetMissing().length)) return;
+      if (!(PLACE.terminal && PLACE.terminal.length && MODELS.terminal)) { R9Y.st = 3; return; }
+      if (!r9yCalm()) { R9Y.since = 0; try { if (inside && inside.door && inside.door.kind === "terminal") R9Y.st = 3; } catch (e) {} return; }   // walked in first: nothing left to prepare
+      var tn = now(); if (!R9Y.since) R9Y.since = tn; var black = R9Y.fadeAt && tn - R9Y.fadeAt > 200 && tn - R9Y.fadeAt < 300;   // the fade is fully dark 0.25 s after it starts
+      if (!black && tn - R9Y.since < 20000) return;   // otherwise at most 20 s of calm later: one 45 ms task, against a 0.1 to 0.9 s stall at the walk-in
+      R9Y.n.hidden = black; R9Y.st = 1; R9Y.t0 = tn; r9yBuild(); if (!R9Y.jobs || !R9Y.jobs.length) R9Y.st = 3; return;
+    }
+    if (R9Y.st === 1) {
+      try { if (inside && inside.door && inside.door.kind === "terminal") { r9yDone(); return; } } catch (e) {}   // walked in meanwhile: the room compiles the rest itself
+      if (R9Y.cur) { if (!r9yReady(R9Y.cur.m) && now() - R9Y.t < 8000) return; R9Y.n.waitMs += Math.round(now() - R9Y.t); pinPrograms(); R9Y.cur = null; }
+      if (!r9yCalm()) return;
+      var j = R9Y.jobs[R9Y.i++]; if (!j) { r9yDone(); return; }
+      var np = renderer.info.programs.length;
+      try { if (j.m.envMap !== j.env) { j.m.envMap = j.env; j.m.needsUpdate = true; } if (j.cube && !R9Y.pm) { j.env.needsPMREMUpdate = true; R9Y.pm = true; } compileGroup(j.g, false); } catch (e) { note("r9y compile", e); }
+      if (renderer.info.programs.length > np) { R9Y.n.compiled++; R9Y.cur = j; R9Y.t = now(); } else R9Y.n.skipped++;
+    }
+  }
+  function r9yDone() { pinPrograms(); (R9Y.jobs || []).forEach(function (j) { try { j.m.dispose(); } catch (e) {} }); R9Y.jobs = null; R9Y.cur = null; R9Y.st = 3; R9Y.n.ms = Math.round(now() - (R9Y.t0 || now())); }
+  P.r9yFrame = r9yFrame;
   async function runPre(hold) { P.inFrame = (P.inFrame || 0) + 1; try { return await runPre0(hold); } finally { P.inFrame--; } }   /* R5: the pre-compile renders never wait for a link either */
   async function runPre0(hold) {
     var t0 = now(), msg = document.getElementById("loadmsg"), deadline = t0 + P.K.preHold;
@@ -609,7 +680,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   (function hookAll() {
     var set = function (phase, name, fn) { var list = window.PLAN_HOOKS[phase]; for (var i = 0; i < list.length; i++) if (list[i] && list[i].name === name) { list[i].fn = fn; return; } list.push({ name: name, fn: fn }); };
     set("world", "perfWorld", function () { install(); });
-    set("frame", "perfFrame", function (dt, t) { try { cullFrame(t); } catch (e) { note("cull frame", e); } });
+    set("frame", "perfFrame", function (dt, t) { try { cullFrame(t); } catch (e) { note("cull frame", e); } try { r9yFrame(); } catch (e) { note("r9y", e); } });
   })();
 
   // ───────────────────────── indoor portal culling ─────────────────────────
