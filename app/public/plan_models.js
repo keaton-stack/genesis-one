@@ -3,6 +3,8 @@
 // A spec here uses the same shape as MODEL_SPECS in client.js, e.g. { size: 12 } or { height: 9, prop: true, solid: 0 };
 // optional extras read by loadModels: win: true (window shader), door: true (enterable, like the store).
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
+// R9 (HANDOFF_R9_HITCHES.md, hitches): ?r9=0 turns every R9 change off, ?r9<letter>=0 one part of it (letters in the handoff)
+window.R9 = window.R9 || (function () { var q = location.search, on = !/[?&]r9=0\b/.test(q); return { on: on, n: {}, part: function (k) { return on && !new RegExp("[?&]r9" + k + "=0(?![\\w])").test(q); } }; })();
 window.PLAN_MODEL_SPECS = window.PLAN_MODEL_SPECS || {};
 
 // ── the IMPL new-model kinds (C3 group A + C4 group B, registered by C5, 24 Sep 2026): 33 static kinds + the rigged host ──

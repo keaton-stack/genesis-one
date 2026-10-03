@@ -1638,6 +1638,21 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     } catch (err) { note("interior", err); }
   }
 
+  // R9p (HANDOFF_R9_HITCHES.md): a floor's probe-lit material is a new shader program (and new PMREM programs) the moment its room
+  // probe has captured its six faces, so the first visit to the GBANK hall and the FBO stalled 0.2 to 2 s at that moment. plan_perf
+  // calls this behind the loading screen: each probe's floor materials get a stand-in cube of the same size and format for one
+  // compile and one 4 px draw (draw(meshes, group) is plan_perf's), then their own environment back. Nothing on screen changes.
+  GX.r9warmProbes = async function (draw) {
+    if (!(window.R9 && R9.part("p"))) return 0; var n = 0;
+    try { if (!GX.r9cube) GX.r9cube = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+      var T = GX.r9cube.texture;
+      for (var i = 0; i < PROBES.length; i++) { var P = PROBES[i], list = [];
+        P.mats.forEach(function (x) { var cl = x[1]; if (!cl || cl.envMap === P.rt.texture) return; list.push([x[0], cl, cl.envMap]); cl.envMap = T; cl.needsUpdate = true; });
+        if (!list.length) continue; T.needsPMREMUpdate = true;
+        try { await draw(list.map(function (q) { return q[0]; }), P.cap); n += list.length; } finally { list.forEach(function (q) { q[1].envMap = q[2]; q[1].needsUpdate = true; }); } }
+    } catch (e) { note("r9 warm probes", e); }
+    GX.n.r9warmProbes = (GX.n.r9warmProbes || 0) + n; return n;
+  };
   GX._dbg = { TR: TR, SH: SH, PROBES: PROBES, IN: IN, SITE: SITE, CL: function () { return CL; }, floorsUniforms: floorsUniforms };
   // ═════════════════════════ registration (last: every table above is initialised by now) ═════════════════════════
   hook("world", "gfxWorld", worldHook); hook("defer", "gfxDefer", deferHook); hook("frame", "gfxFrame", frameHook);

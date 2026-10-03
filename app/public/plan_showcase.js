@@ -140,6 +140,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     });
   }
   // the polished sculpture: the generator painted a sky into its albedo; a true mirror steel reflects the game's own sky
+  function steel(m) { if (!m || m.userData.r3steel) return; m.map = null; m.color.setHex(0xe8eaec); m.metalness = 1; m.roughness = 0.07; m.roughnessMap = null; m.metalnessMap = null; m.envMapIntensity = 1.6; m.userData.r3steel = true; m.needsUpdate = true; }
+  // R9p: the full model is steeled before the stream's warm-up compiles and draws it (it was steeled after the swap: a new program at the first real draw)
+  try { if (window.R9 && R9.part("p")) { var SP = window.PLAN_STREAM_PREP = window.PLAN_STREAM_PREP || {}; SP.sculpt_mirror = function (full) { (full && full.parts || []).forEach(function (p) { steel(p.material); }); }; } } catch (e) {}
   function mirrorSteel() {
     try { var L = INST.sculpt_mirror; if (!L) return; L.forEach(function (inst) { var m = inst.material; if (!m || m.userData.r3steel) return; m.map = null; m.color.setHex(0xe8eaec); m.metalness = 1; m.roughness = 0.07; m.roughnessMap = null; m.metalnessMap = null; m.envMapIntensity = 1.6; m.userData.r3steel = true; m.needsUpdate = true; }); SC.n.mirror = "steel"; } catch (e) { note("mirror steel", e); }
   }

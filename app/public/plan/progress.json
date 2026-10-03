@@ -1096,7 +1096,7 @@
       "id": "convention",
       "n": 13,
       "name": "Solport Convention Center",
-      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Car Park and the Market Garden beside the Stellar FBO",
+      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Cart Park and the Market Garden beside the Stellar FBO",
       "ink": "#8a4a22",
       "stamps": [
         {
@@ -1222,7 +1222,7 @@
         {
           "n": 250,
           "id": "p_solar_park",
-          "name": "The Solar Car Park",
+          "name": "The Solar Cart Park",
           "x": -355,
           "z": 89,
           "r": 55

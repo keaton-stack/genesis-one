@@ -63,7 +63,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     for (var q = 0; q < 8; q++) bit("quest:" + q, 88 + q);
     (d.rides || []).forEach(function (r) { bit("ride:" + r.id, 96 + r.n); });
     bit("first:flight", 112); bit("first:landing", 113); bit("passport", 114);
-    S.rec = load(); S.cur = compute(S.rec); S.ready = true; S.dirty = true;
+    S.rec = load(); S.r9back = !!(S.rec && S.rec.vd); S.cur = compute(S.rec); S.ready = true; S.dirty = true;
     if (S.hooked) { safe("resolve", resolveStamps); addPaints(); }
     var q2 = S.queue.splice(0); q2.forEach(function (a) { API.award(a[0], a[1]); });
     emit("ready", API.state());
@@ -758,6 +758,18 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (e.code === (D().key || "KeyJ") && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { if (typeof FLY !== "undefined" && FLY.on) return; togglePassport(); e.preventDefault(); }
   }
   function placeToasts() { var c = $id("pp-chip"), t = $id("pp-toasts"); if (!c || !t || innerWidth <= 760) return; var r = c.getBoundingClientRect(); if (r.height) t.style.top = Math.round(r.bottom + 8) + "px"; }
+  /* R9t (HANDOFF_R9_HITCHES.md): a welcome toast about 3 s after the loading screen clears, at the spawn. Besides greeting the player
+     it makes the browser prepare the toast and chip-pulse shaders while the scene is calm: the first stamp toast used to arrive as
+     you walked into an interior, and preparing them then froze the frame for 0.1 to 1.9 s. ?r9t=0 turns it off. */
+  var R9T = !!(window.R9 && window.R9.part("t"));
+  function welcomeTick(now) {
+    var ld = $id("load"), fl = false; try { fl = !!FLY.on; } catch (e) {}
+    if (!S.built || !S.cur || !player || fl || (ld && !ld.classList.contains("off"))) { S.r9t0 = 0; return; }
+    if (!S.r9t0) { S.r9t0 = now; return; } if (now - S.r9t0 < 3000) return; S.r9w = true;
+    var nm = ""; try { nm = (localStorage.getItem("g1:name") || "").trim(); } catch (e) {}
+    var t = S.r9back ? (nm ? "Welcome back, " + nm : "Welcome back") : "Welcome to Genesis One";
+    toast(copy("welcomeK", "Sol Passport"), t, 0, false, insigniaSVG(S.cur.rank || 0, "w"));
+  }
   function hudTick() {
     var chip = $id("pp-chip"); if (!chip || !S.cur) return;
     var show = !!player && !(typeof FLY !== "undefined" && FLY.on); try { var ld = $id("load"); if (ld && !ld.classList.contains("off") && getComputedStyle(ld).opacity > 0.5) show = false; } catch (e) {}
@@ -946,6 +958,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (now - T.sync > 1000) { T.sync = now; safe("sync", syncTick); safe("impact", impactTick); }
     if (now - T.day > 10000 && player && !(typeof FLY !== "undefined" && FLY.on)) { T.day = now; var ok = false; try { ok = !!introduced || !view; } catch (e) { ok = true; } ["name", "creator"].forEach(function (id) { var el = $id(id); if (el && el.classList.contains("on")) ok = false; }); if (ok) safe("visit", doVisit); }
     if (now - T.hud > 200) { T.hud = now; safe("hud", hudTick); }
+    if (R9T && !S.r9w) safe("welcome", function () { welcomeTick(now); });
     safe("fx", function () { fxTick(dt, now); });
   } });
 

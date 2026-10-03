@@ -17,6 +17,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   var CV = window.PLAN_CONV = window.PLAN_CONV || {};
+  var R9V = !!(window.R9 && window.R9.part("v"));   // R9 (HANDOFF_R9_HITCHES.md): ?r9v=0 turns this module's hitch fixes off (finer build steps)
   CV.errs = CV.errs || []; CV.n = CV.n || { builds: 0, disposes: 0 }; CV.ver = "r7a";
   if (/[?&]conv=0\b/.test(location.search)) { CV.off = true; return; }
   var PI = Math.PI, TAU = PI * 2;
@@ -724,13 +725,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var lp0 = Hh.rake0 - 0.5 + Hh.rakeN * Hh.rakeP, ly = Hh.rakeR * (Hh.rakeN + 1); var lg = new THREE.PlaneGeometry(Hh.u1 - lp0, 2 * Hh.v); lg.rotateX(-PI / 2); K.place("carpet", lg, [0.9, 0.88, 0.86], (lp0 + Hh.u1) / 2, ly, 0); K.box("dark", [0.35, 0.33, 0.32], 0.04, Hh.rakeR, 2 * Hh.v, lp0, ly - Hh.rakeR / 2, 0); so((lp0 + Hh.u1) / 2, 0, Hh.u1 - lp0, 2 * Hh.v, -0.5, ly); S.landing = { u: (lp0 + Hh.u1) / 2, y: ly };
     yield 1;
     // the walls: red sandstone sides (portals cut), the stage wall and back wall in dark acoustic panels, copper reveals at the portals
-    [-1, 1].forEach(function (sd) { var vv = sd * (Hh.v - 0.02), t = 6;
+    for (var r9s = 0; r9s < 2; r9s++) { if (R9V && r9s) yield 1; (function (sd) { var vv = sd * (Hh.v - 0.02), t = 6;
       var wall = function (u0, u1, y0, y1) { var nu = Math.max(2, Math.round((u1 - u0) / 0.6)), ny = Math.max(2, Math.round((y1 - y0) / 0.22)); var g = new THREE.PlaneGeometry(u1 - u0, y1 - y0, nu, ny); var gp = g.attributes.position; for (var q5 = 0; q5 < gp.count; q5++) { var wx = gp.getX(q5) + (u0 + u1) / 2, wy = gp.getY(q5) + (y0 + y1) / 2; gp.setZ(q5, strata(wx, wy)); } g.computeVertexNormals(); g.rotateY(sd > 0 ? PI : 0); var gu = g.attributes.uv; for (var q3 = 0; q3 < gu.count; q3++) { var lx = gu.getX(q3), ly2 = gu.getY(q3); gu.setXY(q3, ((sd > 0 ? 1 - lx : lx) * (u1 - u0) + u0) / t, (ly2 * (y1 - y0) + y0) / t); } K.place("red", g, [1, 1, 1], (u0 + u1) / 2, (y0 + y1) / 2, vv); };
       wall(Hh.u0, Hh.portal[0], 0, Hh.ceil); wall(Hh.portal[1], Hh.u1, 0, Hh.ceil); wall(Hh.portal[0], Hh.portal[1], 3.2, Hh.ceil);
       K.box("copper", [1, 0.9, 0.82], Hh.portal[1] - Hh.portal[0] + 0.5, 0.25, 0.5, (Hh.portal[0] + Hh.portal[1]) / 2, 3.3, vv); [Hh.portal[0], Hh.portal[1]].forEach(function (pu) { K.box("copper", [1, 0.9, 0.82], 0.25, 3.3, 0.5, pu, 1.65, vv); });
       K.box("emit", [0.35, 1.0, 0.5], 0.8, 0.22, 0.04, (Hh.portal[0] + Hh.portal[1]) / 2, 3.75, vv - sd * 0.06);
       // the uplight pools at the foot of the walls (scalloped, every 6 m), the saguaros' planters
-      for (var u = Hh.u0 + 3; u < Hh.u1 - 2; u += 6) { var gq = new THREE.PlaneGeometry(3.4, 5.5); gq.rotateY(sd > 0 ? PI : 0); K.place("glow", gq, [1, 0.6, 0.3], u, 2.0, vv - sd * 0.05); } });
+      for (var u = Hh.u0 + 3; u < Hh.u1 - 2; u += 6) { var gq = new THREE.PlaneGeometry(3.4, 5.5); gq.rotateY(sd > 0 ? PI : 0); K.place("glow", gq, [1, 0.6, 0.3], u, 2.0, vv - sd * 0.05); } })(r9s ? 1 : -1); }
     var back = function (u, w, y0, y1, face) { var g = new THREE.PlaneGeometry(w, y1 - y0); g.rotateY(face); var gu = g.attributes.uv; for (var q4 = 0; q4 < gu.count; q4++) gu.setXY(q4, gu.getX(q4) * w / 2, gu.getY(q4) * (y1 - y0) / 2); K.place("dark", g, [0.55, 0.52, 0.5], u, (y0 + y1) / 2, 0); };
     back(Hh.u0 + 0.02, 2 * Hh.v, 0, Hh.ceil, PI / 2); back(Hh.u1 - 0.02, 2 * Hh.v, ly, Hh.ceil, -PI / 2);
     yield 1;
@@ -756,7 +757,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       [21.6, 28.6].forEach(function (vb) { K.box("emit", [0.7, 0.55, 1.0], 0.12, 9.5, 0.12, su0 + 3.4, 6.6, sd * vb); }); K.box("emit", [0.55, 0.6, 1.0], 0.12, 7.5, 0.12, su0 + 0.6, 6.5, sd * 13.6); });
     yield 1;
     // the lighting rig: two box trusses over the stage front, cross trusses, chain hoists to the ceiling, moving heads, line arrays
-    var tY = 12.2, tu1 = st[1] - 1.2, tu2 = st[0] + 4.5; trussK(K, V3(tu1, tY, -27), V3(tu1, tY, 27)); trussK(K, V3(tu2, tY + 0.5, -27), V3(tu2, tY + 0.5, 27)); [-27, -9, 9, 27].forEach(function (vv) { trussK(K, V3(tu2, tY + 0.5, vv), V3(tu1, tY, vv), 0.32); });
+    var tY = 12.2, tu1 = st[1] - 1.2, tu2 = st[0] + 4.5; trussK(K, V3(tu1, tY, -27), V3(tu1, tY, 27)); if (R9V) yield 1; trussK(K, V3(tu2, tY + 0.5, -27), V3(tu2, tY + 0.5, 27)); if (R9V) yield 1; [-27, -9, 9, 27].forEach(function (vv) { trussK(K, V3(tu2, tY + 0.5, vv), V3(tu1, tY, vv), 0.32); }); if (R9V) yield 1;
     [-24, -8, 8, 24].forEach(function (vv) { [tu1, tu2].forEach(function (uu) { K.tube("metal", [0.25, 0.25, 0.26], V3(uu, tY + 0.3, vv), V3(uu, Hh.ceil + 0.5, vv), 0.012, 3); K.box("dark", [0.15, 0.15, 0.16], 0.3, 0.4, 0.3, uu, tY + 1.2, vv); }); });
     L.fix = []; [[tu1, tY - 0.32], [tu2, tY + 0.18]].forEach(function (q, li) { for (var vv = -25; vv <= 25.01; vv += 2.5) { K.box("dark", [0.12, 0.12, 0.13], 0.36, 0.12, 0.36, q[0], q[1] + 0.1, vv); K.box("dark", [0.12, 0.12, 0.13], 0.06, 0.34, 0.34, q[0], q[1] - 0.1, vv); K.cyl("dark", [0.1, 0.1, 0.11], 0.14, 0.12, 0.3, q[0], q[1] - 0.25, vv, 10); K.cyl("emit", [0.85, 0.9, 1.0], 0.1, 0.1, 0.02, q[0], q[1] - 0.41, vv, 10); L.fix.push({ u: q[0], y: q[1] - 0.41, v: vv, li: li }); } });
     [-1, 1].forEach(function (sd) { for (var b2 = 0; b2 < 9; b2++) { var ang = b2 * 0.045; K.box("dark", [0.07, 0.07, 0.08], 0.75, 0.42, 1.25, st[1] + 0.6 + b2 * b2 * 0.012, 11.2 - b2 * 0.44, sd * 26.2, 0, 0, -ang); } K.tube("metal", [0.2, 0.2, 0.2], V3(st[1] + 0.6, 11.4, sd * 26.2), V3(st[1] + 0.6, Hh.ceil + 0.4, sd * 26.2), 0.02, 4); });

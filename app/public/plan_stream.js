@@ -145,8 +145,12 @@
     }, function (e) { PARSING = false; MODELS[k] = px; PS.st[k] = "failed"; PS.n.failed++; note("parse " + k, e); kick(); });
   }
   // the full model's materials compile (instanced, as drawn) and its textures upload in idle slices before the swap uses them
+  /* R9p (HANDOFF_R9_HITCHES.md): window.PLAN_STREAM_PREP[kind](model) (or PLAN_STREAM.prep) lets a module change a streamed model's materials before the warm-up
+     compiles and draws them (a change made after the swap was a new shader program at the first real draw: a 0.2 to 0.6 s stall) */
+  PS.prep = PS.prep || {};
   function warm(k) {
     var P = window.PLAN_PERF, full = FULL[k]; PS.st[k] = "warm";
+    { var pf = (window.PLAN_STREAM_PREP || {})[k] || PS.prep[k]; if (pf && window.R9 && R9.part("p")) { try { pf(full); } catch (e) { note("prep " + k, e); } } }
     if (PS.force || FORCEK[k] || !P || !P.warmGroup || !P.K || !P.K.warm) { PS.st[k] = "ready"; READYT[k] = now(); kick(); return; }
     try { var g = new THREE.Group(); g.name = "stream warm " + k; g.visible = false; var mt = new THREE.Matrix4(); full.parts.forEach(function (p) { var im = new THREE.InstancedMesh(p.geometry, p.material, 1); im.setMatrixAt(0, mt); im.frustumCulled = false; g.add(im); });
       P.warmGroup(g, { detached: true, name: "stream " + k }); setTimeout(function () { if (PS.st[k] === "warm") { PS.st[k] = "ready"; READYT[k] = now(); PS.n.warmLate = (PS.n.warmLate || 0) + 1; kick(); } }, 6000); P.queue(function () { if (PS.st[k] === "warm") { PS.st[k] = "ready"; READYT[k] = now(); kick(); } g.children.forEach(function (im) { try { im.dispose(); } catch (e) {} }); return true; });

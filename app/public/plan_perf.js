@@ -389,9 +389,14 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // geometry buffers: a 4 px render of just these meshes (layer 30; every scene light is on layer 30 too, so the program is the main pass's)
   var GEOW = new WeakSet(), WR = { rt: null, cam: null };
   function lightsOn30() { var L = [hemi, sun, moon, P.hemi]; try { LIGHTS.pool.forEach(function (l) { L.push(l); }); LIGHTS.spool.forEach(function (l) { L.push(l); }); } catch (e) {} try { if (CSMX.csm) CSMX.csm.lights.forEach(function (l) { L.push(l); }); } catch (e) {} try { if (inside && inside.g) inside.g.traverse(function (o) { if (o.isHemisphereLight) L.push(o); }); } catch (e) {} for (var i = 0; i < L.length; i++) if (L[i] && L[i].layers) L[i].layers.enable(30); }
+  // R9w: the 4 px warm-up target has the main pass's formats (half-float colour, a 32-bit depth texture) so that the driver's own
+  // shader variants for that target are built during the warm-up and not at the mesh's first real draw (a 200 to 650 ms GPU stall
+  // each). ?r9w=0: the plain 8-bit target of before.
+  var R9W = !!(window.R9 && window.R9.part("w"));
+  function r9WarmRT() { var rt = new THREE.WebGLRenderTarget(4, 4, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: true, stencilBuffer: false }); rt.depthTexture = new THREE.DepthTexture(4, 4, THREE.UnsignedIntType); return rt; }
   function warmMeshes(list, attach) {
     var rt = mainRT(); if (!rt) { list.forEach(function (m) { GEOW.add(m.geometry); }); return; }   // no post target (low tier): a 4 px render would compile another variant
-    if (!WR.rt) { WR.rt = new THREE.WebGLRenderTarget(4, 4); WR.cam = new THREE.PerspectiveCamera(60, 1, 0.1, 10); WR.cam.layers.set(30); }
+    if (!WR.rt) { WR.rt = R9W ? r9WarmRT() : new THREE.WebGLRenderTarget(4, 4); WR.cam = new THREE.PerspectiveCamera(60, 1, 0.1, 10); WR.cam.layers.set(30); }
     lightsOn30(); var added = false; if (attach && !attach.parent) { scene.add(attach); added = true; }
     var sv = [], anc = [];
     for (var i = 0; i < list.length; i++) { var m = list[i]; var root = m; while (root.parent) root = root.parent; if (root !== scene) continue; sv.push([m, m.layers.mask, m.frustumCulled, m.visible]); m.layers.enable(30); m.frustumCulled = false; m.visible = true; for (var p = m.parent; p && p !== scene; p = p.parent) if (!p.visible) { anc.push(p); p.visible = true; } }
@@ -451,6 +456,24 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function both(g) { compileGroup(g, false); compileGroup(g, false, true); pinPrograms(); }
   // the client's own rooms (the FBO terminal, the arcade, then one of each other enterable kind, most common first): entered and
   // left again in one task, so no frame ever draws the player in there; the player, view and camera are put back afterwards
+  // R9p: content first drawn long after load, compiled (waiting for the link) and drawn once into the warm-up target behind the
+  // loading screen: the flight's gates and runway aids (plan_flight builds them once; they wait hidden between flights anyway) and
+  // a stand-in for the client's fireworks (the first one of a session was a new program and a 110 ms stall)
+  // wait (a frame at a time, at most ms) until the programs of these objects have linked; a material disposed meanwhile is skipped
+  // (three's compileAsync polls a disposed material's program and throws, so it is not used here)
+  async function r9Ready(objs, ms) { var t0 = now(), ms0 = []; objs.forEach(function (o) { var m = o.material; (Array.isArray(m) ? m : [m]).forEach(function (x) { if (x && ms0.indexOf(x) < 0) ms0.push(x); }); });
+    for (;;) { var left = 0; for (var i = 0; i < ms0.length; i++) { var cp = null; try { cp = renderer.properties.get(ms0[i]).currentProgram; } catch (e) {} if (cp && cp.isReady && !cp.isReady()) left++; } if (!left || now() - t0 > ms) return left; await nextFrame(); } }
+  async function r9WarmExtras() {
+    var roots = [], tmp = null; var FLm = window.PLAN_FLIGHT; if (FLm && FLm.r9prep) { try { roots = roots.concat(FLm.r9prep()); } catch (e) { note("pre flight", e); } }
+    try { var pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3), 3)); tmp = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })); tmp.frustumCulled = false; tmp.name = "r9 warm points"; scene.add(tmp); roots.push(tmp); } catch (e) { note("pre points", e); }
+    try { roots.forEach(function (r) { compileGroup(r, false); }); var list = []; roots.forEach(function (r) { r.traverse(function (o) { if (o.isMesh || o.isLine || o.isSprite || o.isPoints) list.push(o); }); });
+      await r9Ready(list, 6000); warmMeshes(list, null); pinPrograms(); P.n.r9extras = list.length;
+    } finally { if (tmp) { scene.remove(tmp); tmp.geometry.dispose(); tmp.material.dispose(); } }
+  }
+  // R9p: probe-lit floors (plan_gfx) compiled with a stand-in probe and drawn once into the warm-up target while the loading screen is up
+  async function r9WarmProbes() { var GXm = window.PLAN_GFX; if (!GXm || !GXm.r9warmProbes) return 0;
+    return GXm.r9warmProbes(async function (meshes, grp) { var roots = []; meshes.forEach(function (m) { var r = m; while (r.parent && r.parent !== scene) r = r.parent; if (roots.indexOf(r) < 0) roots.push(r); });
+      roots.forEach(function (r) { compileGroup(r, false); }); await r9Ready(meshes, 6000); warmMeshes(meshes, null); pinPrograms(); }); }
   async function sampleRooms(say, deadline) {
     if (typeof enterInterior !== "function" || inside || (FLY && FLY.on) || riding) return;
     var IN = window.PLAN_INTERIORS, H = window.PLAN_HANGARS; var skip = {}; try { for (var t in IN.api.TYPES) skip[t] = 1; } catch (e) {} try { skip.hangar_exec = 1; } catch (e) {}
@@ -462,7 +485,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       say("Preparing the graphics: " + (k === "terminal" ? "the Stellar FBO" : k === "arcade" ? "the arcade" : "interiors " + Math.round(100 * i / kinds.length) + "%"));
       var keep = { p: player.position.clone(), yaw: yaw, pitch: pitch, ry: player.rotation.y, cp: camera.position.clone(), cq: camera.quaternion.clone() };
       try { enterInterior({ kind: k, i: 0, e: e, r: MODELS[k].radius * e[4] }); if (inside && inside.g) { try { collectLights(); } catch (x) {} both(inside.g); n++; } } catch (err) { note("pre room " + k, err); }
-      if (k === "terminal" && inside && inside.g) { await nextFrame(); await nextFrame(); pinPrograms(); }   // two frames in the FBO behind the loading screen: the gfx floor probe and the hall pay their first-time costs here
+      if (k === "terminal" && inside && inside.g) { await nextFrame(); await nextFrame(); pinPrograms(); if (window.R9 && R9.part("p")) { try { await r9WarmProbes(); } catch (e) { note("pre probes fbo", e); } } }   // two frames in the FBO behind the loading screen: the gfx floor probe and the hall pay their first-time costs here
       try { if (inside) leaveInterior(); } catch (err) { note("pre leave " + k, err); }
       player.position.copy(keep.p); yaw = keep.yaw; pitch = keep.pitch; player.rotation.y = keep.ry; camera.position.copy(keep.cp); camera.quaternion.copy(keep.cq);
       await nextFrame();
@@ -506,6 +529,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (hold) { try { await sampleRooms(say, t0 + P.K.preHold * 0.55); } catch (e) { note("pre rooms", e); } }
     try { sampleModules(); } catch (e) { note("pre modules", e); }
     if (hold) sampleCabin();
+    if (hold && window.R9 && R9.part("p")) { try { await r9WarmProbes(); } catch (e) { note("pre probes", e); } }
+    if (hold && window.R9 && R9.part("p")) { try { await r9WarmExtras(); } catch (e) { note("pre extras", e); } }   // R9p: the GBANK hall floor (the FBO's is done inside sampleRooms)
     try { collectLights(); } catch (e) {}
     try { compileGroup(scene, false); } catch (e) { note("pre scene", e); }
     P.n.preIssued = renderer.info.programs.length - c0;
@@ -947,6 +972,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function G(name) { var v = GC[name]; if (v !== undefined) return v; try { v = (0, eval)(name); } catch (e) { return undefined; } if (v !== undefined && v !== null && CONST[name]) GC[name] = v; return v; }
   function tierOf(S2, t) { return t === 0 ? S2.insts : t === 1 ? S2.far : S2.far2; }
   // nearest-first instance buffers (outdoors; indoors plan_perf's portal culling owns them)
+  var R9G = !!(window.R9 && window.R9.part("g"));
   function sortInst(force) {
     if (D.csm === null) return;   /* the order only serves the cascades: nothing to do without them (low, medium) */
     var IS = G("INSTSET"), cam = G("camera"); if (!IS || !cam) return; var ic = P.ic; if (ic && ic.kind) { D.indoor = true; return; } D.indoor = false;
@@ -957,11 +983,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         for (var q = 0; q < arr.length; q++) if (!D.tier.has(arr[q])) D.tier.set(arr[q], { S: S2, t: tt, i: q });
         if (!all && rec && rec.ver === m0.instanceMatrix.version && rec.n === n) continue;
         if (!n || !m0.visible) { D.sorted.set(m0, { ver: m0.instanceMatrix.version, n: n, d: null, x: cx, z: cz }); continue; }
-        var src = m0.instanceMatrix.array, ord = new Array(n), dd = new Float32Array(n);
-        for (var k = 0; k < n; k++) { var b = k * 16, dx = src[b + 12] - cx, dz = src[b + 14] - cz; ord[k] = [dx * dx + dz * dz, k]; }
-        ord.sort(function (a, c) { return a[0] - c[0]; }); var same = true; for (var k2 = 0; k2 < n; k2++) { dd[k2] = Math.sqrt(ord[k2][0]); if (ord[k2][1] !== k2) same = false; }
+        var src = m0.instanceMatrix.array, dd = new Float32Array(n), same = true, ordI;
+        if (R9G) {   /* R9g: the same stable order by distance, sorted as indices into typed arrays (was one small array per instance per sort) */
+          var KY = D.r9k && D.r9k.length >= n ? D.r9k : (D.r9k = new Float64Array(Math.max(n, 1024))), IX = D.r9i && D.r9i.length >= n ? D.r9i : (D.r9i = new Uint32Array(Math.max(n, 1024)));
+          for (var k = 0; k < n; k++) { var b = k * 16, dx = src[b + 12] - cx, dz = src[b + 14] - cz; KY[k] = dx * dx + dz * dz; IX[k] = k; }
+          ordI = IX.subarray(0, n); ordI.sort(function (a, c) { return (KY[a] - KY[c]) || (a - c); }); for (var k2 = 0; k2 < n; k2++) { dd[k2] = Math.sqrt(KY[ordI[k2]]); if (ordI[k2] !== k2) same = false; }
+        } else { var ord = new Array(n);
+          for (var k = 0; k < n; k++) { var b = k * 16, dx = src[b + 12] - cx, dz = src[b + 14] - cz; ord[k] = [dx * dx + dz * dz, k]; }
+          ord.sort(function (a, c) { return a[0] - c[0]; }); for (var k2 = 0; k2 < n; k2++) { dd[k2] = Math.sqrt(ord[k2][0]); if (ord[k2][1] !== k2) same = false; } }
         if (!same) { var tmp = D.tmp && D.tmp.length >= n * 16 ? D.tmp : (D.tmp = new Float32Array(Math.max(n * 16, 4096)));
-          for (var q2 = 0; q2 < arr.length; q2++) { var a2 = arr[q2].instanceMatrix.array; for (var k3 = 0; k3 < n; k3++) { var f = ord[k3][1] * 16, g = k3 * 16; for (var j = 0; j < 16; j++) tmp[g + j] = a2[f + j]; } for (var j2 = 0; j2 < n * 16; j2++) a2[j2] = tmp[j2]; arr[q2].instanceMatrix.needsUpdate = true; } }
+          for (var q2 = 0; q2 < arr.length; q2++) { var a2 = arr[q2].instanceMatrix.array; for (var k3 = 0; k3 < n; k3++) { var f = (R9G ? ordI[k3] : ord[k3][1]) * 16, g = k3 * 16; for (var j = 0; j < 16; j++) tmp[g + j] = a2[f + j]; } for (var j2 = 0; j2 < n * 16; j2++) a2[j2] = tmp[j2]; arr[q2].instanceMatrix.needsUpdate = true; } }
         D.sorted.set(m0, { ver: m0.instanceMatrix.version, n: n, d: dd, x: cx, z: cz }); D.n.sorts++; } }
   }
   function upper(d, v) { var lo = 0, hi = d.length; while (lo < hi) { var mid = (lo + hi) >> 1; if (d[mid] <= v) lo = mid + 1; else hi = mid; } return lo; }
@@ -1126,4 +1157,64 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   if (D.on && HK && HK.frame) HK.frame.push({ name: "r6Draw", fn: function () { if (!D.installed) { if (!dInstall()) return; } try { frameSetup(); if ((D.f = (D.f || 0) + 1) % 30 === 1) lodDist(); sortInst(false); } catch (e) { note("draw frame", e); } if (BT.on && P.readyAt && performance.now() - P.readyAt > 10000) { try { checkSome(); if ((D.f & 7) === 0) batchStep(); } catch (e) { note("batch frame", e); } } } });
   var tries = 0; (function early() { chunks(); if (++tries < 400 && !(typeof CSMX !== "undefined" && CSMX && CSMX.csm)) setTimeout(early, 25); else chunks(); })();
+})();
+// ───────────────────────────── R9: hitches (HANDOFF_R9_HITCHES.md) ─────────────────────────────
+// Brief frame freezes found with CPU profiles of a scripted ultra tour on the real GPU, fixed without changing what is drawn.
+// ?r9=0 turns every R9 part off (client.js and the plan modules too), ?r9<letter>=0 one part. R9.n counts, R9.errs errors.
+(function () {
+  "use strict";
+  var R9 = window.R9; if (!R9 || !R9.on || typeof THREE === "undefined") return;
+  R9.errs = R9.errs || []; R9.n = R9.n || {};
+  function note(w, e) { try { R9.errs.push(w + ": " + (e && e.message || e)); if (R9.errs.length > 40) R9.errs.shift(); console.warn("R9 " + w, e); } catch (x) {} }
+  R9.note = note;
+  // R9s: a skinned mesh's bounding sphere. three computes it on the CPU the first time the mesh is culled, by skinning every vertex
+  // (85 to 100 ms in one frame for the people of an interior, a crowd or a hall). The sphere is now computed once per geometry from
+  // at most about 2,500 of its vertices, skinned the same way, made 15 per cent larger, and every mesh drawing that geometry (each
+  // clone of the same rig) copies it. Only culling reads it: three keeps the first frame's pose anyway, so a person is never culled
+  // while on screen.
+  if (R9.part("s") && THREE.SkinnedMesh) {
+    var SM = THREE.SkinnedMesh.prototype, c0 = SM.computeBoundingSphere, SPH = new WeakMap(), _sv = new THREE.Vector3();
+    SM.computeBoundingSphere = function () {
+      try {
+        var g = this.geometry, pos = g && g.getAttribute ? g.getAttribute("position") : null;
+        if (!pos || !this.skeleton || pos.isInterleavedBufferAttribute) return c0.apply(this, arguments);
+        if (this.boundingSphere === null) this.boundingSphere = new THREE.Sphere();
+        var hit = SPH.get(g); if (hit) { this.boundingSphere.copy(hit); R9.n.skinHit = (R9.n.skinHit || 0) + 1; return; }
+        var t0 = performance.now(), S = this.boundingSphere, n = pos.count, step = Math.max(1, Math.ceil(n / 2500)); S.makeEmpty();
+        for (var i = 0; i < n; i += step) { this.getVertexPosition(i, _sv); S.expandByPoint(_sv); }
+        if (n > 0) { this.getVertexPosition(n - 1, _sv); S.expandByPoint(_sv); }
+        S.radius *= 1.15; SPH.set(g, S.clone()); R9.n.skin = (R9.n.skin || 0) + 1; R9.n.skinMs = (R9.n.skinMs || 0) + (performance.now() - t0);
+      } catch (e) { note("skin sphere", e); return c0.apply(this, arguments); }
+    };
+  }
+  // R9m: vertex loops. three transforms and bounds geometry one vertex at a time through generic accessors (getX, setXYZ, a scratch
+  // vector); streaming a model in (loadOne: clone, applyMatrix4, bounds for every part) took 50 to 67 ms in one task every few
+  // seconds while walking. For plain float attributes the same arithmetic, in the same order, now runs on the array directly
+  // (bit-identical results); anything else (normalized, interleaved, other array types, morph targets) keeps three's own code.
+  if (R9.part("m") && THREE.BufferAttribute && THREE.Box3 && THREE.BufferGeometry) {
+    var BA = THREE.BufferAttribute.prototype, am0 = BA.applyMatrix4, an0 = BA.applyNormalMatrix, td0 = BA.transformDirection;
+    var plain = function (a) { return a && !a.normalized && a.itemSize >= 3 && a.array instanceof Float32Array; };
+    BA.applyMatrix4 = function (m) { if (!plain(this)) return am0.call(this, m); var A = this.array, s = this.itemSize, n = this.count, e = m.elements;
+      var e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4], e5 = e[5], e6 = e[6], e7 = e[7], e8 = e[8], e9 = e[9], e10 = e[10], e11 = e[11], e12 = e[12], e13 = e[13], e14 = e[14], e15 = e[15];
+      for (var i = 0, o = 0; i < n; i++, o += s) { var x = A[o], y = A[o + 1], z = A[o + 2], w = 1 / (e3 * x + e7 * y + e11 * z + e15); A[o] = (e0 * x + e4 * y + e8 * z + e12) * w; A[o + 1] = (e1 * x + e5 * y + e9 * z + e13) * w; A[o + 2] = (e2 * x + e6 * y + e10 * z + e14) * w; }
+      R9.n.xf = (R9.n.xf || 0) + 1; return this; };
+    BA.applyNormalMatrix = function (m) { if (!plain(this)) return an0.call(this, m); var A = this.array, s = this.itemSize, n = this.count, e = m.elements;
+      var e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4], e5 = e[5], e6 = e[6], e7 = e[7], e8 = e[8];
+      for (var i = 0, o = 0; i < n; i++, o += s) { var x = A[o], y = A[o + 1], z = A[o + 2]; var X = e0 * x + e3 * y + e6 * z, Y = e1 * x + e4 * y + e7 * z, Z = e2 * x + e5 * y + e8 * z; var k = 1 / (Math.sqrt(X * X + Y * Y + Z * Z) || 1); A[o] = X * k; A[o + 1] = Y * k; A[o + 2] = Z * k; }
+      return this; };
+    BA.transformDirection = function (m) { if (!plain(this)) return td0.call(this, m); var A = this.array, s = this.itemSize, n = this.count, e = m.elements;
+      var e0 = e[0], e1 = e[1], e2 = e[2], e4 = e[4], e5 = e[5], e6 = e[6], e8 = e[8], e9 = e[9], e10 = e[10];
+      for (var i = 0, o = 0; i < n; i++, o += s) { var x = A[o], y = A[o + 1], z = A[o + 2]; var X = e0 * x + e4 * y + e8 * z, Y = e1 * x + e5 * y + e9 * z, Z = e2 * x + e6 * y + e10 * z; var k = 1 / (Math.sqrt(X * X + Y * Y + Z * Z) || 1); A[o] = X * k; A[o + 1] = Y * k; A[o + 2] = Z * k; }
+      return this; };
+    var B3 = THREE.Box3.prototype, sb0 = B3.setFromBufferAttribute;
+    B3.setFromBufferAttribute = function (a) { if (!plain(a)) return sb0.call(this, a); var A = a.array, s = a.itemSize, n = a.count, x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+      for (var i = 0, o = 0; i < n; i++, o += s) { var x = A[o], y = A[o + 1], z = A[o + 2]; x0 = Math.min(x0, x); y0 = Math.min(y0, y); z0 = Math.min(z0, z); x1 = Math.max(x1, x); y1 = Math.max(y1, y); z1 = Math.max(z1, z); }
+      this.min.set(x0, y0, z0); this.max.set(x1, y1, z1); return this; };
+    var BG = THREE.BufferGeometry.prototype, cs0 = BG.computeBoundingSphere, _bb = new THREE.Box3();
+    BG.computeBoundingSphere = function () { var p = this.attributes.position; if (!plain(p) || this.morphAttributes.position) return cs0.apply(this, arguments);
+      if (this.boundingSphere === null) this.boundingSphere = new THREE.Sphere(); var c = this.boundingSphere.center; _bb.setFromBufferAttribute(p); _bb.getCenter(c);
+      var A = p.array, s = p.itemSize, n = p.count, cx = c.x, cy = c.y, cz = c.z, r2 = 0;
+      for (var i = 0, o = 0; i < n; i++, o += s) { var dx = cx - A[o], dy = cy - A[o + 1], dz = cz - A[o + 2]; r2 = Math.max(r2, dx * dx + dy * dy + dz * dz); }
+      this.boundingSphere.radius = Math.sqrt(r2); if (isNaN(this.boundingSphere.radius)) console.error('THREE.BufferGeometry.computeBoundingSphere(): Computed radius is NaN. The "position" attribute is likely to have NaN values.', this); };
+  }
 })();

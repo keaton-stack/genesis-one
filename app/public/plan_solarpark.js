@@ -1,8 +1,9 @@
-// R8 SOLAR PARK (2 Oct 2026): the Solar Car Park, the Shuttle Hub and the Market Garden of the Solport Convention Center campus,
+// R8 SOLAR PARK (2 Oct 2026): the Solar Cart Park, the Shuttle Hub and the Market Garden of the Solport Convention Center campus,
 // on the strip between the Market Hall's south wall (z 46) and the backs of the Flight Line Market shops (z 131), x -470..-138.
-//   - the Solar Car Park (x -466..-244): five rows of steel solar carport canopies (mono-slope, dark PV modules with frames, LED
+//   - the Solar Cart Park (x -466..-244): five rows of steel solar carport canopies (mono-slope, dark PV modules with frames, LED
 //     downlights after dark), 448 painted bays on asphalt, accessible and EV bays, 70 EV charging pedestals, planted islands of palo
-//     verde, mesquite and agave, about 380 parked cars (three generated models, two LODs, BatchedMesh, colour per car).
+//     verde, mesquite and agave, about 230 parked golf carts (the game's own cart model, two to a bay, three clustered LODs, colour and canopy
+//     per cart, many on charge) and about ten cars (three generated models) in the accessible bays and by the connector.
 //   - the Shuttle Hub (x -466..-433): a drop-off loop round a transit island with a branded shelter, benches, the Grand Loop route
 //     map, a live arrivals board (next shuttle to the FBO, Main Street, the Commons and the Convention Center), cart and bike share.
 //     The Grand Loop shuttle is re-routed at run time (planRoute is wrapped) to call here and at the Convention Center drop-off.
@@ -213,6 +214,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ───────────────────────── the layout: rows, segments, bays, islands, chargers, cars; the garden's pieces ─────────────────────────
   var LAY = SP.lay = null;
   var CAR_COLS = [[0xf2f2f0, 22], [0xd9dbdd, 8], [0x9da2a7, 14], [0x5d6267, 10], [0x1c1d20, 14], [0x23314f, 7], [0x8e1c1c, 6], [0xc9b99a, 5], [0x2c4a3a, 4], [0x6b2430, 3], [0xb7c3cc, 4], [0x3f6f9a, 3]];
+  var CART_BODY = [[0x2f8f45, 30], [0xf2f1ea, 16], [0xe8dcc0, 8], [0x1c1d20, 8], [0xb8bcc0, 8], [0x8e1c1c, 6], [0x23477a, 6], [0x4dde6f, 5], [0xc9a95a, 4], [0x5a6b3a, 4]];
   function pickW(R, list) { var t = 0; list.forEach(function (q) { t += q[1]; }); var r = R() * t; for (var i = 0; i < list.length; i++) { r -= list[i][1]; if (r <= 0) return list[i][0]; } return list[0][0]; }
   function layout() {
     if (LAY) return LAY; site(); var R = rng(8031), L = LAY = SP.lay = { rows: [], segs: [], bays: [], islands: [], chargers: [], columns: [], cars: [] };
@@ -227,9 +229,17 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       for (var k2 = 0; k2 < S.NSEG - 1; k2++) L.islands.push({ x0: S.segX0(k2) + S.SEGW + 0.25, x1: S.segX0(k2 + 1) - 0.25, z0: row.z0 + 0.3, z1: row.z1 - 0.3, row: row.id, tree: true });
       L.islands.push({ x0: S.WA.x + S.WA.w / 2 + 0.3, x1: S.RX0 - 0.3, z0: row.z0 + 0.3, z1: row.z1 - 0.3, row: row.id, end: "w" }); L.islands.push({ x0: S.RX1 + 0.3, x1: S.EA.x - S.EA.w / 2 - 0.3, z0: row.z0 + 0.3, z1: row.z1 - 0.3, row: row.id, end: "e", tree: true });
     });
-    // parked cars: most bays taken (accessible ones half), never the hatched access aisles; nose into the bay, a little jitter
-    L.bays.forEach(function (b) { if (b.hatch) return; if (R() > (b.acc ? 0.5 : 0.86)) return; var t = R(), type = t < 0.42 ? 0 : t < 0.82 ? 1 : 2; var len = [4.85, 4.6, 5.9][type];
-      var zf = b.dir > 0 ? b.z1 : b.z0, cz = zf - b.dir * (len / 2 + 0.35 + R() * 0.25); L.cars.push({ x: b.x + (R() - 0.5) * 0.3, z: cz, ry: (b.dir > 0 ? PI : 0) + (R() - 0.5) * 0.06, type: type, col: pickW(R, CAR_COLS), bay: b }); });
+    // what is parked: golf carts first (two to a bay, nose to tail, in the cart bays), a few cars in the car bays (the accessible bays
+    // and the first segment of rows D and E, next to the connector from the Flight Line Gate road); about half the lot taken, busiest by
+    // the hub and the Market Hall walk, emptier rows farther east and south; the EV bays mostly taken by carts on charge
+    L.carts = []; var segK = {}; L.segs.forEach(function (sg) { segK[sg.row + sg.k] = 0.75 + R() * 0.5; });
+    var ROWB = { A: 0.16, B: 0.1, C: 0, D: -0.06, E: -0.12 };
+    L.bays.forEach(function (b) { b.carBay = b.acc || b.hatch || (b.k === 0 && (b.row === "E" || (b.row === "D" && b.dir < 0))); });
+    var occ = function (b) { var p = 0.7 * Math.exp(-(b.x - S.RX0) / 75) + 0.01 + (ROWB[b.row] || 0); p *= segK[b.row + b.k] || 1; if (b.ev) p = p * 0.48 + 0.37; return clamp(p, 0.04, 0.95); };
+    L.bays.forEach(function (b) { if (b.hatch) return; var zf = b.dir > 0 ? b.z1 : b.z0;
+      if (b.carBay) { if (R() > (b.acc ? 0.6 : 0.5)) return; var t = R(), type = t < 0.42 ? 0 : t < 0.82 ? 1 : 2, len = [4.85, 4.6, 5.9][type]; var cz = zf - b.dir * (len / 2 + 0.35 + R() * 0.25); L.cars.push({ x: b.x + (R() - 0.5) * 0.3, z: cz, ry: (b.dir > 0 ? PI : 0) + (R() - 0.5) * 0.06, type: type, col: pickW(R, CAR_COLS), bay: b }); b.taken = 1; return; }
+      var p = occ(b); [0, 1].forEach(function (slot) { if (R() > (slot ? p * 0.62 : p)) return; var cz = zf - b.dir * (1.25 + 0.28 + slot * 2.72 + R() * 0.12); L.carts.push({ x: b.x + (R() - 0.5) * 0.22, z: cz, ry: (b.dir > 0 ? 0 : PI) + (R() - 0.5) * 0.08, slot: slot, body: pickW(R, CART_BODY), roof: Math.floor(R() * 8), bay: b, charge: b.ev && slot === 0 && R() < 0.85 }); b.taken = 1; }); });
+    SP.n.taken = L.bays.filter(function (b) { return b.taken; }).length; SP.n.carts = L.carts.length;
     SP.n.bays = L.bays.length; SP.n.cars = L.cars.length; SP.n.chargers = L.chargers.length; SP.n.canopies = L.segs.length;
     garden(L, R);
     return L;
@@ -424,6 +434,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var flat = function (cell, x0, z0, x1, z1, orient) { var u = markUV(cell), o = orient || 0; var P = o === 0 ? [[x0, z0], [x1, z0], [x1, z1], [x0, z1]] : o === 1 ? [[x1, z0], [x1, z1], [x0, z1], [x0, z0]] : o === 2 ? [[x1, z1], [x0, z1], [x0, z0], [x1, z0]] : [[x0, z1], [x0, z0], [x1, z0], [x1, z1]];
       K.face("mark", 0xffffff, [P[0][0], y(P[0][0], P[0][1]), P[0][1]], [P[1][0], y(P[1][0], P[1][1]), P[1][1]], [P[2][0], y(P[2][0], P[2][1]), P[2][1]], [P[3][0], y(P[3][0], P[3][1]), P[3][1]], [0, 1, 0], [u[0], u[3]], [u[2], u[3]], [u[2], u[1]], [u[0], u[1]]); };
     L.bays.forEach(function (b) { var x0 = b.x - S.BAY / 2, x1 = b.x + S.BAY / 2; flat("white", x0 - lw / 2, b.z0 + 0.1, x0 + lw / 2, b.z1 - 0.1); if (b.i === S.NBAY - 1) flat("white", x1 - lw / 2, b.z0 + 0.1, x1 + lw / 2, b.z1 - 0.1);
+      if (!b.carBay) { var zm = (b.z0 + b.z1) / 2 + b.dir * 0.05; flat("white", x0 + 0.25, zm - 0.045, x1 - 0.25, zm + 0.045); }
       if (b.acc) { flat("blue", x0 + 0.1, b.z0 + 0.15, x1 - 0.1, b.z1 - 0.15); var cz = (b.z0 + b.z1) / 2 + b.dir * 0.6; flat("acc", b.x - 0.75, cz - 0.75, b.x + 0.75, cz + 0.75, b.dir > 0 ? 2 : 0); }
       else if (b.hatch) flat("hatch", x0 + 0.12, b.z0 + 0.15, x1 - 0.12, b.z1 - 0.15);
       else if (b.ev) { var ez = b.dir > 0 ? b.z1 - 1.35 : b.z0 + 1.35; flat("ev", b.x - 0.55, ez - 0.55, b.x + 0.55, ez + 0.55, b.dir > 0 ? 2 : 0); flat("green", x0 + 0.1, (b.dir > 0 ? b.z0 + 0.25 : b.z1 - 0.37), x1 - 0.1, (b.dir > 0 ? b.z0 + 0.37 : b.z1 - 0.25)); } });
@@ -461,6 +472,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     kerbLine(K, [S.PX1, S.PZ0], [S.PX1, 87]); kerbLine(K, [S.PX1, 91], [S.PX1, S.PZ1]); kerbLine(K, [S.PX0, S.PZ0], [S.PX0, S.PZ1]);
     // contact shadows under the cars
     L.cars.forEach(function (c) { var len = [4.85, 4.6, 5.9][c.type] + 0.5, w = [1.86, 1.9, 2.05][c.type] + 0.5; SP.KB.quad("blob", 0xffffff, w, len, c.x, gh(c.x, c.z) + S.LIFT + 0.02, c.z, c.ry, -PI / 2, [0, 0, 1, 1]); });
+    L.carts.forEach(function (c) { SP.KB.quad("blob", 0xffffff, 1.7, 2.9, c.x, gh(c.x, c.z) + S.LIFT + 0.02, c.z, c.ry, -PI / 2, [0, 0, 1, 1]); });
+    // carts on charge: a cable from the pedestal's holster to the charging port by the cart's nose
+    L.carts.forEach(function (c) { if (!c.charge) return; var b = c.bay, ch = null, bd = 9; L.chargers.forEach(function (q) { var d = Math.hypot(q.x - b.x, q.z - (b.dir > 0 ? b.z1 : b.z0)); if (d < bd) { bd = d; ch = q; } }); if (!ch || bd > 3.2) return;
+      var g0 = gh(ch.x, ch.z) + S.LIFT, sd = c.x < ch.x ? -1 : 1, A = [ch.x + sd * 0.12, g0 + 0.95, ch.z + (b.dir > 0 ? -0.2 : 0.2)], nz = c.z + b.dir * 1.18, B = [c.x + sd * -0.42, gh(c.x, nz) + S.LIFT + 0.62, nz], pts = [];
+      for (var t = 0; t <= 8; t++) { var u = t / 8; pts.push([lerp(A[0], B[0], u), lerp(A[1], B[1], u) - Math.sin(u * PI) * 0.55, lerp(A[2], B[2], u)]); } for (var k = 0; k < 8; k++) K.tube("stdn", 0x111214, pts[k], pts[k + 1], 0.016, 5); });
   }
 
   // ───────────────────────── the Shuttle Hub: the transit island, the shelter, benches, route map, arrivals board, bike and cart share ─────────────────────────
@@ -505,7 +521,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       txt(x, "GRAND LOOP", w / 2, 58, "700 52px " + DISP, "#f4f1e6", "center", w - 40, 4); txt(x, C("names.mapSub", "ELECTRIC SHUTTLE · ALL THREE STAGES"), w / 2, 104, "600 22px " + SANS, "#9fe8b2", "center", w - 40, 2);
       var stops = (C("routeMap", []) || []), n = stops.length, top = 150, step = (h - top - 70) / Math.max(1, n - 1);
       x.strokeStyle = "#4DDE6F"; x.lineWidth = 10; x.beginPath(); x.moveTo(70, top); x.lineTo(70, top + step * (n - 1)); x.stroke(); x.lineWidth = 4; x.strokeStyle = "rgba(77,222,111,0.45)"; x.beginPath(); x.moveTo(70, top + step * (n - 1)); x.quadraticCurveTo(28, top + step * (n - 1) + 40, 34, top + step * (n - 1) / 2); x.quadraticCurveTo(28, top - 40, 70, top); x.stroke();
-      stops.forEach(function (s, i) { var y = top + i * step, here = /solar car park/i.test(s); x.fillStyle = here ? "#f4cd5a" : "#f4f1e6"; x.beginPath(); x.arc(70, y, here ? 14 : 9, 0, TAU); x.fill(); x.strokeStyle = "#0d1f15"; x.lineWidth = 3; x.stroke(); txt(x, s.toUpperCase(), 100, y, (here ? "700 " : "600 ") + "22px " + SANS, here ? "#f4cd5a" : "#e9e5d8", "left", w - 120, 1); if (here) txt(x, "YOU ARE HERE", 100, y + 22, "700 15px " + SANS, "#f4cd5a", "left", w - 120, 2); });
+      stops.forEach(function (s, i) { var y = top + i * step, here = /solar cart? park/i.test(s); x.fillStyle = here ? "#f4cd5a" : "#f4f1e6"; x.beginPath(); x.arc(70, y, here ? 14 : 9, 0, TAU); x.fill(); x.strokeStyle = "#0d1f15"; x.lineWidth = 3; x.stroke(); txt(x, s.toUpperCase(), 100, y, (here ? "700 " : "600 ") + "22px " + SANS, here ? "#f4cd5a" : "#e9e5d8", "left", w - 120, 1); if (here) txt(x, "YOU ARE HERE", 100, y + 22, "700 15px " + SANS, "#f4cd5a", "left", w - 120, 2); });
       txt(x, C("names.mapFoot", "PRESS F BESIDE THE SHUTTLE TO RIDE"), w / 2, h - 30, "600 19px " + SANS, "#9fe8b2", "center", w - 40, 2); }, 512, 896); }
   function totem(K, x, z, ry, uv, w, h, col) { var y0 = sY(x, z), F = new Fr(x, y0, z, ry);
     var M = K.mark(); K.box("std", col || 0x2b3a33, w + 0.2, h + 0.5, 0.26, 0, 0, 0); K.box("std", 0xc9c3b6, w + 0.5, 0.18, 0.5, 0, -0.1, 0); K.place(M, x, y0, z, ry);
@@ -711,6 +727,50 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     HENS.list.forEach(function (h, i) { if (h.wait > 0) { h.wait -= dt; h.peck += dt * 9; } else { var dx = h.tx - h.x, dz = h.tz - h.z, d = Math.hypot(dx, dz); if (d < 0.15 || !h.tx) { h.tx = lerp(run.x0, run.x1, R()); h.tz = lerp(run.z0, run.z1, R()); h.wait = 1 + R() * 4; } else { var sp = 0.55 * dt; h.x += dx / d * sp; h.z += dz / d * sp; var want = Math.atan2(dx, dz) + PI; var dd = Math.atan2(Math.sin(want - h.yaw), Math.cos(want - h.yaw)); h.yaw += dd * Math.min(1, dt * 5); h.peck = 0; } }
       var bob = h.wait > 0 ? Math.max(0, Math.sin(h.peck)) * 0.45 : 0; _e.set(bob, h.yaw, 0, "YXZ"); _q.setFromEuler(_e); _m4.compose(_v1.set(h.x, gh(h.x, h.z) + 0.05 + h.y0 * h.sc, h.z), _q, _v2.set(h.sc, h.sc, h.sc)); HENS.ims.forEach(function (im) { im.setMatrixAt(i, _m4); }); });
     HENS.ims.forEach(function (im) { im.instanceMatrix.needsUpdate = true; }); }
+  // ───────────────────────── golf carts: the game's own cart model (MODELS.cart), three clustered LODs, two BatchedMeshes per LOD set ─────────────────────────
+  // vertex clustering on position only (no cracks): the output is unindexed, every kept triangle keeps the uvs of its own original
+  // corners (the texture stays put across uv seams), normals averaged per cluster with the original facing kept (after plan_market)
+  function clusterGeo(src, cell) {
+    var g = src.index ? src : src.clone(); if (!g.index) { var I0 = new Uint32Array(g.attributes.position.count); for (var q = 0; q < I0.length; q++) I0[q] = q; g.setIndex(new THREE.BufferAttribute(I0, 1)); }
+    var P = g.attributes.position.array, U = g.attributes.uv.array, idx = g.index.array, N = g.attributes.position.count, F = idx.length / 3, cmap = new Map(), acc = [], cellOf = new Int32Array(N), ON = new Float32Array(N * 3), f, k;
+    for (f = 0; f < F; f++) { var i0 = idx[f * 3] * 3, i1 = idx[f * 3 + 1] * 3, i2 = idx[f * 3 + 2] * 3, ux = P[i1] - P[i0], uy = P[i1 + 1] - P[i0 + 1], uz = P[i1 + 2] - P[i0 + 2], vx = P[i2] - P[i0], vy = P[i2 + 1] - P[i0 + 1], vz = P[i2 + 2] - P[i0 + 2], nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; [i0, i1, i2].forEach(function (ii) { ON[ii] += nx; ON[ii + 1] += ny; ON[ii + 2] += nz; }); }
+    for (var v = 0; v < N; v++) { var key = (Math.floor(P[v * 3] / cell) + 512) * 1048576 + (Math.floor(P[v * 3 + 1] / cell) + 512) * 1024 + (Math.floor(P[v * 3 + 2] / cell) + 512); var c = cmap.get(key); if (c === undefined) { c = acc.length / 7; cmap.set(key, c); acc.push(0, 0, 0, 0, 0, 0, 0); } var o = c * 7; acc[o] += P[v * 3]; acc[o + 1] += P[v * 3 + 1]; acc[o + 2] += P[v * 3 + 2]; acc[o + 3] += ON[v * 3]; acc[o + 4] += ON[v * 3 + 1]; acc[o + 5] += ON[v * 3 + 2]; acc[o + 6]++; cellOf[v] = c; }
+    var keep = [], seen = new Set(); for (f = 0; f < F; f++) { var a = cellOf[idx[f * 3]], b = cellOf[idx[f * 3 + 1]], cc = cellOf[idx[f * 3 + 2]]; if (a === b || b === cc || a === cc) continue; var s0 = Math.min(a, b, cc), s2 = Math.max(a, b, cc), kk = s0 + "," + (a + b + cc - s0 - s2) + "," + s2; if (seen.has(kk)) continue; seen.add(kk); keep.push(f); }
+    var T = keep.length, PP = new Float32Array(T * 9), UU = new Float32Array(T * 6), NN = new Float32Array(T * 9), cs = [0, 0, 0], vs = [0, 0, 0], pc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (var t = 0; t < T; t++) { f = keep[t]; for (k = 0; k < 3; k++) { vs[k] = idx[f * 3 + k]; cs[k] = cellOf[vs[k]]; var oo = cs[k] * 7, n = acc[oo + 6]; pc[k][0] = acc[oo] / n; pc[k][1] = acc[oo + 1] / n; pc[k][2] = acc[oo + 2] / n; }
+      var e1x = pc[1][0] - pc[0][0], e1y = pc[1][1] - pc[0][1], e1z = pc[1][2] - pc[0][2], e2x = pc[2][0] - pc[0][0], e2y = pc[2][1] - pc[0][1], e2z = pc[2][2] - pc[0][2], qx = e1y * e2z - e1z * e2y, qy = e1z * e2x - e1x * e2z, qz = e1x * e2y - e1y * e2x;
+      var j0 = vs[0] * 3, j1 = vs[1] * 3, j2 = vs[2] * 3, ox = (P[j1 + 1] - P[j0 + 1]) * (P[j2 + 2] - P[j0 + 2]) - (P[j1 + 2] - P[j0 + 2]) * (P[j2 + 1] - P[j0 + 1]), oy = (P[j1 + 2] - P[j0 + 2]) * (P[j2] - P[j0]) - (P[j1] - P[j0]) * (P[j2 + 2] - P[j0 + 2]), oz = (P[j1] - P[j0]) * (P[j2 + 1] - P[j0 + 1]) - (P[j1 + 1] - P[j0 + 1]) * (P[j2] - P[j0]);
+      var order = qx * ox + qy * oy + qz * oz < 0 ? [0, 2, 1] : [0, 1, 2];
+      for (var j = 0; j < 3; j++) { k = order[j]; var qi = t * 3 + j, cc2 = cs[k] * 7, vv = vs[k]; PP[qi * 3] = pc[k][0]; PP[qi * 3 + 1] = pc[k][1]; PP[qi * 3 + 2] = pc[k][2]; UU[qi * 2] = U[vv * 2]; UU[qi * 2 + 1] = U[vv * 2 + 1]; var nx2 = acc[cc2 + 3], ny2 = acc[cc2 + 4], nz2 = acc[cc2 + 5], Ln = Math.sqrt(nx2 * nx2 + ny2 * ny2 + nz2 * nz2) || 1; NN[qi * 3] = nx2 / Ln; NN[qi * 3 + 1] = ny2 / Ln; NN[qi * 3 + 2] = nz2 / Ln; } }
+    var g2 = new THREE.BufferGeometry(); g2.setAttribute("position", new THREE.BufferAttribute(PP, 3)); g2.setAttribute("uv", new THREE.BufferAttribute(UU, 2)); g2.setAttribute("normal", new THREE.BufferAttribute(NN, 3)); var I2 = new Uint32Array(T * 3); for (var w = 0; w < I2.length; w++) I2[w] = w; g2.setIndex(new THREE.BufferAttribute(I2, 1)); g2.computeBoundingSphere(); g2.computeBoundingBox(); return g2;
+  }
+  // body paint (the model's green) takes the cart's colour (setColorAt); the canopy roof one of eight finishes picked per cart
+  var CARTS = SP.carts = { state: "idle", bm: [], list: [], at: 0, cx: 1e9, cz: 1e9, R: [14, 40, 120, 520] };
+  try { var QL2 = (localStorage.getItem("g1:quality") || "high"); if (QL2 === "low") CARTS.R = [0, 24, 80, 340]; else if (QL2 === "medium") CARTS.R = [8, 30, 100, 420]; } catch (e) {}
+  function cartMat(src) {
+    var m = new THREE.MeshStandardMaterial({ map: src.map || null, normalMap: src.normalMap || null, roughness: 0.5, metalness: 0.15, envMapIntensity: 0.8 }); m.name = "sp_cart"; if (src.normalMap && m.normalScale) m.normalScale.set(0.6, 0.6);
+    m.onBeforeCompile = function (sh) {
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying float vLy; varying float vRoof;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvLy = position.y;\n#ifdef USE_BATCHING\nvRoof = fract(float(getIndirectIndex(gl_DrawID)) * 0.6180339 + 0.13);\n#else\nvRoof = 0.0;\n#endif");
+      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vLy; varying float vRoof;").replace("#include <color_fragment>", "#if defined( USE_COLOR )\n{ vec3 c = diffuseColor.rgb; float lum = dot(c, vec3(0.299, 0.587, 0.114)); float green = smoothstep(0.03, 0.09, c.g - max(c.r, c.b)); diffuseColor.rgb = mix(c, vColor.rgb * (0.35 + lum * 2.2), green);\n float roof = step(1.84, vLy) * smoothstep(0.35, 0.55, lum); vec3 rc = vRoof < 0.45 ? vec3(0.93, 0.93, 0.9) : vRoof < 0.62 ? vec3(0.78, 0.7, 0.55) : vRoof < 0.8 ? vec3(0.07, 0.07, 0.08) : vRoof < 0.9 ? vec3(0.12, 0.42, 0.22) : vec3(0.55, 0.12, 0.1); diffuseColor.rgb = mix(diffuseColor.rgb, rc * (0.55 + lum * 0.5), roof); }\n#endif");
+    }; m.customProgramCacheKey = function () { return "sp_cart_v1"; }; return m;
+  }
+  function cartMatrix(c) { var s = Math.sin(c.ry), co = Math.cos(c.ry), hf = sY(c.x + s * 0.9, c.z + co * 0.9), hb = sY(c.x - s * 0.9, c.z - co * 0.9), hr = sY(c.x + co * 0.5, c.z - s * 0.5), hl = sY(c.x - co * 0.5, c.z + s * 0.5);
+    var y = Math.min((hf + hb) / 2, (hr + hl) / 2) + 0.004; _e.set(-Math.atan2(hf - hb, 1.8), c.ry, Math.atan2(hr - hl, 1.0), "YXZ"); _q.setFromEuler(_e); return new THREE.Matrix4().compose(_v1.set(c.x, y, c.z), _q, _v2.set(1, 1, 1)); }
+  function buildCarts() {
+    if (CARTS.state !== "idle" || !has("cart")) return; CARTS.state = "building"; var m = MODELS.cart, part = m.parts && m.parts[0]; if (!part) { CARTS.state = "fail"; return; }
+    var src = part.geometry.clone(); for (var a in src.attributes) if (a !== "position" && a !== "uv" && a !== "normal") src.deleteAttribute(a); src.computeBoundingBox(); var bb = src.boundingBox; src.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+    if (!src.index) { var I0 = new Uint32Array(src.attributes.position.count); for (var q = 0; q < I0.length; q++) I0[q] = q; src.setIndex(new THREE.BufferAttribute(I0, 1)); } var geos = [src].concat([0.06, 0.12, 0.22].map(function (cs) { return clusterGeo(src, cs); })); var mat = MAT.cart2 = cartMat(part.material), list = CARTS.list = layout().carts;
+    var g = new THREE.Group(); g.name = "sp_carts"; g.userData.noCull = true;
+    CARTS.bm = geos.map(function (geo, lod) { var bm = new THREE.BatchedMesh(list.length, geo.attributes.position.count, geo.index.count, mat); bm.name = "sp_carts_" + lod; bm.sortObjects = false; bm.perObjectFrustumCulled = true; bm.castShadow = false; bm.receiveShadow = true; bm.userData.shSet = true; bm.userData.noShadow = true; bm.userData.noCull = true; var gid = bm.addGeometry(geo);
+      list.forEach(function (c) { var id = bm.addInstance(gid); bm.setMatrixAt(id, cartMatrix(c)); _c.setHex(c.body); bm.setColorAt(id, _c); bm.setVisibleAt(id, false); c["id" + lod] = id; }); bm.computeBoundingBox(); bm.computeBoundingSphere(); g.add(bm); return bm; });
+    scene.add(g); GR.carts = g; list.forEach(function (c) { c.st = -1; }); CARTS.state = "ready"; CARTS.cx = 1e9; SP.n.cartTris = geos.map(function (q) { return q.index.count / 3; });
+    try { var W2 = window.PLAN_PERF; if (W2 && W2.warmGroup) W2.warmGroup(g, { name: "solar carts" }); } catch (e) {}
+  }
+  function cartsFrame(force) {
+    if (CARTS.state !== "ready") return; var cam = camera.position, mv = Math.hypot(cam.x - CARTS.cx, cam.z - CARTS.cz); if (!force && mv < 3 && nowMs() - CARTS.at < 700) return; CARTS.cx = cam.x; CARTS.cz = cam.z; CARTS.at = nowMs();
+    var RR = CARTS.R.map(function (r) { return r * r; }), cnt = [0, 0, 0, 0]; for (var i = 0; i < CARTS.list.length; i++) { var c = CARTS.list[i], dx = c.x - cam.x, dz = c.z - cam.z, dy = cam.y - sY(c.x, c.z) - 25, d2 = dx * dx + dz * dz + (dy > 0 ? dy * dy : 0), st = d2 < RR[0] ? 0 : d2 < RR[1] ? 1 : d2 < RR[2] ? 2 : d2 < RR[3] ? 3 : 4; if (st < 4) cnt[st]++; if (st === c.st && !force) continue; c.st = st; for (var l = 0; l < 4; l++) CARTS.bm[l].setVisibleAt(c["id" + l], st === l); }
+    SP.n.cartsLod = cnt;
+  }
 
   // ───────────────────────── defer hook: build every mesh once (behind the loading screen) ─────────────────────────
   var GR = SP.groups = {};
@@ -734,12 +794,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function deferHook() {
     if (SP.off || !SP.world || SP.ready) return; var t0 = nowMs();
     try { buildAll(); } catch (e) { note("build", e); } try { carSolids(); } catch (e) { note("car solids", e); } try { spotsSetup(); } catch (e) { note("spots", e); }
-    try { loadCars(); } catch (e) { note("cars", e); } try { buildHens(); } catch (e) { note("hens", e); }
+    try { loadCars(); } catch (e) { note("cars", e); } try { buildCarts(); } catch (e) { note("carts", e); CARTS.state = "fail"; } try { buildHens(); } catch (e) { note("hens", e); }
     SP.n.deferMs = Math.round(nowMs() - t0); SP.ready = true;
   }
   // collision: the canopy columns, the chargers, every parked car (a box at its own height)
   function carSolids() { var L = layout(); L.columns.forEach(function (c) { var y = sY(c.x, c.z); sol(c.x, c.z, 0, 0.62, 0.62, y - 0.2, y + 4.4); }); L.chargers.forEach(function (c) { var y = sY(c.x, c.z); sol(c.x, c.z, 0, 0.5, c.dbl ? 0.5 : 0.4, y, y + 1.6); });
-    L.cars.forEach(function (c) { var y = sY(c.x, c.z); sol(c.x, c.z, c.ry, [1.86, 1.9, 2.05][c.type], [4.85, 4.6, 5.9][c.type] - 0.1, y, y + [1.42, 1.62, 1.85][c.type]); }); SP.n.solids = SOL.length; }
+    L.cars.forEach(function (c) { var y = sY(c.x, c.z); sol(c.x, c.z, c.ry, [1.86, 1.9, 2.05][c.type], [4.85, 4.6, 5.9][c.type] - 0.1, y, y + [1.42, 1.62, 1.85][c.type]); });
+    L.carts.forEach(function (c) { var y = sY(c.x, c.z); sol(c.x, c.z, c.ry, 1.25, 2.4, y, y + 1.95); }); SP.n.solids = SOL.length; }
   // warm and cool pools through the client's light pool (no new shader lights: the pool shows the nearest few)
   function buildLamps() { var g = new THREE.Group(); g.name = "sp_lamps"; SP.lights = []; var pick = [[-456.8, 3.0, 91, 0xfff0dc, 14], [-449.5, 4.6, 104, 0xfff0dc, 10], [-222.5, 2.6, 58.5, 0xffc88a, 12], [-175.5, 3.0, 77, 0xffb070, 10], [-400, 3.6, 71.5, 0xf4f6ff, 12], [-330, 3.6, 89.5, 0xf4f6ff, 12], [-290, 3.6, 107.5, 0xf4f6ff, 12], [-360, 3.6, 107.5, 0xf4f6ff, 12]];
     pick.forEach(function (q) { var l = new THREE.PointLight(q[3], 0, 22, 1.6); l.position.set(q[0], sY(q[0], q[2]) + q[1], q[2]); l.userData.k0 = q[4]; g.add(l); SP.lights.push(l); }); scene.add(g); GR.lamps = g; }
@@ -754,7 +815,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function runTime(c, ta, tb) { var L = c.L || (c.L = polyLen(c.r)), d = ((tb - ta) % L + L) % L, t = 0, base = (c.base || c.speed || 11) * 0.9, step = 20;
     for (var s = 0; s < d; s += step) { var p = (ta + s) % L, sp = base; if (c.zones) for (var z = 0; z < c.zones.length; z++) { var zn = c.zones[z]; if (p >= zn[0] && p <= zn[1]) { sp = zn[2] * 0.9; break; } } t += Math.min(step, d - s) / Math.max(1, sp); }
     c.stops.forEach(function (st) { var off = ((st.t - ta) % L + L) % L; if (off > 1 && off < d - 1) t += c.stopPause || 9; }); return t; }
-  function boardData() { var cs = cartsOn(), hubRe = new RegExp(C("transit.hubMatch", "solar car park"), "i"), out = { next: null, boarding: false, rows: [] }; if (!cs.length) return out;
+  function boardData() { var cs = cartsOn(), hubRe = new RegExp(C("transit.hubMatch", "solar cart park"), "i"), out = { next: null, boarding: false, rows: [] }; if (!cs.length) return out;
     var hub = cs[0].stops.find(function (s) { return hubRe.test(s.hub); }); if (!hub) return out; var dests = C("board.dests", []) || [];
     var best = 1e9, bc = null; cs.forEach(function (c) { var L = c.L || (c.L = polyLen(c.r)); var dp = Math.hypot(c.g.position.x - S.STOP[0], c.g.position.z - S.STOP[1]); if (c.pause > 0 && dp < 16) { out.boarding = true; best = 0; bc = c; return; } var e = runTime(c, c.t, hub.t) + (c.pause > 0 ? c.pause : 0); if (e < best) { best = e; bc = c; } });
     out.next = best; var second = 1e9; cs.forEach(function (c) { if (c === bc) return; var e = runTime(c, c.t, hub.t) + (c.pause > 0 ? c.pause : 0); if (e < second) second = e; }); out.then = second;
@@ -816,7 +877,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var cam = camera.position, n = clamp((nightK() - 0.02) * 3.2, 0, 1), dS = rectDist(cam.x, cam.z, -478, -138, 47, 131);
       if (Math.abs(n - FR.n) > 0.004) { FR.n = n; MAT.glow.color.setScalar(0.55 + 1.9 * n); MAT.pool.opacity = 0.62 * n; GR.pools && (GR.pools.visible = n > 0.02); MAT.sign.emissiveIntensity = 0.12 + 0.5 * n; MAT.poly.emissiveIntensity = 0.35 * n; MAT.glass.emissiveIntensity = 0.15 * n; if (MAT.board) MAT.board.color.setScalar(0.85 + 0.4 * n); ["wood", "corten"].forEach(function (k) { MAT[k].emissiveIntensity = 0.05 * n; }); (SP.lights || []).forEach(function (l) { l.intensity = l.userData.k0 * n * (dS < 250 ? 1 : 0); }); }
       var vis = function (k, v) { if (GR[k] && GR[k].visible !== v) GR[k].visible = v; }; vis("park", dS < 2600); vis("garden", dS < 1600); vis("marks", dS < 700); vis("signs", dS < 700); vis("blobs", dS < 600); vis("ground", dS < 3000); vis("board", dS < 220);
-      if (CARS.state === "idle" && dS < 1500) loadCars(); if (CARS.state === "ready") { var cv = dS < 1200; vis("cars", cv); if (cv) carsFrame(false); }
+      if (CARS.state === "idle" && dS < 1500) loadCars(); if (CARS.state === "ready") { var cv = dS < 1200; vis("cars", cv); if (cv) carsFrame(false); } if (CARTS.state === "idle" && has("cart")) { try { buildCarts(); } catch (e) { note("carts", e); CARTS.state = "fail"; } } if (CARTS.state === "ready") { var ctv = dS < 1200; vis("carts", ctv); if (ctv) cartsFrame(false); }
       if (!HENS.ready && dS < 400 && nowMs() > (FR.henAt || 0)) { FR.henAt = nowMs() + 2000; buildHens(); } if (HENS.ready) henFrame(dt, false);
       if (dS < 160 && nowMs() > (FR.pAt || 0)) { FR.pAt = nowMs() + 700; try { buildPeople(); } catch (e) { note("people", e); } }
       SP.cast.forEach(function (c) { var d = Math.hypot(c.g.position.x - cam.x, c.g.position.z - cam.z); c.g.visible = d < 60; }); SP.extras.forEach(function (c) { var d = Math.hypot(c.g.position.x - cam.x, c.g.position.z - cam.z); c.g.visible = d < 55; if (c.g.visible && (FRAME_N & 3) === 0) try { animateWalk(c.g, 0, dt * 4); } catch (e) {} });
@@ -835,9 +896,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     at: function (x, z, yw) { if (inside) try { leaveInterior(); } catch (e) {} player.position.set(x, planGroundAt(x, z) + 0.02, z); if (yw !== undefined) yaw = yw; return [x, z]; },
     cam: function (px, py, pz, tx, ty, tz, fov) { window.__cam = [px, sY(px, pz) + py, pz, tx, sY(tx, tz) + ty, tz, fov || 0]; try { updateCulling(true); } catch (e) {} return window.__cam; },
     // hold a Grand Loop shuttle at the hub (or the Convention Center bay) for s seconds
-    hold: function (where, s) { var cs = cartsOn(); if (!cs.length) return "no carts"; var c = cs[0], re = new RegExp(where === "conv" ? "convention" : C("transit.hubMatch", "solar car park"), "i"), st = c.stops.find(function (q) { return re.test(q.hub); }); if (!st) return "no stop"; c.t = st.t; c.pause = s || 60; c.lastStop = c.stops.indexOf(st); var q = polyAt(c.r, c.t); c.g.position.set(q[0], planGroundAt(q[0], q[1]), q[1]); c.g.rotation.y = Math.atan2(q[2], q[3]); return [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10]; },
-    counts: function () { var o = {}; for (var k in GR) { var c = 0, t = 0; GR[k].traverse(function (m) { if (m.isMesh) { c++; var g = m.geometry; t += m.isBatchedMesh ? 0 : (g.index ? g.index.count : g.attributes.position.count) / 3 * (m.isInstancedMesh ? m.count : 1); } }); o[k] = [c, Math.round(t)]; } o.cars = [SP.n.carsNear, SP.n.carsFar]; return o; },
-    hide: function () { SP.hideAll = true; return 1; }, show: function () { SP.hideAll = false; for (var k in GR) GR[k].visible = true; FR.n = -1; CARS.cx = 1e9; return 1; }
+    hold: function (where, s) { var cs = cartsOn(); if (!cs.length) return "no carts"; var c = cs[0], re = new RegExp(where === "conv" ? "convention" : C("transit.hubMatch", "solar cart park"), "i"), st = c.stops.find(function (q) { return re.test(q.hub); }); if (!st) return "no stop"; c.t = st.t; c.pause = s || 60; c.lastStop = c.stops.indexOf(st); var q = polyAt(c.r, c.t); c.g.position.set(q[0], planGroundAt(q[0], q[1]), q[1]); c.g.rotation.y = Math.atan2(q[2], q[3]); return [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10]; },
+    counts: function () { var o = {}; for (var k in GR) { var c = 0, t = 0; GR[k].traverse(function (m) { if (m.isMesh) { c++; var g = m.geometry; t += m.isBatchedMesh ? 0 : (g.index ? g.index.count : g.attributes.position.count) / 3 * (m.isInstancedMesh ? m.count : 1); } }); o[k] = [c, Math.round(t)]; } o.cars = [SP.n.carsNear, SP.n.carsFar]; o.carts = SP.n.cartsLod; return o; },
+    hide: function () { SP.hideAll = true; return 1; }, show: function () { SP.hideAll = false; for (var k in GR) GR[k].visible = true; FR.n = -1; CARS.cx = 1e9; CARTS.cx = 1e9; return 1; }
   };
   (function hookAll() {
     var set = function (phase, name, fn) { var list = window.PLAN_HOOKS[phase]; for (var i = 0; i < list.length; i++) if (list[i] && list[i].name === name) { list[i].fn = fn; return; } list.push({ name: name, fn: fn }); };

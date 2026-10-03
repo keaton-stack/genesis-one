@@ -28,6 +28,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   IN.v = 1; IN.errs = IN.errs || []; IN.n = IN.n || { builds: 0, disposes: 0, enters: 0, leaves: 0 }; IN.list = IN.list || []; IN.cfg = IN.cfg || null; IN.off = !!IN.off;
   var LAZY = []; LAZY.forEach(function (k) { if (window.PLAN_MODEL_LAZY.indexOf(k) < 0) window.PLAN_MODEL_LAZY.push(k); });
   function note(tag, e) { try { if (IN.errs.length < 40) IN.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (IN.errs.length <= 6) console.warn("plan_interiors " + tag, e); } catch (x) {} }
+  var R9I = !!(window.R9 && window.R9.part("i"));   // R9 (HANDOFF_R9_HITCHES.md): ?r9i=0 turns this module's hitch fixes off
   var TAU = Math.PI * 2, PI = Math.PI;
   var cl = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var ease = function (t) { t = cl(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -442,7 +443,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // a person in the room frame: { kind: rig kind | null (avatar), look, x, z, y (floor), yaw, sit, walk: [[x, z, dwell, yaw]...], face (turn to a visitor), name }
   function person(L, o) { var P = { o: o, x: o.x, z: o.z, y: o.y, yaw: o.yaw || 0, yaw0: o.yaw || 0, g: null, mixer: null, act: null, t: 0, k: 0, pause: o.walk ? 2 + Math.random() * 4 : 0, sp: o.speed || 0.95 }; L.people.push(P);
     if (o.rig && rigInfo(o.rig) && THREE.SkeletonUtils) { rigLoad(o.rig).then(function (R) { if (!R || !L.g.parent && L.dead) return; if (L.dead) return; try { if (typeof r5Ids === "function" && typeof R5 !== "undefined" && R5.on) P.r5 = r5Ids(); var g = THREE.SkeletonUtils.clone(R.gl.scene); g.traverse(function (q) { if (q.isMesh || q.isSkinnedMesh) { q.castShadow = false; q.receiveShadow = true; q.frustumCulled = false; } });
-        var bb = new THREE.Box3().setFromObject(g), hh = bb.max.y - bb.min.y; if (hh > 0.5 && Math.abs(hh - R.h) > R.h * 0.12) g.scale.multiplyScalar(R.h / hh); P.mixer = new THREE.AnimationMixer(g); P.clips = {}; for (var c in R.clips) P.clips[c] = P.mixer.clipAction(R.clips[c]); P.g = g; P.rig = true; L.g.add(g); place(P); } catch (e) { note("rig spawn " + o.rig, e); } }); if (!o.fallback) return P; }
+        /* R9i: the box of a fresh clone skins every vertex on the CPU (75 ms a person); every clone of a rig has the same pose, so it is measured once per rig */ var hh = R9I && R.r9hh !== undefined ? R.r9hh : (function () { var bb = new THREE.Box3().setFromObject(g); return bb.max.y - bb.min.y; })(); if (R9I) R.r9hh = hh; if (hh > 0.5 && Math.abs(hh - R.h) > R.h * 0.12) g.scale.multiplyScalar(R.h / hh); P.mixer = new THREE.AnimationMixer(g); P.clips = {}; for (var c in R.clips) P.clips[c] = P.mixer.clipAction(R.clips[c]); P.g = g; P.rig = true; L.g.add(g); place(P); } catch (e) { note("rig spawn " + o.rig, e); } }); if (!o.fallback) return P; }
     try { var a = avatar("int3_" + (o.id || L.people.length) + "_" + L.h.id, o.name || "", o.look || { body: "m" }, o.hat || null, o.outfit || null); if (a.userData.label) { a.userData.label.visible = !!o.label; a.userData.label.scale.set(1.3, 0.34, 1); } if (a.userData.blob) a.userData.blob.visible = false;
       if (o.sit) { a.userData.sit = true; try { sitOffset(a, o.back); } catch (e) {} } P.g = a; L.g.add(a); place(P); if (o.toque) P.hat = toque(a); } catch (e) { note("avatar", e); }
     return P; }

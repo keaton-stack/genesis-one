@@ -854,6 +854,9 @@ body.touch #fl-keys{display:none!important}
   }
 
   // ───────────────────────────── debug and test helpers ─────────────────────────────
+  // R9p (HANDOFF_R9_HITCHES.md): the gates and the runway aids built once at load (hidden, as they wait between flights anyway) so
+  // their shader programs are compiled and first drawn behind the loading screen, not at the first take-off (0.2 to 0.5 s stalls)
+  FL.r9prep = function () { try { if (RW.ok) { buildGates(); buildAids(); } } catch (e) { return []; } return [FL.gates && FL.gates.root, FL.aids && FL.aids.root].filter(Boolean); };
   FL.debug = {
     state: () => { const s = S; if (!s) return null; const [a, c] = toRW(s.P.x, s.P.z); const g = VEH[riding.id] && VEH[riding.id].g; let nose = null, wing = null; if (g) { g.updateMatrixWorld(true); const q = g.getWorldQuaternion(new THREE.Quaternion()); const n = new THREE.Vector3(0, 0, 1).applyQuaternion(q), w = new THREE.Vector3(-1, 0, 0).applyQuaternion(q); nose = [+n.x.toFixed(3), +n.y.toFixed(3), +n.z.toFixed(3)]; wing = [+w.x.toFixed(3), +w.y.toFixed(3), +w.z.toFixed(3)]; }
       return { kt: +(s.V * KT).toFixed(1), agl: +(s.P.y - ground(s.P.x, s.P.z)).toFixed(1), vsFpm: Math.round(s.onGround ? 0 : s.V * Math.sin(s.gam) * FPM), hdg: +hdgOf(s.psi).toFixed(1), pitchDeg: +(s.th * R2D).toFixed(2), gamDeg: +(s.gam * R2D).toFixed(2), bankDeg: +(s.ph * R2D).toFixed(2), aoaDeg: +(s.al * R2D).toFixed(2), n: +s.n.toFixed(2), thr: +s.thr.toFixed(2), N1: +s.N.toFixed(2), gear: s.gear, flaps: s.flaps, onGround: s.onGround, prot: s.prot, floor: s.floor, a: +a.toFixed(1), c: +c.toFixed(1), x: +s.P.x.toFixed(1), z: +s.P.z.toFixed(1), noseDir: nose, rightWing: wing, rotOrder: g && g.rotation.order, run: RUN.state, gi: RUN.gi, t: +(RUN.t || 0).toFixed(1) }; },
