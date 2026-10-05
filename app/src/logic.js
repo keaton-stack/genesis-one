@@ -59,6 +59,70 @@ const IMPACT_KEYS = ["stamps", "talks", "flights", "landings", "acts", "rides", 
 function progInt(v, max) { return Number.isInteger(v) && v >= 0 && v <= max; }
 function hexOr(a, b) { a = a || ""; b = b || ""; let out = ""; for (let i = 0; i < Math.max(a.length, b.length); i++) out += (parseInt(a[i] || "0", 16) | parseInt(b[i] || "0", 16)).toString(16); return out.replace(/0+$/, ""); }
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
+// ── R13 Copper Canyon Customs: golf cart and bike customization (public/plan_bodyshop.js, public/plan/bodyshop.json) ──
+// Each item is [id, price, rank]: rank 0 Passenger, 1 Pilot, 2 Captain, 3 Tower (the Sol Passport rank the client reports in "prog",
+// me.pr.r). Rank items are earned, not bought: price 0, unlocked at that rank. Stock options (index 0 of each choice, the ten stock
+// paints p0 to p9, the six passport reward paints p24 to p29 and every decal, underglow and flag colour) are free and not listed.
+// The list order is the bit index of the player's ownership set (me.bso, hex like the passport): never reorder, only append.
+const BS_V = 1;
+const BS_ITEMS = [
+  ["p10", 120, 0], ["p11", 120, 0], ["p12", 120, 0], ["p13", 140, 0], ["p14", 140, 0], ["p15", 140, 0], ["p16", 140, 0], ["p17", 140, 0], ["p18", 160, 0], ["p19", 160, 0], ["p20", 180, 0], ["p21", 180, 0], ["p22", 0, 1], ["p23", 0, 2],
+  ["f1", 150, 0], ["f2", 220, 0], ["f3", 0, 1], ["f4", 0, 2], ["f5", 0, 3],
+  ["t1", 120, 0], ["t2", 120, 0], ["t3", 200, 0], ["t4", 150, 0],
+  ["r1", 60, 0], ["r2", 60, 0], ["r3", 60, 0], ["r4", 80, 0], ["r5", 80, 0], ["r6", 80, 0], ["r7", 100, 0], ["r8", 60, 0], ["r9", 80, 0], ["r10", 80, 0], ["r11", 100, 0],
+  ["rs1", 0, 1], ["rs2", 150, 0], ["rs3", 220, 0], ["rs4", 180, 0], ["rs5", 120, 0], ["rs6", 160, 0],
+  ["s1", 60, 0], ["s2", 90, 0], ["s3", 90, 0], ["s4", 60, 0], ["s5", 60, 0], ["s6", 90, 0], ["s7", 90, 0], ["s8", 90, 0], ["s9", 90, 0], ["s10", 90, 0], ["s11", 120, 0],
+  ["sp1", 160, 0], ["sp2", 140, 0], ["sp3", 120, 0], ["sp4", 140, 0], ["sp5", 180, 0],
+  ["w1", 180, 0], ["w2", 220, 0], ["w3", 260, 0], ["w4", 300, 0], ["w5", 240, 0], ["w6", 280, 0], ["w7", 0, 2],
+  ["wc1", 150, 0], ["wc2", 80, 0], ["wc3", 0, 1], ["wc4", 120, 0], ["wc5", 100, 0], ["wc6", 60, 0], ["wc7", 100, 0], ["wc8", 120, 0], ["wc9", 120, 0],
+  ["ty1", 120, 0], ["ty2", 120, 0], ["ty3", 200, 0], ["ty4", 180, 0],
+  ["l1", 400, 0], ["l2", 300, 0],
+  ["e1", 60, 0], ["e2", 120, 0], ["e3", 100, 0], ["e4", 100, 0], ["e5", 100, 0], ["e6", 120, 0], ["e7", 0, 1], ["e8", 80, 0],
+  ["d1", 150, 0], ["d2", 120, 0], ["d3", 220, 0], ["d4", 200, 0], ["d5", 200, 0], ["d6", 0, 2], ["d7", 300, 0], ["d8", 300, 0], ["d9", 180, 0], ["d10", 180, 0],
+  ["pl", 80, 0], ["lb", 120, 0],
+  ["a0", 0, 1], ["a1", 0, 2], ["a2", 140, 0], ["a3", 90, 0], ["a4", 220, 0], ["a5", 110, 0], ["a6", 160, 0], ["a7", 130, 0], ["a8", 70, 0], ["a9", 90, 0], ["a10", 50, 0],
+  ["h1", 60, 0], ["h2", 90, 0], ["h3", 70, 0], ["h4", 50, 0],
+  ["bf2", 40, 0], ["bf3", 40, 0], ["bf4", 50, 0], ["bf5", 50, 0], ["bf6", 60, 0], ["bf7", 50, 0], ["bf8", 50, 0], ["bf9", 50, 0], ["bf10", 0, 1], ["bf11", 0, 3],
+  ["bw1", 40, 0], ["bw2", 80, 0], ["bw3", 90, 0], ["bw4", 60, 0], ["bw5", 50, 0], ["bw6", 50, 0], ["bw7", 50, 0],
+  ["bt1", 60, 0], ["bt2", 60, 0],
+  ["bg1", 20, 0], ["bg2", 30, 0], ["bg3", 30, 0], ["bg4", 30, 0], ["bg5", 30, 0], ["bg6", 30, 0], ["bg7", 30, 0],
+  ["bs1", 30, 0], ["bs2", 50, 0], ["bs3", 50, 0], ["bs4", 40, 0], ["bs5", 40, 0], ["bs6", 40, 0], ["bs7", 70, 0],
+  ["bb", 60, 0], ["bd1", 90, 0], ["bd2", 60, 0], ["bd3", 90, 0], ["bd4", 70, 0],
+];
+const BS = {}; BS_ITEMS.forEach((it, i) => { BS[it[0]] = { i, price: it[1], rank: it[2] }; });
+// the look fields and their ranges (cart: me.cl, bike: me.bl); 0 is stock and is not stored
+const BS_CART = { p: 29, p2: 29, f: 5, t: 4, r: 11, rs: 6, s: 11, sp: 5, s2: 11, w: 7, wc: 9, ty: 4, l: 2, e: 8, d: 10, dc: 9, a: 2047, u: 5, fl: 7, h: 4 };
+const BS_BIKE = { f: 11, fe: 11, w: 7, t: 2, g: 7, s: 7, b: 1, d: 4, dc: 9 };
+const BS_PLATE_RE = /^[A-Z0-9 ]{1,7}$/, BS_LABEL_RE = /^[A-Za-z0-9 .'!&-]{1,14}$/;
+// words a plate or label may not contain (checked on letters only, with common number and symbol swaps undone)
+// words a plate or label may not hold: the long ones anywhere in the letters, the short ones as a whole word (common number and symbol swaps undone)
+const BS_BAD = ["fuck", "fuk", "fck", "shit", "cunt", "bitch", "nigg", "niga", "faggot", "whore", "slut", "rapist", "nazi", "hitler", "porn", "penis", "vagina", "dildo", "jizz", "asshole", "bastard", "motherf", "retard", "wetback", "tranny", "cocksuck", "pussy", "twat", "wank", "bollock", "titties", "boobs", "cocaine", "heroin", "kike"];
+const BS_BAD_WORD = ["ass", "arse", "cum", "sex", "sexy", "spic", "chink", "gook", "fag", "fags", "hoe", "hoes", "tit", "tits", "dick", "dicks", "cock", "rape", "kkk", "anal", "anus", "piss", "crap", "douche", "stfu", "wtf", "kys", "meth", "weed", "milf", "horny", "boob", "suck", "sucks", "nude", "nudes"];
+const BS_SWAP = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "9": "g", "@": "a", "$": "s", "!": "i" };
+function bsWords(text) { const out = [""]; for (const ch of String(text).toLowerCase()) { const c = BS_SWAP[ch] || ch; if (c >= "a" && c <= "z") out[out.length - 1] += c; else if (out[out.length - 1]) out.push(""); } return out.filter(Boolean); }
+function bsRude(text) { const w = bsWords(text), all = w.join(""); for (const b of BS_BAD) if (all.includes(b)) return true; for (const x of w) if (BS_BAD_WORD.includes(x)) return true; return false; }
+function bsHas(hex, i) { const d = parseInt((hex || "")[i >> 2] || "0", 16); return ((d >> (i & 3)) & 1) === 1; }
+function bsWith(hex, ids) { const a = (hex || "").split(""); for (const id of ids) { const i = BS[id].i; while (a.length <= (i >> 2)) a.push("0"); a[i >> 2] = (parseInt(a[i >> 2], 16) | (1 << (i & 3))).toString(16); } return a.join(""); }
+// the items a look uses (ids in BS only: stock and free choices are left out)
+function bsItems(cart, bike) {
+  const out = [], add = (id) => { if (BS[id] && !out.includes(id)) out.push(id); };
+  if (cart) { const c = cart;
+    if (c.p) add("p" + c.p); if (c.t) { add("t" + c.t); if (c.p2) add("p" + c.p2); } if (c.f) add("f" + c.f); if (c.r) add("r" + c.r); if (c.rs) add("rs" + c.rs);
+    if (c.s) add("s" + c.s); if (c.sp) { add("sp" + c.sp); if (c.s2) add("s" + c.s2); } if (c.w) add("w" + c.w); if (c.wc) add("wc" + c.wc); if (c.ty) add("ty" + c.ty); if (c.l) add("l" + c.l);
+    if (c.e) add("e" + c.e); if (c.d) add("d" + c.d); if (c.pl) add("pl"); if (c.lb) add("lb"); if (c.h) add("h" + c.h);
+    for (let b = 0; b < 11; b++) if ((c.a || 0) & (1 << b)) add("a" + b); }
+  if (bike) { const k = bike; if (k.f) add("bf" + k.f); if (k.fe) add("bf" + k.fe); if (k.w) add("bw" + k.w); if (k.t) add("bt" + k.t); if (k.g) add("bg" + k.g); if (k.s) add("bs" + k.s); if (k.b) add("bb"); if (k.d) add("bd" + k.d); }
+  return out;
+}
+// a cart or bike look from the client: null (back to stock) or an object of small integers (and two short texts on a cart)
+function bsLookErr(o, spec, cart) {
+  if (o === null) return null; if (!o || typeof o !== "object" || Array.isArray(o)) return "bad look";
+  for (const k in o) { if (cart && (k === "pl" || k === "lb")) continue; if (!(k in spec)) return "bad " + k; const v = o[k]; if (!Number.isInteger(v) || v < 0 || v > spec[k]) return "bad " + k; }
+  if (cart) { if (o.pl !== undefined && (typeof o.pl !== "string" || !BS_PLATE_RE.test(o.pl) || o.pl.trim() !== o.pl)) return "plates take 1 to 7 capital letters or numbers"; if (o.lb !== undefined && (typeof o.lb !== "string" || !BS_LABEL_RE.test(o.lb) || o.lb.trim() !== o.lb)) return "labels take 1 to 14 letters or numbers"; for (const k of ["pl", "lb"]) if (o[k] !== undefined && bsRude(o[k])) return "please pick a friendlier " + (k === "pl" ? "plate" : "label"); }
+  return null;
+}
+function bsStore(o, spec, cart) { if (!o) return null; const r = {}; for (const k of Object.keys(spec)) if (o[k]) r[k] = o[k]; if (cart) { if (o.pl) r.pl = o.pl; if (o.lb) r.lb = o.lb; } return Object.keys(r).length ? r : null; }
+function bsNeed(me, cart, bike) { const owned = (me && me.bso) || ""; return bsItems(cart, bike).filter((id) => !bsHas(owned, BS[id].i)); }
 function defaultLots() { const lots = {}; for (let i = 0; i < 24; i++) lots["lot" + i] = { owner: null, build: null, name: null }; return lots; }
 const SEATS = 4;                 // one driver + three riders
 const BOARD_RANGE = 14;          // metres from the vehicle to climb in
@@ -132,7 +196,9 @@ export function validateAction(state, playerId, action) {
   if (action.t === "look") {
     const l = action.look; if (!l || typeof l !== "object") return { ok: false, error: "bad look" };
     for (const k of ["skin", "shirt", "pants"]) if (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k])) return { ok: false, error: "bad colour" };
-    if (l.hair !== undefined && (!num(l.hair) || l.hair < 0 || l.hair > 11)) return { ok: false, error: "bad hair" };
+    if (l.hair !== undefined && (!Number.isInteger(l.hair) || l.hair < 0 || l.hair > 31)) return { ok: false, error: "bad hair" };
+    // R11 character studio: headwear and its colourway, eyewear, accessories (bit mask); all optional small integers
+    for (const [k, hi] of [["hw", 15], ["hwc", 7], ["ey", 7], ["ac", 63]]) if (l[k] !== undefined && (!Number.isInteger(l[k]) || l[k] < 0 || l[k] > hi)) return { ok: false, error: "bad " + k };
     if (l.body !== undefined && l.body !== "m" && l.body !== "f") return { ok: false, error: "bad body" };
     for (const k of ["shoes", "hairc"]) if (l[k] !== undefined && (typeof l[k] !== "string" || !/^[0-9a-f]{6}$/.test(l[k]))) return { ok: false, error: "bad colour" };
     if (l.height !== undefined && (!num(l.height) || l.height < 0.88 || l.height > 1.12)) return { ok: false, error: "bad height" };
@@ -238,6 +304,17 @@ export function validateAction(state, playerId, action) {
     if (action.add !== undefined) { if (!action.add || typeof action.add !== "object" || Array.isArray(action.add)) return { ok: false, error: "bad impact" }; for (const k in action.add) if (!IMPACT_KEYS.includes(k) || !progInt(action.add[k], IMPACT_STEP)) return { ok: false, error: "bad impact" }; }
     return { ok: true };
   }
+  if (action.t === "bodyshop") {
+    // R13: buy whatever the new look needs and put it on (cart, bike or both); null puts the stock look back
+    if (!me) return { ok: false, error: "join first" };
+    if (action.cart === undefined && action.bike === undefined) return { ok: false, error: "nothing to apply" };
+    const ec = action.cart === undefined ? null : bsLookErr(action.cart, BS_CART, true); if (ec) return { ok: false, error: ec };
+    const eb = action.bike === undefined ? null : bsLookErr(action.bike, BS_BIKE, false); if (eb) return { ok: false, error: eb };
+    const need = bsNeed(me, action.cart || null, action.bike || null), rank = me.pr && Number.isInteger(me.pr.r) ? me.pr.r : 0;
+    let cost = 0; for (const id of need) { const it = BS[id]; if (it.rank > rank) return { ok: false, error: "reach " + RANKS[it.rank][1] + " to unlock that" }; cost += it.price; }
+    if ((me.coins || 0) < cost) return { ok: false, error: "not enough coins" };
+    return { ok: true };
+  }
   if (action.t === "quest") {
     if (!Number.isInteger(action.step) || action.step < 0 || action.step > 4) return { ok: false, error: "bad step" };
     if (((me && me.quest) || 0) !== action.step) return { ok: false, error: "step already claimed" };
@@ -300,6 +377,7 @@ export function applyAction(state, playerId, action) {
     }
   } else if (action.t === "look") {
     me.look = { skin: action.look.skin, shirt: action.look.shirt, pants: action.look.pants, hair: action.look.hair || 0, body: action.look.body === "f" ? "f" : "m", shoes: action.look.shoes || "f5f1e6", hairc: action.look.hairc || "1c1512", height: action.look.height || 1, cartc: Number.isInteger(action.look.cartc) ? action.look.cartc : 0 };
+    for (const k of ["hw", "hwc", "ey", "ac"]) if (Number.isInteger(action.look[k])) me.look[k] = action.look[k];
   } else if (action.t === "tick") {
     me.lastTick = tick; me.played = (me.played || 0) + 1; me.xp = (me.xp || 0) + 5; me.coins = (me.coins || 0) + 3; me.energy = Math.max(0, (me.energy === undefined ? 100 : me.energy) - 2);
   } else if (action.t === "buy") {
@@ -396,6 +474,12 @@ export function applyAction(state, playerId, action) {
     const pr = me.pr || { x: 0, r: 0, t: null };
     me.pr = { x: action.x !== undefined ? action.x : pr.x, r: action.r !== undefined ? action.r : pr.r, t: action.ti !== undefined ? action.ti || null : pr.t };
     if (action.add) { const I = { ...impact }; for (const k in action.add) I[k] = (I[k] || 0) + action.add[k]; impact = I; }
+  } else if (action.t === "bodyshop") {
+    const need = bsNeed(me, action.cart || null, action.bike || null); let cost = 0; for (const id of need) cost += BS[id].price;
+    me.coins = (me.coins || 0) - cost; if (need.length) { me.bso = bsWith(me.bso, need); me.xp = (me.xp || 0) + 10; }
+    if (action.cart !== undefined) me.cl = bsStore(action.cart, BS_CART, true);
+    if (action.bike !== undefined) me.bl = bsStore(action.bike, BS_BIKE, false);
+    me.bst = tick;
   } else if (action.t === "quest") {
     me.quest = action.step + 1; me.coins = (me.coins || 0) + 25; me.xp = (me.xp || 0) + 15;
   } else if (action.t === "name") {
@@ -424,5 +508,5 @@ export function isGameOver() {
 
 // Nothing is hidden in a walkthrough: everyone sees everyone.
 export function viewFor(state, playerId) {
-  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, lava: state.lava || null, hockey: state.hockey || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS, progv: PROG_V, prog: (state.progs || {})[playerId] || null, impact: state.impact || {} };
+  return { you: playerId, tick: state.tick, players: state.players, vehicles: vehicles(state), guestbook: state.guestbook, boards: state.boards || { golf: [], course: [], obby: [], drag: [] }, lots: state.lots || defaultLots(), props: state.props || [], av: state.av || null, duel: state.duel || null, arcade: state.arcade || {}, lava: state.lava || null, hockey: state.hockey || {}, prices: { catalog: CATALOG, shop: SHOP, lot: LOT_PRICE, build: BUILD_PRICE }, ranks: RANKS, progv: PROG_V, bsv: BS_V, prog: (state.progs || {})[playerId] || null, impact: state.impact || {} };
 }

@@ -1,0 +1,336 @@
+{
+  "_about": "R13: Aaron (Giveback, streaming live on a hand-held gimbal) and his sidekick Everette, under the Sun Gate shell in Arrivals Court. plan_aaron.js reads this file at boot. EDIT FREELY: every line of dialogue is in 'aaron' and 'everette' below (talk = the talk card pages; each page is { t: text, o: [[button label, page index or null to close]] }; a page with \"act\": \"dance\" starts Everette's robot dance when it opens). Keep to the facts we know; no em dashes, no fee or charity-share percentages, $GBACK is never an investment, the Giving Back Fund is a partner only.",
+  "version": "r13-1",
+  "spot": {
+    "_note": "world x / z (x east, z south), yaw in radians (0 faces +z). Under the Sun Gate shell at its Arrivals Court end, on the east side of the Sun Gate Walk, 9 to 12 m from the FBO landside door. Move both here.",
+    "aaron": [
+      106.7,
+      -112.6,
+      -1.42
+    ],
+    "everette": [
+      108.25,
+      -112.15,
+      -1.62
+    ]
+  },
+  "files": {
+    "aaron": "/models/aaron.glb",
+    "aaron_m": "/models_m/aaron.glb",
+    "aaron_lod": "/models/lod/aaron.glb",
+    "aaron_anim": "/models/aaron_anim.glb",
+    "aaron_screen": "/models/aaron_screen.jpg",
+    "everette": "/models/everette.glb",
+    "everette_m": "/models_m/everette.glb",
+    "everette_lod": "/models/lod/everette.glb",
+    "everette_anim": "/models/everette_anim.glb"
+  },
+  "range": {
+    "show": 150,
+    "lod": 30,
+    "greet": 9,
+    "leave": 15,
+    "label": 18
+  },
+  "progress": {
+    "talk_aaron": "aaron",
+    "talk_everette": "everette",
+    "stamp_stream": "p_aaron_stream",
+    "stamp_robot": "p_everette_robot"
+  },
+  "aaron": {
+    "id": "aaron",
+    "name": "Aaron",
+    "role": "Giveback · live on Kick and X",
+    "prompt": "talk to Aaron · you're on his stream",
+    "talk": [
+      {
+        "t": "Hey, hey! You just walked onto the stream! I'm Aaron with Giveback. Everybody, say hi! What do you want to know?",
+        "o": [
+          [
+            "Why do you stream?",
+            1
+          ],
+          [
+            "The Zone on Saturdays",
+            2
+          ],
+          [
+            "The Great Walk",
+            3
+          ],
+          [
+            "Why do you do this?",
+            6
+          ],
+          [
+            "How can I help?",
+            4
+          ],
+          [
+            "Where can I tune in?",
+            5
+          ],
+          [
+            "Thanks, Aaron",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "Because people need to see it. When the camera is rolling, you are not just hearing about giving, you are standing right there with us while it happens. Real people, real smiles, real work. And when folks at home see it, they want in.",
+        "o": [
+          [
+            "The Zone on Saturdays",
+            2
+          ],
+          [
+            "Where can I tune in?",
+            5
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Every Saturday we roll up to The Zone in Phoenix in the green Giveback food truck and serve hot meals. Hot food, served with a smile, eye to eye. Everybody who walks up gets treated like family. And we stream the whole thing live on Kick and X.",
+        "o": [
+          [
+            "Why do you stream?",
+            1
+          ],
+          [
+            "How can I help?",
+            4
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "The Great Walk to the World Cup! Giveback and Homeless Entrepreneur, on the road for World Cup 2026. We load up the RV and travel from state to state, meeting people and lifting folks up along the way. Everette has been right there with me. Ask him, he might even dance for you.",
+        "o": [
+          [
+            "How can I help?",
+            4
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Show up. Come out to The Zone on a Saturday, catch the stream and share it, tell somebody what we are doing. Giving should not be a one-time thing. Our whole goal at Giveback is to make giving permanent and automated, so the good keeps going even when the cameras are off.",
+        "o": [
+          [
+            "Where can I tune in?",
+            5
+          ],
+          [
+            "Thanks, Aaron",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "We go live on Kick and X. Saturdays at The Zone for sure, and out on the road for the Great Walk. Hit follow so you catch us next time, and drop a heart in the chat. I see every one of them!",
+        "o": [
+          [
+            "Thanks, Aaron",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "Honestly? Because everybody deserves to be seen. A hot meal and a little respect can turn somebody's whole day around. That's giving with dignity. If a camera and a food truck help more people feel seen, I'm going to keep doing it every single week.",
+        "o": [
+          [
+            "The Zone on Saturdays",
+            2
+          ],
+          [
+            "How can I help?",
+            4
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      }
+    ],
+    "greet": [
+      "Oh, we've got a visitor! Say hi to the stream!",
+      "Hey friend! Come say hi, you're live!",
+      "Chat, look who just walked in!"
+    ],
+    "stream": [
+      "What's good, stream! We're live from Solport!",
+      "Drop a heart if you can see me!",
+      "Shout out to everybody tuning in!",
+      "Saturdays mean The Zone. Y'all know the vibe!",
+      "Everette, give them a little something!",
+      "Hot meals, big smiles, that's the mission."
+    ],
+    "bye": [
+      "Thanks for stopping by! Go show some love!",
+      "Appreciate you! Catch us on Saturday!"
+    ],
+    "film": [
+      "Look at him go! Chat, are you seeing this?",
+      "Everette! Everette! Everette!"
+    ]
+  },
+  "everette": {
+    "id": "everette",
+    "name": "Everette",
+    "role": "Aaron's sidekick · The Great Walk",
+    "prompt": "talk to Everette · ask him to dance",
+    "talk": [
+      {
+        "t": "Hey now! I'm Everette. I ride with Aaron wherever the Great Walk takes us. You came at the right time, the music is on. What's up?",
+        "o": [
+          [
+            "Ask Everette to dance",
+            1
+          ],
+          [
+            "Life on the road",
+            2
+          ],
+          [
+            "Riding with Aaron",
+            3
+          ],
+          [
+            "Why do you dance?",
+            4
+          ],
+          [
+            "Blessing people",
+            5
+          ],
+          [
+            "Thanks, Everette",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "Oh, you want the robot? Say no more. Give me a little room, here we go!",
+        "act": "dance",
+        "o": [
+          [
+            "Ha! Thanks, Everette",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "We travel state to state in the RV for the Great Walk to the World Cup, Giveback and Homeless Entrepreneur together. Every stop is new faces and new stories. Some days are long, but every day is a blessing.",
+        "o": [
+          [
+            "Ask Everette to dance",
+            1
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Aaron is my brother. He has the camera, I have his back. When he is talking to the people, I make sure everybody feels welcome. We are a team, always.",
+        "o": [
+          [
+            "Ask Everette to dance",
+            1
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Because a smile is free! When folks are going through it, a little dance can lift the whole block. I bless people with what I have got, and what I have got is these moves. Keeping spirits high is my job.",
+        "o": [
+          [
+            "Ask Everette to dance",
+            1
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Whoever we meet, we try to leave them better than we found them. A hot meal, a kind word, a laugh. That is how we bless people in need, one stop at a time.",
+        "o": [
+          [
+            "Ask Everette to dance",
+            1
+          ],
+          [
+            "Thanks, Everette",
+            null
+          ]
+        ]
+      }
+    ],
+    "greet": [
+      "Hey hey! Welcome, welcome!",
+      "There they are! Good to see you!",
+      "You feel that? That's the good energy."
+    ],
+    "ambient": [
+      "Every day is a blessing.",
+      "Come on, move a little!",
+      "Ask me to dance, I dare you.",
+      "Keep your head up, keep your feet moving."
+    ],
+    "after_dance": [
+      "Beep boop! Thank you, thank you!",
+      "Robot mode: complete. Smiles: delivered.",
+      "Told you I still got it!"
+    ]
+  },
+  "screen": {
+    "_note": "the phone on Aaron's gimbal: a stream overlay drawn on a canvas (no real light). Chat lines are decorative.",
+    "chat": [
+      "hi from the stream!",
+      "Everette dance!!",
+      "we see you!",
+      "Saturday at The Zone?",
+      "hearts for the truck",
+      "love this",
+      "say hi!",
+      "lets gooo"
+    ],
+    "label": "LIVE on Kick + X"
+  },
+  "glasses": {
+    "_note": "R13b: the lenses inside Aaron's glasses (thin tinted glass with a slight reflection), in the rig's rest frame (metres, +Z front); the frames are part of the body mesh",
+    "lenses": [
+      [
+        0.0352,
+        1.6527
+      ],
+      [
+        -0.045,
+        1.6527
+      ]
+    ],
+    "w": 0.047,
+    "h": 0.029,
+    "r": 0.006,
+    "z": 0.1408,
+    "wrap": 1.2
+  }
+}

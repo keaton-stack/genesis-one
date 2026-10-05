@@ -245,6 +245,38 @@
           "place": "sky_rings",
           "r": 22,
           "name": "Sky Rings"
+        },
+        {
+          "n": 270,
+          "id": "t_aaron",
+          "talk": "aaron",
+          "kind": "local",
+          "name": "Aaron",
+          "org": "Giveback, live from Arrivals Court"
+        },
+        {
+          "n": 271,
+          "id": "t_everette",
+          "talk": "everette",
+          "kind": "local",
+          "name": "Everette",
+          "org": "The Great Walk, Arrivals Court"
+        },
+        {
+          "n": 272,
+          "id": "p_aaron_stream",
+          "name": "On Aaron's stream",
+          "x": 106.7,
+          "z": -112.6,
+          "r": 0.3
+        },
+        {
+          "n": 273,
+          "id": "p_everette_robot",
+          "name": "The robot with Everette",
+          "x": 108.25,
+          "z": -112.15,
+          "r": 0.3
         }
       ]
     },
@@ -1282,6 +1314,55 @@
           "kind": "local",
           "name": "Marisol",
           "org": "Farmer, Market Garden"
+        }
+      ]
+    },
+    {
+      "id": "bodyshop",
+      "n": 14,
+      "name": "Copper Canyon Customs",
+      "sub": "The custom body shop for carts and bikes in the Motor Yard",
+      "ink": "#b8643a",
+      "stamps": [
+        {
+          "n": 260,
+          "id": "p_bs_shop",
+          "name": "Copper Canyon Customs",
+          "x": -380,
+          "z": 398,
+          "r": 22
+        },
+        {
+          "n": 261,
+          "id": "p_bs_first",
+          "name": "Your first custom cart",
+          "x": -376,
+          "z": 415.5,
+          "r": 0.3
+        },
+        {
+          "n": 262,
+          "id": "p_bs_bike",
+          "name": "A custom bike",
+          "x": -376,
+          "z": 415.5,
+          "r": 0.3
+        },
+        {
+          "n": 263,
+          "id": "t_dusty",
+          "talk": "dusty",
+          "kind": "local",
+          "name": "Dusty Navarro",
+          "org": "Owner, Copper Canyon Customs"
+        },
+        {
+          "n": 264,
+          "id": "p_bs_loaded",
+          "name": "Fully loaded",
+          "x": -376,
+          "z": 415.5,
+          "r": 0.3
         }
       ]
     }
