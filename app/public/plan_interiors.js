@@ -28,7 +28,11 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   IN.v = 1; IN.errs = IN.errs || []; IN.n = IN.n || { builds: 0, disposes: 0, enters: 0, leaves: 0 }; IN.list = IN.list || []; IN.cfg = IN.cfg || null; IN.off = !!IN.off;
   var LAZY = []; LAZY.forEach(function (k) { if (window.PLAN_MODEL_LAZY.indexOf(k) < 0) window.PLAN_MODEL_LAZY.push(k); });
   function note(tag, e) { try { if (IN.errs.length < 40) IN.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (IN.errs.length <= 6) console.warn("plan_interiors " + tag, e); } catch (x) {} }
-  var R9I = !!(window.R9 && window.R9.part("i"));   // R9 (HANDOFF_R9_HITCHES.md): ?r9i=0 turns this module's hitch fixes off
+  var R9I = !!(window.R9 && window.R9.part("i"));
+  // R14 (HANDOFF_R14_VENUES.md): real paintings (generated, tex/rv_i3_*) in place of the procedural canvases, photographed back-bar
+  // bottles on the clubhouse and restaurant bars, and the Main Street Grill, Outpost and Launch Complex art. ?r14i=0 brings back R3.
+  var R14I = !/[?&]r14i=0/.test(location.search);
+  function r14tex(url, rep) { try { var t = new THREE.TextureLoader().load((window.AV || String)(url + "?v=" + (window.BUILD || "r14"))); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; if (rep) { t.wrapS = THREE.RepeatWrapping; t.repeat.set(rep, 1); } return t; } catch (e) { note("r14 tex " + url, e); return null; } }   // R9 (HANDOFF_R9_HITCHES.md): ?r9i=0 turns this module's hitch fixes off
   var TAU = Math.PI * 2, PI = Math.PI;
   var cl = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var ease = function (t) { t = cl(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -208,6 +212,9 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
       art0: S({ map: artTex(0), roughness: 0.7 }), art1: S({ map: artTex(1), roughness: 0.7 }), art2: S({ map: artTex(2), roughness: 0.7 }),
       rug0: S({ map: rugTex(0), roughness: 1 }), rug1: S({ map: rugTex(1), roughness: 1 }), rug2: S({ map: rugTex(2), roughness: 1 })
     };
+    if (R14I) { try { var tP = r14tex("/tex/rv_i3_p0.jpg"), tL0 = r14tex("/tex/rv_i3_l0.jpg"), tL1 = r14tex("/tex/rv_i3_l1.jpg"), tL2 = r14tex("/tex/rv_i3_l2.jpg"), tL3 = r14tex("/tex/rv_i3_l3.jpg"), tB = r14tex("/tex/rv_bottles.jpg", 1.5);
+        if (tP) MT.art0.map = tP; if (tL0) MT.art1.map = tL0; if (tL1) MT.art2.map = tL1; MT.art3 = S({ map: tL2 || artTex(0), roughness: 0.7 }); MT.art4 = S({ map: tL3 || artTex(1), roughness: 0.7 });
+        if (tB) { MT.bottles.map = tB; MT.bottles.emissiveMap = tB; MT.bottles.emissiveIntensity = 0.28; } } catch (e) { note("r14 mats", e); } }
     var AO = aoTex(); for (var mk in MT) { var mm = MT[mk]; if (mm && mm.isMeshStandardMaterial && !mm.transparent && mk !== "lamp" && mk !== "lampC") { mm.aoMap = AO; mm.aoMapIntensity = 1; } }
     MT.glass.userData.noSolid = true; MT.glassB.userData.noSolid = true; MT.fire.userData.noSolid = true; MT.glow.userData.noSolid = true;
     [MT.lamp, MT.lampC, MT.strip, MT.ember].forEach(function (m) { m.userData.k0 = m.emissiveIntensity; });
@@ -608,7 +615,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
       for (var k = 0; k < 4; k++) { var a = PI / 4 + k * PI / 2, cx = x + Math.sin(a) * 0.98, cz = z + Math.cos(a) * 0.98, ry = a + PI; chair(L, cx, cz, F, ry, row ? "green" : "navy"); L.chairs.push([cx, cz, ry]); setting(L, x + Math.sin(a) * 0.42, z + Math.cos(a) * 0.42, F, ry); }
       pendant(L, x, C, z, 2.2); }); });
     // art on the partition between the openings, a sideboard, plants in the corners
-    picture(L, "art1", -9.6, F + 2.6, B.PZ - 0.14, 1.9, 1.4, PI, null, "walnut"); picture(L, "art2", 3.6, F + 2.6, B.PZ - 0.14, 1.9, 1.4, PI, null, "walnut"); picture(L, "art0", 8.6, F + 2.6, B.PZ - 0.14, 1.9, 1.4, PI, null, "walnut");
+    picture(L, "art1", -9.6, F + 2.6, B.PZ - 0.14, 1.9, 1.4, PI, null, "walnut"); picture(L, "art2", 3.6, F + 2.6, B.PZ - 0.14, 1.9, 1.4, PI, null, "walnut"); picture(L, R14I ? "art3" : "art0", 8.6, F + 2.6, B.PZ - 0.14, 1.9, 1.4, PI, null, "walnut");
     if (L.model("jetbar", 6.4, F, B.PZ - 0.5, PI)) L.solid(6.4, B.PZ - 0.5, 1.6, 0.66, F, F + 1.3);
     plant(L, -12.1, -11.6, F, 1.8, 1.1); plant(L, 12.1, -11.6, F, 1.8, 1.1); plant(L, 12.1, -4.4, F, 1.5, 1.0);
     L.light(0xffdcb0, 1.3, 12, -7.2, C - 1.6, -8.2); L.light(0xffdcb0, 1.3, 12, 0, C - 1.6, -8.2); L.light(0xffdcb0, 1.3, 12, 7.2, C - 1.6, -8.2);
@@ -696,7 +703,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     [-3.9, -1.0, 1.9].forEach(function (c) { booth(L, c, F, acc, X1); });
     // feature wall over the booths: books (Border Books), a triptych (the Outpost), else a walnut slat panel with sconces
     if (v.feature === "books") { K.quad("books", 7.4, 1.6, X1 - 0.02, F + 2.5, -1.0, -PI / 2); K.bb("walnut", X1 - 0.08, F + 1.62, -4.8, X1, F + 1.7, 2.8); K.bb("walnut", X1 - 0.08, F + 3.3, -4.8, X1, F + 3.38, 2.8); }
-    else if (v.feature === "art") { picture(L, "art0", X1 - 0.08, F + 2.5, -3.9, 1.4, 1.1, -PI / 2, null, "walnut"); picture(L, "art1", X1 - 0.08, F + 2.5, -1.0, 1.4, 1.1, -PI / 2, null, "walnut"); picture(L, "art2", X1 - 0.08, F + 2.5, 1.9, 1.4, 1.1, -PI / 2, null, "walnut"); }
+    else if (v.feature === "art") { picture(L, R14I ? "art3" : "art0", X1 - 0.08, F + 2.5, -3.9, 1.4, 1.1, -PI / 2, null, "walnut"); picture(L, "art1", X1 - 0.08, F + 2.5, -1.0, 1.4, 1.1, -PI / 2, null, "walnut"); picture(L, R14I ? "art4" : "art2", X1 - 0.08, F + 2.5, 1.9, 1.4, 1.1, -PI / 2, null, "walnut"); }
     else { for (var sl = -4.8; sl <= 2.8; sl += 0.16) K.bb("oakP", X1 - 0.1, F + 1.5, sl, X1 - 0.02, F + 3.6, sl + 0.09); }
     // tables for two and four in the middle
     [[-2.3, -3.6, 4], [0.9, -3.6, 4], [-2.3, -0.6, 2], [0.9, -0.6, 4], [-2.6, 2.3, 2], [0.4, 2.2, 2]].forEach(function (t, i) { var x = t[0], z = t[1]; K.bb("walnut", x - 0.45, F + 0.72, z - 0.45, x + 0.45, F + 0.77, z + 0.45); K.cyl("bronze", 0.04, 0.04, 0.72, x, F + 0.36, z, 8); K.cyl("bronze", 0.25, 0.28, 0.03, x, F + 0.015, z, 16); L.solid(x, z, 0.9, 0.9, F, F + 0.77); K.cyl("glassB", 0.03, 0.03, 0.1, x, F + 0.82, z, 8);
@@ -816,7 +823,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     // the bedroom: a king bed under an upholstered headboard, nightstands and lamps, a bench, a rug, a chair by the window, art
     var bx = -3.3, bz = Z0 + 1.15; K.bb("cream", bx - 1.3, MY, Z0, bx + 1.3, MY + 1.35, Z0 + 0.15); K.bb("walnut", bx - 1.05, MY, bz - 0.95, bx + 1.05, MY + 0.3, bz + 1.1); K.bb("white", bx - 1.0, MY + 0.3, bz - 0.9, bx + 1.0, MY + 0.55, bz + 1.05); K.bb("linen", bx - 1.02, MY + 0.52, bz - 0.35, bx + 1.02, MY + 0.6, bz + 1.07); K.bb("rust", bx - 1.03, MY + 0.55, bz + 0.55, bx + 1.03, MY + 0.62, bz + 0.85); [-0.55, 0.55].forEach(function (o) { K.box("cream", 0.7, 0.16, 0.3, bx + o, MY + 0.66, bz - 0.7, 0, 0); });
     L.seat(bx, bz + 0.3, 2.0, 1.2, MY + 0.58, 0); L.solid(bx, Z0 + 0.35, 2.6, 0.45, MY, MY + 1.35); [-1.75, 1.75].forEach(function (o) { K.bb("walnut", bx + o - 0.3, MY, Z0 + 0.1, bx + o + 0.3, MY + 0.55, Z0 + 0.6); K.cyl("brass", 0.08, 0.1, 0.03, bx + o, MY + 0.57, Z0 + 0.35, 14); K.cyl("brass", 0.012, 0.012, 0.4, bx + o, MY + 0.78, Z0 + 0.35, 6); K.cyl("shade", 0.1, 0.17, 0.2, bx + o, MY + 1.05, Z0 + 0.35, 16); L.solid(bx + o, Z0 + 0.35, 0.6, 0.5, MY, MY + 0.6); });
-    K.bb("tan", bx - 0.8, MY + 0.3, bz + 1.25, bx + 0.8, MY + 0.46, bz + 1.65); K.bb("walnut", bx - 0.75, MY, bz + 1.3, bx + 0.75, MY + 0.3, bz + 1.6); L.seat(bx, bz + 1.45, 1.6, 0.4, MY + 0.46, PI); rug(L, "rug0", bx, bz + 0.9, 3.6, 3.2, MY); picture(L, "art2", bx, MY + 2.25, Z0 + 0.04, 1.8, 0.9, 0, null, "walnut");
+    K.bb("tan", bx - 0.8, MY + 0.3, bz + 1.25, bx + 0.8, MY + 0.46, bz + 1.65); K.bb("walnut", bx - 0.75, MY, bz + 1.3, bx + 0.75, MY + 0.3, bz + 1.6); L.seat(bx, bz + 1.45, 1.6, 0.4, MY + 0.46, PI); rug(L, "rug0", bx, bz + 0.9, 3.6, 3.2, MY); picture(L, "art2", bx, MY + 2.25, Z0 + 0.04, 1.8, 0.9, 0, R14I ? [0, 0.125, 1, 0.875] : null, "walnut");
     if (L.model("lounge_chair", -9.4, MY, -12.4, PI - 0.4)) L.seat(-9.4, -12.4, 0.62, 0.62, MY + 0.46, PI - 0.4); K.cyl("walnut", 0.25, 0.25, 0.03, -8.6, MY + 0.52, -12.9, 18); K.cyl("bronze", 0.03, 0.03, 0.5, -8.6, MY + 0.26, -12.9, 8); L.solid(-8.6, -12.9, 0.45, 0.45, MY, MY + 0.55);
     L.light(0xffd8a8, 1.2, 9, bx, MY + 2.2, bz + 0.8);
     // a low bookshelf between the suite and the office

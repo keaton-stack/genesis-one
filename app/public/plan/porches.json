@@ -1,0 +1,1465 @@
+{
+ "ver": "r14",
+ "note": "R14 porches (plan_porches.js). Every porch is in its building's facade frame: u along the front (metres, model scale 1), v outward from the model origin; a = the facade's yaw against the placement yaw (the scanned models stand a few degrees off their lot), back = the rear facade. wall = the front wall line, deck = [u0, u1, v0, v1] at height h over the model base, ceil = the porch roof underside, posts = [u, v], door = the door corridor [u0, u1] (kept clear, also of seats near the client's walk-in mat), keep = baked props to stay off, bays = [u0, u1, v0, v1, sets], steps = [u, width], ground = [prop, metres in front of the deck edge, chance], body = the walled box that replaces the round collider. Measured by ray casts on the full models (scratchpad r14p fac.js) and checked on orthographic elevations.",
+ "cull": 240,
+ "kinds": {
+  "store": {
+   "palette": {
+    "sets": [
+     "bench",
+     "rockers",
+     "checkers",
+     "goods",
+     "barrels",
+     "wheel"
+    ],
+    "weights": [
+     3,
+     2,
+     1.2,
+     1.2,
+     1,
+     0.6
+    ],
+    "bench": [
+     "bench_w",
+     "bench_w",
+     "bench_s",
+     "bench_c"
+    ],
+    "rocker": [
+     "rocker_o",
+     "rocker_o",
+     "rocker_c",
+     "rocker_s"
+    ],
+    "chair": [
+     "bistro_c",
+     "bistro_cg"
+    ],
+    "cafeByName": true,
+    "ground": [
+     [
+      "hitch",
+      1.05,
+      0.5
+     ],
+     [
+      "pot_agave",
+      0.55,
+      0.35
+     ]
+    ]
+   },
+   "cafeGround": [
+    [
+     "umb",
+     1.9
+    ],
+    [
+     "umb",
+     1.9
+    ]
+   ],
+   "sides": [
+    {
+     "a": 0.0947,
+     "wall": 3.13,
+     "deck": [
+      -4.72,
+      4.75,
+      3.13,
+      5.1
+     ],
+     "h": 0.305,
+     "ceil": 3.12,
+     "posts": [
+      [
+       -4.6,
+       5.0
+      ],
+      [
+       -1.59,
+       5.0
+      ],
+      [
+       1.62,
+       5.02
+      ],
+      [
+       4.63,
+       5.04
+      ]
+     ],
+     "door": [
+      0.85,
+      2.45
+     ],
+     "steps": [
+      [
+       -0.4,
+       1.5
+      ]
+     ],
+     "bays": [
+      [
+       -4.45,
+       -1.82,
+       3.13,
+       4.95
+      ],
+      [
+       -1.36,
+       0.6,
+       3.13,
+       4.95,
+       [
+        "barrels",
+        "goods",
+        "wheel",
+        "pots",
+        "nocafe"
+       ]
+      ],
+      [
+       2.7,
+       4.45,
+       3.13,
+       4.95,
+       [
+        "bench",
+        "rockers",
+        "goods",
+        "barrels",
+        "pots"
+       ]
+      ]
+     ],
+     "board": [
+      -1.95,
+      2.25
+     ]
+    }
+   ],
+   "body": {
+    "u": [
+     -5.0,
+     5.0
+    ],
+    "v": [
+     -5.25,
+     3.13
+    ],
+    "h": 4.4
+   }
+  },
+  "saloon": {
+   "palette": {
+    "sets": [
+     "bench",
+     "rockers",
+     "checkers",
+     "barrels",
+     "goods"
+    ],
+    "weights": [
+     3,
+     2,
+     1.5,
+     1.5,
+     0.7
+    ],
+    "bench": [
+     "bench_w",
+     "bench_s"
+    ],
+    "rocker": [
+     "rocker_o",
+     "rocker_o",
+     "rocker_c"
+    ],
+    "ground": [
+     [
+      "hitch",
+      1.1,
+      0.9
+     ],
+     [
+      "hitch",
+      1.1,
+      0.5
+     ]
+    ]
+   },
+   "sides": [
+    {
+     "a": -0.0699,
+     "wall": 4.03,
+     "deck": [
+      -5.6,
+      5.4,
+      4.03,
+      7.08
+     ],
+     "h": 0.4,
+     "ceil": 6.87,
+     "posts": [
+      [
+       -5.24,
+       6.67
+      ],
+      [
+       -1.04,
+       6.58
+      ],
+      [
+       5.25,
+       6.87
+      ]
+     ],
+     "door": [
+      -1.6,
+      0.75
+     ],
+     "steps": [
+      [
+       -0.4,
+       1.8
+      ]
+     ],
+     "bays": [
+      [
+       -5.35,
+       -1.85,
+       4.03,
+       6.9
+      ],
+      [
+       1.0,
+       3.0,
+       4.03,
+       6.9,
+       [
+        "bench",
+        "barrels",
+        "goods",
+        "checkers"
+       ]
+      ],
+      [
+       3.1,
+       5.0,
+       4.03,
+       6.9,
+       [
+        "rockers",
+        "bench",
+        "barrels",
+        "checkers"
+       ]
+      ]
+     ]
+    }
+   ],
+   "body": {
+    "u": [
+     -6.1,
+     6.1
+    ],
+    "v": [
+     -7.3,
+     4.03
+    ],
+    "h": 15
+   }
+  },
+  "hotel": {
+   "palette": {
+    "sets": [
+     "rockers",
+     "bench",
+     "bistro",
+     "rockers"
+    ],
+    "weights": [
+     3,
+     1.2,
+     1,
+     2
+    ],
+    "bench": [
+     "bench_c",
+     "bench_s",
+     "bench_w"
+    ],
+    "rocker": [
+     "rocker_c",
+     "rocker_o",
+     "rocker_s"
+    ],
+    "chair": [
+     "bistro_c",
+     "bistro_cg"
+    ]
+   },
+   "sides": [
+    {
+     "a": 0.005,
+     "wall": 9.91,
+     "deck": [
+      -10.9,
+      10.9,
+      9.91,
+      13.0
+     ],
+     "h": 0.43,
+     "ceil": 4.9,
+     "posts": [
+      [
+       -10.58,
+       12.69
+      ],
+      [
+       -7.03,
+       12.72
+      ],
+      [
+       -3.63,
+       12.65
+      ],
+      [
+       3.47,
+       12.76
+      ],
+      [
+       6.87,
+       12.75
+      ],
+      [
+       10.47,
+       12.82
+      ]
+     ],
+     "door": [
+      -1.25,
+      1.25
+     ],
+     "steps": [
+      [
+       0,
+       2.6
+      ]
+     ],
+     "bays": [
+      [
+       -10.35,
+       -7.25,
+       9.91,
+       12.55
+      ],
+      [
+       -6.8,
+       -3.85,
+       9.91,
+       12.55
+      ],
+      [
+       -3.4,
+       -1.75,
+       9.91,
+       12.4,
+       [
+        "pots"
+       ]
+      ],
+      [
+       1.75,
+       3.25,
+       9.91,
+       12.4,
+       [
+        "pots"
+       ]
+      ],
+      [
+       3.7,
+       6.65,
+       9.91,
+       12.55
+      ],
+      [
+       7.1,
+       10.25,
+       9.91,
+       12.55
+      ]
+     ]
+    },
+    {
+     "a": 0.0,
+     "back": true,
+     "wall": 9.97,
+     "deck": [
+      -10.9,
+      10.9,
+      9.97,
+      13.0
+     ],
+     "h": 0.43,
+     "ceil": 4.9,
+     "posts": [
+      [
+       -10.51,
+       12.77
+      ],
+      [
+       -6.96,
+       12.77
+      ],
+      [
+       -3.51,
+       12.75
+      ],
+      [
+       3.54,
+       12.78
+      ],
+      [
+       6.99,
+       12.75
+      ],
+      [
+       10.54,
+       12.74
+      ]
+     ],
+     "door": [
+      -1.25,
+      1.25
+     ],
+     "steps": [
+      [
+       0,
+       2.6
+      ]
+     ],
+     "bays": [
+      [
+       -10.3,
+       -7.2,
+       9.97,
+       12.6
+      ],
+      [
+       -6.75,
+       -3.75,
+       9.97,
+       12.6
+      ],
+      [
+       3.75,
+       6.75,
+       9.97,
+       12.6
+      ],
+      [
+       7.2,
+       10.3,
+       9.97,
+       12.6
+      ]
+     ]
+    }
+   ],
+   "body": {
+    "u": [
+     -11.3,
+     11.3
+    ],
+    "v": [
+     -9.97,
+     9.91
+    ],
+    "h": 20
+   }
+  },
+  "ranch": {
+   "palette": {
+    "sets": [
+     "rockers",
+     "swing",
+     "bench",
+     "pots",
+     "barrels",
+     "wheel"
+    ],
+    "weights": [
+     3,
+     2,
+     1.2,
+     1,
+     0.6,
+     0.5
+    ],
+    "swing": true,
+    "bench": [
+     "bench_w",
+     "bench_s",
+     "bench_c"
+    ],
+    "rocker": [
+     "rocker_o",
+     "rocker_c",
+     "rocker_s",
+     "rocker_o"
+    ],
+    "ground": [
+     [
+      "pot_agave",
+      0.5,
+      0.4
+     ]
+    ]
+   },
+   "sides": [
+    {
+     "a": -0.0025,
+     "wall": 3.67,
+     "deck": [
+      -8.75,
+      8.5,
+      3.67,
+      5.75
+     ],
+     "h": 0.35,
+     "ceil": 3.35,
+     "posts": [
+      [
+       -8.54,
+       5.6
+      ],
+      [
+       -5.54,
+       5.59
+      ],
+      [
+       -2.24,
+       5.59
+      ],
+      [
+       1.06,
+       5.57
+      ],
+      [
+       4.46,
+       5.57
+      ],
+      [
+       8.06,
+       5.56
+      ]
+     ],
+     "door": [
+      -0.95,
+      0.95
+     ],
+     "steps": [
+      [
+       -0.1,
+       1.5
+      ]
+     ]
+    },
+    {
+     "a": -0.0025,
+     "back": true,
+     "wall": 3.48,
+     "deck": [
+      -8.75,
+      8.75,
+      3.48,
+      5.7
+     ],
+     "h": 0.35,
+     "ceil": 3.35,
+     "posts": [
+      [
+       -8.04,
+       5.57
+      ],
+      [
+       -4.44,
+       5.56
+      ],
+      [
+       -1.04,
+       5.55
+      ],
+      [
+       2.26,
+       5.56
+      ],
+      [
+       5.56,
+       5.51
+      ],
+      [
+       8.56,
+       5.53
+      ]
+     ],
+     "door": [
+      -0.95,
+      0.8
+     ],
+     "steps": [
+      [
+       0.6,
+       1.4
+      ]
+     ]
+    }
+   ],
+   "body": {
+    "u": [
+     -8.95,
+     8.95
+    ],
+    "v": [
+     -3.48,
+     3.67
+    ],
+    "h": 7.6
+   }
+  },
+  "casita": {
+   "palette": {
+    "sets": [
+     "equipales",
+     "bench",
+     "rockers",
+     "pots"
+    ],
+    "weights": [
+     3,
+     1.2,
+     1,
+     0.8
+    ],
+    "bench": [
+     "bench_c",
+     "bench_s"
+    ],
+    "rocker": [
+     "rocker_c",
+     "rocker_s",
+     "rocker_o"
+    ],
+    "lanterns": false
+   },
+   "sides": [
+    {
+     "a": -0.02,
+     "wall": 1.91,
+     "deck": [
+      -3.73,
+      3.52,
+      1.91,
+      3.85
+     ],
+     "h": 0.226,
+     "ceil": 4.19,
+     "posts": [
+      [
+       -3.4,
+       3.7
+      ],
+      [
+       3.4,
+       3.85
+      ]
+     ],
+     "door": [
+      -1.0,
+      0.45
+     ],
+     "keep": [
+      [
+       0.85,
+       3.95,
+       2.95,
+       4.25
+      ]
+     ],
+     "bays": [
+      [
+       -3.15,
+       -1.25,
+       1.91,
+       3.65
+      ],
+      [
+       0.75,
+       3.2,
+       1.91,
+       2.95,
+       [
+        "bench"
+       ]
+      ]
+     ]
+    }
+   ],
+   "extra": [
+    {
+     "p": "lantern_hang",
+     "u": -0.3,
+     "v": 3.2,
+     "y": 4.15
+    }
+   ],
+   "body": {
+    "u": [
+     -3.95,
+     3.95
+    ],
+    "v": [
+     -4.45,
+     1.91
+    ],
+    "h": 6
+   }
+  },
+  "glamp": {
+   "va": -0.0125,
+   "vy": 0.74,
+   "variants": [
+    [
+     [
+      "adk_c",
+      -1.95,
+      4.2,
+      -0.35
+     ],
+     [
+      "adk_c",
+      1.95,
+      4.2,
+      0.35
+     ],
+     [
+      "side_table",
+      -2.95,
+      3.7,
+      0
+     ],
+     [
+      "pot_agave",
+      3.05,
+      3.55,
+      0
+     ]
+    ],
+    [
+     [
+      "adk_s",
+      -1.95,
+      4.2,
+      -0.35
+     ],
+     [
+      "adk_s",
+      1.95,
+      4.2,
+      0.35
+     ],
+     [
+      "pot_agave",
+      -3.1,
+      3.55,
+      0
+     ],
+     [
+      "pot_saguaro",
+      3.1,
+      3.55,
+      0
+     ]
+    ],
+    [
+     [
+      "equipale",
+      -1.95,
+      4.15,
+      -0.4
+     ],
+     [
+      "equipale",
+      1.95,
+      4.15,
+      0.4
+     ],
+     [
+      "rug_l",
+      0,
+      4.25,
+      0
+     ],
+     [
+      "side_table",
+      -2.95,
+      3.7,
+      0
+     ]
+    ],
+    [
+     [
+      "adk_o",
+      -1.95,
+      4.2,
+      -0.35
+     ],
+     [
+      "adk_o",
+      1.95,
+      4.2,
+      0.35
+     ],
+     [
+      "side_table",
+      2.95,
+      3.7,
+      0
+     ],
+     [
+      "pot_pair",
+      -3.05,
+      3.55,
+      0
+     ]
+    ]
+   ],
+   "sides": [
+    {
+     "a": -0.0125,
+     "deck": [
+      -5.35,
+      5.35,
+      -5.35,
+      5.35
+     ],
+     "round": [
+      2.9,
+      5.35
+     ],
+     "h": 0.74,
+     "door": [
+      -1.3,
+      1.3
+     ],
+     "bays": []
+    }
+   ],
+   "extra": [
+    {
+     "solid": [
+      0,
+      5.62,
+      2.5,
+      0.5,
+      0.3
+     ],
+     "climb": true
+    },
+    {
+     "solid": [
+      -4.1,
+      2.95,
+      0.4,
+      0.4,
+      3.0
+     ]
+    },
+    {
+     "solid": [
+      4.1,
+      2.95,
+      0.4,
+      0.4,
+      3.0
+     ]
+    },
+    {
+     "solid": [
+      -4.1,
+      -2.95,
+      0.4,
+      0.4,
+      3.0
+     ]
+    },
+    {
+     "solid": [
+      4.1,
+      -2.95,
+      0.4,
+      0.4,
+      3.0
+     ]
+    }
+   ],
+   "body": {
+    "u": [
+     -3.25,
+     3.25
+    ],
+    "v": [
+     -3.05,
+     3.0
+    ],
+    "h": 6
+   },
+   "palette": {
+    "lanterns": false
+   }
+  },
+  "restaurant": {
+   "palette": {
+    "sets": [
+     "bistro"
+    ],
+    "chair": [
+     "bistro_c",
+     "bistro_cg"
+    ],
+    "lanterns": false
+   },
+   "cafeGround": [
+    [
+     "umb",
+     1.8
+    ],
+    [
+     "umb",
+     1.8
+    ]
+   ],
+   "cafe": true,
+   "sides": [
+    {
+     "a": 0.0025,
+     "wall": 5.63,
+     "deck": [
+      -8.35,
+      7.6,
+      5.63,
+      8.7
+     ],
+     "h": 0.216,
+     "ceil": 3.8,
+     "nowalk": true,
+     "door": [
+      -1.8,
+      -0.15
+     ],
+     "keep": [
+      [
+       -8.4,
+       -6.7,
+       6.2,
+       7.4
+      ],
+      [
+       6.4,
+       7.7,
+       6.2,
+       7.5
+      ]
+     ],
+     "bays": [
+      [
+       -6.55,
+       -3.75,
+       5.63,
+       8.4
+      ],
+      [
+       -3.4,
+       -2.1,
+       5.63,
+       8.4,
+       [
+        "pots",
+        "nocafe"
+       ]
+      ],
+      [
+       0.2,
+       1.35,
+       5.63,
+       8.4,
+       [
+        "pots",
+        "nocafe"
+       ]
+      ],
+      [
+       1.8,
+       4.0,
+       5.63,
+       8.4
+      ],
+      [
+       4.15,
+       6.3,
+       5.63,
+       8.4
+      ]
+     ]
+    }
+   ],
+   "extra": [
+    {
+     "p": "lantern_hang",
+     "u": -5.1,
+     "v": 7.2,
+     "y": 3.78
+    },
+    {
+     "p": "lantern_hang",
+     "u": 2.9,
+     "v": 7.2,
+     "y": 3.78
+    },
+    {
+     "p": "lantern_hang",
+     "u": 5.2,
+     "v": 7.2,
+     "y": 3.78
+    }
+   ]
+  },
+  "villa": {
+   "palette": {
+    "lanterns": false
+   },
+   "sides": [
+    {
+     "a": 0,
+     "wall": 2.4,
+     "deck": [
+      -7.45,
+      -0.2,
+      2.45,
+      6.35
+     ],
+     "h": 0.25,
+     "bays": []
+    }
+   ],
+   "extra": [
+    {
+     "seat": [
+      -4.75,
+      5.15,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": 3.1416
+    },
+    {
+     "seat": [
+      -3.9,
+      5.15,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": 3.1416
+    },
+    {
+     "seat": [
+      -3.2,
+      5.15,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": 3.1416
+    },
+    {
+     "seat": [
+      -4.9,
+      3.4,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": 0
+    },
+    {
+     "seat": [
+      -3.9,
+      3.4,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": 0
+    },
+    {
+     "seat": [
+      -3.2,
+      3.4,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": 0
+    },
+    {
+     "seat": [
+      -3.0,
+      4.25,
+      0.46,
+      0.46,
+      0.72
+     ],
+     "ry": -1.5708
+    },
+    {
+     "seat": [
+      -1.62,
+      4.6,
+      3.5,
+      0.4,
+      0.55
+     ],
+     "ry": -1.5708
+    },
+    {
+     "solid": [
+      -4.3,
+      4.25,
+      1.9,
+      1.3,
+      1.1
+     ]
+    },
+    {
+     "solid": [
+      -5.9,
+      4.2,
+      0.45,
+      1.5,
+      1.0
+     ]
+    },
+    {
+     "p": "lantern_hang",
+     "u": -4.3,
+     "v": 3.95,
+     "y": 3.15
+    },
+    {
+     "p": "lantern_hang",
+     "u": -1.6,
+     "v": 2.9,
+     "y": 3.15
+    },
+    {
+     "p": "adk_c",
+     "u": -6.85,
+     "v": 3.55,
+     "ry": -1.25,
+     "y": 0.25
+    },
+    {
+     "p": "adk_c",
+     "u": -6.85,
+     "v": 5.15,
+     "ry": -1.9,
+     "y": 0.25
+    },
+    {
+     "p": "side_table",
+     "u": -7.0,
+     "v": 4.35,
+     "y": 0.25
+    },
+    {
+     "p": "rug_l",
+     "u": -6.6,
+     "v": 4.35,
+     "ry": 1.5708,
+     "y": 0.25
+    }
+   ],
+   "body": [
+    {
+     "a": 0,
+     "u": [
+      -8.8,
+      8.5
+     ],
+     "v": [
+      -8.9,
+      2.4
+     ],
+     "h": 9
+    },
+    {
+     "a": 0,
+     "u": [
+      -0.1,
+      6.7
+     ],
+     "v": [
+      2.4,
+      7.8
+     ],
+     "h": 9
+    }
+   ]
+  },
+  "diner": {
+   "palette": {
+    "lanterns": false
+   },
+   "fa": 0.0898,
+   "fixed": [
+    [
+     "cafe",
+     -6.8,
+     7.7,
+     0
+    ],
+    [
+     "cafe",
+     -4.1,
+     8.5,
+     0
+    ],
+    [
+     "cafe",
+     5.4,
+     7.7,
+     0
+    ],
+    [
+     "cafe",
+     8.1,
+     8.5,
+     0
+    ],
+    [
+     "cafe",
+     -5.6,
+     10.8,
+     0
+    ],
+    [
+     "cafe",
+     6.8,
+     10.8,
+     0
+    ],
+    [
+     "festoon",
+     -5.4,
+     6.75,
+     0
+    ],
+    [
+     "festoon",
+     6.6,
+     6.75,
+     0
+    ],
+    [
+     "planter",
+     -2.6,
+     7.6,
+     1.5708
+    ],
+    [
+     "planter",
+     3.9,
+     7.6,
+     1.5708
+    ]
+   ]
+  },
+  "storefront_sl": {
+   "palette": {
+    "cafeByName": true,
+    "lanterns": false
+   },
+   "fa": -0.02,
+   "fixed": [
+    [
+     "bench_c",
+     -2.45,
+     6.0,
+     0,
+     0.85
+    ],
+    [
+     "bench_s",
+     2.55,
+     6.0,
+     0,
+     0.85
+    ]
+   ],
+   "cafeFixed": [
+    [
+     -3.55,
+     7.75
+    ],
+    [
+     3.6,
+     7.75
+    ]
+   ]
+  },
+  "lakehouse": {
+   "palette": {
+    "lanterns": false
+   },
+   "va": 0,
+   "vy": 1.76,
+   "sides": [
+    {
+     "a": 0,
+     "deck": [
+      6.0,
+      11.7,
+      5.3,
+      9.7
+     ],
+     "h": 1.76,
+     "solidDeck": true,
+     "bays": []
+    },
+    {
+     "a": 0,
+     "deck": [
+      -3.0,
+      6.0,
+      5.0,
+      10.1
+     ],
+     "h": 1.95,
+     "solidDeck": true,
+     "bays": []
+    }
+   ],
+   "variants": [
+    [
+     [
+      "adk_o",
+      9.3,
+      8.5,
+      0.25
+     ],
+     [
+      "adk_o",
+      10.7,
+      8.3,
+      -0.25
+     ],
+     [
+      "side_table",
+      10.0,
+      8.0,
+      0
+     ]
+    ],
+    [
+     [
+      "rocker_o",
+      9.3,
+      8.6,
+      0.2
+     ],
+     [
+      "rocker_o",
+      10.7,
+      8.6,
+      -0.2
+     ],
+     [
+      "side_table",
+      10.0,
+      8.25,
+      0
+     ]
+    ],
+    [
+     [
+      "adk_s",
+      9.3,
+      8.5,
+      0.25
+     ],
+     [
+      "adk_s",
+      10.7,
+      8.3,
+      -0.25
+     ],
+     [
+      "pot_agave",
+      11.2,
+      6.0,
+      0
+     ]
+    ]
+   ],
+   "extra": [
+    {
+     "stairs": [
+      11.75,
+      7.5,
+      1.5708,
+      10,
+      0.16,
+      1.3
+     ]
+    }
+   ],
+   "body": {
+    "u": [
+     -8.0,
+     8.7
+    ],
+    "v": [
+     -10.1,
+     4.9
+    ],
+    "h": 7.8
+   }
+  }
+ },
+ "stamps": {
+  "rocker": "p_rp_rocker",
+  "swing": "p_rp_swing",
+  "checkers": "p_rp_checkers",
+  "cafe": "p_rp_cafe",
+  "glamp": "p_rp_glamp"
+ },
+ "sitLines": {
+  "rocker": "rocking on the porch",
+  "bench": "on the porch bench",
+  "swing": "on the porch swing",
+  "stool": "a game of checkers on the boardwalk",
+  "cafe": "at a cafe table",
+  "equipale": "in an equipale chair",
+  "adk": "in a deck chair",
+  "patio": "at the patio table",
+  "def": "sitting on the porch"
+ },
+ "note_board": "store sides[0].board: the u span of Agent A's shop name board on the false front (model x 0.14, 3.5 m wide, from y 3.45 up); umbrellas are kept out of the span in front of it"
+}

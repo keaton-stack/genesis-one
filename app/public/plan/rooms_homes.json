@@ -1,0 +1,23 @@
+{
+  "_about": "R14 homes (plan_rooms_homes.js): copy for the villa, ranch, lakehouse and glamp interiors. Every key is optional; the module carries the same defaults.",
+  "styles": {
+    "villa": { "title": "Desert-modern villa", "tag": "Open plan under a walnut slat ceiling, a sandstone fire wall and the desert through steel glass." },
+    "ranch": { "title": "Ranch house", "tag": "Timber and stone, a leather sofa by a fieldstone fire, a cowhide rug and a long farmhouse table." },
+    "lakehouse": { "title": "Lodge great room", "tag": "Log walls, a river rock chimney to the trusses and a sleeping loft up the timber stair." },
+    "glamp": { "title": "Canvas bell tent", "tag": "A ring of poles under a cone of canvas, a wood stove, string lights down the spokes and a bed piled with quilts." }
+  },
+  "card": {
+    "k": "A home in Genesis One",
+    "p": "Homes like this one will belong to residents of Genesis One. Details revealing soon.",
+    "foot": "Walk around: E lights the fire, dims the lamps, brews coffee and pulls a book."
+  },
+  "books": ["Field Notes from the Sky Islands", "The Long Trail North", "Adobe and Light", "A Year of Desert Gardens", "Night Skies over Cochise County", "The Cowhand's Cookbook", "Stories from the First Airfield", "Stone, Timber and Sun", "The Quiet Mesa", "Birds of the Chiricahuas", "Letters from the Mule Mountains", "A Field Guide to Desert Light"],
+  "bookLines": ["A well-thumbed copy, a pressed ocotillo flower marking a page.", "Someone has underlined half of chapter three.", "The spine is cracked at the good part.", "A note inside the cover: for long evenings by the fire.", "A boarding pass from the old airfield tucked inside as a bookmark."],
+  "coffee": ["Fresh coffee. The whole house smells of it.", "A pour-over, slow and strong.", "Coffee in a heavy mug, the way it should be.", "Cowboy coffee, grounds and all."],
+  "dogs": ["Biscuit", "Juniper", "Scout", "Mesa", "Rusty", "Pepper", "Sage", "Dusty"],
+  "dogLines": ["{dog} thumps a tail on the floor and sighs.", "{dog} rolls over for a belly rub.", "{dog} opens one eye, then goes back to sleep.", "{dog} leans into your hand."],
+  "records": ["A slow country record crackles into the room.", "A worn jazz record turns, low and warm.", "Desert folk, a guitar and a harmonica."],
+  "pool": ["You sink the eight ball. Nobody saw it, so it counts.", "A clean break. Three stripes drop.", "The cue ball kisses the nine and stops dead."],
+  "prompts": { "fireOn": "light the fire", "fireOff": "let the fire burn down", "stoveOn": "light the stove", "stoveOff": "let the stove go out", "lights": "dim the lamps", "lightsUp": "bring the lamps up", "coffee": "brew a coffee", "book": "pick a book", "card": "read the house card", "dog": "pet {dog}", "record": "put a record on", "recordOff": "lift the needle", "pool": "rack up a frame" },
+  "stamps": { "villa": "p_home_villa", "ranch": "p_home_ranch", "lakehouse": "p_home_lodge", "glamp": "p_home_glamp", "all": "p_open_house" }
+}

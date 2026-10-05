@@ -1365,6 +1365,282 @@
           "r": 0.3
         }
       ]
+    },
+    {
+      "id": "shops",
+      "n": 15,
+      "name": "Shops of Genesis One",
+      "sub": "Main Street, the Flight Line Market and the Club Walk, shop by shop",
+      "ink": "#c9a24a",
+      "stamps": [
+        {
+          "n": 280,
+          "id": "p_rs_fountain",
+          "name": "Soda fountain regular",
+          "x": -269.5,
+          "z": 168.3,
+          "r": 0.3
+        },
+        {
+          "n": 281,
+          "id": "p_rs_coffee",
+          "name": "Fresh roast",
+          "x": -286.4,
+          "z": 138.9,
+          "r": 0.3
+        },
+        {
+          "n": 282,
+          "id": "p_rs_tavern",
+          "name": "Tie-down toast",
+          "x": -244.3,
+          "z": 168.9,
+          "r": 0.3
+        },
+        {
+          "n": 283,
+          "id": "p_rs_outfit",
+          "name": "Outfitted",
+          "x": -379.0,
+          "z": 165.9,
+          "r": 0.3
+        },
+        {
+          "n": 284,
+          "id": "p_rs_giveback",
+          "name": "The Giveback shop",
+          "x": 261.6,
+          "z": -233.7,
+          "r": 0.3
+        },
+        {
+          "n": 285,
+          "id": "p_rs_records",
+          "name": "Crate digger",
+          "x": -353.8,
+          "z": 166.4,
+          "r": 0.3
+        },
+        {
+          "n": 286,
+          "id": "p_rs_barber",
+          "name": "A fresh cut",
+          "x": -341.2,
+          "z": 166.7,
+          "r": 0.3
+        },
+        {
+          "n": 287,
+          "id": "p_rs_makers",
+          "name": "Made in Douglas",
+          "x": -316.1,
+          "z": 167.3,
+          "r": 0.3
+        },
+        {
+          "n": 288,
+          "id": "p_rs_heritage",
+          "name": "Heritage Main Street",
+          "x": 693.5,
+          "z": 72.9,
+          "r": 0.3
+        },
+        {
+          "n": 289,
+          "id": "p_rs_crawl",
+          "name": "Shop crawl",
+          "x": 700.0,
+          "z": 200.0,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "venues",
+      "name": "Main Street Venues",
+      "sub": "The saloons, hotels, the Flight Line Diner, the banks, the chapel, the barns and the galleries",
+      "ink": "#8a3b2e",
+      "stamps": [
+        {
+          "n": 290,
+          "id": "p_rv_saloon",
+          "name": "Belly up to the bar",
+          "x": 704,
+          "z": 174,
+          "r": 0.3
+        },
+        {
+          "n": 291,
+          "id": "p_rv_hotel",
+          "name": "Checked in",
+          "x": 634,
+          "z": 154,
+          "r": 0.3
+        },
+        {
+          "n": 292,
+          "id": "p_rv_diner",
+          "name": "Flight Line Diner",
+          "x": -78,
+          "z": 138,
+          "r": 0.3
+        },
+        {
+          "n": 293,
+          "id": "p_rv_bank",
+          "name": "The banking hall",
+          "x": 685,
+          "z": 124,
+          "r": 0.3
+        },
+        {
+          "n": 294,
+          "id": "p_rv_chapel",
+          "name": "The Chapel",
+          "x": 150,
+          "z": -605,
+          "r": 0.3
+        },
+        {
+          "n": 295,
+          "id": "p_rv_barn",
+          "name": "Raised in a barn",
+          "x": 1012,
+          "z": -48,
+          "r": 0.3
+        },
+        {
+          "n": 296,
+          "id": "p_rv_gallery",
+          "name": "Opening night",
+          "x": 622,
+          "z": 480,
+          "r": 0.3
+        },
+        {
+          "n": 297,
+          "id": "p_rv_piano",
+          "name": "A song from the Professor",
+          "x": 704,
+          "z": 174,
+          "r": 0.3
+        },
+        {
+          "n": 298,
+          "id": "p_rv_candle",
+          "name": "A candle lit",
+          "x": 150,
+          "z": -605,
+          "r": 0.3
+        },
+        {
+          "n": 299,
+          "id": "p_rv_jukebox",
+          "name": "A nickel in the jukebox",
+          "x": -78,
+          "z": 138,
+          "r": 0.3
+        }
+      ],
+      "n": 16
+    },
+    {
+      "id": "porches",
+      "n": 17,
+      "name": "Porch Life",
+      "sub": "Sit a spell on the porches, verandas and terraces of the old town",
+      "ink": "#b07a3c",
+      "stamps": [
+        {
+          "n": 305,
+          "id": "p_rp_rocker",
+          "name": "Rock on a ranch porch",
+          "x": 972.1,
+          "z": -18.0,
+          "r": 0.3
+        },
+        {
+          "n": 306,
+          "id": "p_rp_swing",
+          "name": "The porch swing",
+          "x": 975.8,
+          "z": -19.7,
+          "r": 0.3
+        },
+        {
+          "n": 307,
+          "id": "p_rp_checkers",
+          "name": "Checkers on the boardwalk",
+          "x": -378.0,
+          "z": 141.2,
+          "r": 0.3
+        },
+        {
+          "n": 308,
+          "id": "p_rp_cafe",
+          "name": "Coffee on the terrace",
+          "x": -71.3,
+          "z": 129.6,
+          "r": 0.3
+        },
+        {
+          "n": 309,
+          "id": "p_rp_glamp",
+          "name": "A chair on the glamping deck",
+          "x": 261.9,
+          "z": 694.5,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "homes",
+      "n": 18,
+      "name": "Homes of Genesis One",
+      "sub": "Desert villas, ranch houses, the lodge and the bell tents",
+      "ink": "#b86e4a",
+      "stamps": [
+        {
+          "n": 300,
+          "id": "p_home_villa",
+          "name": "Desert-modern villa",
+          "x": 221.0,
+          "z": -424.2,
+          "r": 0.3
+        },
+        {
+          "n": 301,
+          "id": "p_home_ranch",
+          "name": "Ranch house",
+          "x": 978.0,
+          "z": -25.0,
+          "r": 0.3
+        },
+        {
+          "n": 302,
+          "id": "p_home_lodge",
+          "name": "Lodge great room",
+          "x": 545.3,
+          "z": 720.3,
+          "r": 0.3
+        },
+        {
+          "n": 303,
+          "id": "p_home_glamp",
+          "name": "Canvas bell tent",
+          "x": 266.2,
+          "z": 692.7,
+          "r": 0.3
+        },
+        {
+          "n": 304,
+          "id": "p_open_house",
+          "name": "Open house",
+          "x": 600.0,
+          "z": 300.0,
+          "r": 0.3
+        }
+      ]
     }
   ],
   "titles": [

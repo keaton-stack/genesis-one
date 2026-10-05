@@ -1,0 +1,19 @@
+{
+  "_about": "R14 venues (plan_rooms_venues.js). Editable copy: people.<name> replaces that person's talk card, greetings or ambient lines (same shape as the built-in copy: talk = [{ t, o: [[label, next|null]] }]). No fee or charity-share numbers, no investment language, no em dashes. The stamps block is the proposal for progress.json (the main session owns it).",
+  "people": {
+    "Dot": { "greet": ["Hi hon!", "Coffee?"] },
+    "Marisela": { "greet": ["Welcome."] }
+  },
+  "stamps_proposal": { "id": "venues", "name": "Main Street Venues", "sub": "The saloons, hotels, the Flight Line Diner, the banks, the chapel, the barns and the galleries", "ink": "#8a3b2e", "stamps": [
+    { "n": 290, "id": "p_rv_saloon", "name": "Belly up to the bar", "x": 704, "z": 174, "r": 0.3 },
+    { "n": 291, "id": "p_rv_hotel", "name": "Checked in", "x": 634, "z": 154, "r": 0.3 },
+    { "n": 292, "id": "p_rv_diner", "name": "Flight Line Diner", "x": -78, "z": 138, "r": 0.3 },
+    { "n": 293, "id": "p_rv_bank", "name": "The banking hall", "x": 685, "z": 124, "r": 0.3 },
+    { "n": 294, "id": "p_rv_chapel", "name": "The Chapel", "x": 150, "z": -605, "r": 0.3 },
+    { "n": 295, "id": "p_rv_barn", "name": "Raised in a barn", "x": 1012, "z": -48, "r": 0.3 },
+    { "n": 296, "id": "p_rv_gallery", "name": "Opening night", "x": 622, "z": 480, "r": 0.3 },
+    { "n": 297, "id": "p_rv_piano", "name": "A song from the Professor", "x": 704, "z": 174, "r": 0.3 },
+    { "n": 298, "id": "p_rv_candle", "name": "A candle lit", "x": 150, "z": -605, "r": 0.3 },
+    { "n": 299, "id": "p_rv_jukebox", "name": "A nickel in the jukebox", "x": -78, "z": 138, "r": 0.3 }
+  ] }
+}
