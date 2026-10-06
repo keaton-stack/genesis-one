@@ -55,7 +55,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   var RM = window.PLAN_ROOMS = window.PLAN_ROOMS || { specs: [], errs: [], cur: null, n: { built: 0, generic: 0 } };
-  RM.v = "r15-1"; RM.room = null; RM.n.solids = RM.n.solids || 0; RM.n.seats = RM.n.seats || 0; RM.n.spots = RM.n.spots || 0; RM.n.ms = RM.n.ms || 0;
+  RM.v = "r16-1"; RM.room = null; RM.n.solids = RM.n.solids || 0; RM.n.seats = RM.n.seats || 0; RM.n.spots = RM.n.spots || 0; RM.n.ms = RM.n.ms || 0;
   RM.off = /[?&]rooms=0\b/.test(location.search);
   function note(w, e) { if (RM.errs.length < 40) RM.errs.push(w + ": " + ((e && e.message) || e)); }
   RM.register = function (id, test, spec) {
@@ -185,7 +185,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var ctx = { g: g, door: c.door, e: c.door.e, kind: kind, name: c.hit.info.name, b: c.hit.info.b, half: half, hgt: hgt, shell: g.children.slice(), lamp: lamp, fill: fill,
         id: c.hit.s.id, sky: 1, tip: null, venue: true, door0: null, shadows: spec.shadows || "near", manual: spec.solids === "manual", solids: [], seats: [], spots: [], portals: [], afters: [], frames: [], leaves: [], left: false };
       ctx.H = makeH(ctx); var shellSet = new Set(ctx.shell);
-      try { spec.build(ctx); RM.n.built++; c.built = true; c.ctx = ctx; }
+      try { spec.build(ctx); RM.n.built++; c.built = true; c.ctx = ctx; try { if (window.PLAN_RL && PLAN_RL.surfScan) PLAN_RL.surfScan(g); } catch (e3) { note("surf", e3); } }   // R16: the room's materials get the surface pass before their first draw
       catch (e) { note("build " + c.hit.s.id, e); for (var k = 0; k < ctx.solids.length; k++) { var j = SOLIDS.indexOf(ctx.solids[k]); if (j >= 0) SOLIDS.splice(j, 1); } try { origFurnish.apply(this, arguments); } catch (e2) {} return; }
       // the client boxes every mesh after this (solidifyGroup): keep the build's merged meshes out of it (see COLLISION above)
       try { g.traverse(function (o) { if (!o.isMesh || shellSet.has(o) || (o.userData && o.userData.solid === true)) return; var top = o; while (top.parent && top.parent !== g) top = top.parent; if (shellSet.has(top)) return;
@@ -240,7 +240,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var TEXK = ["map", "normalMap", "emissiveMap", "roughnessMap", "metalnessMap", "aoMap", "alphaMap", "lightMap", "bumpMap", "displacementMap", "specularMap", "clearcoatMap", "clearcoatNormalMap", "sheenColorMap", "transmissionMap"];
   var DEC = new WeakSet(), GO = null;   // GO: the options of the item being gathered
   function addTex(t) { if (!t || !t.isTexture || WU.texSet.has(t) || t.isRenderTargetTexture || t.isVideoTexture || t.isCubeTexture || (t.userData && t.userData.noWarm)) return; WU.texSet.add(t); WU.texs.push(t); if (GO && GO.decodeMB) DEC.add(t); }
-  function addMat(m) { if (!m || !m.isMaterial || WU.matSet.has(m) || (m.userData && m.userData.noWarm)) return; WU.matSet.add(m);
+  function addMat(m) { if (!m || !m.isMaterial || WU.matSet.has(m) || (m.userData && m.userData.noWarm)) return; WU.matSet.add(m); try { if (window.PLAN_RL && PLAN_RL.surfMat) PLAN_RL.surfMat(m); } catch (e) {}   /* R16: the surface pass, before the warm-up compiles it */
     if (m.isMeshStandardMaterial || m.isMeshBasicMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshToonMaterial || m.isMeshMatcapMaterial) WU.mats.push(m);   // mesh materials get a sample draw; any other kind only its maps
     for (var i = 0; i < TEXK.length; i++) addTex(m[TEXK[i]]); var u = m.uniforms; if (u) for (var k in u) { var v = u[k] && u[k].value; if (v && v.isTexture) addTex(v); } }
   function gather(x, d) {

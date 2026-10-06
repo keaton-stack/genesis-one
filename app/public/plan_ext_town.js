@@ -17,7 +17,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   var XT = window.PLAN_EXT_TOWN = window.PLAN_EXT_TOWN || {};
-  XT.errs = XT.errs || []; XT.n = XT.n || {}; XT.ver = "r15c-1";
+  XT.errs = XT.errs || []; XT.n = XT.n || {}; XT.ver = "r16m-1";
   if (/[?&]xt=0\b/.test(location.search)) { XT.off = true; return; }
   var ONLY = (location.search.match(/[?&]xtk=([a-z_,]+)/) || [])[1]; ONLY = ONLY ? ONLY.split(",") : null;
   var PI = Math.PI;
@@ -27,6 +27,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function au(u) { try { if (window.AV) return window.AV(u); } catch (e) {} return u; }
   var LOW = (function () { try { var st = localStorage.getItem("g1:quality"); var weak = (navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.deviceMemory && navigator.deviceMemory <= 4); return st === "low" || (weak && st !== "high" && st !== "ultra"); } catch (e) { return false; } })();
   XT.low = LOW;
+  // R16 (Agent M, HANDOFF_R16_BUILDINGS.md): the building material pass on this module's shells (detail normal and roughness up close,
+  // macro tone, base grime and contact occlusion, dust on roofs and ledges, sheet and tile variation, Fresnel glass), high and ultra only
+  var TIER = (function () { try { var q = localStorage.getItem("g1:quality"); if (q) return q; } catch (e) {} return ((navigator.hardwareConcurrency || 8) <= 4 || /Android|iPhone|iPad/i.test(navigator.userAgent)) ? "medium" : "high"; })();
+  var BM = !/[?&]bmat=0\b/.test(location.search) && (TIER === "high" || TIER === "ultra"); XT.bm = BM; XT.tier = TIER;
 
   // ───────────────────────── the texture array (loaded as soon as this script runs) ─────────────────────────
   var NL = 16;   // layers in tex/xt_alb.jpg and tex/xt_nrm.jpg (stacked vertically, layer k = rows k*S..)
@@ -43,7 +47,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var got = {}, failed = false, tries = {}; function one(nm) { tries[nm] = (tries[nm] || 0) + 1; k.load(au("/tex/xt_" + nm + ".ktx2?v=" + (window.BUILD || "dev") + (tries[nm] > 1 ? "&r=" + tries[nm] : "")), function (t) { if (failed) return; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; try { t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (e) { t.anisotropy = 4; } t.userData.avShared = true; t.name = "xt_" + nm; t.needsUpdate = true; got[nm] = t;
         if (got.alb && got.nrm && U && !IMG.done) { U.tA.value = got.alb; U.tN.value = got.nrm; IMG.done = true; IMG.ktx = true; XT.n.texAt = Math.round(performance.now()); } }, undefined, function (e) { if (failed) return; if (tries[nm] < 2) { XT.n.ktxRetry = (XT.n.ktxRetry || 0) + 1; setTimeout(function () { one(nm); }, 2500); return; } failed = true; note("ktx2 " + nm, e); startJpg(); }); } one("alb"); one("nrm"); }
   var U = XT.U = XT.U || null;   // shared uniforms of the main material
-  function placeholder(srgb) { var d = new Uint8Array(4 * NL); for (var i = 0; i < NL; i++) { if (srgb) { d[i * 4] = 200; d[i * 4 + 1] = 196; d[i * 4 + 2] = 188; } else { d[i * 4] = 128; d[i * 4 + 1] = 128; d[i * 4 + 2] = 220; } d[i * 4 + 3] = 255; } var t = new THREE.DataArrayTexture(d, 1, 1, NL); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t; }
+  function placeholder(srgb, nl) { var NL = nl || 16; var d = new Uint8Array(4 * NL); for (var i = 0; i < NL; i++) { if (srgb) { d[i * 4] = 200; d[i * 4 + 1] = 196; d[i * 4 + 2] = 188; } else { d[i * 4] = 128; d[i * 4 + 1] = 128; d[i * 4 + 2] = 220; } d[i * 4 + 3] = 255; } var t = new THREE.DataArrayTexture(d, 1, 1, NL); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t; }
   function arrayTex(img, srgb) { var S = IMG.size; var t = new THREE.DataArrayTexture(img, S, S, NL); t.image = { data: img, width: S, height: S, depth: NL }; t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType; if (srgb) t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; try { t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (e) { t.anisotropy = 4; }
     t.userData.avShared = true; t.name = srgb ? "xt_alb" : "xt_nrm"; t.needsUpdate = true;
@@ -55,28 +59,88 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // hot reload (development): a second copy of this file drops the first one's meshes and materials, keeps its textures
   if (XT.group) { try { scene.remove(XT.group); XT.group.traverse(function (o) { if (o.isMesh) o.geometry.dispose(); }); } catch (e) {} XT.group = null; XT.mat = null; }
   var MAT = XT.mat = XT.mat || null;
+  // layers 16.. sample the homes array (plan_ext_homes.js: canvas, ledgestone, cedar, timber, travertine, hewn timber, rusted steel...)
+  // for the civic rebuilds (plan_ext_civic.js); per layer: metalness, roughness multiplier, normal strength, uv scale (2 m / tile)
+  var XHL = ["plaster", "adobe", "concrete", "rammed", "ledgestone", "fieldstone", "ashlar", "cedar", "charred", "batten", "barnred", "planks", "logs", "shakes", "seam", "corrugated", "claytile", "canvas", "steel", "timber", "smooth", "glass", "travertine", "hewn", "rust", "saltillo", "doors"];
+  var XHT = { plaster: 3.2, adobe: 2.6, concrete: 1.25, rammed: 1.7, ledgestone: 1.5, fieldstone: 1.6, ashlar: 2.2, cedar: 1.3, charred: 1.15, batten: 1.6, barnred: 2.0, planks: 2.2, logs: 1.8, shakes: 1.4, seam: 2.7, corrugated: 1.5, claytile: 1.3, canvas: 2.2, steel: 1.2, timber: 1.6, smooth: 3.0, glass: 2.0, travertine: 1.8, hewn: 1.6, rust: 2.4, saltillo: 1.8, doors: 1.0 };
+  var XHM = { steel: 0.55, seam: 0.45, corrugated: 0.4, rust: 0.12 };
+  XHL.forEach(function (nm, i) { LY["x_" + nm] = 16 + i; });
+  function civicUniforms() { var C = window.PLAN_EXT_CIVIC, H = window.PLAN_XH; if (!C || C.off || !H || !H.u || !U || U.tA2) return;
+    var l2 = XHL.map(function (nm) { return new THREE.Vector4(XHM[nm] || 0, 1, nm === "canvas" ? 0.7 : 1, 2 / (XHT[nm] || 2)); });
+    U.tA2 = H.u.tXA; U.tN2 = H.u.tXN; U.uLay2 = { value: l2 };
+    if (!U.tA2.value) { U.tA2.value = placeholder(true, 27); U.tN2.value = placeholder(false, 27); U.ph2 = true; } }
+  // detail type per layer: 1 mineral, 2 fibre (wood), 3 metal, 4 none, 5 tile/masonry; the fraction is half the strength
+  var DT = { plaster: 1.22, clap: 2.32, batten: 2.32, wood: 2.38, brick: 5.26, corr: 3.28, seam: 3.26, stucco: 1.26, terrazzo: 1.1, trim: 2.22, ashlar: 5.26, rooftile: 5.2, gblock: 0, metal: 3.2, adobe: 1.32, concrete: 1.22 };
+  var DTX = { plaster: 1.22, adobe: 1.32, concrete: 1.2, rammed: 1.26, ledgestone: 5.2, fieldstone: 5.2, ashlar: 5.26, cedar: 2.32, charred: 2.26, batten: 2.32, barnred: 2.32, planks: 2.36, logs: 2.32, shakes: 2.32, seam: 3.26, corrugated: 3.28, claytile: 5.2, canvas: 4.0, steel: 3.2, timber: 2.36, smooth: 1.12, glass: 0, travertine: 1.16, hewn: 2.36, rust: 3.3, saltillo: 5.2, doors: 2.2 };
+  function bmUniforms() { if (!BM || !U || U.tDet) return; var B = window.PLAN_BMAT; if (!B || B.off || !B.U || !B.U.tDet) return;
+    var names = Object.keys(LY).sort(function (a, b) { return LY[a] - LY[b]; }); var tab = new Float32Array(44);
+    for (var k in LY) { var i = LY[k]; if (i < 16) tab[i] = DT[k] || 0; else tab[i] = DTX[k.slice(2)] || 0; }
+    var v4 = []; for (var j = 0; j < 11; j++) v4.push(new THREE.Vector4(tab[j * 4], tab[j * 4 + 1], tab[j * 4 + 2], tab[j * 4 + 3]));
+    U.tDet = B.U.tDet; U.uBm = B.U.uBm; U.uDet = { value: v4 }; U.uBmQ = B.U.uBmQ; }
   function mats() {
     if (MAT) return MAT; MAT = XT.mat = {};
     var lay = []; for (var i = 0; i < NL; i++) lay.push(new THREE.Vector4(LP[i][0], LP[i][1], LP[i][2], LP[i][3]));
     if (!U) U = XT.U = { tA: { value: placeholder(true) }, tN: { value: placeholder(false) }, uLay: { value: lay }, uGlow: { value: 0 } }; else U.uLay.value = lay;
+    try { civicUniforms(); } catch (e) { note("civic uniforms", e); }
+    try { bmUniforms(); } catch (e) { note("bm uniforms", e); }
     var m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, vertexColors: true });
     m.name = "xt_main"; m.userData.avShared = true;
     m.onBeforeCompile = function (sh) {
       var X = window.PLAN_EXT_TOWN.U; sh.uniforms.tA = X.tA; sh.uniforms.tN = X.tN; sh.uniforms.uLay = X.uLay; sh.uniforms.uGlow = X.uGlow;
-      sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec2 xuv; attribute vec2 aux; varying vec2 vXU; flat varying float vLay; flat varying float vFl;")
-        .replace("#include <uv_vertex>", "#include <uv_vertex>\nvXU = xuv; vLay = aux.x; vFl = aux.y;");
-      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform highp sampler2DArray tA; uniform highp sampler2DArray tN; uniform vec4 uLay[16]; uniform float uGlow; varying vec2 vXU; flat varying float vLay; flat varying float vFl; vec4 xtA; vec4 xtN; vec4 xtP;")
-        .replace("#include <map_fragment>", "xtA = texture(tA, vec3(vXU, vLay)); xtN = texture(tN, vec3(vXU, vLay)); xtP = uLay[int(vLay + 0.5)]; diffuseColor.rgb *= xtA.rgb;")
+      var XH2 = !!X.tA2, B = !!(BM && X.tDet);
+      if (XH2) { sh.uniforms.tA2 = X.tA2; sh.uniforms.tN2 = X.tN2; sh.uniforms.uLay2 = X.uLay2; }
+      if (B) { sh.uniforms.tDet = X.tDet; sh.uniforms.uBm = X.uBm; sh.uniforms.uDet = X.uDet; sh.uniforms.uBmQ = X.uBmQ; }
+      var VP = "#include <common>\nattribute vec2 xuv; attribute vec2 aux; varying vec2 vXU; flat varying float vLay; flat varying float vFl;" + (B ? "\nattribute float xhh; varying float vXH; varying vec3 vXW;" : "");
+      var VM = "#include <uv_vertex>\nvXU = xuv; vLay = aux.x; vFl = aux.y;" + (B ? "\nvXH = xhh; vXW = (modelMatrix * vec4(position, 1.0)).xyz;" : "");
+      sh.vertexShader = sh.vertexShader.replace("#include <common>", VP).replace("#include <uv_vertex>", VM);
+      var FP = "#include <common>\nuniform highp sampler2DArray tA; uniform highp sampler2DArray tN; uniform vec4 uLay[16]; uniform float uGlow; varying vec2 vXU; flat varying float vLay; flat varying float vFl; vec4 xtA; vec4 xtN; vec4 xtP; float xtS;";
+      if (XH2) FP += "\nuniform highp sampler2DArray tA2; uniform highp sampler2DArray tN2; uniform vec4 uLay2[27];";
+      if (B) FP += "\nuniform sampler2D tDet; uniform float uBm; uniform vec4 uDet[11]; uniform vec4 uBmQ; varying float vXH; varying vec3 vXW; float bmF; float bmMac; float bmAO; float bmDust; float bmGr; vec4 bmD; float bmT; float bmSt; vec3 bmWn;\nfloat bmH1(float x) { return fract(sin(x * 91.3458) * 47453.5453); }";
+      // albedo / packed normal-roughness from the town array (layers 0..15) or the homes array (16.., the civic rebuilds); explicit
+      // gradients so the branch on the flat layer index stays well defined at triangle edges
+      var MF = XH2 ? "{ vec2 xg1 = dFdx(vXU), xg2 = dFdy(vXU); if (vLay > 15.5) { int xl = int(vLay - 15.5); xtP = uLay2[xl]; xtS = xtP.w; vec3 xw3 = vec3(vXU * xtS, vLay - 16.0); xtA = textureGrad(tA2, xw3, xg1 * xtS, xg2 * xtS); xtN = textureGrad(tN2, xw3, xg1 * xtS, xg2 * xtS); } else { xtS = 1.0; xtA = textureGrad(tA, vec3(vXU, vLay), xg1, xg2); xtN = textureGrad(tN, vec3(vXU, vLay), xg1, xg2); xtP = uLay[int(vLay + 0.5)]; } } diffuseColor.rgb *= xtA.rgb;"
+                   : "xtS = 1.0; xtA = texture(tA, vec3(vXU, vLay)); xtN = texture(tN, vec3(vXU, vLay)); xtP = uLay[int(vLay + 0.5)]; diffuseColor.rgb *= xtA.rgb;";
+      if (B) MF += [
+        "\n{ int bi = int(vLay + 0.5); float dv = uDet[bi >> 2][bi & 3]; bmT = floor(dv); bmSt = fract(dv) * 2.0;",
+        "  bmWn = normalize((vec4(vNormal, 0.0) * viewMatrix).xyz); float bmCam = length(vViewPosition);",
+        "  bmF = (1.0 - smoothstep(uBmQ.x, uBmQ.y, bmCam)) * uBm; vec2 bdu = (vXU * xtS * 3.3).yx; vec2 bdg1 = dFdx(bdu), bdg2 = dFdy(bdu); bmD = vec4(0.5); if (bmF > 0.002) bmD = textureGrad(tDet, bdu, bdg1, bdg2);",
+        "  bmMac = 0.5; if (uBmQ.z > 0.5) bmMac = texture2D(tDet, vXW.xz * 0.021 + vec2(vXW.y * 0.013, -vXW.y * 0.011)).a;",
+        // macro tone (a broad, quiet variation so long walls do not read as one flat colour)
+        "  diffuseColor.rgb *= mix(1.0, 0.87 + 0.26 * bmMac, uBm);",
+        // sheet / board / tile variation on roofs and metal (a tone per sheet across u)
+        // the dirt band at the foot of every wall (splash, dust), irregular top edge, warmer and darker; contact occlusion under it
+        "  float wall = 1.0 - smoothstep(0.55, 0.85, abs(bmWn.y)); float gh = 0.45 + 0.45 * bmMac + 0.12 * (bmD.a - 0.5);",
+        "  bmGr = (1.0 - smoothstep(gh * 0.35, gh, vXH)) * step(-0.6, vXH) * wall * uBm; vec3 dirt = diffuseColor.rgb * vec3(0.74, 0.66, 0.56) + vec3(0.03, 0.022, 0.014);",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, dirt, bmGr * 0.72);",
+        "  bmAO = mix(1.0, mix(0.62, 1.0, smoothstep(0.0, 0.7, vXH)), wall * uBm); bmAO *= mix(1.0, 0.72, smoothstep(-0.55, -0.9, bmWn.y) * uBm);",
+        // dust on up-facing surfaces (roofs, sills, copings, deck tops), patchy
+        "  bmDust = smoothstep(0.62, 0.96, bmWn.y) * smoothstep(0.15, 0.6, vXH) * (0.22 + 0.5 * smoothstep(0.35, 0.75, bmMac + 0.25 * (bmD.a - 0.5))) * uBm;",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.56, 0.49, 0.41) * (0.9 + 0.2 * bmD.a), bmDust * 0.45); }"
+      ].join("\n");
+      var NF = "{ vec2 nxy = (xtN.rg * 2.0 - 1.0) * xtP.z;";
+      if (B) NF += " if (bmF > 0.002) { vec2 dn = vec2(0.0); if (bmT > 0.5 && bmT < 1.5) dn = (bmD.gr * 2.0 - 1.0); else if (bmT > 1.5 && bmT < 2.5) dn = vec2(0.0, bmD.b * 2.0 - 1.0) * 0.8 + (bmD.gr * 2.0 - 1.0) * 0.18; else if (bmT > 2.5 && bmT < 3.5) dn = vec2(0.0, bmD.b * 2.0 - 1.0) * 0.35; else if (bmT > 4.5) dn = (bmD.gr * 2.0 - 1.0) * 0.7; nxy += dn * bmSt * bmF; }";
+      NF += " float nz = sqrt(max(0.0, 1.0 - dot(nxy, nxy))); vec3 q0 = dFdx(-vViewPosition), q1 = dFdy(-vViewPosition); vec2 st0 = dFdx(vXU), st1 = dFdy(vXU); vec3 Nn = normal; vec3 q1p = cross(q1, Nn), q0p = cross(Nn, q0); vec3 Tt = q1p * st0.x + q0p * st1.x; vec3 Bt = q1p * st0.y + q0p * st1.y; float det = max(dot(Tt, Tt), dot(Bt, Bt)); float scl = det == 0.0 ? 0.0 : inversesqrt(det); normal = normalize(Tt * (nxy.x * scl) + Bt * (nxy.y * scl) + Nn * nz); }";
+      var RF = "float roughnessFactor = clamp(xtN.b * xtP.y, 0.04, 1.0);";
+      if (B) RF += " roughnessFactor = clamp(roughnessFactor * mix(1.0, 0.72 + 0.56 * bmD.a, bmF * 0.85) * mix(1.0, 0.9 + 0.2 * bmMac, uBm) + bmGr * 0.1 + bmDust * 0.35, 0.04, 1.0);";
+      var MeF = "float metalnessFactor = xtP.x;";
+      if (B) MeF += " metalnessFactor *= 1.0 - bmDust * 0.7;";
+      sh.fragmentShader = sh.fragmentShader.replace("#include <common>", FP)
+        .replace("#include <map_fragment>", MF)
         .replace("#include <color_fragment>", "{ float sat = max(max(xtA.r, xtA.g), xtA.b) - min(min(xtA.r, xtA.g), xtA.b); float pk = mod(vFl, 2.0) > 0.5 ? 1.0 - smoothstep(0.025, 0.08, sat) : 1.0; diffuseColor.rgb *= mix(vec3(1.0), vColor.rgb, pk) * vColor.a; }")
-        .replace("#include <roughnessmap_fragment>", "float roughnessFactor = clamp(xtN.b * xtP.y, 0.04, 1.0);")
-        .replace("#include <metalnessmap_fragment>", "float metalnessFactor = xtP.x;")
-        .replace("#include <normal_fragment_maps>", "{ vec2 nxy = (xtN.rg * 2.0 - 1.0) * xtP.z; float nz = sqrt(max(0.0, 1.0 - dot(nxy, nxy))); vec3 q0 = dFdx(-vViewPosition), q1 = dFdy(-vViewPosition); vec2 st0 = dFdx(vXU), st1 = dFdy(vXU); vec3 Nn = normal; vec3 q1p = cross(q1, Nn), q0p = cross(Nn, q0); vec3 Tt = q1p * st0.x + q0p * st1.x; vec3 Bt = q1p * st0.y + q0p * st1.y; float det = max(dot(Tt, Tt), dot(Bt, Bt)); float scl = det == 0.0 ? 0.0 : inversesqrt(det); normal = normalize(Tt * (nxy.x * scl) + Bt * (nxy.y * scl) + Nn * nz); }")
+        .replace("#include <roughnessmap_fragment>", RF)
+        .replace("#include <metalnessmap_fragment>", MeF)
+        .replace("#include <normal_fragment_maps>", NF)
         .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\nif (vFl > 1.5) totalEmissiveRadiance += xtA.rgb * vColor.rgb * uGlow;");
+      if (B) sh.fragmentShader = sh.fragmentShader.replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\nreflectedLight.indirectDiffuse *= bmAO; reflectedLight.indirectSpecular *= mix(1.0, bmAO, 0.7);");
     };
+    m.customProgramCacheKey = function () { var X = window.PLAN_EXT_TOWN.U || {}; return "xt_main_r16|" + (X.tA2 ? "xh" : "") + "|" + (BM && X.tDet ? "bm" : ""); };
     MAT.main = m;
     // panes: the client's own window glass (tinted and reflective by day, lit rooms at night); same program as the existing panes
     var gl = new THREE.MeshStandardMaterial({ color: 0xe4ecef, metalness: 0.0, roughness: 0.04, transparent: true, opacity: 0.26, depthWrite: false, envMapIntensity: 2.2 });
     gl.name = "xt_glass"; gl.userData.avShared = true; MAT.glass = gl;
+    if (BM) { gl.onBeforeCompile = function (sh) { var X = window.PLAN_EXT_TOWN.U; sh.uniforms.uBm = X.uBm || { value: 1 };
+        sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform float uBm;").replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\n{ float gNV = clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0); float gF = 0.04 + 0.96 * pow(1.0 - gNV, 5.0); diffuseColor.a = mix(diffuseColor.a, min(1.0, diffuseColor.a + (1.0 - diffuseColor.a) * gF * 0.92 + 0.06), uBm); reflectedLight.indirectSpecular *= mix(1.0, 1.25, uBm); reflectedLight.directDiffuse *= 1.0 - gF * uBm; reflectedLight.indirectDiffuse *= 1.0 - gF * uBm; }"); };
+      gl.customProgramCacheKey = function () { return "xt_glass_r16"; }; }
     var ct = new THREE.TextureLoader().load(au("/tex/xt_shop" + (LOW ? "_m" : "") + ".jpg?v=" + (window.BUILD || "dev"))); ct.colorSpace = THREE.SRGBColorSpace; ct.anisotropy = 4; ct.userData.avShared = true; ct.name = "xt_shop";
     var cm = new THREE.MeshStandardMaterial({ map: ct, emissive: 0xffe2c0, emissiveMap: ct, emissiveIntensity: 0.1, roughness: 0.9, metalness: 0 }); cm.name = "xt_card"; cm.userData.avShared = true; MAT.card = cm;
     return MAT;
@@ -84,15 +148,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── geometry kit (facade-local metres: x = u across the front, y up, z = v out of the front) ─────────────────────────
   // buffers: typed arrays that double when full; tf = the building transform (facade frame to world) applied as each vertex is written
-  function Acc(cap) { cap = cap || 2048; this.cap = cap; this.P = new Float32Array(cap * 3); this.N = new Float32Array(cap * 3); this.T = new Float32Array(cap * 2); this.X = new Float32Array(cap * 2); this.C = new Uint8Array(cap * 4); this.n = 0; this.tf = null; }
+  function Acc(cap) { cap = cap || 2048; this.cap = cap; this.P = new Float32Array(cap * 3); this.N = new Float32Array(cap * 3); this.T = new Float32Array(cap * 2); this.X = new Float32Array(cap * 2); this.C = new Uint8Array(cap * 4); this.H = new Float32Array(cap); this.n = 0; this.tf = null; }
   function growF(a, n) { var b = new a.constructor(n); b.set(a); return b; }
-  Acc.prototype.grow = function () { var c = this.cap * 2; this.P = growF(this.P, c * 3); this.N = growF(this.N, c * 3); this.T = growF(this.T, c * 2); this.X = growF(this.X, c * 2); this.C = growF(this.C, c * 4); this.cap = c; };
+  Acc.prototype.grow = function () { var c = this.cap * 2; this.P = growF(this.P, c * 3); this.N = growF(this.N, c * 3); this.T = growF(this.T, c * 2); this.X = growF(this.X, c * 2); this.C = growF(this.C, c * 4); this.H = growF(this.H, c); this.cap = c; };
   function c8(v) { return v <= 0 ? 0 : v >= 1 ? 255 : (v * 255 + 0.5) | 0; }
   // one vertex: position, normal, tiling uv (metres / 2), layer, flags, colour (r, g, b, ao)
   Acc.prototype.v = function (x, y, z, nx, ny, nz, u, w, L, F, c) { if (this.n >= this.cap) this.grow(); var i = this.n, t = this.tf, i3 = i * 3, i2 = i * 2, i4 = i * 4, P = this.P, N = this.N;
     if (t) { var X = x * t.sc, Z = z * t.sc; P[i3] = t.ox + X * t.c + Z * t.s; P[i3 + 1] = t.oy + y * t.sc; P[i3 + 2] = t.oz - X * t.s + Z * t.c; N[i3] = nx * t.c + nz * t.s; N[i3 + 1] = ny; N[i3 + 2] = -nx * t.s + nz * t.c; }
     else { P[i3] = x; P[i3 + 1] = y; P[i3 + 2] = z; N[i3] = nx; N[i3 + 1] = ny; N[i3 + 2] = nz; }
-    this.T[i2] = u; this.T[i2 + 1] = w; this.X[i2] = L; this.X[i2 + 1] = F; var C = this.C; C[i4] = c8(c[0]); C[i4 + 1] = c8(c[1]); C[i4 + 2] = c8(c[2]); C[i4 + 3] = c8(c[3] === undefined ? 1 : c[3]); this.n = i + 1; };
+    this.T[i2] = u; this.T[i2 + 1] = w; this.X[i2] = L; this.X[i2 + 1] = F; this.H[i] = t ? y * t.sc : y; var C = this.C; C[i4] = c8(c[0]); C[i4 + 1] = c8(c[1]); C[i4 + 2] = c8(c[2]); C[i4 + 3] = c8(c[3] === undefined ? 1 : c[3]); this.n = i + 1; };
   // copy a local buffer turned 180 degrees about y (the back verandas, built in their own frame)
   Acc.prototype.addRot180 = function (M) { var col = [0, 0, 0, 0]; for (var i = 0; i < M.n; i++) { col[0] = M.C[i * 4] / 255; col[1] = M.C[i * 4 + 1] / 255; col[2] = M.C[i * 4 + 2] / 255; col[3] = M.C[i * 4 + 3] / 255; this.v(-M.P[i * 3], M.P[i * 3 + 1], -M.P[i * 3 + 2], -M.N[i * 3], M.N[i * 3 + 1], -M.N[i * 3 + 2], M.T[i * 2], M.T[i * 2 + 1], M.X[i * 2], M.X[i * 2 + 1], col); } };
   var S2 = 0.5;   // uv per metre (2 m tiles)
@@ -195,7 +259,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function inv(e, m) { return { x: e[0], z: e[2], y: e[1] - ((m && m.sink) || 0) - (e.sink || 0), sc: e[4] || 1 }; }
   // append a building's local buffers (facade frame with yaw Y about the building origin) into a chunk accumulator, recording the range
   function chunkOf(x, z) { var k = Math.floor(x / CH) + "," + Math.floor(z / CH); for (var i = 0; i < CHUNKS.length; i++) if (CHUNKS[i].k === k) return CHUNKS[i]; var C = { k: k, x0: Math.floor(x / CH) * CH, z0: Math.floor(z / CH) * CH, main: new Acc(65536), glass: new GAcc(4096), far: new Acc(4096), card: new GAcc(2048), sign: new GAcc(256), meshes: {}, vis: -1, bl: [] }; CHUNKS.push(C); return C; }
-  function geoMain(A) { var n = A.n, g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(A.P.slice(0, n * 3), 3)); g.setAttribute("normal", new THREE.BufferAttribute(A.N.slice(0, n * 3), 3)); g.setAttribute("xuv", new THREE.BufferAttribute(A.T.slice(0, n * 2), 2)); g.setAttribute("aux", new THREE.BufferAttribute(A.X.slice(0, n * 2), 2));
+  function geoMain(A) { var n = A.n, g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(A.P.slice(0, n * 3), 3)); g.setAttribute("normal", new THREE.BufferAttribute(A.N.slice(0, n * 3), 3)); g.setAttribute("xuv", new THREE.BufferAttribute(A.T.slice(0, n * 2), 2)); g.setAttribute("aux", new THREE.BufferAttribute(A.X.slice(0, n * 2), 2)); if (BM) g.setAttribute("xhh", new THREE.BufferAttribute(A.H.slice(0, n), 1));
     g.setAttribute("color", new THREE.BufferAttribute(A.C.slice(0, n * 4), 4, true)); g.computeBoundingSphere(); g.computeBoundingBox(); return g; }
   function geoGlass(A) { var n = A.n, g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(A.P.slice(0, n * 3), 3)); g.setAttribute("normal", new THREE.BufferAttribute(A.N.slice(0, n * 3), 3)); g.setAttribute("uv", new THREE.BufferAttribute(A.T.slice(0, n * 2), 2)); g.setAttribute("color", new THREE.BufferAttribute(A.C.slice(0, n * 3), 3)); g.computeBoundingSphere(); return g; }
 
@@ -735,6 +799,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function shopPanel(name, r) { for (var i = 0; i < PANELS.length; i++) if (PANELS[i][0].test(name || "")) { var L = PANELS[i][1]; return L[Math.floor(r() * L.length) % L.length]; } return [0, 1, 10, 12, 7][Math.floor(r() * 5) % 5]; }
   XT.shopPanel = shopPanel;
 
+  XT.kit = { Acc: Acc, GAcc: GAcc, hex: hex, shade: shade, pick: pick, rng: rng, hash: hash, LY: LY, PAL: PAL, WHITE: WHITE, windowAt: windowAt, doorAt: doorAt, gooseneck: gooseneck, railing: railing, cornice: cornice, signAt: signAt, shortName: shortName, nrmOf: nrmOf, S2: S2, note: note };
   var BUILDERS = XT.builders = { store: storeBuild, storefront_sl: sfBuild, saloon: saloonBuild, hotel: hotelBuild, bank: bankBuild, chapel: chapelBuild, diner: dinerBuild, gallery: galleryBuild };
 
   // ───────────────────────── world: hide the old instances; defer: build the chunks ─────────────────────────
@@ -744,13 +809,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function build() {
     var t0 = performance.now(); mats(); onTexReady(); var ks = kindsOn(); var nb = 0; SIGN.cv = null; SIGN.n = 0;
     ks.forEach(function (k) { var L = PLACE[k], m = MODELS[k]; if (!L || !m) return; for (var i = 0; i < L.length; i++) { var e = L[i]; try { var pb = nameOf(k, e); var id = pb ? pb.id : k + i; var B = inv(e, m);
-          var C = chunkOf(e[0], e[2]); var K = { kind: k, i: i, e: e, m: m, id: id, name: pb && pb.b ? pb.b.name || "" : "", dist: pb && pb.b ? pb.b.district || "" : "", r: rng(hash(id + ":xt")), a: C.main, g: C.glass, f: C.far, c: C.card, s: C.sign, Y: e[3], trim: WHITE, roomC: shade(WHITE, 0.4, 0.6) };
+          var C = chunkOf(e[0], e[2]); var K = { kind: k, i: i, e: e, m: m, id: id, name: pb && pb.b ? pb.b.name || "" : "", dist: pb && pb.b ? pb.b.district || "" : "", r: rng(hash(id + ":xt")), a: C.main, g: C.glass, f: C.far, c: C.card, s: C.sign, Y: e[3], trim: WHITE, roomC: shade(WHITE, 0.4, 0.6), C: C, xb: [] };
           var bufs = [C.main, C.glass, C.far, C.card, C.sign], n0 = bufs.map(function (b) { return b.n; });
-          K.frame = function (Y) { K.Y = Y; var tf = { c: Math.cos(Y), s: Math.sin(Y), sc: B.sc, ox: B.x, oy: B.y, oz: B.z }; bufs.forEach(function (b) { b.tf = tf; }); }; K.frame(e[3]);
+          K.frame = function (Y) { K.Y = Y; var tf = { c: Math.cos(Y), s: Math.sin(Y), sc: B.sc, ox: B.x, oy: B.y, oz: B.z }; K.tf = tf; bufs.forEach(function (b) { b.tf = tf; }); K.xb.forEach(function (b) { b.tf = tf; }); }; K.frame(e[3]);
           K.panel = /gallery|museum|photo|tintype|studio|welcome/i.test(K.name) ? null : shopPanel(K.name, K.r);
-          try { BUILDERS[k](K); } catch (er0) { bufs.forEach(function (b, q) { b.n = n0[q]; b.tf = null; }); throw er0; }
-          bufs.forEach(function (b) { b.tf = null; });
-          var rg = bufs.map(function (b, q) { return [n0[q], b.n - n0[q]]; }); var rec = { kind: k, i: i, e: e, id: id, B: B, C: C, rm: rg[0], rg: rg[1], rf: rg[2], rc: rg[3], rs: rg[4] }; C.bl.push(rec); BLD.push(rec); nb++; } catch (er) { note("build " + k + " " + i, er); SHELLS.delete(k + ":" + i); } } });
+          try { BUILDERS[k](K); } catch (er0) { bufs.forEach(function (b, q) { b.n = n0[q]; b.tf = null; }); if (K.onFail) try { K.onFail(); } catch (x) {} throw er0; }
+          bufs.forEach(function (b) { b.tf = null; }); K.xb.forEach(function (b) { b.tf = null; });
+          var rg = bufs.map(function (b, q) { return [n0[q], b.n - n0[q]]; }); var rec = { kind: k, i: i, e: e, id: id, B: B, C: C, rm: rg[0], rg: rg[1], rf: rg[2], rc: rg[3], rs: rg[4], noCollapse: !!K.noCollapse, sub: K.sub || null }; if (K.onRec) K.onRec(rec); C.bl.push(rec); BLD.push(rec); nb++; } catch (er) { note("build " + k + " " + i, er); SHELLS.delete(k + ":" + i); } } });
     GROUP = new THREE.Group(); GROUP.name = "xt town exteriors"; GROUP.userData.noCull = true;
     if (SIGN.cv) { var st0 = new THREE.CanvasTexture(SIGN.cv); st0.colorSpace = THREE.SRGBColorSpace; st0.anisotropy = 8; st0.userData.avShared = true; st0.name = "xt_signs"; SIGN.tex = st0;
       MAT.sign = new THREE.MeshStandardMaterial({ map: st0, emissive: 0xfff0d8, emissiveMap: st0, emissiveIntensity: 0.05, roughness: 0.62, metalness: 0 }); MAT.sign.name = "xt_sign"; MAT.sign.userData.avShared = true; }
@@ -759,6 +824,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       if (C.far.n) { var fm = new THREE.Mesh(geoMain(C.far), MAT.main); fm.castShadow = true; fm.receiveShadow = true; fm.name = "xt far " + C.k; fm.userData.noSolid = true; fm.matrixAutoUpdate = false; fm.visible = false; GROUP.add(fm); C.meshes.far = fm; }
       if (C.card.n) { var cg = geoGlass(C.card); cg.deleteAttribute("color"); var km = new THREE.Mesh(cg, MAT.card); km.castShadow = false; km.receiveShadow = true; km.name = "xt cards " + C.k; km.userData.noSolid = true; km.matrixAutoUpdate = false; GROUP.add(km); C.meshes.card = km; }
       if (C.sign.n && MAT.sign) { var sg = geoGlass(C.sign); sg.deleteAttribute("color"); var sm = new THREE.Mesh(sg, MAT.sign); sm.castShadow = false; sm.receiveShadow = true; sm.name = "xt signs " + C.k; sm.userData.noSolid = true; sm.matrixAutoUpdate = false; GROUP.add(sm); C.meshes.sign = sm; }
+      if (XT.onChunk) { try { XT.onChunk(C, GROUP); } catch (ec) { note("chunk hook", ec); } }
       C.main = C.glass = C.far = C.card = C.sign = null; });
     scene.add(GROUP); XT.group = GROUP; XT.n.buildings = nb; XT.n.chunks = CHUNKS.length; XT.n.buildMs = Math.round(performance.now() - t0);
     var tri = 0; GROUP.traverse(function (o) { if (o.isMesh) tri += o.geometry.attributes.position.count / 3; }); XT.n.tris = Math.round(tri);
@@ -770,16 +836,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     [["main", "rm"], ["glass", "rg"], ["far", "rf"], ["card", "rc"], ["sign", "rs"]].forEach(function (q) { var me = rec.C.meshes[q[0]], rg = rec[q[1]]; if (!me || !rg || !rg[1]) return; var at = me.geometry.attributes.position, a = at.array, s = rg[0] * 3, n = rg[1] * 3;
       if (on) { rec.save = rec.save || {}; rec.save[q[0]] = a.slice(s, s + n); for (var i = 0; i < n; i += 3) { a[s + i] = rec.B.x; a[s + i + 1] = rec.B.y; a[s + i + 2] = rec.B.z; } }
       else if (rec.save && rec.save[q[0]]) { a.set(rec.save[q[0]], s); delete rec.save[q[0]]; }
-      at.clearUpdateRanges ? at.clearUpdateRanges() : 0; if (at.addUpdateRange) at.addUpdateRange(s, n); at.needsUpdate = true; }); }
+      if (at.addUpdateRange) at.addUpdateRange(s, n); at.needsUpdate = true; }); }   // R16: ranges accumulate (several buildings can change in one frame)
   function frame() {
     if (!GROUP) return; try {
       var k = 0; try { k = typeof night === "number" ? night : 0; } catch (e) {} if (U) U.uGlow.value = 0.05 + 2.2 * k; if (MAT && MAT.card) MAT.card.emissiveIntensity = 0.08 + 0.85 * k; if (MAT && MAT.sign) MAT.sign.emissiveIntensity = 0.04 + 0.45 * k;
-      var ins = null; try { ins = inside || null; } catch (e) {} var want = null; if (ins && ins.door) { for (var i = 0; i < BLD.length; i++) if (BLD[i].e === ins.door.e) { want = BLD[i]; break; } }
+      var ins = null; try { ins = inside || null; } catch (e) {} var want = null; if (ins && ins.door) { for (var i = 0; i < BLD.length; i++) if (BLD[i].e === ins.door.e && !BLD[i].noCollapse) { want = BLD[i]; break; } }
       if (want !== hidRec) { if (hidRec) hideRec(hidRec, false); if (want) hideRec(want, true); hidRec = want; }
       var cx = camera.position.x, cz = camera.position.z; if (FRAME_N - lastF < 12 && Math.hypot(cx - lastX, cz - lastZ) < 8) return; lastF = FRAME_N; lastX = cx; lastZ = cz;
       var q = QUAL && QUAL.q ? Math.max(0.6, QUAL.q.range || 1) : 1, RN = (LOW ? 150 : 230) * q, RF = 2200 * q;
       CHUNKS.forEach(function (C) { var dx = Math.max(C.x0 - cx, 0, cx - (C.x0 + CH)), dz = Math.max(C.z0 - cz, 0, cz - (C.z0 + CH)); var d = Math.sqrt(dx * dx + dz * dz); var v = d < RN ? 2 : d < RF ? 1 : 0; if (v === C.vis) return; C.vis = v;
-        if (C.meshes.main) C.meshes.main.visible = v === 2; if (C.meshes.glass) C.meshes.glass.visible = v === 2; if (C.meshes.card) C.meshes.card.visible = v === 2; if (C.meshes.sign) C.meshes.sign.visible = v === 2; if (C.meshes.far) C.meshes.far.visible = v === 1; });
+        if (C.meshes.main) C.meshes.main.visible = v === 2; if (C.meshes.glass) C.meshes.glass.visible = v === 2; if (C.meshes.card) C.meshes.card.visible = v === 2; if (C.meshes.sign) C.meshes.sign.visible = v === 2; if (C.meshes.far) C.meshes.far.visible = v === 1; if (C.x) for (var xi = 0; xi < C.x.length; xi++) C.x[xi].visible = v === 2; });
     } catch (e) { note("frame", e); } }
   XT.stats = function () { return { n: XT.n, errs: XT.errs.slice(), chunks: CHUNKS.map(function (C) { return [C.k, C.vis, C.bl.length]; }), tex: !!IMG.done }; };
   XT.rebuild = function () { try { if (hidRec) { hideRec(hidRec, false); hidRec = null; } if (GROUP) { scene.remove(GROUP); GROUP.traverse(function (o) { if (o.isMesh) o.geometry.dispose(); }); GROUP = null; } CHUNKS.length = 0; BLD.length = 0; build(); return XT.n; } catch (e) { note("rebuild", e); return String(e); } };

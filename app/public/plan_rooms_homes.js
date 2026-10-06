@@ -111,6 +111,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     MT.vistaA = keep(new THREE.MeshBasicMaterial({ map: TX.rh_vista_a, color: 0xffffff })); MT.vistaB = keep(new THREE.MeshBasicMaterial({ map: TX.rh_vista_b, color: 0xffffff })); MT.vistaC = keep(new THREE.MeshBasicMaterial({ map: TX.rh_vista_c, color: 0xffffff }));
     MT.caster = keep(new THREE.MeshBasicMaterial({ color: 0x000000, colorWrite: false, depthWrite: false, side: THREE.DoubleSide }));   // casts the room's shadow, draws nothing
     for (var k in MT) if (MT[k] && MT[k].isMaterial) MT[k].name = "rh_" + k;
+    try { if (window.PLAN_RL && PLAN_RL.surfScan) PLAN_RL.surfScan(MT); } catch (e) {}   // R16: the surface pass (plan_roomlight.js), before the first compile
     MT.ready = true;
   }
   // the room's emissive fixtures share one look: their brightness follows the lamps switch (glow colour) and the hour (vistas)

@@ -186,21 +186,32 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var GL_FEMIS = [
     "if (vXF > 0.5 && vXF < 1.5) { float wr = fract(sin(dot(floor(vXP.yz * 0.6), vec2(41.3, 17.9))) * 4375.5); float wl = step(0.4, wr) * uNight; vec3 wc = mix(vec3(1.0, 0.62, 0.32), vec3(1.0, 0.78, 0.5), fract(wr * 7.0)); totalEmissiveRadiance += wc * wl * 0.55; }"
   ].join("\n");
+  // R16 (Agent M, HANDOFF_R16_BUILDINGS.md): plan_bmat.js's detail layer and roof dust, high and ultra (a uniform toggles it)
+  var XBT = { plaster: 1.22, adobe: 1.32, concrete: 1.2, rammed: 1.26, ledgestone: 5.2, fieldstone: 5.2, ashlar: 5.26, cedar: 2.32, charred: 2.26, batten: 2.32, barnred: 2.32, planks: 2.36, logs: 2.32, shakes: 2.32, seam: 3.26, corrugated: 3.28, claytile: 5.2, canvas: 4.0, steel: 3.2, timber: 2.36, smooth: 1.12, glass: 0, travertine: 1.16, hewn: 2.36, rust: 3.3, saltillo: 5.2, doors: 2.2 };
+  function bmOn() { var B = window.PLAN_BMAT; return !!(B && !B.off && B.U && B.U.tDet); }
+  function bmUni() { if (U.uXDet) return U; var t = []; for (var i = 0; i < 28; i++) t.push(i < LNAMES.length ? (XBT[LNAMES[i]] || 0) : 0); var v4 = []; for (var j = 0; j < 7; j++) v4.push(new THREE.Vector4(t[j * 4], t[j * 4 + 1], t[j * 4 + 2], t[j * 4 + 3])); U.uXDet = { value: v4 }; return U; }
+  var BM_FP = "uniform sampler2D tDet; uniform float uBm; uniform vec4 uBmQ; uniform vec4 uXDet[7]; vec4 xbD; float xbF; float xbT; float xbS; vec2 xbN;";
+  var BM_FM = ["{ int bli = int(vXUV.z + 0.5); float dv = uXDet[bli >> 2][bli & 3]; xbT = floor(dv); xbS = fract(dv) * 2.0; xbF = (1.0 - smoothstep(uBmQ.x, uBmQ.y, length(vViewPosition))) * uBm;",
+    "  vec2 bdu = (vXUV.xy * 3.3).yx; vec2 bg1 = dFdx(bdu), bg2 = dFdy(bdu); xbD = vec4(0.5); if (xbF > 0.002) xbD = textureGrad(tDet, bdu, bg1, bg2);",
+    "  xbN = vec2(0.0); if (xbT > 0.5 && xbT < 1.5) xbN = xbD.gr * 2.0 - 1.0; else if (xbT > 1.5 && xbT < 2.5) xbN = vec2(0.0, xbD.b * 2.0 - 1.0) * 0.8 + (xbD.gr * 2.0 - 1.0) * 0.18; else if (xbT > 2.5 && xbT < 3.5) xbN = vec2(0.0, xbD.b * 2.0 - 1.0) * 0.35; else if (xbT > 4.5) xbN = (xbD.gr * 2.0 - 1.0) * 0.7; xbN *= xbS * xbF;",
+    "  vec3 xbW = normalize((vec4(normalize(vNormal), 0.0) * viewMatrix).xyz); float xbDu = smoothstep(0.62, 0.96, xbW.y) * smoothstep(1.6, 2.6, vXP.x) * (0.22 + 0.45 * smoothstep(0.85, 1.15, xmac)) * uBm * step(vXF, 0.5);",
+    "  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.56, 0.49, 0.41) * (0.9 + 0.2 * xbD.a), xbDu * 0.42); xrAdd += xbDu * 0.3; }"].join("\n");
   function shellObc(sh) {
     var u = uniformsOnce(); for (var k in u) sh.uniforms[k] = u[k];
+    var BMX = bmOn(); if (BMX) { var B = window.PLAN_BMAT; bmUni(); sh.uniforms.tDet = B.U.tDet; sh.uniforms.uBm = B.U.uBm; sh.uniforms.uBmQ = B.U.uBmQ; sh.uniforms.uXDet = U.uXDet; }
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\n" + GL_VPARS).replace("#include <begin_vertex>", "#include <begin_vertex>\n" + GL_VMAIN);
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\n" + GL_FPARS)
-      .replace("#include <map_fragment>", "#include <map_fragment>\n" + GL_FMAP)
-      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n roughnessFactor = clamp(xN.b + xrAdd, 0.04, 1.0); ")
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\n" + GL_FPARS + (BMX ? "\n" + BM_FP : ""))
+      .replace("#include <map_fragment>", "#include <map_fragment>\n" + GL_FMAP + (BMX ? "\n" + BM_FM : ""))
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n roughnessFactor = clamp(xN.b + xrAdd, 0.04, 1.0); " + (BMX ? "roughnessFactor = clamp(roughnessFactor * mix(1.0, 0.72 + 0.56 * xbD.a, xbF * 0.85), 0.04, 1.0);" : ""))
       .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n metalnessFactor = vXT.a; ")
-      .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n normal = xhPerturb(normal, -vViewPosition, vXUV.xy, (xN.xy * 2.0 - 1.0) * (faceDirection > 0.0 ? 1.0 : -1.0)); if ((xfl & 16) != 0) normal = xhBump(-vViewPosition, normal, 0.016 * (xhN2(xw * 1.3) + 0.45 * xhN2(xw * 3.7 + 5.0)));")
+      .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n normal = xhPerturb(normal, -vViewPosition, vXUV.xy, (xN.xy * 2.0 - 1.0" + (BMX ? " + xbN" : "") + ") * (faceDirection > 0.0 ? 1.0 : -1.0)); if ((xfl & 16) != 0) normal = xhBump(-vViewPosition, normal, 0.016 * (xhN2(xw * 1.3) + 0.45 * xhN2(xw * 3.7 + 5.0)));")
       .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n" + GL_FEMIS);
   }
   var MAT = XH.mat = {};
   function shellMat() {
     if (MAT.shell) return MAT.shell;
     var m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, envMapIntensity: 0.7 });
-    m.name = "xh_shell"; m.userData.avShared = true; m.onBeforeCompile = shellObc; m.customProgramCacheKey = function () { return "xh_shell_2"; };
+    m.name = "xh_shell"; m.userData.avShared = true; m.onBeforeCompile = shellObc; m.customProgramCacheKey = function () { return "xh_shell_2" + (bmOn() ? "bm" : ""); };
     return (MAT.shell = m);
   }
   function depthMat() {

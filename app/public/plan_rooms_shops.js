@@ -211,8 +211,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // neon, lit panels. "s" unlit map, transparent: signs, menu boards, the contact shadows and the light shafts. "x" the client's
   // own window glass. "l" alpha tested foliage (the Market Hall's own material settings and atlas).
   var MAT = RS.mat = RS.mat || {};
-  function tmat(key, pair, rough, metal, ns) { var k = "t_" + key; if (MAT[k]) return k; var m = new THREE.MeshStandardMaterial({ map: pair.map, normalMap: pair.nrm || flatN(), vertexColors: true, roughness: rough === undefined ? 0.85 : rough, metalness: metal || 0 }); if (m.normalScale) m.normalScale.set(ns || 1, ns || 1); m.name = "rs_" + key; MAT[k] = shared(m); return k; }
-  function pmat(key, rough, metal) { var k = "p_" + key; if (MAT[k]) return k; var m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal }); m.name = "rs_" + key; MAT[k] = shared(m); return k; }
+  function tmat(key, pair, rough, metal, ns) { var k = "t_" + key; if (MAT[k]) return k; var m = new THREE.MeshStandardMaterial({ map: pair.map, normalMap: pair.nrm || flatN(), vertexColors: true, roughness: rough === undefined ? 0.85 : rough, metalness: metal || 0 }); if (m.normalScale) m.normalScale.set(ns || 1, ns || 1); m.name = "rs_" + key; MAT[k] = shared(m); try { if (window.PLAN_RL && PLAN_RL.surfMat) PLAN_RL.surfMat(m); } catch (e) {} return k; }
+  function pmat(key, rough, metal) { var k = "p_" + key; if (MAT[k]) return k; var m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough, metalness: metal }); m.name = "rs_" + key; MAT[k] = shared(m); try { if (window.PLAN_RL && PLAN_RL.surfMat) PLAN_RL.surfMat(m); } catch (e) {} return k; }
   function base() {
     if (MAT.ready) return MAT; MAT.ready = true;
     pmat("paint", 0.72, 0); pmat("gloss", 0.28, 0.05); pmat("metal", 0.42, 0.75); pmat("chrome", 0.14, 1.0); pmat("brass", 0.3, 0.9); pmat("satin", 0.5, 0.25); pmat("cloth", 0.95, 0);
@@ -245,7 +245,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     }
     return tmat("plaster", texPlaster(), 0.95, 0, 1.0);
   }
-  function smat(name) { var s = sheet(name); if (s.mat && MAT[s.mat] && s.tex && MAT[s.mat].map !== s.tex) MAT[s.mat].map = s.tex; if (!s.mat) { s.mat = "t_sheet_" + name; MAT[s.mat] = shared(new THREE.MeshStandardMaterial({ map: s.tex, normalMap: flatN(), vertexColors: true, roughness: 0.78, metalness: 0 })); MAT[s.mat].name = "rs_sheet_" + name; } return s.mat; }
+  function smat(name) { var s = sheet(name); if (s.mat && MAT[s.mat] && s.tex && MAT[s.mat].map !== s.tex) MAT[s.mat].map = s.tex; if (!s.mat) { s.mat = "t_sheet_" + name; MAT[s.mat] = shared(new THREE.MeshStandardMaterial({ map: s.tex, normalMap: flatN(), vertexColors: true, roughness: 0.78, metalness: 0 })); MAT[s.mat].name = "rs_sheet_" + name; try { if (window.PLAN_RL && PLAN_RL.surfMat) PLAN_RL.surfMat(MAT[s.mat]); } catch (e) {} } return s.mat; }
 
   // ───────────────────────── the batch: every piece of a room goes into one vertex list per material (one draw each) ─────────────────────────
   // positions are in the room frame (metres); boxes and quads are written straight into number arrays (no geometry objects)

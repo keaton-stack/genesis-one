@@ -317,9 +317,14 @@ function shadowAll() { try { return !!(QUAL.q && QUAL.q.csm); } catch (e) { retu
 // the sweep catches everything the add-time rule misses (meshes added straight to the scene or into groups already in it): every lit mesh casts and receives,
 // except interiors (their own light rig), anything flagged noShadow, near-invisible transparents and the sky-height cloud planes
 const _swp = new THREE.Vector3();
-function sweepShadows(force) { if (!shadowAll()) return; const now = performance.now(); if (!force && now - (sweepShadows.at || 0) < 3000) return; sweepShadows.at = now;
-  const walk = (o) => { const ud = o.userData; if (ud && (ud.interior || ud.noShadowTree)) return; if (o.isMesh && !(ud && ud.shSet)) { o.userData.shSet = true; const mt = o.material; const lit = mt && !Array.isArray(mt) && (mt.isMeshStandardMaterial || mt.isMeshLambertMaterial || mt.isMeshPhongMaterial); if (lit && !ud.noShadow && !ud.blob && !(mt.transparent && mt.opacity < 0.5) && o.getWorldPosition(_swp).y < 250) { o.castShadow = true; o.receiveShadow = true; } } const ch = o.children; for (let i = 0; i < ch.length; i++) walk(ch[i]); };
-  walk(scene); }
+/* R16 (HANDOFF_R16_PERF.md): the 3 s sweep walked the whole scene in one frame (13 ms spikes on ultra under load); it now walks the
+   top-level objects in slices of at most 0.5 ms a frame, a pass every 3 s as before (a forced sweep is still whole). ?s16sw=0: one walk */
+const SWEEP = { on: !/[?&](s16|s16sw)=0\b/.test(location.search), i: -1 };
+function sweepShadows(force) { if (!shadowAll()) return; const now = performance.now(); if (!force && SWEEP.on && SWEEP.i >= 0) { sweepSlice(); return; } if (!force && now - (sweepShadows.at || 0) < 3000) return; sweepShadows.at = now;
+  if (!force && SWEEP.on) { SWEEP.i = 0; sweepSlice(); return; } SWEEP.i = -1;
+  sweepWalk(scene); }
+function sweepWalk(o) { const ud = o.userData; if (ud && (ud.interior || ud.noShadowTree)) return; if (o.isMesh && !(ud && ud.shSet)) { o.userData.shSet = true; const mt = o.material; const lit = mt && !Array.isArray(mt) && (mt.isMeshStandardMaterial || mt.isMeshLambertMaterial || mt.isMeshPhongMaterial); if (lit && !ud.noShadow && !ud.blob && !(mt.transparent && mt.opacity < 0.5) && o.getWorldPosition(_swp).y < 250) { o.castShadow = true; o.receiveShadow = true; } } const ch = o.children; for (let i = 0; i < ch.length; i++) sweepWalk(ch[i]); }
+function sweepSlice() { const ch = scene.children, t0 = performance.now(); while (SWEEP.i < ch.length && performance.now() - t0 < 0.5) sweepWalk(ch[SWEEP.i++]); if (SWEEP.i >= ch.length) SWEEP.i = -1; }
 /* R9k: three's cascaded-shadow helper kept every standard material it ever set up (csm.shaders, never pruned) and walks the whole map
    whenever the camera frustum changes (the FOV eases while you sprint): every room, interior and label material of the session. A
    disposed material leaves the map (it is set up again if it is ever compiled again). */
@@ -331,7 +336,7 @@ function initCSM() {
     const csm = new THREE.CSM({ camera, parent: scene, cascades: want, maxFar: far, mode: "custom", customSplitsCallback: (n, near, far, target) => { const t = n >= 4 ? [0.03, 0.09, 0.3, 1] : [0.045, 0.18, 1]; for (const v of t) target.push(v); }, shadowMapSize: 2048, shadowBias: -0.00018, lightDirection: new THREE.Vector3(0.6, -0.7, -0.3).normalize(), lightIntensity: 1.25, lightNear: 1, lightFar: 2600, lightMargin: 320 });
     csm.fade = true; for (const l of csm.lights) { l.shadow.normalBias = 0.32; l.shadow.radius = 1.5; l.color.copy(sun.color); }
     CSMX.csm = csm; CSMX.on = true; CSMX.far = far; CSMX.lastFar = far; sun.castShadow = false; sun.intensity = 0; scene.remove(sun); scene.remove(sun.target); scene.remove(moon);
-    const wrap = (Orig) => { const C = class extends Orig { constructor(p) { super(p); csm.setupMaterial(this); this._csmObc = this.onBeforeCompile; if (R9K) this.addEventListener("dispose", r9CsmForget); } get onBeforeCompile() { const c = this._csmObc, u = this._userObc; if (!u) return c || THREE.Material.prototype.onBeforeCompile; if (!this._bothObc || this._bothObc.u !== u) { const f = (sh, r) => { if (c) c(sh, r); u(sh, r); }; f.u = u; this._bothObc = f; } return this._bothObc; } set onBeforeCompile(fn) { if (!this._csmObc && fn && fn !== THREE.Material.prototype.onBeforeCompile) { this._csmObc = fn; return; } this._userObc = fn && fn !== THREE.Material.prototype.onBeforeCompile ? fn : null; } customProgramCacheKey() { if (R9K) { const u = this._userObc || null; if (this._r9ku !== u || this._r9kk === undefined) { this._r9ku = u; this._r9kk = "csm" + (u ? "|" + u.toString() : ""); } return this._r9kk; } return "csm" + (this._userObc ? "|" + this._userObc.toString() : ""); } copy(src) { super.copy(src); this.defines = Object.assign({}, this.defines || {}, { USE_CSM: 1, CSM_CASCADES: csm.cascades }, csm.fade ? { CSM_FADE: "" } : {}); return this; } }; return C; };
+    const wrap = (Orig) => { const C = class extends Orig { constructor(p) { super(p); csm.setupMaterial(this); this._csmObc = this.onBeforeCompile; if (R9K) this.addEventListener("dispose", r9CsmForget); } get onBeforeCompile() { const c = this._csmObc, u = this._userObc; if (!u) return c || THREE.Material.prototype.onBeforeCompile; if (!this._bothObc || this._bothObc.u !== u) { const f = function (sh, r) { if (c) c.call(this, sh, r); u.call(this, sh, r); }; f.u = u; this._bothObc = f; } return this._bothObc; }   /* R16: hooks keep "this" (the material), as three calls them */ set onBeforeCompile(fn) { if (!this._csmObc && fn && fn !== THREE.Material.prototype.onBeforeCompile) { this._csmObc = fn; return; } this._userObc = fn && fn !== THREE.Material.prototype.onBeforeCompile ? fn : null; } customProgramCacheKey() { if (R9K) { const u = this._userObc || null; if (this._r9ku !== u || this._r9kk === undefined) { this._r9ku = u; this._r9kk = "csm" + (u ? "|" + u.toString() : ""); } return this._r9kk; } return "csm" + (this._userObc ? "|" + this._userObc.toString() : ""); } copy(src) { super.copy(src); this.defines = Object.assign({}, this.defines || {}, { USE_CSM: 1, CSM_CASCADES: csm.cascades }, csm.fade ? { CSM_FADE: "" } : {}); return this; } }; return C; };
     for (const l of csm.lights) l.shadow.camera.layers.enable(1);
     THREE.MeshStandardMaterial = wrap(THREE.MeshStandardMaterial); if (THREE.MeshPhysicalMaterial) THREE.MeshPhysicalMaterial = wrap(THREE.MeshPhysicalMaterial);
   } catch (e) { console.warn("cascaded shadows unavailable", e); CSMX.on = false; CSMX.csm = null; }
@@ -2494,6 +2499,7 @@ const TOP     = [[0.00, C(0x04060e)], [0.21, C(0x0a1030)], [0.26, C(0x4a4a90)], 
 function rampAt(R, t) { for (let i = 0; i < R.length - 1; i++) if (t >= R[i][0] && t <= R[i + 1][0]) return R[i][1].clone().lerp(R[i + 1][1], (t - R[i][0]) / (R[i + 1][0] - R[i][0])); return R[0][1].clone(); }
 let night = 0; const KEY = { moon: new THREE.Color(0x9fb4ff) };
 const _SKYV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _SKYC = new THREE.Color();   // per-frame scratch (updateSky, updateFX): no allocations
+const REAL_SUN = !/[?&]realsun=0\b/.test(location.search);   // R16: the old arc rose in the south, peaked in the west and set in the north
 function updateSky(dt) {
   const t = dayT(), el = -Math.cos(t * 6.283), az = t * 6.283;
   const hor = rampAt(HORIZON, t), mid = rampAt(MID, t);
@@ -2501,6 +2507,7 @@ function updateSky(dt) {
   const dusk = Math.max(0, 1 - Math.abs(el - 0.08) / 0.42);
   skyMat.uniforms.horizon.value.copy(hor); skyMat.uniforms.kDusk.value = Math.min(1, dusk * 1.4); skyMat.uniforms.kNight.value = Math.pow(Math.max(0, night - 0.25) / 0.75, 1.3); scene.fog.color.copy(hor).lerp(mid, 0.35);
   const sdir = _SKYV[0].set(Math.cos(az), el, Math.sin(az) * 0.45).normalize();
+  if (REAL_SUN && window.PLAN_SKY && PLAN_SKY.sunInto && PLAN_SKY.sunInto(sdir)) sdir.normalize();   // R16: the light follows the real Sun over Douglas (east, south at noon, west-south-west at sunset); ?realsun=0 = the old arc
   skyMat.uniforms.sunDir.value.copy(sdir); skyMat.uniforms.glow.value = el > -0.2 ? 1 : 0; skyMat.uniforms.sunCol.value.setHSL(0.08, 0.9, 0.55 + 0.25 * Math.min(1, Math.max(0, el)));
   if (player) { sun.target.position.copy(player.position); sun.position.copy(player.position).addScaledVector(sdir, 700); if (sun.position.y < player.position.y + 40) sun.position.y = player.position.y + 40;
     // shadow frustum: tight (sharp) at street level, widening as the camera climbs so the world keeps its shadows from a balloon, the jet or the tower

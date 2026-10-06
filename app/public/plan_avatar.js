@@ -119,12 +119,13 @@
         "  vec3 hc = uHair * mix(0.55 + 0.25 * n1, 0.34 + 0.12 * n1, uDen.z); avStub = clamp(stub * uDen.w, 0.0, 1.0); diffuseColor.rgb = mix(diffuseColor.rgb, hc, avStub); diffuseColor.a *= vS.x; }")
       .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\nreflectedLight.indirectSpecular *= 1.0 - 0.92 * avStub; reflectedLight.directSpecular *= 1.0 - 0.85 * avStub;")   // hair covered scalp: no grazing angle sheen (it read as a pale bald patch at the parting)
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.85, clamp(uDen.x * 1.2, 0.0, 1.0));");
+    if (window.PLAN_CHARFX && PLAN_CHARFX.on && PLAN_CHARFX.ext) PLAN_CHARFX.ext(sh, "scalp");   // R16: the character skin model (plan_charfx.js)
   }; }
   var SCALPMAT = AV.SCALPMAT = AV.SCALPMAT || new Map();
   // den: [top density, bottom density, coverage solid (0 dotted stubble, 1 solid base), strength]; fade: heights (m above the edge) of the fade ramp
   AV.scalpMat = function (skin, hair, den, fade, hl) {
     hl = hl || [-0.06, -0.01]; var key = skin + "|" + hair + "|" + den.join(",") + "|" + fade.join(",") + "|" + hl.join(","); var m = SCALPMAT.get(key); if (m) return m;
-    var covered = den[0] > 0.5 && den[2] > 0.5; m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: covered ? 0.8 : 0.55, metalness: 0, transparent: true, depthWrite: true, sheen: covered ? 0.0 : 0.45, sheenColor: new THREE.Color(0xffb09a), sheenRoughness: 0.6 });
+    var covered = den[0] > 0.5 && den[2] > 0.5; m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: covered ? 0.8 : 0.55, metalness: 0, transparent: true, depthWrite: true, sheen: covered || (window.PLAN_CHARFX && PLAN_CHARFX.on) ? 0.0 : 0.45, sheenColor: new THREE.Color(0xffb09a), sheenRoughness: 0.6 });
     m.userData.u = { uSkin: { value: new THREE.Color("#" + skin) }, uHair: { value: hairCol(hair, 1) }, uDen: { value: new THREE.Vector4(den[0], den[1], den[2], den[3]) }, uFade: { value: new THREE.Vector2(fade[0], fade[1]) }, uHL: { value: new THREE.Vector2(hl[0], hl[1]) } };
     m.onBeforeCompile = SCALP_OBC(m.userData.u); m.name = "avScalp"; m.userData.avShared = true; AV.n.mats++;
     SCALPMAT.set(key, m); return m;
@@ -183,20 +184,20 @@
     sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform vec3 uRoot; uniform vec3 uTip; uniform vec4 uSpec; uniform vec4 uShade; uniform float uVar; uniform float uSoft; varying vec3 vAvT; varying vec4 vAvH; varying vec3 vAvP; vec3 avT; float avNz; float avId; float avSm;\nfloat avH3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }\nfloat avVN3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(avH3(i), avH3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(avH3(i + vec3(0.0, 1.0, 0.0)), avH3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y), mix(mix(avH3(i + vec3(0.0, 0.0, 1.0)), avH3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(avH3(i + vec3(0.0, 1.0, 1.0)), avH3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }\nfloat avHs(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat avVN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(avHs(i), avHs(i + vec2(1.0, 0.0)), f.x), mix(avHs(i + vec2(0.0, 1.0)), avHs(i + vec2(1.0, 1.0)), f.x), f.y); }")
       .replace("#include <lights_physical_pars_fragment>", "#include <lights_physical_pars_fragment>\n" +
         "void RE_Direct_Hair(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {\n" +
-        "  float dotNL = dot(geometryNormal, directLight.direction); float wrapK = uShade.z; float diffT = clamp((dotNL + wrapK) / (1.0 + wrapK), 0.0, 1.0);\n" +
+        "  float dotNL = dot(geometryNormal, directLight.direction); float wrapK = uShade.z; float diffT = clamp((dotNL + wrapK) / (1.0 + wrapK), 0.0, 1.0);\n#ifdef AV_TRANS\n  diffT += 0.1 * (1.0 - diffT);\n#endif\n" +
         "  reflectedLight.directDiffuse += diffT * directLight.color * BRDF_Lambert(material.diffuseColor);\n" +
-        "  vec3 H = normalize(directLight.direction + geometryViewDir); float avSh = (avId - 0.5) * 0.22; vec3 t1 = normalize(avT + geometryNormal * (uSpec.z + avSh)); vec3 t2 = normalize(avT + geometryNormal * (uSpec.w + avSh * 0.7));\n" +
-        "  float a1 = dot(t1, H), a2 = dot(t2, H); float s1 = pow(max(0.0, 1.0 - a1 * a1), 0.5 * uShade.x); float s2 = pow(max(0.0, 1.0 - a2 * a2), 0.5 * uShade.y);\n" +
+        "  vec3 avHv = directLight.direction + geometryViewDir; vec3 H = avHv * inversesqrt(max(dot(avHv, avHv), 1e-8)); float avSh = (avId - 0.5) * 0.22; vec3 t1 = avT + geometryNormal * (uSpec.z + avSh); t1 *= inversesqrt(max(dot(t1, t1), 1e-8)); vec3 t2 = avT + geometryNormal * (uSpec.w + avSh * 0.7); t2 *= inversesqrt(max(dot(t2, t2), 1e-8));\n" +
+        "  float a1 = clamp(dot(t1, H), -1.0, 1.0), a2 = clamp(dot(t2, H), -1.0, 1.0); float s1 = pow(saturate(1.0 - a1 * a1) + 1e-6, 0.5 * uShade.x); float s2 = pow(saturate(1.0 - a2 * a2) + 1e-6, 0.5 * uShade.y);\n" +
         "  float vis = smoothstep(-0.15, 0.3, dotNL);\n" +
-        "  reflectedLight.directSpecular += directLight.color * vis * avSm * (s1 * uSpec.x + s2 * uSpec.y * avNz * material.diffuseColor * 3.0);\n}\n#undef RE_Direct\n#define RE_Direct RE_Direct_Hair\n")
+        "  reflectedLight.directSpecular += directLight.color * vis * avSm * (s1 * uSpec.x + s2 * uSpec.y * avNz * material.diffuseColor * 3.0);\n#ifdef AV_TRANS\n  float avTr = pow(saturate(dot(-directLight.direction, geometryViewDir)) + 1e-6, 6.0) * saturate(0.35 - dotNL * 0.65); vec3 avDc = max(material.diffuseColor, vec3(0.0)); reflectedLight.directDiffuse += directLight.color * avTr * sqrt(avDc) * avDc * 1.6;\n#endif\n}\n#undef RE_Direct\n#define RE_Direct RE_Direct_Hair\n")
       .replace("#include <map_fragment>", "vec4 avTx = texture2D(map, vMapUv);\n" +
         "if (vAvH.y < 0.003) { vec3 q = vAvP * 470.0; float n = avVN3(q) * 0.58 + avVN3(q * 2.1 + 7.1) * 0.3 + avVN3(q * 4.2 + 3.3) * 0.12; float cu = 0.5 + 0.5 * sin((n * 6.0 + (q.x + q.y + q.z) * 0.33) * 3.1416); float v = n * 0.7 + cu * 0.4; float px = length(fwidth(q)); float thr = (vAvH.x * vAvH.x * 0.66 + 0.03) * (1.0 - smoothstep(0.45, 1.1, px)); float rim = 1.0 - smoothstep(0.0, 0.16, v - thr); avTx = vec4(0.6 + 0.32 * cu + 0.38 * rim * vAvH.x, n, 0.0, step(thr, v)); }\n" +
         "{ float lod = log2(max(1.0, max(length(dFdx(vMapUv * 1024.0)), length(dFdy(vMapUv * 1024.0))))); float a = avTx.a * (1.0 + lod * 0.32);\n" +
         "  vec3 base = mix(uRoot, uTip, smoothstep(0.0, 1.0, vAvH.x)) * (1.0 + (vAvH.w - 0.5) * 2.0 * uVar); float ao = mix(uShade.w, 1.0, vAvH.z);\n" +
         "  diffuseColor.rgb = base * (0.42 + 0.6 * avTx.r) * ao; diffuseColor.a = uSoft > 0.5 ? (a >= 0.5 ? 0.0 : a * 1.6) : a; avNz = 0.8 + avTx.g * 0.4; avId = avTx.g; avSm = mix(0.18, 1.0, smoothstep(0.62, 0.97, avTx.r)); }")
-      .replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = normalize(vNormal); avT = normalize(vAvT);")
+      .replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = vNormal * inversesqrt(max(dot(vNormal, vNormal), 1e-8)); avT = vAvT * inversesqrt(max(dot(vAvT, vAvT), 1e-8)); if (dot(avT, avT) < 0.25) { vec3 avC = cross(normal, abs(normal.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)); avT = avC * inversesqrt(max(dot(avC, avC), 1e-8)); }")
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = 0.6;")
-      .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\nreflectedLight.indirectSpecular *= 0.22 * avSm;");   // flat cards at grazing angles mirrored the sky as a flat sheet: keep a little image based specular, broken up by the strands
+      .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\nreflectedLight.indirectSpecular *= 0.22 * avSm;\n#ifdef AV_TRANS\n{ vec3 avE = max(irradiance + iblIrradiance, vec3(0.0)) * RECIPROCAL_PI; vec3 avDn = max(material.diffuseColor, vec3(0.0)); vec3 avTn = avDn / max(max(avDn.r, max(avDn.g, avDn.b)), 1e-4);\n  float avLum = dot(avDn, vec3(0.3, 0.59, 0.11)); reflectedLight.indirectDiffuse *= min(2.0, max(1.0, 0.6 / max(avLum, 1e-3))); reflectedLight.indirectSpecular += avE * (0.02 * (0.4 + 0.6 * avSm) * avNz) * mix(vec3(1.0), avTn, 0.7); }\n#endif");   // flat cards at grazing angles mirrored the sky as a flat sheet: keep a little image based specular, broken up by the strands
   }; }
   AV.HAIR_OBC = HAIR_OBC;
   AV.hairSoft = function (hex, style) { var S = Object.assign({}, style || {}, { soft: true }); var m = AV.hairMat(hex, S); return m; };
@@ -206,10 +207,11 @@
     var S = style || {}; var key = hex + "|" + (S.gloss || 1) + "|" + (S.tipK || 1) + "|" + (S.var || 0.035) + "|" + (S.warm || 0) + "|" + (S.soft ? 1 : 0);
     var m = HAIRMAT.get(key); if (m) return m;
     var base = hairCol(hex); if (S.warm) base.lerp(hairCol("2a1b12"), S.warm); var lum = 0.3 * base.r + 0.59 * base.g + 0.11 * base.b;
-    base.multiplyScalar(0.43); var root = base.clone().multiplyScalar(0.55), tip = base.clone().multiplyScalar(1.05 + 0.2 * (1 - Math.min(1, lum * 3)) * (S.tipK || 1)); tip.lerp(new THREE.Color(1, 0.92, 0.8).multiplyScalar(Math.max(tip.r, tip.g, tip.b)), 0.08);
+    base.multiplyScalar(window.PLAN_CHARFX && PLAN_CHARFX.on ? 0.5 : 0.43); var root = base.clone().multiplyScalar(0.55), tip = base.clone().multiplyScalar(1.05 + 0.2 * (1 - Math.min(1, lum * 3)) * (S.tipK || 1)); tip.lerp(new THREE.Color(1, 0.92, 0.8).multiplyScalar(Math.max(tip.r, tip.g, tip.b)), 0.08);
     var gl = S.gloss || 1;
     m = new THREE.MeshStandardMaterial({ map: AV.atlas(), color: 0xffffff, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, alphaTest: S.soft ? 0.06 : 0.5, envMapIntensity: 0.35 }); if (S.soft) { m.transparent = true; m.depthWrite = false; }
     m.userData.u = { uRoot: { value: root }, uTip: { value: tip }, uSpec: { value: new THREE.Vector4(0.026 * gl, 0.045 * gl, -0.06, 0.1) }, uShade: { value: new THREE.Vector4(64, 20, 0.35, 0.7) }, uVar: { value: S.var || 0.035 }, uSoft: { value: S.soft ? 1 : 0 } };
+    if (window.PLAN_CHARFX && PLAN_CHARFX.on) m.defines = Object.assign({}, m.defines || {}, { AV_TRANS: 1 });   // R16: back-lit transmission
     m.onBeforeCompile = HAIR_OBC(m.userData.u); m.name = "avHair"; m.userData.avShared = true; AV.n.mats++;
     HAIRMAT.set(key, m); return m;
   };
@@ -778,6 +780,7 @@
         "  diffuseColor.rgb = base * vHp.w; hK = kind; }")
       .replace("#include <roughnessmap_fragment>", "float roughnessFactor = hRough;").replace("#include <metalnessmap_fragment>", "float metalnessFactor = hMetal;")
       .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\nnormal = hPerturb(-vViewPosition, normal, hH, 0.0006);");
+    if (window.PLAN_CHARFX && PLAN_CHARFX.on && PLAN_CHARFX.ext) PLAN_CHARFX.ext(sh, "hat");   // R16: cloth sheen and wrap on the fabric kinds (plan_charfx.js)
   }; }
   var HATMAT = AV.HATMAT = AV.HATMAT || new Map();
   AV.hatMat = function (hatId, ci) { var H = AV.HATS[hatId]; if (!H || !H.colors) return null; var cols = H.colors[(ci || 0) % H.colors.length]; var key = hatId + ":" + (ci || 0) % H.colors.length; var m = HATMAT.get(key); if (m) return m;

@@ -272,15 +272,16 @@ window.PLAN_TALK = window.PLAN_TALK || {};
     // every material carries an emissive map (black for most), so lit and self-lit surfaces share one program
     if (s.emi) { o.emissive = new THREE.Color(s.emi[0], s.emi[1], s.emi[2]); o.emissiveIntensity = s.ei; o.emissiveMap = s.emiImg ? imgTex(s.emiImg) : s.emiImgT ? T(s.emiImgT) : T("white"); }
     else { o.emissive = new THREE.Color(0, 0, 0); o.emissiveIntensity = 1; o.emissiveMap = T("white"); }
-    var m = new THREE.MeshStandardMaterial(o); if (s.map && s.nk) m.normalScale.set(s.nk, s.nk); m.name = "rv " + k; m.userData.avShared = true; m.userData.t = s.t || 1; m.userData.uv01 = !!s.uv01; m.userData.k0 = s.ei || 0; m.userData.flick = s.flick || 0; return m;
+    var m = new THREE.MeshStandardMaterial(o); if (s.map && s.nk) m.normalScale.set(s.nk, s.nk); m.name = "rv " + k; m.userData.avShared = true; m.userData.t = s.t || 1; m.userData.uv01 = !!s.uv01; m.userData.k0 = s.ei || 0; m.userData.flick = s.flick || 0; if (k.indexOf("sign:") !== 0 && k.indexOf("screen:") !== 0) { try { if (window.PLAN_RL && PLAN_RL.surfMat) PLAN_RL.surfMat(m); } catch (e) {} } return m;   // R16: the surface pass (plan_roomlight.js), before the first compile
   }
   function M(k) {
     var m = MT[k]; if (m) return m; var s = MS[k];
     if (!s) { // derived: "sign:<key>" (a canvas sign), a texture made elsewhere
-      if (k.indexOf("sign:") === 0 || k.indexOf("screen:") === 0) { var base = k.indexOf("sign:") === 0 ? "sign" : "screen"; m = stdMat(k, MS[base]); var st = TX[k.slice(base.length + 1)]; if (st) { m.map = st; m.emissiveMap = st; } return (MT[k] = m); }
+      if (k.indexOf("sign:") === 0 || k.indexOf("screen:") === 0) { var base = k.indexOf("sign:") === 0 ? "sign" : "screen"; m = stdMat(k, MS[base]); var st = TX[k.slice(base.length + 1)]; if (st) { m.map = st; m.emissiveMap = st; } try { if (window.PLAN_RL && PLAN_RL.surfMat) PLAN_RL.surfMat(m); } catch (e) {} return (MT[k] = m); }
       if (GEN[k]) { m = stdMat(k, { map: k, r: 0.8, uv01: true, env: 0.2 }); return (MT[k] = m); }
       note("mat", "no material " + k); return (MT[k] = M("paint")); }
-    if (s.glass) { m = new THREE.MeshBasicMaterial({ map: T("white"), vertexColors: true, color: 0xd6e6ea, transparent: true, opacity: 0.14, depthWrite: false, toneMapped: false }); m.userData.noSolid = true; }   // the same program as the halos
+    if (s.glass) { if (window.PLAN_RL && PLAN_RL.part && PLAN_RL.part.surf && PLAN_RL.tierDone) { m = new THREE.MeshStandardMaterial({ color: 0xe4f0f4, transparent: true, opacity: 0.12, roughness: 0.04, metalness: 0.1, depthWrite: false }); m.envMapIntensity = 1.0; }   // R16 (high, ultra): lit glass that reflects the room (the homes' glass program)
+      else m = new THREE.MeshBasicMaterial({ map: T("white"), vertexColors: true, color: 0xd6e6ea, transparent: true, opacity: 0.14, depthWrite: false, toneMapped: false }); m.userData.noSolid = true; }   // the same program as the halos
     else if (s.shade) { m = new THREE.MeshBasicMaterial({ map: T("shadeTex"), vertexColors: true, color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1 }); m.userData.noSolid = true; m.userData.add = true; m.userData.uv01 = true; }
     else if (s.add) { m = new THREE.MeshBasicMaterial({ map: s.img ? imgTex(s.add) : T(s.add), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexColors: true, toneMapped: false }); m.userData.add = true; m.userData.uv01 = true; }
     else m = stdMat(k, s);

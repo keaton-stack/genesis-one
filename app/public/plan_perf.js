@@ -54,12 +54,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   //     a bike) is hidden until it wakes. On waking every part checks its own matrix again.
   // The per-object caches live in typed arrays indexed by object id (no properties are added to the objects).
   P.K.mw = !/[?&](pmw|p3)=0\b/.test(Q);
+  // R16 (HANDOFF_R16_PERF.md): S16H.mw skips the subtree of an invisible object (not a bone) in this walk except every 16th frame, when it
+  // changed itself or when its children changed (?s16mw=0 off); S16H.check / S16H.flush are the shadow-merge watch (R16 section at the end)
+  var S16H = P.s16h = { mw: !/[?&](s16|s16mw|p3)=0\b/.test(Q), check: null, flush: null, skipped: 0 };
   var MW = P.mw = { cap: 0, LC: null, WV: null, PV: null, BI: null, BR: null, AF: null, CF: null, SLP: null, LIM: 524288, MAN: new WeakMap(), HID: new WeakMap(), MR: new WeakMap(), MU: 1, V: 1, fr: 0, sleeping: 0 };
   function mwGrow(n) {
     var cap = Math.max(65536, MW.cap || 0); while (cap <= n) cap *= 2; if (cap > MW.LIM) cap = MW.LIM; if (cap <= MW.cap) return;   /* R5: ids are never reused, so the caches stop at MW.LIM ids (64 MB); later objects take three's own methods */
     function g(Old, T, k, fill) { var a = new T(cap * k); if (fill !== undefined) a.fill(fill); if (Old) a.set(Old); return a; }
     MW.LC = g(MW.LC, Float64Array, 10, NaN); MW.WV = g(MW.WV, Float64Array, 1); MW.PV = g(MW.PV, Float64Array, 1, -1); MW.BI = g(MW.BI, Float64Array, 1, -1);
-    MW.BR = g(MW.BR, Uint8Array, 1); MW.AF = g(MW.AF, Float64Array, 1); MW.CF = g(MW.CF, Float64Array, 1, -1); MW.SLP = g(MW.SLP, Uint8Array, 1); MW.cap = cap;
+    MW.BR = g(MW.BR, Uint8Array, 1); MW.AF = g(MW.AF, Float64Array, 1); MW.CF = g(MW.CF, Float64Array, 1, -1); MW.SLP = g(MW.SLP, Uint8Array, 1); MW.S16 = g(MW.S16, Uint8Array, 1); MW.NC = g(MW.NC, Int32Array, 1, -1); MW.cap = cap;   /* R16: S16 member flags, NC children count of a hidden object at its last walk */
   }
   (function fastMatrices() {
     if (!P.K.mw || !window.THREE || !THREE.Object3D || THREE.Object3D.prototype.__p3mw) return;
@@ -82,10 +85,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       var id = this.id, par = this.parent; if (id >= MW.cap || (par !== null && par.id >= MW.cap)) { mwGrow(Math.max(id, par !== null ? par.id : 0)); if (id >= MW.cap || (par !== null && par.id >= MW.cap)) return umw0.call(this, force); }
       var d = local(this, id) || force === true || this.matrixWorldNeedsUpdate === true || (par !== null && MW.PV[id] !== MW.WV[par.id]);
       if (d) { world(this, id, par); this.matrixWorldNeedsUpdate = false; force = true; }
+      var sf = MW.S16[id]; if ((sf & 7) !== 0 && S16H.check !== null) S16H.check(this, id, sf, d);   /* R16: a merged mesh's member or one of its parents */
       if (MW.SLP[id] === 1) return;   // a far person asleep: its own matrix only
       if (MW.BR[id] === 1) { if (!d && MW.AF[id] <= MW.CF[id] && ((id + MW.fr) & 31) !== 0) return; MW.CF[id] = MW.MU; }   // bones: only after their mixer ran
       var ch = this.children;
+      /* R16: nothing under an invisible object is drawn; its subtree is walked when it changed itself, when its children changed, and every
+         16th frame (staggered), so a direct reader of a hidden object's world matrix is never more than 16 frames behind (bones always) */
+      if (this.visible === false && d === false && S16H.mw === true && this.isBone !== true && ((id + MW.fr) & 15) !== 0) { if (MW.NC[id] === ch.length) { S16H.skipped++; return; } MW.NC[id] = ch.length; }
       for (var i = 0, l = ch.length; i < l; i++) { var c = ch[i]; if (c.matrixWorldAutoUpdate === true || force === true) c.updateMatrixWorld(force); }
+      if (par === null && S16H.flush !== null && this.isScene === true) S16H.flush(this);
     };
     O.updateMatrixWorld = umw;
     O.updateWorldMatrix = function (updateParents, updateChildren) {
@@ -1324,4 +1332,235 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       for (var i = 0, o = 0; i < n; i++, o += s) { var dx = cx - A[o], dy = cy - A[o + 1], dz = cz - A[o + 2]; r2 = Math.max(r2, dx * dx + dy * dy + dz * dz); }
       this.boundingSphere.radius = Math.sqrt(r2); if (isNaN(this.boundingSphere.radius)) console.error('THREE.BufferGeometry.computeBoundingSphere(): Computed radius is NaN. The "position" attribute is likely to have NaN values.', this); };
   }
+})();
+// ───────────────────────────── R16: performance headroom (HANDOFF_R16_PERF.md) ─────────────────────────────
+// The ultra frame at the street views is CPU bound, and about 90 per cent of it is inside renderer.render: the draws themselves
+// (three's program, uniform and vertex-array work per draw, about half), the shadow cascades (a fifth), the world-matrix walk (an
+// eighth) and the culling walk. The plan hooks of all modules together are under 3 per cent. Nothing here changes what is drawn.
+// a. (in P3's walk, first part of this file) the world-matrix walk skips the subtree of an invisible object: 80 per cent of the
+//    17,000 objects of the scene are under one (rooms built ahead, hidden people and rides, far groups).   ?s16mw=0
+// b. Shadow casters merged (?s16sm=0): static plain meshes that cast shadows are drawn into the shadow maps as one position-only
+//    mesh per 48 m cell instead of one draw each. A depth pass only needs positions and the face side, so this merge crosses
+//    materials and groups. The originals keep every flag and are still drawn in the main view; only their own shadow draws are
+//    skipped while their merged mesh draws, and a cascade draws a merged mesh only where R6's size rule would draw all of its meshes.
+// c. Same-material merge for the main view (?s16sc=0): static opaque meshes that share a material (the same object, so any later
+//    change to it shows on both), shadow flag, draw order and vertex layout are drawn as one mesh per 48 m cell and size class; the
+//    originals' own draws are skipped while it draws. Only materials without a shader hook (an object-space effect would see the
+//    merged frame), only where R6's sub-pixel rule would draw every one of them; anywhere else the originals draw as before.
+// Exact (b and c): P3's walk watches every merged mesh and each parent up to its top-level object, and as soon as one of them moves,
+// is shown or hidden, changes its material (or that material's hook, side or transparency), geometry, layers, shadow or draw flags,
+// or a parent loses or gains a child, that cell goes back to its originals before anything of that frame is drawn. A top-level group
+// the client shows and hides by distance gets cells of its own, which follow its visibility. Groups whose content keeps changing are
+// left alone after three tries. Nothing is merged indoors (plan_perf's portal culling owns the outside then) or in VR.
+// ?s16=0 turns R16 off. PLAN_PERF.s16: counters, errors (errs), stats(), runtime switches for A/B: mw(bool), sm.set(bool), sc.set(bool).
+(function () {
+  "use strict";
+  var P = window.PLAN_PERF; if (!P || P.off || !P.s16h || typeof THREE === "undefined") return;
+  var Q = location.search, H = P.s16h, MW = P.mw;
+  var S = P.s16 = { v: "r16.7", on: !/[?&]s16=0\b/.test(Q), n: {}, errs: [] };
+  function note(tag, e) { try { if (S.errs.length < 20) S.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (P.note) P.note("s16 " + tag, e); } catch (x) {} }
+  if (!S.on) { H.mw = false; return; }
+  S.mw = function (on) { if (on !== undefined) H.mw = !!on; return H.mw; };
+  var CC = {}; function C(name) { var v = CC[name]; if (v !== undefined) return v; try { v = (0, eval)(name); } catch (e) { return undefined; } if (v !== undefined && v !== null) CC[name] = v; return v; }   // client consts, resolved once
+  function V(name) { try { return (0, eval)(name); } catch (e) { return undefined; } }   // client lets
+  var ok3 = !!P.n.mw && !!MW && !!MW.cap;   // the watch needs P3's walk
+  var SM = S.sm = { on: ok3 && !/[?&]s16sm=0\b/.test(Q), user: true, act: false, n: { entries: 0, members: 0, verts: 0, skipMember: 0, proxyDraw: 0, proxySkip: 0 }, byId: new Map() };
+  var SC = S.sc = { on: ok3 && !/[?&]s16sc=0\b/.test(Q), user: true, act: false, n: { entries: 0, members: 0, verts: 0, skipMember: 0, mergedDraw: 0, mergedSkip: 0 }, byId: new Map() };
+  SM.set = function (on) { SM.user = !!on; return SM.user; }; SC.set = function (on) { SC.user = !!on; return SC.user; };
+  var W = S.w = { layer: 21, cell: 48, maxR: 60, maxV: 6000, maxNV: 300000, wait: 12000, start: 32000, scanAt: 0, q0: [], q1: [], pend: new Map(), topE: new Map(), seen: new WeakSet(), tries: new WeakMap(), rec: new WeakMap(), live: [], dirty: [], box: null, mats: [], thr: [0, 0, 0, 0, 0, 0, 0, 0], det: null, detAt: 0, ic: false, shOn: false, spPass: false,
+    n: { reverts: 0, scans: 0, tops: 0, skipTop: 0, mirror: 0, buildMs: 0, checkCalls: 0, lastWhy: "" } };
+  var BIT = 1 << W.layer, FLIP = [THREE.BackSide, THREE.FrontSide, THREE.DoubleSide];   // three's shadow side of a FrontSide, BackSide, DoubleSide material
+  var O3 = THREE.Object3D.prototype, OBS = O3.onBeforeShadow, OAS = O3.onAfterShadow, OBR = O3.onBeforeRender, OAR = O3.onAfterRender, MATP = THREE.Material.prototype;
+  var NOB = /^(perf|player|avatar|r6|s16)/i, ATTR = { position: 3, normal: 3, uv: 2, uv1: 2, uv2: 2, color: 0, tangent: 4 };
+  function rec(o) { var R = W.rec.get(o); if (!R) { R = { m: null, c: null, a: null }; W.rec.set(o, R); } return R; }
+  function topOK(o) {
+    if (!o || o === W.box || o.isLight || o.isCamera || o.isBone || NOB.test(o.name || "")) return false; var ud = o.userData || {};
+    if (ud.interior || ud.walk || ud.id !== undefined || ud.r5ids || ud.door || ud.ride || ud.perf || ud.noBatch || ud.s16) return false;
+    if (o.matrixWorldAutoUpdate !== true || o.id >= MW.cap) return false;
+    try { var ins = V("inside"); if (ins && (ins.g === o || ins.int3 === o || ins.hgr === o)) return false; } catch (e) {} try { if (FLY && FLY.g === o) return false; } catch (e) {}
+    return true;
+  }
+  function dropped(g) { var a = g.attributes; for (var k in a) if (a[k] && a[k].r6free) return true; return !!(g.index && g.index.r6free); }
+  function geoOK(g) { if (!g || !g.isBufferGeometry || g.morphAttributes.position || dropped(g)) return false; var pa = g.attributes.position; if (!pa || pa.isInterleavedBufferAttribute || pa.itemSize < 3 || pa.count > W.maxV || pa.count < 3) return false; if (g.drawRange.start !== 0 || g.drawRange.count !== Infinity) return false; if (g.index && g.index.isInterleavedBufferAttribute) return false; return true; }
+  function userHook(m) { if (m._userObc) return true; if (m._csmObc !== undefined) return false; return m.onBeforeCompile !== MATP.onBeforeCompile; }
+  // b: a plain shadow caster drawn by three's plain depth material
+  function shOK(q) {
+    if (q.castShadow !== true || q.layers.mask !== 1 || q.customDepthMaterial !== undefined || q.onBeforeShadow !== OBS || q.onAfterShadow !== OAS || q.onBeforeRender !== OBR || q.onAfterRender !== OAR || q.morphTargetInfluences) return false;
+    var m = q.material; if (!m || Array.isArray(m) || m.visible !== true || m.wireframe === true) return false;
+    if (m.alphaTest > 0 || (m.displacementMap && m.displacementScale !== 0) || (m.clippingPlanes && m.clippingPlanes.length)) return false;
+    return geoOK(q.geometry);
+  }
+  // c: an opaque mesh whose material has no shader hook, in a vertex layout the merge can copy exactly
+  function attrKey(g) { var k = []; for (var n in g.attributes) { var a = g.attributes[n]; if (ATTR[n] === undefined || a.isInterleavedBufferAttribute || (ATTR[n] && a.itemSize !== ATTR[n])) return null; k.push(n + a.itemSize); } return k.sort().join(","); }
+  function mainOK(q) {
+    if (q.layers.mask !== 1 || q.onBeforeRender !== OBR || q.onAfterRender !== OAR || q.morphTargetInfluences || !(q.matrixWorld.determinant() > 0)) return false;
+    var m = q.material; if (!m || Array.isArray(m) || m.visible !== true || m.transparent === true || m.wireframe === true || m.isShaderMaterial || m.transmission > 0 || m.depthTest !== true || m.depthWrite !== true) return false;   /* draw order matters without depth */
+    for (var gp = q.parent; gp; gp = gp.parent) if (gp.isGroup && gp.renderOrder !== 0) return false;   /* a group's draw order would be lost */
+    if (!(m.isMeshStandardMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial || m.isMeshBasicMaterial)) return false;
+    if (userHook(m) || !geoOK(q.geometry) || attrKey(q.geometry) === null) return false; return true;
+  }
+  function collect(top, outS, outC) {
+    var nodes = 0, ok = true;
+    (function walk(q, vis) {
+      if (!ok) return; if (++nodes > 12000) { ok = false; return; } if (q.isCamera || q.isLOD) { ok = false; return; }
+      var ud = q.userData; if (ud && (ud.walk || ud.door || ud.ride || ud.anim || ud.spin || ud.sway || ud.s16p || ud.interior)) return;
+      if (q.matrixWorldAutoUpdate !== true || q.id >= MW.cap) return; var v = vis && q.visible === true; if (!v) return;
+      if (q.isMesh === true && q.isInstancedMesh !== true && q.isSkinnedMesh !== true && q.isBatchedMesh !== true) { if (SM.on && W.shOn && shOK(q)) outS.push(q); if (SC.on && mainOK(q)) outC.push(q); }
+      var ch = q.children; for (var i = 0; i < ch.length; i++) walk(ch[i], v);
+    })(top, true);
+    return ok;
+  }
+  function snapOf(m) { return { e: Float64Array.from(m.matrixWorld.elements), mat: m.material, geo: m.geometry, pv: m.geometry.attributes.position.version, par: m.parent }; }
+  function same(m, s) { if (m.material !== s.mat || m.geometry !== s.geo || m.parent !== s.par || m.geometry.attributes.position.version !== s.pv) return false; var e = m.matrixWorld.elements; for (var i = 0; i < 16; i++) if (e[i] !== s.e[i]) return false; return true; }
+  function chainOK(m, top) { for (var p = m; p; p = p.parent) { if (p.visible !== true || p.matrixWorldAutoUpdate !== true || p.id >= MW.cap) return false; if (p === top) return true; } return false; }
+  function detailSet() { var t = performance.now(); if (W.det && t - W.detAt < 5000) return W.det; var s = new Set(); try { var DL = C("DETAIL"); if (DL) for (var i = 0; i < DL.length; i++) if (DL[i] && DL[i].g) s.add(DL[i].g); } catch (e) {} W.det = s; W.detAt = t; return s; }
+  var _c = new THREE.Vector3();
+  function shClass(r) { var c = 0; for (var i = 0; i < 4; i++) { if (r >= W.thr[i]) c = i + 1; else break; } return c; }   // cascades R6's size rule draws it in (0: none)
+  function effSide(m) { return m.shadowSide !== null && m.shadowSide !== undefined ? m.shadowSide : FLIP[m.side]; }
+  function place(top, ms, kind) {
+    var own = ms.length >= 8 || detailSet().has(top), t = performance.now();
+    for (var i = 0; i < ms.length; i++) { var m = ms[i], g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); var bs = g.boundingSphere; if (!bs || !isFinite(bs.radius)) continue;
+      _c.copy(bs.center).applyMatrix4(m.matrixWorld); var r = bs.radius * m.matrixWorld.getMaxScaleOnAxis(); if (r > W.maxR) continue; var cell = (own ? "t" + top.id + ":" : "c") + Math.floor(_c.x / W.cell) + "," + Math.floor(_c.z / W.cell), key, extra;
+      if (kind === "s") { var cls = shClass(r); if (cls === 0) continue; var side = effSide(m.material); key = "s|" + cell + "|" + side + "|" + cls; extra = { side: side }; }
+      else { var sz = Math.max(0, Math.min(12, Math.floor(Math.log2(Math.max(r, 0.02) / 0.02)))); key = "c|" + cell + "|" + m.material.id + "|" + (m.receiveShadow ? 1 : 0) + "|" + m.renderOrder + "|" + attrKey(g) + "|" + sz; extra = { mat: m.material, rs: m.receiveShadow, ro: m.renderOrder, ak: attrKey(g) }; }
+      var p = W.pend.get(key); if (!p) { p = { key: key, kind: kind, top: own ? top : null, ms: [], at: t, x: extra }; W.pend.set(key, p); }
+      p.ms.push(m); p.at = t; }
+  }
+  function shMaterial(side) { var m = W.mats[side]; if (!m) { m = W.mats[side] = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false }); m.name = "s16 shadow caster"; m.shadowSide = side; m.side = side; m.userData.s16 = true; } return m; }
+  function box() { if (W.box && W.box.parent) return W.box; var sc = C("scene"); if (!sc) return null; var b = W.box = new THREE.Group(); b.name = "perf s16 merged"; b.userData.s16 = true; b.userData.noCull = true; b.userData.noBatch = true; b.userData.perf = true; b.userData.noInst = true; b.matrixAutoUpdate = false; sc.add(b); return b; }
+  // the members still usable at build time (in the scene, visible all the way up, unchanged), the same vertex layout for c
+  function liveMembers(p, okf, byId) { var out = [], nv = 0, ni = 0, sc = C("scene");
+    for (var i = 0; i < p.ms.length; i++) { var m = p.ms[i]; if (byId.has(m.id) || !okf(m)) continue; var top = m; while (top.parent && top.parent !== sc) top = top.parent; if (top.parent !== sc || !chainOK(m, top)) continue; if (p.kind === "c" && (m.material !== p.x.mat || m.receiveShadow !== p.x.rs || m.renderOrder !== p.x.ro || attrKey(m.geometry) !== p.x.ak)) continue;
+      var g = m.geometry, c = g.attributes.position.count; if (nv + c > W.maxNV) break; nv += c; ni += g.index ? g.index.count : c; out.push(m); }
+    return { ms: out, nv: nv, ni: ni };
+  }
+  var _m4 = new THREE.Matrix4(), _n3 = new THREE.Matrix3();
+  function build(p) {
+    var L = liveMembers(p, p.kind === "s" ? shOK : mainOK, p.kind === "s" ? SM.byId : SC.byId), ms = L.ms, nv = L.nv, ni = L.ni; if (ms.length < 2) return null; var bx = box(); if (!bx) return null;
+    // a local origin near the cell (positions stay small in float)
+    var ox = 0, oy = 0, oz = 0; for (var q0 = 0; q0 < ms.length; q0++) { var g0 = ms[q0].geometry; if (!g0.boundingSphere) g0.computeBoundingSphere(); _c.copy(g0.boundingSphere.center).applyMatrix4(ms[q0].matrixWorld); ox += _c.x; oy += _c.y; oz += _c.z; } ox = Math.round(ox / ms.length); oy = Math.round(oy / ms.length); oz = Math.round(oz / ms.length);
+    var geo = new THREE.BufferGeometry(), names = p.kind === "s" ? ["position"] : Object.keys(ms[0].geometry.attributes), out = {};
+    for (var a = 0; a < names.length; a++) { var nm = names[a], isz = ms[0].geometry.attributes[nm].itemSize; out[nm] = new Float32Array(nv * isz); }
+    var idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni), vo = 0, io = 0, rmin = Infinity, rmax = 0;
+    for (var k = 0; k < ms.length; k++) { var mm = ms[k], gg = mm.geometry, cnt = gg.attributes.position.count;
+      _m4.copy(mm.matrixWorld); var e = _m4.elements; e[12] -= ox; e[13] -= oy; e[14] -= oz; _n3.getNormalMatrix(_m4); var n3 = _n3.elements;
+      var e0 = e[0], e1 = e[1], e2 = e[2], e4 = e[4], e5 = e[5], e6 = e[6], e8 = e[8], e9 = e[9], e10 = e[10], e12 = e[12], e13 = e[13], e14 = e[14];
+      for (var a2 = 0; a2 < names.length; a2++) { var n = names[a2], at = gg.attributes[n], s = at.itemSize, D = out[n], A = at.array, plain = !at.normalized && A instanceof Float32Array && !at.isInterleavedBufferAttribute, v, x, y, z, w;
+        if (n === "position") { for (v = 0; v < cnt; v++) { if (plain) { w = v * s; x = A[w]; y = A[w + 1]; z = A[w + 2]; } else { x = at.getX(v); y = at.getY(v); z = at.getZ(v); } w = (vo + v) * 3; D[w] = e0 * x + e4 * y + e8 * z + e12; D[w + 1] = e1 * x + e5 * y + e9 * z + e13; D[w + 2] = e2 * x + e6 * y + e10 * z + e14; } }
+        else if (n === "normal") { for (v = 0; v < cnt; v++) { x = at.getX(v); y = at.getY(v); z = at.getZ(v); var X = n3[0] * x + n3[3] * y + n3[6] * z, Y = n3[1] * x + n3[4] * y + n3[7] * z, Z = n3[2] * x + n3[5] * y + n3[8] * z, l = Math.sqrt(X * X + Y * Y + Z * Z) || 1; w = (vo + v) * 3; D[w] = X / l; D[w + 1] = Y / l; D[w + 2] = Z / l; } }
+        else if (n === "tangent") { for (v = 0; v < cnt; v++) { x = at.getX(v); y = at.getY(v); z = at.getZ(v); w = (vo + v) * 4; D[w] = e0 * x + e4 * y + e8 * z; D[w + 1] = e1 * x + e5 * y + e9 * z; D[w + 2] = e2 * x + e6 * y + e10 * z; D[w + 3] = at.getW(v); } }
+        else { for (v = 0; v < cnt; v++) { w = (vo + v) * s; D[w] = at.getX(v); if (s > 1) D[w + 1] = at.getY(v); if (s > 2) D[w + 2] = at.getZ(v); if (s > 3) D[w + 3] = at.getW(v); } } }
+      var flip = p.kind === "s" && mm.matrixWorld.determinant() < 0, ix = gg.index ? gg.index.array : null, nn = gg.index ? gg.index.count : cnt;   /* c takes only meshes with a positive determinant */
+      for (var t = 0; t + 2 < nn; t += 3) { var i0 = ix ? ix[t] : t, i1 = ix ? ix[t + 1] : t + 1, i2 = ix ? ix[t + 2] : t + 2; idx[io++] = i0 + vo; if (flip) { idx[io++] = i2 + vo; idx[io++] = i1 + vo; } else { idx[io++] = i1 + vo; idx[io++] = i2 + vo; } }
+      vo += cnt; if (!gg.boundingSphere) gg.computeBoundingSphere(); var bs = gg.boundingSphere, rr = bs ? bs.radius * mm.matrixWorld.getMaxScaleOnAxis() : 0; if (rr < rmin) rmin = rr; if (rr > rmax) rmax = rr; }
+    for (var a3 = 0; a3 < names.length; a3++) { var ba = new THREE.BufferAttribute(out[names[a3]], ms[0].geometry.attributes[names[a3]].itemSize); ba.r6keep = true; geo.setAttribute(names[a3], ba); }   /* r6keep: client.js's R6 memory pass leaves these arrays alone (a revert disposes them without a read-back) */
+    var bi = new THREE.BufferAttribute(io === idx.length ? idx : idx.slice(0, io), 1); bi.r6keep = true; geo.setIndex(bi); geo.computeBoundingSphere();
+    var mesh;
+    if (p.kind === "s") { mesh = new THREE.Mesh(geo, shMaterial(p.x.side)); mesh.name = "s16 shadow caster"; mesh.layers.mask = BIT; mesh.castShadow = true; mesh.receiveShadow = false; mesh.userData.s16p = true; }
+    else { mesh = new THREE.Mesh(geo, p.x.mat); mesh.name = "s16 merged"; mesh.layers.mask = 1; mesh.castShadow = false; mesh.receiveShadow = p.x.rs; mesh.renderOrder = p.x.ro; mesh.userData.s16c = true; mesh.userData.noShadow = true; }
+    mesh.userData.r6batch = true; mesh.userData.shSet = true; mesh.position.set(ox, oy, oz); mesh.updateMatrix(); mesh.matrixAutoUpdate = false;
+    var E = { key: p.key, kind: p.kind, top: p.top, ms: ms, anc: [], tops: new Set(), mesh: mesh, rmin: rmin, rmax: rmax, nv: nv, dead: false, dirty: false, mat: p.kind === "c" ? p.x.mat : null, cx: ox + geo.boundingSphere.center.x, cy: oy + geo.boundingSphere.center.y, cz: oz + geo.boundingSphere.center.z, R: geo.boundingSphere.radius };
+    if (p.kind === "s") mesh.__s16e = E; else mesh.__s16c = E; if (p.top) mesh.visible = p.top.visible === true; if (mesh.id < MW.cap) MW.S16[mesh.id] = p.kind === "s" ? 8 : 16;   /* the draw test reads these flags */
+    // watch every member and every parent up to (and with) its top-level object
+    var byId = p.kind === "s" ? SM.byId : SC.byId, bit = p.kind === "s" ? 1 : 4;
+    for (var j = 0; j < ms.length; j++) { var q = ms[j], R = rec(q), mt = q.material, ga = q.geometry, vs = [];
+      for (var an2 in ga.attributes) vs.push(ga.attributes[an2], ga.attributes[an2].version); if (ga.index) vs.push(ga.index, ga.index.version);
+      var M = { e: E, mat: mt, geo: ga, vs: vs, wv: MW.WV[q.id], mw: Float64Array.from(q.matrixWorld.elements), side: mt.side, ss: mt.shadowSide, dm: mt.displacementMap || null, par: q.parent, rs: q.receiveShadow, ro: q.renderOrder };
+      if (p.kind === "s") R.m = M; else R.c = M; MW.S16[q.id] |= bit; byId.set(q.id, E);
+      for (var an = q.parent; an && an.parent; an = an.parent) { var Ra = rec(an); if (!Ra.a) Ra.a = { nc: an.children.length, par: an.parent, vis: an.visible === true, es: [] };
+        else if (Ra.a.nc !== an.children.length || Ra.a.par !== an.parent || Ra.a.vis !== (an.visible === true)) { for (var z2 = 0; z2 < Ra.a.es.length; z2++) dirty(Ra.a.es[z2], "parent before build"); Ra.a.nc = an.children.length; Ra.a.par = an.parent; Ra.a.vis = an.visible === true; }
+        if (Ra.a.es.indexOf(E) < 0) { Ra.a.es.push(E); E.anc.push(an); } MW.S16[an.id] |= 2; if (!an.parent.parent) E.tops.add(an); }
+      if (!q.parent.parent) E.tops.add(q); }
+    E.tops.forEach(function (tp) { var TL = W.topE.get(tp); if (!TL) { TL = []; W.topE.set(tp, TL); } TL.push(E); });
+    bx.add(mesh); W.live.push(E); var K = p.kind === "s" ? SM : SC; K.n.entries++; K.n.members += ms.length; K.n.verts += nv; return E;
+  }
+  function dirty(E, why) { if (E.dead || E.dirty) return; E.dirty = true; E.why = why; W.dirty.push(E); }
+  function revert(E) {
+    if (E.dead) return; E.dead = true; W.n.reverts++; W.n.lastWhy = E.kind + " " + (E.why || "");
+    try { if (E.mesh.parent) E.mesh.parent.remove(E.mesh); E.mesh.geometry.dispose(); if (E.mesh.id < MW.cap) MW.S16[E.mesh.id] = 0; } catch (e) { note("revert mesh", e); }
+    var byId = E.kind === "s" ? SM.byId : SC.byId, bit = E.kind === "s" ? 1 : 4;
+    for (var i = 0; i < E.ms.length; i++) { var m = E.ms[i], R = W.rec.get(m); if (R) { if (E.kind === "s" && R.m && R.m.e === E) R.m = null; if (E.kind === "c" && R.c && R.c.e === E) R.c = null; if (m.id < MW.cap) MW.S16[m.id] &= ~bit; if (!R.m && !R.c && !R.a) W.rec.delete(m); } if (byId.get(m.id) === E) byId.delete(m.id); }
+    for (var j = 0; j < E.anc.length; j++) { var a = E.anc[j], Ra = W.rec.get(a); if (!Ra || !Ra.a) continue; var k = Ra.a.es.indexOf(E); if (k >= 0) Ra.a.es.splice(k, 1); if (!Ra.a.es.length) { Ra.a = null; if (a.id < MW.cap) MW.S16[a.id] &= ~2; if (!Ra.m && !Ra.c) W.rec.delete(a); } }
+    var li = W.live.indexOf(E); if (li >= 0) W.live.splice(li, 1);
+    E.tops.forEach(function (tp) { var TL = W.topE.get(tp); if (TL) { var q = TL.indexOf(E); if (q >= 0) TL.splice(q, 1); if (!TL.length) W.topE.delete(tp); } var n = (W.tries.get(tp) || 0) + 1; W.tries.set(tp, n); if (n < 4) W.seen.delete(tp); });   // a later scan looks at it again
+  }
+  function memberBad(o, id, M, sh) {
+    var mt = o.material, lm = o.layers.mask;
+    if (o.visible !== true || mt !== M.mat || o.geometry !== M.geo || o.parent !== M.par || (lm !== 1 && !(lm === 0 && W.ic === true)) || mt.visible !== true || mt.wireframe === true) return true;
+    if (sh) { if (o.castShadow !== true || o.customDepthMaterial !== undefined || mt.side !== M.side || mt.shadowSide !== M.ss || mt.alphaTest > 0 || (mt.displacementMap || null) !== M.dm) return true; }
+    else if (o.receiveShadow !== M.rs || o.renderOrder !== M.ro || mt.transparent === true || mt.depthTest !== true || mt.depthWrite !== true || userHook(mt)) return true;
+    var vs = M.vs; for (var i = 0; i < vs.length; i += 2) if (vs[i].version !== vs[i + 1]) return true;
+    if (MW.WV[id] !== M.wv) { var e = o.matrixWorld.elements, c = M.mw; for (var k = 0; k < 16; k++) if (e[k] !== c[k]) return true; M.wv = MW.WV[id]; }
+    return false;
+  }
+  // P3's walk calls this for every flagged object (a merged mesh: 1 shadow / 4 main, a parent of one: 2), right after its world matrix was settled
+  H.check = function (o, id, f, d) {
+    var R = W.rec.get(o); if (R === undefined) { MW.S16[id] &= ~7; return; } W.n.checkCalls++;
+    if (R.m !== null && R.m.e.dead === false && R.m.e.dirty === false && memberBad(o, id, R.m, true)) dirty(R.m.e, "member");
+    if (R.c !== null && R.c.e.dead === false && R.c.e.dirty === false && memberBad(o, id, R.c, false)) dirty(R.c.e, "member");
+    var A = R.a;
+    if (A !== null) {
+      if (o.children.length !== A.nc || o.parent !== A.par) { for (var j = 0; j < A.es.length; j++) dirty(A.es[j], "children"); }
+      else if (A.vis !== (o.visible === true)) { A.vis = o.visible === true; for (var k = 0; k < A.es.length; k++) { var E = A.es[k]; if (E.top === o) { E.mesh.visible = A.vis; W.n.mirror++; } else dirty(E, "shown or hidden"); } }
+    }
+  };
+  // at the end of the main scene's walk, before anything is drawn: a top-level object taken out of the scene (no longer walked) and
+  // every changed cell go back to their originals
+  H.flush = function (scn) {
+    if (W.live.length === 0 && W.dirty.length === 0) return; if (scn !== C("scene")) return;
+    if (W.box && W.box.parent !== scn) { for (var b = 0; b < W.live.length; b++) dirty(W.live[b], "box removed"); }
+    W.topE.forEach(function (TL, tp) { if (tp.parent !== scn) for (var i = 0; i < TL.length; i++) dirty(TL[i], "top removed"); });
+    if (W.dirty.length === 0) return; var DL = W.dirty; W.dirty = []; for (var k = 0; k < DL.length; k++) { try { revert(DL[k]); } catch (e) { note("revert", e); } } };
+  // the draws: a merged mesh draws (and its members do not) where R6's rules would draw every one of its members
+  var R0 = null, D6 = null, D6p = null;
+  function thr(cam) { if (D6 === null) return 0; var ci = D6.cams.get(cam); return ci === undefined ? 0 : W.thr[ci]; }
+  function lit(m) { return (m.isMeshStandardMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial) && !m.emissiveMap && !(m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity) > 0.02); }
+  function useMain(E, cam) {   // R6's sub-pixel rule (main camera only): every member is either within 30 m or covers enough pixels
+    if (cam.r10eye === true) return false; if (D6p === null || cam !== D6p.cam) return true;
+    var p = cam.position, dx = E.cx - p.x, dy = E.cy - p.y, dz = E.cz - p.z, dm = Math.sqrt(dx * dx + dy * dy + dz * dz) + E.R; if (dm <= 30) return true;
+    return E.rmin / dm * D6p.K >= (lit(E.mat) ? 0.75 : 0.35);
+  }
+  function wrap(R) {
+    if (R0) return; R0 = R; var rbd0 = R.renderBufferDirect, sm = R.shadowMap, s0 = sm.render;
+    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+      var f = obj.id < MW.cap ? MW.S16[obj.id] : 0;
+      if (sc === null) { if (SM.act === true && W.spPass === true) {
+        if ((f & 1) !== 0) { var E = SM.byId.get(obj.id); if (E !== undefined && E.dead === false && E.rmin >= thr(cam)) { SM.n.skipMember++; return; } }
+        else if ((f & 8) !== 0 && obj.__s16e !== undefined) { if (!(obj.__s16e.rmin >= thr(cam))) { SM.n.proxySkip++; return; } SM.n.proxyDraw++; } } }
+      else if (SC.act === true) {
+        if ((f & 8) !== 0) return;   // a merged shadow caster is depth only
+        if ((f & 4) !== 0) { var E2 = SC.byId.get(obj.id); if (E2 !== undefined && E2.dead === false && useMain(E2, cam)) { SC.n.skipMember++; return; } }
+        else if ((f & 16) !== 0 && obj.__s16c !== undefined) { if (!useMain(obj.__s16c, cam)) { SC.n.mergedSkip++; return; } SC.n.mergedDraw++; } }
+      else if ((f & 24) !== 0) return;   // switched off (or a merged shadow caster in a colour pass): the originals draw
+      return rbd0.apply(this, arguments);
+    };
+    sm.render = function (lights, scn, cam) {   // three tests a caster's layers against the camera of the render: merged casters draw (and their members do not) only where that camera has their layer
+      W.spPass = SM.act === true && W.live.length !== 0 && !!cam && (cam.layers.mask & BIT) !== 0;
+      if (SM.act !== true && W.live.length !== 0) { var hid = []; for (var j = 0; j < W.live.length; j++) { var me = W.live[j].mesh; if (W.live[j].kind === "s" && me.layers.mask !== 0) { me.layers.mask = 0; hid.push(me); } } try { return s0.apply(this, arguments); } finally { for (var k = 0; k < hid.length; k++) hid[k].layers.mask = BIT; } }
+      return s0.apply(this, arguments);
+    };
+  }
+  function frame() {
+    if (!P.readyAt) return; var R = C("renderer"), sc = C("scene"); if (!R || !sc) return; if (!R0) wrap(R);
+    var d = P.r6 && P.r6.d; D6 = d && d.on && d.sh && d.csm ? d : null; D6p = d && d.on && d.px && d.cam ? d : null;
+    for (var i = 0; i < 4; i++) W.thr[i] = D6 && D6.texel[i] ? (i >= 2 ? 5 : 2) * D6.texel[i] : 0;
+    W.ic = !!(P.ic && P.ic.kind); var ok = !W.ic && sc.matrixWorldAutoUpdate === true && !(window.PLAN_VR && window.PLAN_VR.on);
+    W.shOn = R.shadowMap.enabled === true; SM.act = SM.on && SM.user && ok && W.shOn; SC.act = SC.on && SC.user && ok;
+    if (SM.on && W.live.length !== 0) { var cam = C("camera"); if (cam && (cam.layers.mask & BIT) === 0) cam.layers.mask |= BIT; }   /* its shadow passes test casters against it */   /* no shadow maps (low): nothing to merge for them */
+    var t = performance.now(); if (t - P.readyAt < W.start || (!SM.user && !SC.user) || W.ic) return;
+    try {   /* each step its own small budget, the oldest work first: due cells are built, then waited snapshots placed, then new tops read */
+      var t0 = performance.now();
+      if (W.pend.size) { var due = null; W.pend.forEach(function (p) { if (!due && t - p.at > 1500) due = p; }); if (due) { W.pend.delete(due.key); build(due); W.n.buildMs += performance.now() - t0; } }
+      var t1 = performance.now();
+      while (W.q1.length && t - W.q1[0].at > W.wait && performance.now() - t1 < 1.5) { var c = W.q1.shift(); if (c.o.parent !== sc) continue; var bad = new Set();
+        for (var k = 0; k < c.all.length; k++) { var m = c.all[k]; if (!same(m, c.snap[k]) || !chainOK(m, c.o)) bad.add(m); }
+        var ks = c.s.filter(function (m) { return !bad.has(m) && shOK(m); }), kc = c.c.filter(function (m) { return !bad.has(m) && mainOK(m); }); if (ks.length) place(c.o, ks, "s"); if (kc.length) place(c.o, kc, "c"); }
+      if (t - W.scanAt > 4000) { W.scanAt = t; W.n.scans++; var ch = sc.children; for (var j = 0; j < ch.length; j++) { var o = ch[j]; if (W.seen.has(o)) continue; W.seen.add(o); if (topOK(o)) W.q0.push(o); } }
+      var t2 = performance.now();
+      while (W.q0.length && performance.now() - t2 < 1.5) { var top = W.q0.shift(); if (top.parent !== sc) continue; var a = [], b = []; if (!collect(top, a, b) || (a.length === 0 && b.length === 0)) { W.n.skipTop++; continue; } W.n.tops++; var all = a.concat(b.filter(function (m) { return a.indexOf(m) < 0; })); W.q1.push({ o: top, s: a, c: b, all: all, snap: all.map(snapOf), at: t }); }
+    } catch (e) { note("frame", e); }
+  }
+  S.stats = function () { var o = { live: W.live.length, q0: W.q0.length, q1: W.q1.length, pend: W.pend.size, smAct: SM.act, scAct: SC.act, skippedWalk: H.skipped }; [["w", W.n], ["sm", SM.n], ["sc", SC.n]].forEach(function (x) { for (var k in x[1]) o[x[0] + "." + k] = typeof x[1][k] === "number" ? Math.round(x[1][k] * 10) / 10 : x[1][k]; }); return o; };
+  SM.stats = S.stats;
+  var HK = window.PLAN_HOOKS; if ((SM.on || SC.on) && HK && HK.frame) HK.frame.push({ name: "s16Frame", fn: function () { try { frame(); } catch (e) { note("frame hook", e); } } });
 })();

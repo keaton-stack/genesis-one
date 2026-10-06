@@ -29,11 +29,17 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   var QS = location.search;
   var PREV = window.PLAN_RL; if (PREV && PREV.uninstall) { try { PREV.uninstall(); } catch (e) {} }   // evaluated again in a running game (development): swap in place
   var RL = window.PLAN_RL = {};
-  RL.v = "r15g-1"; RL.errs = []; RL.n = { rooms: 0, auto: 0, fix: 0, caps: 0, capMs: 0, capMax: 0, envHit: 0, envMiss: 0, envEvict: 0, bakes: 0, bakeMs: 0, shafts: 0, frames: 0, poolMs: 0 };
+  RL.v = "r16i-1"; RL.errs = []; RL.n = { rooms: 0, auto: 0, fix: 0, caps: 0, capMs: 0, capMax: 0, envHit: 0, envMiss: 0, envEvict: 0, bakes: 0, bakeMs: 0, shafts: 0, frames: 0, poolMs: 0 };
   RL.on = !/[?&]rl=0\b/.test(QS);
   function qOn(k) { return new RegExp("[?&]" + k + "=1(?![0-9])").test(QS); }
   function qOff(k) { return new RegExp("[?&]" + k + "=0\\b").test(QS); }
-  RL.part = { pool: RL.on && !qOff("rlp"), env: RL.on && qOn("rle"), floor: RL.on && !qOff("rlf"), bake: RL.on && !qOff("rlb"), atmo: RL.on && !qOff("rla"), grade: RL.on && !qOff("rlg") };
+  // R16 (Agent I, HANDOFF_R16_INTERIORS.md): ?ri=0 is R15 exactly (the kit's own shaders as before, the capture off by default, no
+  // surface pass). The room capture is on by default on high and ultra (decided at the world hook, when the tier is known; ?rle=0 off,
+  // ?rle=1 on every tier); ?ris=0 the surface pass alone.
+  RL.r16 = RL.on && !qOff("ri");
+  RL.part = { pool: RL.on && !qOff("rlp"), env: RL.on && qOn("rle"), floor: RL.on && !qOff("rlf"), bake: RL.on && !qOff("rlb"), atmo: RL.on && !qOff("rla"), grade: RL.on && !qOff("rlg"), surf: RL.r16 && !qOff("ris") };
+  function hiTier() { try { return typeof QUAL !== "undefined" && (QUAL.level === "ultra" || QUAL.level === "high"); } catch (e) { return false; } }
+  RL.tierPick = function () { if (RL.tierDone) return; RL.tierDone = true; RL.hi = hiTier(); try { RL.lite = QUAL.level !== "ultra"; } catch (e) { RL.lite = true; } if (RL.r16 && !qOff("rle") && !qOn("rle") && RL.hi) RL.part.env = RL.on; if (!RL.hi) RL.part.surf = false; };
   RL.set = function (o) { for (var k in o) if (k in RL.part) RL.part[k] = !!o[k] && RL.on; RL.dirty = true; return RL.part; };
   var TAU = Math.PI * 2;
   function note(w, e) { if (RL.errs.length < 40) RL.errs.push(w + ": " + ((e && e.message) || e)); if (RL.errs.length <= 5) try { console.warn("plan_roomlight " + w, e); } catch (x) {} }
@@ -50,30 +56,30 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   // central lamp, the fixtures, the room environment, the sky's share, the window fills; ex / con / sat / wb the grade; cool the
   // share of the fill turned to window daylight by day; shaft / dust the atmosphere; day the fixtures' share by day.
   var MOD = RL.MOD = {
-    shops:  { fill: 0.55, lamp: 0.3, fix: 1.9, env: 0.62, sky: 0.7, win: 1.0 },
-    venues: { fill: 1.0, lamp: 0.85, fix: 1.25, env: 0.8, sky: 0.9, win: 0.7 },   // their materials carry an indoor ao map (0.36 of the indirect light) and a baked fixture light
-    homes:  { fill: 0.65, lamp: 0.5, fix: 1.7, env: 0.7, sky: 0.75, win: 1.0 },
-    auto:   { fill: 0.55, lamp: 0.5, fix: 1.6, env: 0.65, sky: 0.75, win: 1.0 },
-    walk:   { fill: 1.0, lamp: 1.0, fix: 1.0, env: 0.65, sky: 1.0, win: 0 }
+    shops:  { fill: 0.55, lamp: 0.3, fix: 1.9, env: 0.62, sky: 0.7, win: 1.0, irr: 1.0 },
+    venues: { fill: 1.0, lamp: 0.85, fix: 1.25, env: 0.8, sky: 0.9, win: 0.7, irr: 1.6 },   // their materials carry an indoor ao map (0.36 of the indirect light) and a baked fixture light
+    homes:  { fill: 0.65, lamp: 0.5, fix: 1.7, env: 0.7, sky: 0.75, win: 1.0, irr: 0.8 },
+    auto:   { fill: 0.55, lamp: 0.5, fix: 1.6, env: 0.65, sky: 0.75, win: 1.0, irr: 1.0 },
+    walk:   { fill: 1.0, lamp: 1.0, fix: 1.0, env: 0.65, sky: 1.0, win: 0, irr: 1.0 }
   };
-  var GBASE = { ex: 1.04, con: 1.05, sat: 1.03, wb: [1.02, 1.0, 0.97], cool: 0.3, shaft: 1.0, dust: 1.0, day: 0.85, refl: 0.2, fill: 1, lamp: 1, fix: 1, env: 1, sky: 1, win: 1 };
+  var GBASE = { ex: 1.04, con: 1.05, sat: 1.03, wb: [1.02, 1.0, 0.97], cool: 0.3, shaft: 1.0, dust: 1.0, day: 0.85, refl: 0.2, fill: 1, lamp: 1, fix: 1, env: 1, sky: 1, win: 1, irr: 0.75 };   // irr (R16): the room capture's bounce light (diffuse) with the surface pass
   var T = RL.T = {
     base:     {},
     saloon:   { ex: 1.04, con: 1.08, sat: 1.0, wb: [1.03, 1.0, 0.96], fill: 1.0, fix: 1.1, env: 0.6, refl: 0.2, shaft: 1.15, dust: 1.3, day: 0.95 },
     tavern:   { refl: 0.2, ex: 1.0, con: 1.08, sat: 1.05, wb: [1.05, 0.99, 0.93], fill: 0.9, fix: 1.1, win: 0.85, shaft: 1.1, dust: 1.2, day: 0.95 },
     hotel:    { refl: 0.42, ex: 1.03, con: 1.06, sat: 1.03, wb: [1.03, 1.0, 0.95], shaft: 0.95, dust: 0.8 },
-    diner:    { refl: 0.59, ex: 1.04, con: 1.08, sat: 1.07, wb: [1.0, 1.0, 1.01], fill: 1.1, lamp: 1.2, fix: 0.95, env: 1.2, sky: 1.1, win: 1.2, cool: 0.4, shaft: 0.75, dust: 0.5, day: 0.8 },
-    crisp:    { refl: 0.56, ex: 1.04, con: 1.07, sat: 1.05, wb: [1.01, 1.0, 0.99], fill: 1.05, env: 1.15, sky: 1.05, win: 1.1, cool: 0.4, shaft: 0.85, dust: 0.6 },
+    diner:    { refl: 0.59, ex: 1.04, con: 1.08, sat: 1.07, wb: [1.0, 1.0, 1.01], fill: 1.1, lamp: 1.2, fix: 0.95, env: 1.4, irr: 0.9, sky: 1.1, win: 1.2, cool: 0.4, shaft: 0.75, dust: 0.5, day: 0.8 },
+    crisp:    { refl: 0.56, ex: 1.04, con: 1.07, sat: 1.05, wb: [1.01, 1.0, 0.99], fill: 1.05, env: 1.35, irr: 0.9, sky: 1.05, win: 1.1, cool: 0.4, shaft: 0.85, dust: 0.6 },
     bank:     { refl: 0.53, ex: 1.03, con: 1.06, sat: 1.0, wb: [1.03, 1.0, 0.96], env: 1.1, shaft: 1.0, dust: 0.9 },
     chapel:   { refl: 0.17, ex: 1.06, con: 1.08, sat: 1.04, wb: [1.04, 0.99, 0.93], fill: 1.35, fix: 1.25, sky: 0.95, win: 0.8, shaft: 1.5, dust: 1.6, day: 1.0 },
     barn:     { refl: 0, ex: 1.02, con: 1.07, sat: 1.04, wb: [1.05, 0.99, 0.92], fix: 1.1, env: 0.8, shaft: 1.35, dust: 1.6, day: 0.9 },
-    gallery:  { refl: 0.45, ex: 1.04, con: 1.04, sat: 0.97, wb: [0.995, 1.0, 1.01], fill: 1.15, lamp: 1.2, fix: 0.9, env: 1.1, sky: 1.15, win: 1.1, cool: 0.45, shaft: 0.6, dust: 0.4, day: 0.95 },
+    gallery:  { refl: 0.45, ex: 1.04, con: 1.04, sat: 0.97, wb: [0.995, 1.0, 1.01], fill: 1.15, lamp: 1.2, fix: 0.9, env: 1.1, irr: 1.2, sky: 1.15, win: 1.1, cool: 0.45, shaft: 0.6, dust: 0.4, day: 0.95 },
     warm:     { refl: 0.22, ex: 1.02, con: 1.07, sat: 1.04, wb: [1.04, 0.99, 0.94], fill: 0.95, fix: 1.05, win: 0.9, shaft: 1.1, dust: 1.2, day: 0.9 },
     cozy:     { ex: 1.03, con: 1.06, sat: 1.03, wb: [1.03, 1.0, 0.95], shaft: 1.0, dust: 0.9 },
-    brand:    { refl: 0.42, ex: 1.04, con: 1.07, sat: 1.04, wb: [0.99, 1.01, 0.99], env: 1.1, cool: 0.4, shaft: 0.85, dust: 0.6, day: 0.9 },
+    brand:    { refl: 0.42, ex: 1.04, con: 1.07, sat: 1.04, wb: [0.99, 1.01, 0.99], env: 1.3, cool: 0.4, shaft: 0.85, dust: 0.6, day: 0.9 },
     villa:    { refl: 0.45, ex: 1.0, con: 1.08, sat: 1.03, wb: [1.03, 1.0, 0.96], fill: 0.85, fix: 1.1, sky: 0.85, win: 1.1, cool: 0.45, shaft: 1.0, dust: 0.7, day: 0.75 },
     ranch:    { refl: 0.2, ex: 1.02, con: 1.07, sat: 1.04, wb: [1.04, 0.99, 0.94], shaft: 1.15, dust: 1.1 },
-    lodge:    { refl: 0.22, ex: 1.03, con: 1.07, sat: 1.0, wb: [1.03, 0.995, 0.95], fill: 1.05, fix: 1.05, win: 0.9, shaft: 1.25, dust: 1.2, day: 0.9 },
+    lodge:    { refl: 0.22, irr: 0.85, ex: 1.03, con: 1.07, sat: 0.97, wb: [1.03, 0.995, 0.95], fill: 1.05, fix: 1.05, win: 0.9, shaft: 1.25, dust: 1.2, day: 0.9 },
     glamp:    { refl: 0, ex: 1.03, con: 1.06, sat: 1.03, wb: [1.04, 0.99, 0.94], env: 0.8, shaft: 0.8, dust: 1.0, day: 0.8 },
     club:     { refl: 0, ex: 1.0, con: 1.06, sat: 1.04, wb: [1.04, 1.0, 0.95], fill: 0.85, lamp: 1.0, shaft: 1.0, dust: 0.8, day: 0.9 },
     hangar:   { refl: 0, ex: 1.0, con: 1.05, sat: 1.0, wb: [0.99, 1.0, 1.02], fill: 0.85, cool: 0.45, shaft: 0.9, dust: 1.0, day: 0.9 },
@@ -84,13 +90,13 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
     bodyshop: { refl: 0, ex: 1.0, con: 1.06, sat: 1.02, wb: [0.995, 1.0, 1.015], env: 1.1, shaft: 0, dust: 0.7, day: 0.95 }
   };
   for (var tk in T) { var o0 = {}, t0 = T[tk]; for (var bk in GBASE) o0[bk] = GBASE[bk]; for (var ok in t0) o0[ok] = t0[ok]; T[tk] = o0; }
-  var LKEYS = ["fill", "lamp", "fix", "env", "sky", "win"];
+  var LKEYS = ["fill", "lamp", "fix", "env", "sky", "win", "irr"];
   // the R14 shops' trades to a look
   var TRADE = { soda: "crisp", candy: "crisp", coffee: "cozy", bakery: "cozy", diner: "diner", tavern: "tavern", gift: "cozy", outfit: "cozy", giveback: "brand", hats: "warm", leather: "warm", smithy: "warm",
     hardware: "warm", mercantile: "warm", garden: "cozy", toys: "cozy", gallery: "gallery", photo: "gallery", bikes: "crisp", records: "warm", barber: "crisp", makers: "warm", books: "warm", apothecary: "warm",
     office: "warm", sheriff: "warm", museum: "warm", market: "cozy", restroom: "crisp", stall: "brand" };
   var LC = {};
-  function look(type, mod) { var key = type + "|" + (mod || "auto"), o = LC[key]; if (o && o._v === RL.lv) return o; var t = T[type] || T.base, m = MOD[mod] || MOD.auto; o = {}; for (var k in t) o[k] = t[k]; for (var i = 0; i < LKEYS.length; i++) o[LKEYS[i]] = (t[LKEYS[i]] === undefined ? 1 : t[LKEYS[i]]) * m[LKEYS[i]]; o._v = RL.lv; LC[key] = o; return o; }
+  function look(type, mod) { var key = type + "|" + (mod || "auto"), o = LC[key]; if (o && o._v === RL.lv) return o; var t = T[type] || T.base, m = MOD[mod] || MOD.auto; o = {}; for (var k in t) o[k] = t[k]; for (var i = 0; i < LKEYS.length; i++) o[LKEYS[i]] = (t[LKEYS[i]] === undefined ? 1 : t[LKEYS[i]]) * (m[LKEYS[i]] === undefined ? 1 : m[LKEYS[i]]); o._v = RL.lv; LC[key] = o; return o; }
   RL.lv = 1; RL.retune = function () { RL.lv++; return RL.lv; };   // after editing RL.T or RL.MOD in a running game
   function lookR(R) { if (R._lk && R._lkv === RL.lv) return R._lk; R._lk = look(R.type, R.mod); R._lkv = RL.lv; return R._lk; }
   RL.look = look;
@@ -310,25 +316,56 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   function envBegin(R) {
     if (!RL.part.env || !R.env || !R.capRoot || typeof pmrem === "undefined" || !pmrem || typeof renderer === "undefined") return;
     var key = envKeyOf(R), hit = ENV.cache.get(key); if (hit) { ENV.cache.delete(key); ENV.cache.set(key, hit); RL.n.envHit++; ENV.active = { R: R, key: key, rt: hit.rt, nt: hit.nt }; return; }
-    RL.n.envMiss++; ENV.job = { R: R, key: key, face: 0, t: 0, nt: nightK(), meshes: null }; try { ENV.max = typeof QUAL !== "undefined" && (QUAL.level === "low" || QUAL.level === "medium") ? 2 : 4; } catch (e) {}   // 6 MB a room on the GPU; fewer kept on the lower tiers
+    RL.n.envMiss++; ENV.job = { R: R, key: key, face: 0, t: 0, nt: nightK(), meshes: null }; try { ENV.max = typeof QUAL !== "undefined" && (QUAL.level === "low" || QUAL.level === "medium") ? 2 : RL.r16 ? 3 : 4; } catch (e) {}   // 6 MB a room on the GPU; fewer kept on the lower tiers (R16: 3 on high and ultra, the capture is on by default there)
   }
-  // the capture, two faces a frame (behind the door's fade), then the pre-filter on the next frame
+  // the capture, two faces a frame (behind the door's fade), then the pre-filter on the next frame.
+  // R16: every program the capture draws with must be the main pass's own. three keys a program on the light counts of the render (and
+  // on nothing else that differs here: the cube target has the main target's colour space, no tone mapping, the scene's fog and
+  // environment), and it draws the next frame's shadow pass with the light state the last render of the scene left (setupLights comes
+  // after the shadow pass): R15 left out the room's own fill (a hemisphere light inside the room group, not on the capture layer), so
+  // every lit room material and the depth materials of the next shadow pass compiled a second time (12 programs, 0.4 to 0.8 s).
+  // Now the capture sees exactly the lights the main pass sees (the scene's lights, the room's, every hemisphere light plan_perf
+  // counts), and the counts are compared first (a mismatch skips the capture: no program is ever made for it). R15's CubeCamera was
+  // also never oriented (three r170 needs updateCoordinateSystem), so its six faces were one view.
+  function lightSig(list, mask) { var s = [0, 0, 0, 0, 0, 0, 0, 0];
+    function v(o) { if (o.visible === false) return; if (o.isLight && (o.layers.mask & mask) !== 0) { var c = o.castShadow ? 1 : 0; if (o.isDirectionalLight) { s[0]++; s[1] += c; } else if (o.isPointLight) { s[2]++; s[3] += c; } else if (o.isSpotLight) { s[4]++; s[5] += c; } else if (o.isHemisphereLight) s[6]++; else s[7]++; } var ch = o.children; for (var i = 0; i < ch.length; i++) v(ch[i]); }
+    for (var i = 0; i < list.length; i++) v(list[i]); return s.join(","); }
+  RL.lightSig = function () { return lightSig(scene.children, camera.layers.mask); };
+  // R16: a face is drawn into a 2D target with exactly the main pass's formats (half-float colour, a depth texture, as the post
+  // target and the R9 warm-up target have) and blitted into the cube: drawing into the cube target itself (a depth renderbuffer) made
+  // the driver build its own variant of each room program on the first capture (a 500 to 600 ms first step at the saloon and the
+  // store, measured); this way every draw of the capture reuses the main pass's variants. ENV.blit = false: the old path.
+  function capFace(r, cam, face) {
+    var rt2 = ENV.rt2; if (!rt2) { rt2 = ENV.rt2 = new THREE.WebGLRenderTarget(256, 256, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: true, stencilBuffer: false, generateMipmaps: false }); rt2.depthTexture = new THREE.DepthTexture(256, 256, THREE.UnsignedIntType); rt2.texture.userData.noWarm = true; }
+    r.setRenderTarget(rt2); r.render(scene, cam);
+    var gl = r.getContext(), P = r.properties, dF = P.get(ENV.cube).__webglFramebuffer; if (!dF) { r.setRenderTarget(ENV.cube, face); dF = P.get(ENV.cube).__webglFramebuffer; }
+    var sF = P.get(rt2).__webglFramebuffer; if (!sF || !dF || !dF[face]) { ENV.blit = false; r.setRenderTarget(ENV.cube, face); r.render(scene, cam); return; }
+    r.state.bindFramebuffer(gl.READ_FRAMEBUFFER, sF); r.state.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dF[face]); r.state.buffers.color.setMask(true); r.state.setScissorTest(false);   // a blit obeys the colour mask and the scissor test
+    gl.blitFramebuffer(0, 0, 256, 256, 0, 0, 256, 256, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    r.state.bindFramebuffer(gl.READ_FRAMEBUFFER, null); r.state.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+  }
   function envStep() {
     var J = ENV.job; if (!J) return; if (CUR.R !== J.R) { envJobEnd(J); ENV.job = null; return; }
     var t0 = performance.now(), L = ENV.LAYER;
     try {
-      if (!ENV.cube) { ENV.cube = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, colorSpace: THREE.LinearSRGBColorSpace }); ENV.cube.texture.userData.noWarm = true; ENV.cam = new THREE.CubeCamera(0.05, 80, ENV.cube); ENV.cam.layers.set(L); ENV.cam.children.forEach(function (c) { c.layers.set(L); }); }
+      if (!ENV.cube) { ENV.cube = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: !RL.r16 }); ENV.cube.texture.userData.noWarm = true; ENV.cam = new THREE.CubeCamera(0.05, 80, ENV.cube); if (RL.r16) { ENV.cam.coordinateSystem = renderer.coordinateSystem; ENV.cam.updateCoordinateSystem(); } ENV.cam.layers.set(L); ENV.cam.children.forEach(function (c) { c.layers.set(L); }); }
       var roots = Array.isArray(J.R.capRoot) ? J.R.capRoot : [J.R.capRoot];
-      if (!J.meshes) { J.meshes = []; for (var ri = 0; ri < roots.length; ri++) roots[ri].traverse(function (o) { if ((o.isMesh || o.isPoints) && !o.isSkinnedMesh && o.visible && !o.layers.isEnabled(L)) { o.layers.enable(L); J.meshes.push(o); } }); }
+      if (!J.meshes) { J.meshes = []; J.lights = []; for (var ri = 0; ri < roots.length; ri++) roots[ri].traverse(function (o) {
+          if (o.isLight) { if (RL.r16 && !o.layers.isEnabled(L)) { o.layers.enable(L); J.lights.push(o); } return; }
+          if ((o.isMesh || o.isPoints) && !o.isSkinnedMesh && o.visible && !o.layers.isEnabled(L) && !(RL.r16 && o.userData && o.userData.rlNoCap)) { o.layers.enable(L); J.meshes.push(o); } });
+        if (RL.r16) { try { var HS = window.PLAN_PERF && PLAN_PERF.hemis; if (HS) HS.forEach(function (h) { if (!h.layers.isEnabled(L)) { h.layers.enable(L); J.lights.push(h); } }); } catch (e) {} } }
       if (J.face < 6) {
         var b = J.R.box, cx = (b[0] + b[1]) / 2, cz = (b[4] + b[5]) / 2; _v.set(cx, b[2] + Math.min(1.7, (b[3] - b[2]) * 0.45), cz).applyMatrix4(J.R.M); ENV.cam.position.copy(_v); ENV.cam.updateMatrixWorld(true); lightsOnLayer(L);
+        // only the room and the lights are walked (three visits the whole scene graph for every render, 13,000 objects outdoors)
+        var tops = [], ok = true; for (var ti = 0; ti < roots.length; ti++) { var top = roots[ti]; while (top.parent && top.parent !== scene) top = top.parent; if (top.parent !== scene) ok = false; else if (tops.indexOf(top) < 0) tops.push(top); }
+        var kids = scene.children, red = null; if (ok && tops.length) { red = tops.slice(); for (var q = 0; q < kids.length; q++) { var ko = kids[q]; if (ko.isLight && red.indexOf(ko) < 0) red.push(ko); }
+          if (RL.r16 && J.lights) for (var qh = 0; qh < J.lights.length; qh++) { var hl = J.lights[qh]; if (!hl.isHemisphereLight) continue; var ht = hl; while (ht.parent && ht.parent !== scene) ht = ht.parent; if (ht.parent === scene && red.indexOf(ht) < 0 && !hiddenUp(hl)) red.push(hl); } }
+        if (RL.r16 && J.face === 0) { var sm = lightSig(kids, camera.layers.mask), sc = lightSig(red || kids, 1 << L); RL.n.sig = sm + (sm === sc ? "" : " / " + sc); if (sm !== sc || !red) { note("env capture", "light counts differ, skipped (" + sm + " / " + sc + ")"); J.R.env = false; envJobEnd(J); ENV.job = null; return; } }
         var r = renderer, prt = r.getRenderTarget(), su = r.shadowMap.autoUpdate, sn = r.shadowMap.needsUpdate, ac = r.autoClear, cc = ENV.cc || (ENV.cc = new THREE.Color()); r.getClearColor(cc); var ca = r.getClearAlpha();
         var nt = nightK(); try { _c.copy(scene.fog.color).multiplyScalar(1.6 * (1 - nt) + 0.02); } catch (e) { _c.setRGB(0.6, 0.65, 0.75); } r.setClearColor(_c, 1);
         r.shadowMap.autoUpdate = false; r.shadowMap.needsUpdate = false; r.autoClear = true;
-        // only the room and the lights are walked (three visits the whole scene graph for every render, 13,000 objects outdoors)
-        var tops = [], ok = true; for (var ti = 0; ti < roots.length; ti++) { var top = roots[ti]; while (top.parent && top.parent !== scene) top = top.parent; if (top.parent !== scene) ok = false; else if (tops.indexOf(top) < 0) tops.push(top); }
-        var kids = scene.children, red = null; if (ok && tops.length) { red = tops.slice(); for (var q = 0; q < kids.length; q++) { var ko = kids[q]; if (ko.isLight && red.indexOf(ko) < 0) red.push(ko); } scene.children = red; }
-        try { var cams = ENV.cam.children; for (var k = 0; k < 2 && J.face < 6; k++, J.face++) { r.setRenderTarget(ENV.cube, J.face); r.render(scene, cams[J.face]); } }
+        if (red) scene.children = red;
+        try { var cams = ENV.cam.children; for (var k = 0; k < 2 && J.face < 6; k++, J.face++) { if (RL.r16 && ENV.blit !== false) capFace(r, cams[J.face], J.face); else { r.setRenderTarget(ENV.cube, J.face); r.render(scene, cams[J.face]); } } }
         finally { if (red) scene.children = kids; r.setRenderTarget(prt); r.shadowMap.autoUpdate = su; r.shadowMap.needsUpdate = sn; r.autoClear = ac; r.setClearColor(cc, ca); }
       } else {
         var rt = pmrem.fromCubemap(ENV.cube.texture); rt.texture.userData.noWarm = true; rt.texture.name = "rl env " + J.key;
@@ -340,7 +377,8 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   }
   // the pre-filter's cube program is made while the loading screen is up (the client only ever pre-filters scenes, never cubes)
   RL.envPrep = function () { try { if (RL.part.env && typeof pmrem !== "undefined" && pmrem && pmrem.compileCubemapShader) { pmrem.compileCubemapShader(); RL.n.envPrep = 1; } } catch (e) { note("env prep", e); } };
-  function envJobEnd(J) { if (J && J.meshes) { for (var i = 0; i < J.meshes.length; i++) J.meshes[i].layers.disable(ENV.LAYER); J.meshes = null; } }
+  function envJobEnd(J) { if (J && J.meshes) { for (var i = 0; i < J.meshes.length; i++) J.meshes[i].layers.disable(ENV.LAYER); J.meshes = null; } if (J && J.lights) { for (var j = 0; j < J.lights.length; j++) J.lights[j].layers.disable(ENV.LAYER); J.lights = null; } }
+  function hiddenUp(o) { for (var k = 0; o && k < 64; k++) { if (o.visible === false) return true; o = o.parent; } return false; }
   // while inside: the room's environment replaces the sky's (the client's updateEnvironment swaps in a new sky every few seconds;
   // it is put back each frame), at the look's intensity
   function envFrame(R) {
@@ -353,7 +391,7 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
     if (ENV.onTex) { try { if (scene.environment === ENV.onTex) scene.environment = (typeof envTex !== "undefined" && envTex) || ENV.sky; if (ENV.setI >= 0 && Math.abs(scene.environmentIntensity - ENV.setI) < 1e-6) scene.environmentIntensity = ENV.skyI; } catch (e) {} ENV.onTex = null; ENV.setI = -1; }
     if (ENV.zombie) { try { ENV.zombie.dispose(); } catch (e) {} ENV.zombie = null; }
   }
-  RL.envDrop = function () { envRestore(); ENV.active = null; ENV.cache.forEach(function (v) { try { v.rt.dispose(); } catch (e) {} }); ENV.cache.clear(); if (ENV.cube) { ENV.cube.dispose(); ENV.cube = null; ENV.cam = null; } return true; };
+  RL.envDrop = function () { envRestore(); ENV.active = null; ENV.cache.forEach(function (v) { try { v.rt.dispose(); } catch (e) {} }); ENV.cache.clear(); if (ENV.cube) { ENV.cube.dispose(); ENV.cube = null; ENV.cam = null; } if (ENV.rt2) { if (ENV.rt2.depthTexture) ENV.rt2.depthTexture.dispose(); ENV.rt2.dispose(); ENV.rt2 = null; } return true; };
 
   // ───────────────────────── 4. atmosphere: daylight shafts and dust motes ─────────────────────────
   // The windows (plan_rooms portals, or the client's six side windows in a generic room, plus the door) are swept along the sun's
@@ -373,18 +411,45 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
     " vec4 mv = modelViewMatrix * vec4(p, 1.0); float d = -mv.z; vA = aS.w * smoothstep(0.3, 1.2, d) * (1.0 - smoothstep(6.0, 11.0, d)) * (0.55 + 0.45 * sin(uT * (0.6 + aS.z) + s * 3.0));" +
     " gl_PointSize = clamp(uPx * (0.005 + 0.006 * aS.z) / max(d, 0.1), 1.0, 5.0); gl_Position = projectionMatrix * mv; }";
   var DU_FS = "uniform vec3 uCol; uniform float uK; varying float vA; void main(){ vec2 c = gl_PointCoord - 0.5; float r = dot(c, c) * 4.0; float a = (1.0 - r) * vA * uK; if (r > 1.0 || a < 0.003) discard; gl_FragColor = vec4(uCol * a, 1.0); }";
+  // R16: the kit's own shaders are raw shaders: three keys a RawShaderMaterial on its source only (no light counts, fog, colour space or
+  // tone mapping), so the one program warmed behind the loading screen is the one every room draws with, whatever the room's lights.
+  // (A ShaderMaterial re-keys on the light state, and a transparent double-sided one does it twice a frame: the R15 warm-up registration
+  // compiled them for the outdoor state and the first room compiled them again.) Output is the same: these shaders never applied a
+  // colour space or tone mapping, and the main pass draws into a linear target on every tier.
+  var RAW_HEAD = "precision highp float;\n";
+  var SH_VS_R = RAW_HEAD + "uniform mat4 modelMatrix; uniform mat4 viewMatrix; uniform mat4 projectionMatrix; attribute vec3 position;\n" + SH_VS;
+  var DU_VS_R = RAW_HEAD + "uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix; attribute vec3 position;\n" + DU_VS;
+  var AO_VS_R = RAW_HEAD + "uniform mat4 modelViewMatrix; uniform mat4 projectionMatrix; attribute vec3 position; attribute vec3 color; varying vec3 vC; void main(){ vC = color; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
+  var AO_FS_R = RAW_HEAD + "varying vec3 vC; void main(){ gl_FragColor = vec4(vC, 1.0); }";
+  function kitMat(o, vs, fs, vsR, fsR) { if (RL.r16) { o.vertexShader = vsR; o.fragmentShader = RAW_HEAD + fsR; return new THREE.RawShaderMaterial(o); } o.vertexShader = vs; o.fragmentShader = fs; o.fog = false; o.toneMapped = false; return new THREE.ShaderMaterial(o); }
   function atmoInit() {
     if (ATMO.g) return; var g = ATMO.g = new THREE.Group(); g.name = "rl atmo"; g.userData.noSolid = true; g.userData.noCull = true; g.userData.avShared = true;
     var MQ = ATMO.MAXQ, sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(MQ * 4 * 3), 3)); sg.setAttribute("aTE", new THREE.BufferAttribute(new Float32Array(MQ * 4 * 2), 2)); sg.setAttribute("aW", new THREE.BufferAttribute(new Float32Array(MQ * 4), 1));
     var idx = new Uint16Array(MQ * 6); for (var q = 0; q < MQ; q++) { idx[q * 6] = q * 4; idx[q * 6 + 1] = q * 4 + 1; idx[q * 6 + 2] = q * 4 + 2; idx[q * 6 + 3] = q * 4; idx[q * 6 + 4] = q * 4 + 2; idx[q * 6 + 5] = q * 4 + 3; } sg.setIndex(new THREE.BufferAttribute(idx, 1)); sg.setDrawRange(0, 0); sg.userData.avShared = true;
-    ATMO.mat = new THREE.ShaderMaterial({ uniforms: { uCol: { value: new THREE.Color(1, 0.9, 0.74) }, uK: { value: 0 }, uT: { value: 0 } }, vertexShader: SH_VS, fragmentShader: SH_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, toneMapped: false });
+    ATMO.mat = kitMat({ uniforms: { uCol: { value: new THREE.Color(1, 0.9, 0.74) }, uK: { value: 0 }, uT: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }, SH_VS, SH_FS, SH_VS_R, SH_FS);
     ATMO.mat.name = "rl_shaft"; ATMO.mat.userData.avShared = true; ATMO.mat.userData.noWarm = true;
-    var sh = ATMO.sh = new THREE.Mesh(sg, ATMO.mat); sh.frustumCulled = false; sh.renderOrder = 4; sh.userData.noSolid = true; sh.matrixAutoUpdate = false; sh.castShadow = false; sh.receiveShadow = false; sh.name = "rl shafts"; g.add(sh);
+    var sh = ATMO.sh = new THREE.Mesh(sg, ATMO.mat); sh.frustumCulled = false; sh.renderOrder = 4; sh.userData.noSolid = true; sh.userData.rlNoCap = true; sh.matrixAutoUpdate = false; sh.castShadow = false; sh.receiveShadow = false; sh.name = "rl shafts"; g.add(sh);
     var MD = ATMO.MAXD, dg = new THREE.BufferGeometry(); dg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(MD * 3), 3)); dg.setAttribute("aS", new THREE.BufferAttribute(new Float32Array(MD * 4), 4)); dg.setDrawRange(0, 0); dg.userData.avShared = true;
-    ATMO.dmat = new THREE.ShaderMaterial({ uniforms: { uCol: { value: new THREE.Color(1, 0.92, 0.8) }, uK: { value: 0 }, uT: { value: 0 }, uPx: { value: 900 } }, vertexShader: DU_VS, fragmentShader: DU_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false });
+    ATMO.dmat = kitMat({ uniforms: { uCol: { value: new THREE.Color(1, 0.92, 0.8) }, uK: { value: 0 }, uT: { value: 0 }, uPx: { value: 900 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }, DU_VS, DU_FS, DU_VS_R, DU_FS);
     ATMO.dmat.name = "rl_dust"; ATMO.dmat.userData.avShared = true; ATMO.dmat.userData.noWarm = true;
-    var du = ATMO.du = new THREE.Points(dg, ATMO.dmat); du.frustumCulled = false; du.renderOrder = 5; du.userData.noSolid = true; du.matrixAutoUpdate = false; du.name = "rl dust"; g.add(du);
+    var du = ATMO.du = new THREE.Points(dg, ATMO.dmat); du.frustumCulled = false; du.renderOrder = 5; du.userData.noSolid = true; du.userData.rlNoCap = true; du.matrixAutoUpdate = false; du.name = "rl dust"; g.add(du);
   }
+  // the three kit programs, compiled and drawn once with the main pass's colour and depth formats (the driver's own variant), in a
+  // scene of their own (a raw program depends on nothing the main scene holds), at the world hook behind the loading screen
+  RL.kitWarm = function () {
+    if (!RL.r16 || RL.n.kitWarm || typeof renderer === "undefined" || !renderer) return; RL.n.kitWarm = -1; var t0 = performance.now(), geo = [], rt = null;
+    try {
+      atmoInit(); var am = aoMat(); var sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(60, 1, 0.1, 10);
+      var tri = new THREE.BufferGeometry(); tri.setAttribute("position", new THREE.BufferAttribute(new Float32Array([0, 0, -1, 0.01, 0, -1, 0, 0.01, -1]), 3)); tri.setAttribute("aTE", new THREE.BufferAttribute(new Float32Array(6), 2)); tri.setAttribute("aW", new THREE.BufferAttribute(new Float32Array(3), 1)); tri.setAttribute("color", new THREE.BufferAttribute(new Float32Array([1, 1, 1, 1, 1, 1, 1, 1, 1]), 3));
+      var pt = new THREE.BufferGeometry(); pt.setAttribute("position", new THREE.BufferAttribute(new Float32Array([0, 0, -1]), 3)); pt.setAttribute("aS", new THREE.BufferAttribute(new Float32Array(4), 4)); geo.push(tri, pt);
+      [new THREE.Mesh(tri, ATMO.mat), new THREE.Points(pt, ATMO.dmat), new THREE.Mesh(tri, am)].forEach(function (o) { o.frustumCulled = false; sc.add(o); });
+      rt = new THREE.WebGLRenderTarget(4, 4, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: true, stencilBuffer: false }); rt.depthTexture = new THREE.DepthTexture(4, 4, THREE.UnsignedIntType);
+      var prt = renderer.getRenderTarget(), ar = renderer.info.autoReset; try { renderer.setRenderTarget(rt); renderer.render(sc, cam); } finally { renderer.setRenderTarget(prt); renderer.info.autoReset = ar; }
+      try { if (window.PLAN_PERF && PLAN_PERF.pinPrograms) PLAN_PERF.pinPrograms(); } catch (e) {}
+      RL.n.kitWarm = +(performance.now() - t0).toFixed(1);
+    } catch (e) { note("kit warm", e); }
+    finally { for (var i = 0; i < geo.length; i++) geo[i].dispose(); if (rt) { if (rt.depthTexture) rt.depthTexture.dispose(); rt.dispose(); } }
+  };
   // the room's openings in its own frame: [[x0, y0, z0], [x1, y1, z1], [x2, y2, z2], [x3, y3, z3], inward normal [nx, nz]]
   function openings(R) {
     var out = [], b = R.box, hx = b[1], hz = b[5], W = R.wins && R.wins.length ? R.wins : null;
@@ -444,8 +509,9 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   // floor and the ceiling and down the corners, a little warm (the floor's bounce): one multiply-blended mesh per room, built once
   // with the room, never touched per frame.
   var AOM = null;
-  function aoMat() { if (AOM) return AOM; AOM = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.MultiplyBlending, premultipliedAlpha: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false, fog: false });
-    AOM.name = "rl_ao"; AOM.userData.avShared = true; AOM.userData.noSolid = true; return AOM; }
+  function aoMat() { if (AOM) return AOM; var o = { transparent: true, depthWrite: false, blending: THREE.MultiplyBlending, premultipliedAlpha: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 };
+    if (RL.r16) { o.vertexShader = AO_VS_R; o.fragmentShader = AO_FS_R; AOM = new THREE.RawShaderMaterial(o); } else { o.vertexColors = true; o.toneMapped = false; o.fog = false; AOM = new THREE.MeshBasicMaterial(o); }   // R16: raw (see kitMat), the same output into the linear main target
+    AOM.name = "rl_ao"; AOM.userData.avShared = true; AOM.userData.noSolid = true; AOM.userData.noWarm = true; return AOM; }
   RL.creaseAO = function (R, host, opt) {
     if (!RL.part.bake || !host) return null; opt = opt || {}; var t0 = performance.now(), b = opt.box || R.box, x0 = b[0], x1 = b[1], y0 = b[2] + 0.004, y1 = b[3] - 0.004, z0 = b[4], z1 = b[5];
     var P = [], C = [], I = [], k = opt.k || 0.42, F = opt.fw || 0.75, W = opt.ww || 0.7, CW = opt.cw || 0.5, TW = opt.tw || 0.5;
@@ -493,6 +559,161 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   }
   function gradeEnd() { if (!GRD.on) return; try { var F = POST.mFinal.uniforms; for (var i = 0; i < GKEYS.length; i++) { var n = GKEYS[i]; if (F[n] && GRD.set[n] !== undefined && Math.abs(F[n].value - GRD.set[n]) < 1e-6) F[n].value = GRD.base[n]; } if (F.uGWB && GRD.wbSet && F.uGWB.value.equals(GRD.wbSet)) F.uGWB.value.copy(GRD.wbBase); } catch (e) {} GRD.on = false; GRD.set = {}; GRD.base = {}; GRD.wbSet = null; GRD.k = 0; }
 
+  // ───────────────────────── 6. R16: surfaces (the room materials' PBR pass, high and ultra) ─────────────────────────
+  // Every standard material of the R14 rooms (the venues' family, the shops' textured and plain families, the homes') gets one shader
+  // pass, the same for all of them (one program per family, patched before it is first compiled, so the unpatched one is never made):
+  //  - roughness from the normal map's alpha (authored per surface from its height and colour, below: grooves, grout and stains
+  //    rougher, worn tops smoother), read from the normal map's own texel (no new fetch);
+  //  - a micro-detail layer within 9 m (fine normal and roughness grain: wood pores, plaster, stone pits, metal scratches, fabric
+  //    weave, leather pebble) projected on the room's own axes, plus a large soft smudge in the roughness (fingerprints, wear);
+  //  - box-projected reflections of the room's own capture (the reflection sits where the walls are, as an interior reflection probe
+  //    does) and the capture's irradiance as the room's bounce light (its own colour: red damask, green walls, warm floors), at the
+  //    look's level instead of the sky's.
+  // Textured materials without a normal map (the homes) get one derived from their colour (a worker, off the main thread); the
+  // venues' and shops' painted normal maps get the roughness alpha the same way. ?ris=0: off.
+  var SURF = RL.surf = { U: null, tex: {}, ready: 0, n: { mats: 0, skip: 0, compiled: 0, miss: 0, derive: 0, deriveMs: 0, swaps: 0, freed: 0, queued: 0 }, Q: [], wait: new Map(), done: new Map(), fly: new Map(), wk: null, busy: 0, seen: new WeakSet() };
+  SURF.U = PREV && PREV.surf && PREV.surf.U ? PREV.surf.U : { uRiRot: { value: new THREE.Matrix3() }, uRiPos: { value: new THREE.Vector3() }, uRiMin: { value: new THREE.Vector3(-5, -1, -5) }, uRiMax: { value: new THREE.Vector3(5, 4, 5) }, uRiCap: { value: new THREE.Vector3() }, uRiOn: { value: new THREE.Vector4(0, 0, 1, 0) } };
+  var DK = { wood: [4.0, 0.5, 0.55, 0.34], plaster: [2.5, 0.55, 0.3, 0.12], stone: [3.0, 0.34, 0.6, 0.42], metal: [5.0, 0.26, 0.8, 0.45], fabric: [8.0, 0.7, 0.2, 0.06], leather: [6.0, 0.6, 0.45, 0.2] };   // tiles a metre, normal, roughness grain, smudge
+  // roughness alpha: [groove gain, darker-than-around gain, offset]; derived normal strength (colour-derived maps only)
+  var RC = { wood: [0.55, 0.55, 0, 2.6], plaster: [0.3, 0.35, 0, 1.4], stone: [1.1, 0.35, 0, 3.4], metal: [0.9, 0.3, 0.02, 1.2], fabric: [0.3, 0.2, 0, 2.2], leather: [0.5, 0.3, 0, 2.0], photo: [0, 0, 0, 0] };
+  if (PREV && PREV.surf && PREV.surf.tex) { SURF.tex = PREV.surf.tex; SURF.ready = PREV.surf.ready; SURF.seen = PREV.surf.seen || SURF.seen; }   // a module evaluated again (development) keeps the shared uniforms the patched programs read
+  function detTex(kind) { var t = SURF.tex[kind]; if (t) return t; try { t = new THREE.TextureLoader().load((window.AV || String)("/tex/rl_det_" + kind + ".png?v=" + (window.BUILD || "r16i")), function () { SURF.ready++; }, undefined, function () { note("detail " + kind, "load failed"); }); } catch (e) { note("detail " + kind, e); t = new THREE.Texture(); }
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.name = "rl_det_" + kind; t.userData.avShared = true; SURF.tex[kind] = t; try { if (window.PLAN_ROOMS && PLAN_ROOMS.warm) PLAN_ROOMS.warm(t); } catch (e) {} return t; }
+  // a material's family by its module's name for it: [detail kind, normal, grain, smudge, roughness-alpha kind]
+  function surfCat(nm) {
+    var k = nm.replace(/^(rv |rs_|rh_)/, "");
+    if (/^sheet_|^art$|^stock$|^paint(Air|Chir)$|^mural|^retablo|^art[ABC]$|^wanted|^tack|^bottles|^logo|^books|^keys|^pianokeys|^clock|^topo|^flagAZ|^sign|^screen|^facade/.test(k)) return ["plaster", 0.06, 0.1, 0.05, "photo"];
+    if (/lamp|neon|candle|ember|glow|fire/.test(k)) return ["plaster", 0, 0, 0, "photo"];
+    if (/mirror/.test(k)) return ["metal", 0.12, 0.25, 1.4, "photo"];   // an old silvered mirror: its own fake as the tarnish, smudges
+    if (/bottle|glass/.test(k)) return ["stone", 0.03, 0.1, 0.5, "photo"];
+    if (/plank|oak|barn|pine|bark|latill|^strip|^grain|^bead|shiplap|^wood|^logs/.test(k)) return ["wood", 1, 1, 1, "wood"];
+    if (/^tin$|brass|copper|chrome|iron|steel|gold|^metal|mirror/.test(k)) return ["metal", 1, 1, 1, "metal"];
+    if (/marble|inlay|checker|^hex|terra|saltillo|^stone|brick|concrete|ceramic|trav/.test(k)) return ["stone", 1, 1, 1, "stone"];
+    if (/tufted|vinyl|leather/.test(k)) return ["leather", 1, 1, 1, "leather"];
+    if (/felt|cloth|^rug|runner|^hay|canvas|fabric|weave/.test(k)) return ["fabric", 1, 1, 1, "fabric"];
+    if (/plaster|damask|stripe|diamond|paint|satin|gloss|matte|pegboard/.test(k)) return ["plaster", 1, 1, 1, "plaster"];
+    return ["plaster", 0.5, 0.6, 0.6, "plaster"];
+  }
+  var PATCH = null;
+  function buildPatch() {
+    if (PATCH) return PATCH; var C = THREE.ShaderChunk, nfm = C.normal_fragment_maps, env = C.envmap_physical_pars_fragment, miss = 0, lite = !!RL.lite;   // high: the cheaper version (decided with the tier, as the key is)
+    var A0 = "vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;"; if (nfm.indexOf(A0) >= 0) nfm = nfm.replace(A0, "vec4 riNA = texture2D( normalMap, vNormalMapUv ); vec3 mapN = riNA.xyz * 2.0 - 1.0;"); else miss++;
+    var B0 = "return PI * envMapColor.rgb * envMapIntensity;"; if (env.indexOf(B0) >= 0) env = env.replace(B0, "return PI * envMapColor.rgb * mix( envMapIntensity, uRiOn.z, uRiOn.y );"); else miss++;
+    var B1 = "reflectVec = inverseTransformDirection( reflectVec, viewMatrix );"; if (env.indexOf(B1) >= 0) env = env.replace(B1, B1 + "\n\t\treflectVec = riBox( reflectVec );"); else miss++;
+    var PARS = [
+      "uniform mat3 uRiRot; uniform vec3 uRiPos; uniform vec3 uRiMin; uniform vec3 uRiMax; uniform vec3 uRiCap; uniform vec4 uRiOn;",
+      "uniform sampler2D tRiD; uniform vec4 uRiM; uniform vec4 uRiS;",
+      "vec3 riWP() { return ( vec4( - vViewPosition, 0.0 ) * viewMatrix ).xyz + cameraPosition; }",
+      "vec3 riBox( vec3 v ) { if ( uRiOn.x < 0.5 ) return v; vec3 lp = uRiRot * ( riWP() - uRiPos ), nd = uRiRot * v;",
+      "  vec3 dd = vec3( nd.x >= 0.0 ? max( nd.x, 1e-4 ) : min( nd.x, -1e-4 ), nd.y >= 0.0 ? max( nd.y, 1e-4 ) : min( nd.y, -1e-4 ), nd.z >= 0.0 ? max( nd.z, 1e-4 ) : min( nd.z, -1e-4 ) );",
+      "  vec3 tf = max( ( uRiMax - lp ) / dd, ( uRiMin - lp ) / dd ); float t = max( 0.0, min( min( tf.x, tf.y ), tf.z ) );",
+      "  return normalize( transpose( uRiRot ) * ( lp + nd * t - uRiCap ) ); }"].join("\n");
+    var DET = [
+      "#ifdef USE_NORMALMAP_TANGENTSPACE",
+      "\troughnessFactor *= mix( 1.0, 0.5 + riNA.a, uRiM.w );",
+      "#endif",
+      "{",
+      lite ? "\tfloat riK = uRiOn.w * ( 1.0 - smoothstep( 1.5, 6.0, length( vViewPosition ) ) );" : "\tfloat riK = uRiOn.w * ( 1.0 - smoothstep( 3.0, 11.0, length( vViewPosition ) ) );",
+      "\tvec3 riL = uRiRot * ( riWP() - uRiPos );",
+      "\tvec3 riG = uRiRot * normalize( ( vec4( nonPerturbedNormal, 0.0 ) * viewMatrix ).xyz ); vec3 riA = abs( riG );",
+      "\tvec2 riUV; vec3 riT, riB;",
+      "\tif ( riA.y >= riA.x && riA.y >= riA.z ) { riUV = riL.xz; riT = vec3( 1.0, 0.0, 0.0 ); riB = vec3( 0.0, 0.0, 1.0 ); }",
+      "\telse if ( riA.x >= riA.z ) { riUV = riL.zy; riT = vec3( 0.0, 0.0, 1.0 ); riB = vec3( 0.0, 1.0, 0.0 ); }",
+      "\telse { riUV = riL.xy; riT = vec3( 1.0, 0.0, 0.0 ); riB = vec3( 0.0, 1.0, 0.0 ); }",
+      "\tvec4 riD = texture2D( tRiD, riUV * uRiS.x );",
+      lite ? "\tfloat riSm = 0.0;" : "\tfloat riSm = ( texture2D( tRiD, riUV * ( uRiS.x * uRiS.y ) + vec2( 0.37, 0.61 ) ).a - 0.625 ) * 2.6667;",   // high: no smudge layer (one fetch less)
+      "\tmat3 riR = transpose( uRiRot ); vec3 riTv = ( viewMatrix * vec4( riR * riT, 0.0 ) ).xyz, riBv = ( viewMatrix * vec4( riR * riB, 0.0 ) ).xyz;",
+      "\tvec2 riDN = ( riD.xy * 2.0 - 1.0 ) * ( uRiM.x * riK );",
+      "\tnormal = normalize( normal + riDN.x * riTv + riDN.y * riBv );",
+      "\troughnessFactor = clamp( roughnessFactor * ( 1.0 + uRiM.y * riK * ( riD.b * 2.0 - 1.0 ) + uRiM.z * uRiOn.w * riSm ), 0.03, 1.0 );",
+      "}"].join("\n");
+    SURF.n.miss = miss; PATCH = { nfm: nfm, env: env, pars: PARS, det: DET, ok: miss === 0, lite: lite }; return PATCH;
+  }
+  // (the material is passed in: the client's CSM material classes chain hooks and older ones drop "this")
+  function surfOBC(m, sh, r) {
+    var u = m.userData.riU; if (m.userData.riPrev) { try { m.userData.riPrev.call(m, sh, r); } catch (e) { note("surf prev", e); } } if (!u) return; var P = buildPatch(); if (!P.ok) return;
+    for (var k in SURF.U) sh.uniforms[k] = SURF.U[k]; sh.uniforms.tRiD = u.tRiD; sh.uniforms.uRiM = u.uRiM; sh.uniforms.uRiS = u.uRiS;
+    var fs = sh.fragmentShader;
+    if (fs.indexOf("#include <normal_fragment_maps>") < 0 || fs.indexOf("#include <envmap_physical_pars_fragment>") < 0 || fs.indexOf("#include <common>") < 0) { SURF.n.miss++; return; }
+    sh.fragmentShader = fs.replace("#include <common>", "#include <common>\n" + P.pars).replace("#include <envmap_physical_pars_fragment>", P.env).replace("#include <normal_fragment_maps>", P.nfm + "\n" + P.det);
+  }
+  function surfKey() { var p = this.userData.riPrevKey ? this.userData.riPrevKey.call(this) : ""; return p + (RL.lite ? "|ri16s1h" : "|ri16s1"); }
+  function tinyTex(t) { var im = t && (t.image || (t.source && t.source.data)) || {}; return !((im.width || 0) > 8); }
+  var FLATN = null;   // a flat normal with a neutral roughness alpha: the placeholder until a derived map is ready
+  function flatN() { if (FLATN) return FLATN; FLATN = new THREE.DataTexture(new Uint8Array([128, 128, 255, 128, 128, 128, 255, 128, 128, 128, 255, 128, 128, 128, 255, 128]), 2, 2); FLATN.needsUpdate = true; FLATN.wrapS = FLATN.wrapT = THREE.RepeatWrapping; FLATN.userData.avShared = true; FLATN.name = "rl flat normal"; return FLATN; }
+  // patch one material (only before its first compile: a material that already has a program keeps it, so nothing compiles twice)
+  RL.surfMat = function (m) {
+    if (!RL.part.surf || !RL.tierDone || !m || SURF.seen.has(m)) return false; SURF.seen.add(m);
+    if (!m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || m.transparent || m.alphaTest > 0 || m.userData.riU || m.userData.riNo) { SURF.n.skip++; return false; }
+    var nm = m.name || ""; if (!/^(rv |rs_|rh_)/.test(nm) || /^rs_facade/.test(nm)) { SURF.n.skip++; return false; }
+    try { var pr = renderer.properties.get(m); if (pr && pr.currentProgram) { SURF.n.compiled++; return false; } } catch (e) {}
+    var c = surfCat(nm), d = DK[c[0]]; var u = { tRiD: { value: detTex(c[0]) }, uRiM: { value: new THREE.Vector4(d[1] * c[1], d[2] * c[2], d[3] * c[3], 0) }, uRiS: { value: new THREE.Vector4(d[0], 0.083, 0, 0) } };
+    m.userData.riU = u; m.userData.riCat = c;
+    // the client's CSM material class (high, ultra) runs its own hook first and keeps one user hook (_userObc): chain only that one
+    if ("_csmObc" in m || "_userObc" in m) { if (m._userObc) m.userData.riPrev = m._userObc; } else if (m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) m.userData.riPrev = m.onBeforeCompile;
+    if (m.customProgramCacheKey !== THREE.Material.prototype.customProgramCacheKey) m.userData.riPrevKey = m.customProgramCacheKey;
+    m.onBeforeCompile = function (sh, r) { surfOBC(m, sh, r); }; m.customProgramCacheKey = surfKey;
+    if (/mirror/.test(nm)) { m.roughness = Math.min(m.roughness, 0.045); m.metalness = 1; m.emissiveIntensity *= 0.22; if (m.userData.k0) m.userData.k0 *= 0.22; }   // a real mirror now: the room's box-projected capture, its painted fake as the tarnish
+    if (m.map && (!m.normalMap || tinyTex(m.normalMap))) { m.normalMap = flatN(); u.uRiM.value.w = 1; }   // no normal map (the homes) or a flat placeholder: one derived from the colour follows
+    if (m.map && c[4] !== "photo") surfQueue(m, c[4]);
+    m.needsUpdate = true; SURF.n.mats++; return true;
+  };
+  // everything a module has made so far (its cache: materials two levels deep), or a built room
+  RL.surfScan = function (x) { if (!RL.part.surf || !x) return 0; var n = 0; function one(m) { if (m && m.isMaterial && RL.surfMat(m)) n++; }
+    if (x.isObject3D) { x.traverse(function (o) { var ms = o.material; if (!ms) return; if (Array.isArray(ms)) ms.forEach(one); else one(ms); }); return n; }
+    if (x.isMaterial) { one(x); return n; } for (var k in x) { var v = x[k]; if (v && v.isMaterial) one(v); } return n; };
+  // ── the derived maps: normal (from the painter's own normal map, or from the colour's luminance) plus the roughness alpha ──
+  var WK_SRC = [
+    "self.onmessage = function (e) { var d = e.data, W = d.w, H = d.h, N = W * H, t0 = Date.now();",
+    " var oc = new OffscreenCanvas(W, H), cx = oc.getContext('2d', { willReadFrequently: true }); cx.drawImage(d.a, 0, 0, W, H); var A = cx.getImageData(0, 0, W, H).data; if (d.a.close) d.a.close();",
+    " var NM = null; if (d.n) { cx.clearRect(0, 0, W, H); cx.drawImage(d.n, 0, 0, W, H); NM = cx.getImageData(0, 0, W, H).data; if (d.n.close) d.n.close(); }",
+    " var L = new Float32Array(N); for (var i = 0; i < N; i++) L[i] = (0.2126 * A[i * 4] + 0.7152 * A[i * 4 + 1] + 0.0722 * A[i * 4 + 2]) / 255;",
+    " function blur(s, r) { var t = new Float32Array(N), o = new Float32Array(N), k = 1 / (2 * r + 1); for (var y = 0; y < H; y++) { var row = y * W, acc = 0; for (var x = -r; x <= r; x++) acc += s[row + ((x % W) + W) % W]; for (var x2 = 0; x2 < W; x2++) { t[row + x2] = acc * k; acc += s[row + (x2 + r + 1) % W] - s[row + ((x2 - r) % W + W) % W]; } }",
+    "   for (var x3 = 0; x3 < W; x3++) { var acc2 = 0; for (var y2 = -r; y2 <= r; y2++) acc2 += t[(((y2 % H) + H) % H) * W + x3]; for (var y3 = 0; y3 < H; y3++) { o[y3 * W + x3] = acc2 * k; acc2 += t[((y3 + r + 1) % H) * W + x3] - t[(((y3 - r) % H + H) % H) * W + x3]; } } return o; }",
+    " var nx = new Float32Array(N), ny = new Float32Array(N), cav = new Float32Array(N), q = d.q;",
+    " if (NM) { for (var j = 0; j < N; j++) { nx[j] = NM[j * 4] / 127.5 - 1; ny[j] = NM[j * 4 + 1] / 127.5 - 1; }",
+    "   for (var y4 = 0; y4 < H; y4++) for (var x4 = 0; x4 < W; x4++) { var p = y4 * W + x4, xp = y4 * W + (x4 + 1) % W, xm = y4 * W + (x4 - 1 + W) % W, yp = ((y4 + 1) % H) * W + x4, ym = ((y4 - 1 + H) % H) * W + x4; cav[p] = (-(nx[xp] - nx[xm]) + (ny[yp] - ny[ym])) * 2.5; } }",
+    " else { var hb = blur(L, 1), hl = blur(L, Math.max(4, W >> 5)); var h = new Float32Array(N); for (var j2 = 0; j2 < N; j2++) h[j2] = hb[j2] - hl[j2];",
+    "   var hc = blur(h, 3); for (var y5 = 0; y5 < H; y5++) for (var x5 = 0; x5 < W; x5++) { var p2 = y5 * W + x5, xp2 = (x5 + 1) % W, xm2 = (x5 - 1 + W) % W, yp2 = ((y5 + 1) % H) * W, ym2 = ((y5 - 1 + H) % H) * W, y0 = y5 * W;",
+    "     var dx = (h[ym2 + xp2] + 2 * h[y0 + xp2] + h[yp2 + xp2]) - (h[ym2 + xm2] + 2 * h[y0 + xm2] + h[yp2 + xm2]), dy = (h[yp2 + xm2] + 2 * h[yp2 + x5] + h[yp2 + xp2]) - (h[ym2 + xm2] + 2 * h[ym2 + x5] + h[ym2 + xp2]);",
+    "     var vx = -dx * q[3] * (W / 256), vy = dy * q[3] * (W / 256), l = 1 / Math.sqrt(vx * vx + vy * vy + 1); nx[p2] = vx * l; ny[p2] = vy * l; cav[p2] = (hc[p2] - h[p2]) * 9; } }",
+    " var lb = blur(L, Math.max(3, W >> 6)), out = new Uint8Array(N * 4);",
+    " for (var y6 = 0; y6 < H; y6++) { var dst = (H - 1 - y6) * W; for (var x6 = 0; x6 < W; x6++) { var s = y6 * W + x6, o4 = (dst + x6) * 4; var X = nx[s], Y = ny[s], Z = Math.sqrt(Math.max(0, 1 - X * X - Y * Y));",
+    "   var c1 = Math.max(-1, Math.min(1, cav[s])), c2 = Math.max(-1, Math.min(1, (lb[s] - L[s]) * 3)); var a = 0.5 + 0.5 * (q[0] * c1 + q[1] * c2) + q[2]; a = a < 0.25 ? 0.25 : a > 1 ? 1 : a;",
+    "   out[o4] = (X * 0.5 + 0.5) * 255 + 0.5; out[o4 + 1] = (Y * 0.5 + 0.5) * 255 + 0.5; out[o4 + 2] = (Z * 0.5 + 0.5) * 255 + 0.5; out[o4 + 3] = a * 255 + 0.5; } }",
+    " self.postMessage({ id: d.id, w: W, h: H, buf: out.buffer, ms: Date.now() - t0 }, [out.buffer]); };"].join("\n");
+  function imgOf(t) { var im = t && (t.image || (t.source && t.source.data)); if (!im) return null; if (typeof HTMLCanvasElement !== "undefined" && im instanceof HTMLCanvasElement) return im.width > 8 ? im : null; if (typeof HTMLImageElement !== "undefined" && im instanceof HTMLImageElement) return im.complete && im.naturalWidth > 8 ? im : null; if (typeof ImageBitmap !== "undefined" && im instanceof ImageBitmap) return im.width > 8 ? im : null; return null; }
+  function canRead(t) { var im = t && (t.image || (t.source && t.source.data)); return !!im && !t.isCompressedTexture && !t.isDataTexture && ((typeof HTMLCanvasElement !== "undefined" && im instanceof HTMLCanvasElement) || (typeof HTMLImageElement !== "undefined" && im instanceof HTMLImageElement) || (typeof ImageBitmap !== "undefined" && im instanceof ImageBitmap)); }
+  function surfQueue(m, rk) { if (m.map.flipY === false || !canRead(m.map) || tinyTex(m.map) || (m.normalMap && m.normalMap !== FLATN && (m.normalMap.flipY === false || !canRead(m.normalMap)))) { if (m.normalMap === FLATN) m.userData.riU.uRiM.value.w = 1; return; } var key = m.map.uuid + "|" + (m.normalMap && m.normalMap !== FLATN ? m.normalMap.uuid : "-") + "|" + rk; var L = SURF.wait.get(key); if (!L) { L = []; SURF.wait.set(key, L); SURF.Q.push({ key: key, m: m, map: m.map, nrm: m.normalMap && m.normalMap !== FLATN ? m.normalMap : null, rk: rk, t: 0 }); SURF.n.queued++; } L.push(m); var D = SURF.done.get(key); if (D) surfApply(key, D); }
+  function surfApply(key, tex) { var L = SURF.wait.get(key) || []; for (var i = 0; i < L.length; i++) { var m = L[i], old = m.normalMap; if (old === tex) continue; m.normalMap = tex; m.userData.riU.uRiM.value.w = 1; SURF.n.swaps++; if (old && old !== FLATN) surfFree(old); } }
+  // a painter's normal map nothing draws with any more goes from the GPU (its canvas stays with the module, for its own use)
+  function surfFree(old) { var used = false; try { var chk = function (c) { if (!c || used) return; for (var k in c) { var v = c[k]; if (v && v.isMaterial && v.normalMap === old) { used = true; return; } } }; var V = window.PLAN_ROOMS_VENUES, S = window.PLAN_ROOMS_SHOPS, H = window.PLAN_RH; chk(V && V.MT); chk(S && S.mat); chk(H && H.mt); } catch (e) {} if (!used) { old.userData.noWarm = true; try { old.dispose(); } catch (e) {} SURF.n.freed++; } }
+  function surfWorker() { if (SURF.wk || SURF.wkBad) return SURF.wk; try { if (typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined" || typeof createImageBitmap === "undefined") { SURF.wkBad = true; return null; } var u = URL.createObjectURL(new Blob([WK_SRC], { type: "text/javascript" })); SURF.wk = new Worker(u);
+      SURF.wk.onmessage = function (e) { var d = e.data, J = SURF.fly.get(d.id); SURF.fly.delete(d.id); if (SURF.busy && SURF.busy.id === d.id) SURF.busy = 0; if (!J) return; try { var t = new THREE.DataTexture(new Uint8Array(d.buf), d.w, d.h, THREE.RGBAFormat); t.wrapS = J.map.wrapS; t.wrapT = J.map.wrapT; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 8; t.colorSpace = THREE.NoColorSpace; t.name = "rl nrm " + (J.map.name || J.key.slice(0, 8)); t.userData.avShared = true; t.needsUpdate = true; t.onUpdate = function (tx) { if (tx.image && tx.image.data) tx.image = { width: tx.image.width, height: tx.image.height, data: null }; };   // the pixels live on the GPU once uploaded: the 1 to 4 MB array goes (120 MB of heap for the 39 maps otherwise)
+          SURF.done.set(J.key, t); surfApply(J.key, t); SURF.n.derive++; SURF.n.deriveMs += d.ms; try { if (window.PLAN_ROOMS && PLAN_ROOMS.warm) PLAN_ROOMS.warm(t); } catch (x) {} } catch (x) { note("surf map", x); } };
+      SURF.wk.onerror = function (e) { note("surf worker", e && e.message || "error"); SURF.busy = 0; SURF.fly.clear(); }; } catch (e) { note("surf worker", e); SURF.wkBad = true; } return SURF.wk; }
+  var SID = 0;
+  function surfIdle(now) {   // one job at a time; the decode and the work happen off the main thread
+    if (SURF.fly.size) SURF.fly.forEach(function (J, id) { if (now - J.t > 60000) SURF.fly.delete(id); });
+    if (!SURF.Q.length || SURF.busy && now - SURF.busy.t < 8000 || SURF.fly.size > 1) return; SURF.busy = 0; var wk = surfWorker(); if (!wk) { SURF.Q.length = 0; return; }
+    for (var i = 0; i < SURF.Q.length; i++) { var J = SURF.Q[i], a = imgOf(J.map), n = J.nrm ? imgOf(J.nrm) : null; if (!a || (J.nrm && !n)) continue; SURF.Q.splice(i, 1);
+      var sz = J.nrm ? Math.min(1024, n.width || 512) : Math.min(J.rk === "wood" || J.rk === "stone" ? 1024 : 512, Math.max(256, a.width || 512)); var W = sz, H = Math.max(64, Math.round(sz * ((a.height || sz) / (a.width || sz)))); if (J.nrm) H = Math.min(1024, n.height || W);   // floors and walls of wood and stone at up to 1024, the rest 512
+      J.id = ++SID; J.t = now; SURF.busy = J; SURF.fly.set(J.id, J); var q = RC[J.rk] || RC.plaster;   // a late answer still lands (in flight by id)
+      Promise.all([createImageBitmap(a, { resizeWidth: W, resizeHeight: H, resizeQuality: "high" }), n ? createImageBitmap(n, { resizeWidth: W, resizeHeight: H, resizeQuality: "high" }) : null]).then(function (bm) { var tr = [bm[0]]; if (bm[1]) tr.push(bm[1]); wk.postMessage({ id: J.id, w: W, h: H, a: bm[0], n: bm[1], q: q }, tr); }, function (e) { note("surf bitmap", e); SURF.fly.delete(J.id); SURF.busy = 0; });
+      return; }
+  }
+  // the shared uniforms: the room frame (detail axes, the probe's box) and whether the room's own capture is what the scene shows
+  var _m3 = new THREE.Matrix3(), _bc = new THREE.Vector3();
+  function surfFrame(R) {
+    var U = SURF.U, on = U.uRiOn.value; on.w = RL.part.surf && SURF.ready >= 6 ? 1 : 0;
+    if (!R) { if (on.x || on.y) { on.x = 0; on.y = 0; U.uRiRot.value.identity(); U.uRiPos.value.set(0, 0, 0); } return; }
+    if (SURF.R !== R) { SURF.R = R; _m3.setFromMatrix4(R.Mi); U.uRiRot.value.copy(_m3); var b = R.box; _bc.set((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2); U.uRiPos.value.copy(_bc).applyMatrix4(R.M);
+      U.uRiMin.value.set(b[0] - _bc.x, b[2] - _bc.y - 0.02, b[4] - _bc.z); U.uRiMax.value.set(b[1] - _bc.x, b[3] - _bc.y, b[5] - _bc.z); U.uRiCap.value.set(0, b[2] + Math.min(1.7, (b[3] - b[2]) * 0.45) - _bc.y, 0); }
+    var A = ENV.active, own = !!(A && A.R === R && scene.environment === A.rt.texture); var Lk = lookR(R);
+    on.x = own && RL.part.surf ? 1 : 0; on.y = own && RL.part.surf ? 1 : 0; on.z = (Lk.irr === undefined ? 0.75 : Lk.irr) * (R.k && R.k.irr || 1) * (1 + 0.3 * nightK());
+  }
+  RL.surfFrame = surfFrame;
+
   // ───────────────────────── the frame ─────────────────────────
   function enterRoom(R) { CUR.R = R; CUR.at = performance.now(); POOLX.snap = true; R.stamp++; if (!R.ready) { R.ready = true; } try { if (RL.atmoBegin) RL.atmoBegin(R); } catch (e) { note("atmo begin", e); } envBegin(R); try { floorBegin(R); } catch (e) { note("floor begin", e); } }
   function leaveRoom(R) { try { if (RL.atmoEnd) RL.atmoEnd(R); } catch (e) { note("atmo end", e); } floorEnd(); fillEnd(); envRestore(); if (ENV.job) { envJobEnd(ENV.job); ENV.job = null; } ENV.active = null; CUR.R = null; }
@@ -509,6 +730,7 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
     var R = null; try { R = resolve(); } catch (e) { note("resolve", e); }
     if (R !== CUR.R) { if (CUR.R) leaveRoom(CUR.R); if (R) enterRoom(R); }
     if (R) { try { fillFrame(R); } catch (e) { note("fill", e); } try { var sk = lookR(R).sky * (R.k && R.k.sky !== undefined ? R.k.sky : 1); if (sk !== 1 && typeof hemi !== "undefined" && hemi && hemi._intensity !== undefined) hemi._intensity *= sk; } catch (e) {}   /* the stored value (the client reports it x PI) */ try { envStep(); envFrame(R); } catch (e) { note("env", e); } try { if (RL.atmoFrame) RL.atmoFrame(R, dt, now); } catch (e) { note("atmo", e); } }
+    if (RL.r16) { try { surfFrame(R); if (SURF.Q.length) surfIdle(now); } catch (e) { note("surf", e); } }
     gradeFrame(R, dt);
   }
   function unhook(phase, name) { var a = window.PLAN_HOOKS[phase]; if (!a) return; for (var i = a.length - 1; i >= 0; i--) if (a[i] && a[i].name === name) a.splice(i, 1); }
@@ -518,7 +740,8 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   window.__rlqAll = [];
   if (RL.on) {
     window.PLAN_HOOKS.frame.push({ name: "planRoomLight", fn: frame });
-    window.PLAN_HOOKS.world.push({ name: "planRoomLightInstall", fn: function () { installPool(); drainQ(); RL.envPrep(); } });
+    window.PLAN_HOOKS.world.push({ name: "planRoomLightInstall", fn: function () { RL.tierPick(); installPool(); drainQ(); RL.envPrep(); try { RL.kitWarm(); } catch (e) { note("kit warm", e); } if (RL.part.surf) for (var dk in DK) detTex(dk); } });
   }
+  if (PREV && RL.on) { try { if (typeof scene !== "undefined" && scene && typeof renderer !== "undefined") { RL.tierPick(); installPool(); drainQ(); RL.envPrep(); RL.kitWarm(); if (RL.part.surf) for (var dk2 in DK) detTex(dk2); } } catch (e) { note("hot install", e); } }
   RL.state = function () { var R = CUR.R; return { room: R && R.id, type: R && R.type, fix: R && R.fix.length, slots: SP.map(function (s) { return s.c ? +(s.k).toFixed(2) : 0; }), spots: SS.map(function (s) { return s.c ? +(s.k).toFixed(2) : 0; }), env: !!(ENV.active && ENV.active.R === R), cache: ENV.cache.size, n: RL.n, part: RL.part, errs: RL.errs.length }; };
 })();

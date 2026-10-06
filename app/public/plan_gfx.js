@@ -525,6 +525,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "vec3 gfxGrade(vec3 c, float sky){ float sk = sky * uSkyGradeK; c *= mix(uGWB, vec3(1.0), sk * 0.6); float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, mix(mix(uGSatLo, uGSat, smoothstep(0.06, 0.4, l)), mix(1.0, uGSatSky, smoothstep(0.03, 0.22, l)), sk)); vec3 c0 = c; c = mix((c - uGPiv) * uGCon + uGPiv, c0, sk); l = clamp(dot(c, vec3(0.299, 0.587, 0.114)), 0.0, 1.0); c = mix(c * uGSh, c * uGHi, smoothstep(0.12, 0.82, l)); c += uGLift * (1.0 - c) * (1.0 - sk); return c; }"
   ].join("\n") + "\n";
 
+  GX.glsl = { uni: FIN_UNI, fn: FIN_FN };   // R16: plan_post.js builds its high / ultra passes on these (heat, floors, grade)
   // stable AO: a 4x4 interleaved pattern (no per-frame noise), horizon-style occlusion, then a 4x4 depth-aware box that cancels the pattern
   var AO_FRAG = [
     "varying vec2 vUv; uniform sampler2D tDepth; uniform vec2 uPx; uniform float uNear; uniform float uFar; uniform float uAspect; uniform vec2 uTan; uniform float uTime; uniform float uDirs; uniform float uRad;",
@@ -1336,6 +1337,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   PS_API.constellations = function (on) { if (on !== undefined) SK.conOn = !!on; return SK.conOn; };
   PS_API.targets = function () { if (!SK.moon) return []; try { return skTargets(); } catch (e) { skNote("targets", e); return []; } };
   PS_API.dirTo = function (name) { if (!SK.moon) return null; var d = skDirOf(name); return d ? d.slice() : null; };
+  // R16 integration: the real Sun for the client's light (written into a THREE.Vector3, no allocation); false until the sky is ready
+  PS_API.sunInto = function (v) { var s = SK.sunW; if (!s || !SK.moon || !v) return false; v.set(s[0], s[1], s[2]); return true; };
   PS_API.altAz = function (name) { if (!SK.moon) return null; var d = skDirOf(name); return d ? altaz(d) : null; };
   PS_API.telescopeView = function (target, fov, opts) { if (!GX.installed) return null; try { var t = new TeleView(target, fov, opts); t.render(); return t; } catch (e) { skNote("telescopeView", e); return null; } };
   PS_API.timeLapse = function (o) {
@@ -1373,7 +1376,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!ORIG.updateSky) ORIG.updateSky = updateSky; if (!ORIG.renderFrame) ORIG.renderFrame = renderFrame; if (!ORIG.initPost) ORIG.initPost = initPost;
     var us = ORIG.updateSky, rf = ORIG.renderFrame, ip = ORIG.initPost;
     updateSky = function (dt) { us(dt); if (!GX.installed) return; try { afterSky(dt || 0); } catch (e) { if (!GX.skyErr) { GX.skyErr = 1; note("afterSky", e); } } };
-    renderFrame = function () { var sv = typeof POST !== "undefined" ? POST.sunVis : 0; try { beforeRender(); skBeforeRender(); if (GX.storm.k > 0 && typeof POST !== "undefined") POST.sunVis = sv * (1 - GX.storm.k); } catch (e) { if (!GX.rfErr) { GX.rfErr = 1; note("beforeRender", e); } } try { rf(); } finally { if (typeof POST !== "undefined") POST.sunVis = sv; try { sgRestore(); } catch (e) {} } try { skAfterRender(); } catch (e) {} };
+    renderFrame = function () { var sv = typeof POST !== "undefined" ? POST.sunVis : 0; try { beforeRender(); skBeforeRender(); if (GX.storm.k > 0 && typeof POST !== "undefined") POST.sunVis = sv * (1 - GX.storm.k); } catch (e) { if (!GX.rfErr) { GX.rfErr = 1; note("beforeRender", e); } } try { var pp = window.PLAN_POST; if (!(pp && pp.render && pp.render(rf))) rf(); } finally { if (typeof POST !== "undefined") POST.sunVis = sv; try { sgRestore(); } catch (e) {} } try { skAfterRender(); } catch (e) {} };
     initPost = function () { ip(); try { if (GX.installed) { installPost(); applyTier(); } } catch (e) { note("installPost", e); } };
   }
   function unwrapGlobals() { if (ORIG.updateSky) updateSky = ORIG.updateSky; if (ORIG.renderFrame) renderFrame = ORIG.renderFrame; if (ORIG.initPost) initPost = ORIG.initPost; }
@@ -1459,6 +1462,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function unwrapObc(m) { var o = m.userData.gfxOrig; if (!o) return; m.onBeforeCompile = o.obc || THREE.Material.prototype.onBeforeCompile; if (o.key) m.customProgramCacheKey = o.key; else delete m.customProgramCacheKey; delete m.userData.gfxOrig; m.needsUpdate = true; }
   function installTerrain() {
+    if (window.PLAN_TERRAIN && PLAN_TERRAIN.owns && PLAN_TERRAIN.owns()) { GX.n.terrain = "plan_terrain"; return; }   // R16: plan_terrain.js shades the ground (?trn=0 gives it back)
     if (typeof GROUND_MATS === "undefined" || !GROUND_MATS[0]) return; var gm = GROUND_MATS[0];
     if (!TR.tex) { TR.ready = 0; TR.tex = { cal: layerTex("/tex/gfx_caliche.jpg"), lse: layerTex("/tex/gfx_sand.jpg"), grv: layerTex("/tex/gfx_gravel.jpg") }; if (GX.bootTier >= 2) { TR.tex.calN = layerTex("/tex/gfx_caliche_n.jpg", true); TR.tex.lseN = layerTex("/tex/gfx_sand_n.jpg", true); TR.tex.grvN = layerTex("/tex/gfx_gravel_n.jpg", true); } }
     var blank = TR.tex.cal;
@@ -1483,6 +1487,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var ROADS_T = { mats: [] };
   var ROAD_FRAG = "{ float ax = vMapUv.x; float al = vMapUv.y; float dd = length(vViewPosition); float nearT = 1.0 - smoothstep(30.0, 80.0, dd); float tr = exp(-pow((ax - 0.31) / 0.05, 2.0)) + exp(-pow((ax - 0.69) / 0.05, 2.0)); float wob = sin(al * 0.9 + ax * 3.0) * 0.012; float tr2 = exp(-pow((ax - 0.24 - wob) / 0.03, 2.0)) * 0.6 + exp(-pow((ax - 0.76 + wob) / 0.03, 2.0)) * 0.6; float tread = smoothstep(0.35, 0.65, fract(al * 26.0 + abs(ax - 0.5) * 4.0)); diffuseColor.rgb *= 1.0 - tr * (0.07 + 0.08 * tread * nearT) - tr2 * 0.05; diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.04, 1.0, 0.95), (1.0 - tr) * 0.3); }";
   function installRoads() {
+    if (window.PLAN_TERRAIN && PLAN_TERRAIN.ownsRoads && PLAN_TERRAIN.ownsRoads()) { GX.n.roads = "plan_terrain"; return; }   // R16: plan_terrain.js shades the dirt roads
     if (typeof EDGE_MATS === "undefined") return; var n = 0;
     EDGE_MATS.forEach(function (m) { if (!m || m.userData.gfxOrig) return; wrapObc(m, "road", function (sh) { if (sh.fragmentShader.indexOf("#include <map_fragment>") < 0) return; sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n" + ROAD_FRAG); }); ROADS_T.mats.push(m); n++; });
     GX.n.roads = n;
