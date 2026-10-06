@@ -1,5 +1,4 @@
 {
-  "_about": "R4 DOMES: every name, line of copy, size and position of the Dome Suites and the Grand Vault Domes (plan_domes.js). Positions are world metres (x east, z south); rot is the yaw in degrees (0 = the door faces south, +z; 90 = east). A suite's 'from' is the old plan building it replaces (skipped in the plan build); garden: a ring of path lights and planting round a suite set apart from its cluster. size: S, M or L (see sizes). pool: a plunge pool on the deck. model: the walk-in model suite of its cluster. R5: vaults.shape is a flattened dome (planP squares the plan, crownM broadens the crown, heightK and heightAdd set the height, lenK the length, cutK where the arched ends are cut, recess the glazing under the hood, winTop the side window height, winLen its length); vaults.venues[].sideWin lists the sides (1 east, -1 west) with a window band. No prices, no fee rates, no investment language.",
   "version": 1,
   "names": {
     "suites": "Dome Suites",
@@ -47,7 +46,7 @@
     },
     {
       "id": "south", "name": "South Ridge Dome Homes", "short": "South Ridge Dome Homes", "zone": "Stage Three · The Expanse",
-      "kicker": "Dome homes along the south edge · future, subject to rezoning",
+      "kicker": "Dome homes along the south edge · private residences",
       "hub": [575, 958], "status": "home",
       "suites": [
         { "id": "SR1", "from": "b0436", "size": "L", "pool": true, "model": true, "x": 612, "z": 974, "rot": -178.2 },
@@ -81,7 +80,7 @@
       "greet": ["Welcome in. The best table is the one by the glass at sunset.", "Good evening. The grill is going and the bar is open.", "Come in out of the sun. It is always cool under the vault."],
       "talk": [
         { "t": "Welcome to The Mesquite Room, the dining room and lounge under the vault. Everything here is cooked over mesquite and pecan wood. What can I tell you about?", "o": [["What is on the menu?", 1], ["Tell me about the bar", 2], ["What is this building?", 3], ["Thanks", null]] },
-        { "t": "A desert kitchen: mesquite grilled steaks and chicken, green chile stew, street corn, chiles rellenos, a citrus and prickly pear salad, and Sonoran hot dogs on the lounge menu for the late crowd. Breakfast on the deck from sunrise. The chalkboard by the kitchen has today's specials.", "o": [["Tell me about the bar", 2], ["What is this building?", 3], ["Thanks", null]] },
+        { "t": "A desert kitchen: mesquite grilled steaks and chicken, green chile stew, street corn, chiles rellenos, a citrus and prickly pear salad, and desert dogs on the lounge menu for the late crowd. Breakfast on the deck from sunrise. The chalkboard by the kitchen has today's specials.", "o": [["Tell me about the bar", 2], ["What is this building?", 3], ["Thanks", null]] },
         { "t": "The bar runs along the west side, with a back bar of local spirits, a prickly pear margarita our regulars swear by, and a zero proof list that is just as good. Sit at the counter and the bartender will look after you.", "o": [["What is on the menu?", 1], ["What is this building?", 3], ["Thanks", null]] },
         { "t": "It is one of the three Grand Vault Domes at Pavilion Green: a low dome of soft white panels over a near square floor, both arched ends fully glazed and a long window down the east side, so you can see the Grand Pavilion from your table on one side and the Club Dome Suites on the other. Saguaro Hall next door hosts the weddings, and Agave Studio the morning yoga.", "o": [["What is on the menu?", 1], ["Thanks", null]] }
       ]
@@ -126,7 +125,7 @@
     "doorOpen": "close the door · or walk in",
     "doorShut": "open the door",
     "guest": "occupied tonight · a guest suite",
-    "home": "a private residence · future, subject to rezoning",
+    "home": "a private residence",
     "tub": "slip into the hot tub",
     "pool": "sit on the edge of the plunge pool",
     "vaultDoorOpen": "close the doors · or walk in",
@@ -136,7 +135,7 @@
   "info": {
     "lodge": { "t": "The Club Dome Suites", "k": "Guest suites of The Landing Club · Stage One", "p": "Seven geodesic dome suites along Lodge Lane, each on its own raised timber deck with a cedar barrel hot tub, a fire pit, an outdoor dining table and string lights; some have a plunge pool. Three sizes sleep four, five or six guests. The Model Suite is open to everyone." },
     "commons": { "t": "The Commons Dome Suites", "k": "The glamping village of The Commons · Stage Three", "p": "Nine geodesic dome suites round the Glamp Loop, between the safari tents, each with a glass front to the desert, a wood stove, a king bed under a stargazing skylight and a private deck with a hot tub. The Model Suite beside the Commons circle is open, walk right in." },
-    "south": { "t": "South Ridge Dome Homes", "k": "Dome homes along the south edge · future, subject to rezoning", "p": "Six geodesic dome homes on South Ridge Lane with the open desert and the southern mountains behind them, each on a private deck with a hot tub, most with a plunge pool. The Model Home is open for a look. Future homes, subject to rezoning." },
+    "south": { "t": "South Ridge Dome Homes", "k": "Dome homes along the south edge · private residences", "p": "Six geodesic dome homes on South Ridge Lane with the open desert and the southern mountains behind them, each on a private deck with a hot tub, most with a plunge pool. The Model Home is open for a look." },
     "vaults": { "t": "The Grand Vault Domes", "k": "Pavilion Green · Stage One", "p": "Three low domes of soft white panels over near square floors, each end glazed in a great arch with glass doors and a long arched window band down the side: The Mesquite Room for dining, Saguaro Hall for weddings and celebrations, and Agave Studio for yoga and tea. Each stands on a timber deck with cable railings and string lights, beside the Grand Pavilion and The Chapel." }
   },
   "rooms": {

@@ -1,11 +1,10 @@
 {
- "_about": "R7 (2 Oct 2026): the Solport Convention Center campus festival grounds, campus paths, the shuttle drop-off and the campus event life. Read by plan_festival.js. World frame: x east, z south (north is -z). Hours are in-game hours (one in-game day is 24 real minutes). Every name and line of copy the player sees is here: no em dashes, no fee or charity-share figures.",
  "version": 1,
  "names": {
-  "campus": "Solport Convention Center",
+  "campus": "Sunfield Convention Center",
   "grounds": "The Festival Grounds",
   "short": "Festival Grounds",
-  "summit": "Solport Summit",
+  "summit": "Sunfield Summit",
   "kicker": "Lawn, bars, food trucks and the Side Stage",
   "dropoff": "Convention Center Drop-off",
   "stage": "The Side Stage"
@@ -661,7 +660,7 @@
       "S"
      ],
      [
-      "Stellar FBO",
+      "Terminal",
       "E"
      ]
     ]
@@ -672,7 +671,7 @@
     "face": 1.5708,
     "lines": [
      [
-      "Link Plaza and Stellar FBO",
+      "Link Plaza and Terminal",
       "E"
      ],
      [
@@ -718,7 +717,7 @@
       "N"
      ],
      [
-      "Stellar FBO",
+      "Terminal",
       "E"
      ]
     ]
@@ -969,7 +968,7 @@
  "paths": [
   {
    "id": "fest_link",
-   "name": "Festival Walk (to Link Plaza and the Stellar FBO)",
+   "name": "Festival Walk (to Link Plaza and Sunfield Terminal)",
    "w": 6,
    "pts": [
     [
@@ -1169,7 +1168,7 @@
    "id": "keynote",
    "start": 9.5,
    "end": 12.0,
-   "name": "Solport Summit Keynotes",
+   "name": "Sunfield Summit Keynotes",
    "where": "Keynote Hall",
    "crowd": {
     "stage": 0.0,
@@ -1271,10 +1270,9 @@
    "picnic": 0.06,
    "lawn": 0.04
   },
-  "screen": "SOLPORT SUMMIT"
+  "screen": "SUNFIELD SUMMIT"
  },
  "roam": {
-  "_about": "R10 (3 Oct 2026): the people who roam the campus (PLAN_ROAM in plan_festival.js) replace the baked crowd. Six to ten of them by the hour, a couple more for the Sunset DJ Set; a few take front-row seats for the keynote. names: one each (first names, the game's NPC style). lines: what they say now and then, by the kind of place; the zone lines under \"lines\" are used too.",
   "names": [
    "Ava",
    "Luis",
@@ -1310,7 +1308,7 @@
    ],
    "shuttle": [
     "The shuttle should be here any minute.",
-    "Grand Loop to the terminal, then the FBO.",
+    "Grand Loop to the terminal, then the Flight Line.",
     "Good thing the stop has shade."
    ],
    "hello": [
@@ -1328,7 +1326,7 @@
  "staff": {
   "jordan": {
    "name": "Jordan",
-   "role": "Campus host, Solport Convention Center",
+   "role": "Campus host, Sunfield Convention Center",
    "look": {
     "body": "f",
     "skin": "c98f63",
@@ -1343,7 +1341,7 @@
    ],
    "talk": [
     {
-     "t": "Welcome to the Festival Grounds at the Solport Convention Center. The arena is to the west, the Market Hall is to the south and the walk to the Stellar FBO starts at the east gate.",
+     "t": "Welcome to the Festival Grounds at the Sunfield Convention Center. The arena is to the west, the Market Hall is to the south and the walk to Sunfield Terminal starts at the east gate.",
      "o": [
       [
        "What is on today?",
@@ -1360,7 +1358,7 @@
      ]
     },
     {
-     "t": "The day runs from Sunrise Coffee through the Solport Summit Keynotes, Lunch on the Lawn and the Golden Hour Social. At sunset the DJ takes the Side Stage, then the Night Market opens in the Market Hall. The boards by the gates show what is on now.",
+     "t": "The day runs from Sunrise Coffee through the Sunfield Summit Keynotes, Lunch on the Lawn and the Golden Hour Social. At sunset the DJ takes the Side Stage, then the Night Market opens in the Market Hall. The boards by the gates show what is on now.",
      "o": [
       [
        "Where can I eat?",
@@ -1510,7 +1508,7 @@
   "lawn": [
    "The drapes look amazing with the light coming through.",
    "The shuttle drops off right by the north gate.",
-   "Walk to the FBO is about ten minutes from the east gate.",
+   "Walk to the terminal is about ten minutes from the east gate.",
    "Night Market later?"
   ]
  },
@@ -1528,7 +1526,7 @@
    ]
   },
   "tacos": {
-   "name": "SONORA TACOS",
+   "name": "DESERT TACOS",
    "sub": "Mesquite grilled street tacos",
    "body": "#c4623a",
    "trim": "#f3e3c8",
@@ -1553,7 +1551,7 @@
   },
   "pizza": {
    "name": "RED ROCK PIZZA",
-   "sub": "Wood fired in Douglas",
+   "sub": "Wood fired in the desert",
    "body": "#2a2a2c",
    "trim": "#e3a24a",
    "menu": [
@@ -1584,13 +1582,13 @@
  "info": {
   "grounds": {
    "t": "The Festival Grounds",
-   "k": "Solport Convention Center · Festival Grounds",
-   "p": "A lawn and decomposed granite plaza between the arena and the Market Hall: open-air bars, the Side Stage, food trucks along the west walk and picnic tables under white umbrellas. The boards show the Solport Summit schedule for the day. Sit at a table with E, dance on the floor in front of the Side Stage, and follow the Festival Walk east to Link Plaza and the Stellar FBO."
+   "k": "Sunfield Convention Center · Festival Grounds",
+   "p": "A lawn and decomposed granite plaza between the arena and the Market Hall: open-air bars, the Side Stage, food trucks along the west walk and picnic tables under white umbrellas. The boards show the Sunfield Summit schedule for the day. Sit at a table with E, dance on the floor in front of the Side Stage, and follow the Festival Walk east to Link Plaza and Sunfield Terminal."
   },
   "dropoff": {
    "t": "Convention Center Drop-off",
    "k": "Shuttle stop · Terminal Drive",
-   "p": "The drop-off for the Solport Convention Center, off Terminal Drive. Shuttle carts wait at the east end of the bay. The north gate of the Festival Grounds is a few steps south."
+   "p": "The drop-off for the Sunfield Convention Center, off Terminal Drive. Shuttle carts wait at the east end of the bay. The north gate of the Festival Grounds is a few steps south."
   },
   "stage": {
    "t": "The Side Stage",
@@ -1604,7 +1602,7 @@
   "talk": "talk"
  },
  "toast": {
-  "kicker": "SOLPORT SUMMIT",
+  "kicker": "SUNFIELD SUMMIT",
   "now": "Now",
   "next": "Next",
   "until": "until",

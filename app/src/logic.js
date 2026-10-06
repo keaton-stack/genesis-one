@@ -9,7 +9,7 @@
  * Pure rules only: no imports, no timers, no randomness, JSON state.
  */
 
-export const meta = { game: "Genesis One", minPlayers: 1, maxPlayers: 500 };
+export const meta = { game: "Genesis", minPlayers: 1, maxPlayers: 500 };
 
 // World bounds in metres from the apron origin (see public/site.json).
 const BOUND = 1400;

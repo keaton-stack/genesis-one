@@ -254,6 +254,22 @@
     });
   };
 
+  // R18 LD (HANDOFF_R18_LOADING.md): plan_perf's warm hold behind the loading screen streams the view set in full before the player
+  // enters: every kind placed within reach of the spawn in the first minutes (buildings within B m, tall props within P, small ones
+  // within S), first in the order, up to `conc` downloads at a time, parsed and swapped at once (nothing is drawn yet). Afterwards
+  // the rest streams as before (3 at a time, parse and swap in calm moments, warmed first).
+  PS.viewSet = function (B, P2, S2) {
+    var sx = 0, sz = 0; try { if (typeof player !== "undefined" && player) { sx = player.position.x; sz = player.position.z; } else { sx = TERM.exit[0]; sz = TERM.exit[1]; } } catch (e) {}
+    var out = []; for (var k in PROXY) { var s = PS.st[k]; if (s === "full" || s === "failed" || s === "dormant") continue; var L = placesOf(k).concat(groupSpots(k)), R = nearR(k, B, P2, S2), best = 1e12;
+      for (var i = 0; i < L.length; i++) { var d = Math.hypot(L[i][0] - sx, L[i][2] - sz); if (d < best) best = d; } if (best < R) out.push([k, best]); }
+    out.sort(function (a, b) { return a[1] - b[1]; }); return out.map(function (x) { return x[0]; });
+  };
+  PS.holdView = function (ks, on, conc) {
+    if (on) { if (PS.hold) return; PS.hold = { ks: ks.slice(), conc0: PS.K.conc, t0: Math.round(now()), mb0: PS.n.bytes }; PS.K.conc = conc || PS.K.conc; ks.forEach(function (k) { PRI[k] = 1; if (PS.st[k] === "wait" || PS.st[k] === "dormant") PS.st[k] = "proxy"; }); PS.force = true; ORD = []; kick(); return; }
+    var H0 = PS.hold; if (!H0) return; PS.K.conc = H0.conc0; H0.ks.forEach(function (k) { delete PRI[k]; }); PS.force = false; PS.hold = null; PS.lastHold = { kinds: H0.ks.length, ms: Math.round(now()) - H0.t0, mb: Math.round((PS.n.bytes - H0.mb0) / 1048576) }; ORD = []; kick();
+  };
+  PS.settled = settled;
+
   // per frame: motion (for the look-ahead), camera cuts and interior changes (the heavy moments)
   var lastIn = null, lastCam = null;
   function frameHook(dt) {

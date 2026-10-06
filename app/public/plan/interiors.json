@@ -1,5 +1,4 @@
 {
-  "_about": "Editable copy for plan_interiors.js (INT3, 30 Sep 2026): the clubhouse bartender, the restaurant server, the five restaurant venues (name, tagline, chalkboard menu, booth leather, feature wall) and the hangar home room notes. {club} and {venue} are filled in for the building the person stands in. Talk nodes: t = what they say, o = options [label, next node index or null to close]. No prices, no percentages.",
   "clubhouse": {
     "names": { "b0036": "The Landing Clubhouse", "b0292": "The Golf Clubhouse" },
     "bartender": {

@@ -459,6 +459,96 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // The client hides #load when the world is built. The first time it does, we put it back (in the same task, before a paint),
   // build a hidden sample of every interior, compile the whole scene and wait for the programs to link, then let it go.
   // A new player (the fly-in starts at once) is not held: the same work runs in idle time after the flight.
+  // ───────────────────────── R18 LD: the loading experience and the warm hold (HANDOFF_R18_LOADING.md) ─────────────────────────
+  // After a hard refresh the first minutes of play lagged badly (ultra, cold cache: 3 fps for the first 10 s after the loading screen,
+  // 13 fps to 30 s, frames up to 2.7 s): everything round the spawn drew for the first time as the player looked round (textures and
+  // buffers uploaded at their first draw, 290 MB in 10 s), and the stream swapped the nearby kinds in behind it. The loading screen
+  // now holds until the game is warm (watchLoad below, after the R9 shader pass):
+  //   1. the view set (every kind placed within reach of the spawn in the first minutes) streams in full, 3 downloads at a time,
+  //      started together with the shader pass;
+  //   2. two camera sweeps round the spawn behind the loading screen: every direction is drawn once (programs, textures, buffers,
+  //      shadow casters), the second after the view set is in;
+  //   3. the warm-up queue runs with a frame budget instead of idle slices, every program links, the FBO furniture prep (R9y) runs;
+  //   4. a settle window: LD.K.settleN frames in a row under LD.K.settleMs (100 ms, a hitch) with no new program.
+  // Real progress on the bar and in the step list, an "Enter now" button after 15 s, a cap of LD.K.cap after the world is built.
+  // ?ld=0: the R9 hold of before (no stream, no sweeps, no settle); ?ldcap=<s> another cap.
+  var LD = P.ld = { on: !/[?&]ld=0\b/.test(Q), K: { cap: 50000, go: 15000, viewB: 520, viewP: 300, viewS: 160, conc: 3, qBudget: 22, texBudget: 18, texR: 420, settleN: 40, settleMs: 100, settleMax: 7000, sweepMs: 4200 }, n: {}, skip: false, active: false, v: 0, step: "", sweep: null, settle: null };
+  (function () { var m = /[?&]ldcap=(\d+)/.exec(Q); if (m) LD.K.cap = +m[1] * 1000; })();
+  var LDW = { build: [0, 0.38], shaders: [0.38, 0.27], warm: [0.65, 0.35] }, LDS = ["world", "shaders", "stream", "tex", "warm"];
+  function ldEl(id) { return document.getElementById(id); }
+  function ldBar(phase, f) { var w = LDW[phase]; if (!w) return; f = Math.max(0, Math.min(1, f || 0)); var v = w[0] + w[1] * f; if (v < LD.v) v = LD.v; LD.v = v;
+    try { var b = ldEl("loadbar"), t = ldEl("ldpct"); if (b) b.style.width = (v * 100).toFixed(1) + "%"; if (t) t.textContent = Math.floor(v * 100) + "%"; } catch (e) {} }
+  function ldStep(k) { if (LD.step === k) return; LD.step = k; var i0 = k === "done" ? LDS.length : LDS.indexOf(k); try { var L = ldEl("ldsteps"); if (!L) return; L.querySelectorAll("li").forEach(function (li) { var i = LDS.indexOf(li.getAttribute("data-k")); li.classList.toggle("ok", i < i0); li.classList.toggle("on", i === i0); }); } catch (e) {} }
+  function ldMsg(s) { try { var m = ldEl("loadmsg"); if (m && s) m.textContent = s; } catch (e) {} }
+  // the client's setLoad (world build, 0 to 1) and plan_perf's shader pass report here
+  LD.build = function (p, m) { ldStep("world"); ldBar("build", p); if (m) ldMsg(m); };
+  LD.shaders = function (s) { ldStep("shaders"); var m = /(\d+)%/.exec(s || ""), f = m ? +m[1] / 100 : 0; ldBar("shaders", /interiors/.test(s || "") ? 0.35 * f : /graphics \d/.test(s || "") ? 0.4 + 0.6 * f : 0.05); ldMsg(s); };
+  (function ldBind() {
+    var b = ldEl("ldgo"); if (b) b.addEventListener("click", function () { if (LD.skip) return; LD.skip = true; LD.n.skipAt = Math.round(now()); b.textContent = "Entering"; b.disabled = true; });
+    var iv = setInterval(function () { var L = ldEl("load"); if (!L) return; if (L.classList.contains("off") && PRE.state >= 2) { clearInterval(iv); L.classList.remove("ld-can-go"); return; } L.classList.toggle("ld-can-go", now() > LD.K.go && PRE.state >= 1 && !LD.skip); }, 250);
+  })();
+  function ldSettled(PSm, k) { var s = PSm.st[k]; return s === "full" || s === "failed" || s === "dormant"; }
+  // per frame while the hold runs (the perf frame hook): the sweep turns the view, the warm-up queue gets a budget, the settle counts
+  var LDF = { pg: -1, last: 0 };
+  // the textures of every kind streamed in full for the hold (the boot set and the view set) are uploaded a few a frame as the kinds
+  // land: they are drawn in the first minutes anyway, and R6 drops a KTX2 texture's transcoded data from the heap 10 s after its
+  // upload (a texture never uploaded keeps it, and the heap is already near 3 GB of its 4 GB limit while the world streams)
+  var LDT = { seen: {}, q: [], n: 0, ms: 0 };
+  function ldTexScan(PSm) { var ks = (PSm.bootKinds || []).concat(PSm.hold ? PSm.hold.ks : []);
+    for (var i = 0; i < ks.length; i++) { var k = ks[i]; if (LDT.seen[k] || PSm.st[k] !== "full") continue; LDT.seen[k] = 1; var m = MODELS[k]; if (!m || !m.parts) continue;
+      m.parts.forEach(function (pt) { var ms = Array.isArray(pt.material) ? pt.material : [pt.material]; ms.forEach(function (mt) { if (!mt) return; for (var key in mt) { var v = mt[key]; if (v && v.isTexture && !v.isRenderTargetTexture && !v.isVideoTexture && !LDTS.has(v)) { LDTS.add(v); LDT.q.push(v); } } }); }); } }
+  function ldTexUp(budget) { var t0 = now(), n = 0; while (LDT.q.length && (n === 0 || now() - t0 < budget)) { var tx = LDT.q.shift(); try { if (texReady(tx) && texPending(tx)) { renderer.initTexture(tx); LDT.n++; n++; } } catch (e) { note("ld tex", e); } } LDT.ms += now() - t0; }
+  // and the textures of everything else drawn in the scene within LD.K.texR of the spawn (the modules' own meshes; hidden groups
+  // are left to their first draw): the first steps away from the spawn drew them for the first time (330 MB in the first 10 s)
+  var LDTS = new Set();
+  function ldTexScene() { var t0 = now(), sc = G("scene"), c = new THREE.Vector3(), R2 = LD.K.texR * LD.K.texR, px = 0, pz = 0, n = 0; try { px = player.position.x; pz = player.position.z; } catch (e) {} if (!sc) return;
+    sc.traverseVisible(function (o) { var ms = o.material; if (!ms || !(o.isMesh || o.isPoints || o.isSprite)) return; if (!o.isInstancedMesh) { c.setFromMatrixPosition(o.matrixWorld); var dx = c.x - px, dz = c.z - pz; if (dx * dx + dz * dz > R2) return; }
+      ms = Array.isArray(ms) ? ms : [ms]; for (var i = 0; i < ms.length; i++) { var mt = ms[i]; if (!mt) continue; for (var key in mt) { var v = mt[key]; if (v && v.isTexture && !v.isRenderTargetTexture && !v.isVideoTexture && !LDTS.has(v)) { LDTS.add(v); LDT.q.push(v); n++; } } } });
+    LD.n.texScene = (LD.n.texScene || 0) + n; LD.n.texSceneMs = (LD.n.texSceneMs || 0) + Math.round(now() - t0); }
+  LD.tex = LDT;
+  function ldFrame() {
+    var t = now(), dt = LDF.last ? t - LDF.last : 0; LDF.last = t;
+    var PSm = window.PLAN_STREAM; if (LD.on && ((PSm && PSm.hold) || LD.active)) {   /* from the start of the shader pass: the view set's textures go up as it lands, and the heap guard */ try { if (PSm && PSm.st) ldTexScan(PSm); ldTexUp(LD.K.texBudget); } catch (e) { note("ld tex", e); }
+      try { var mem = performance.memory; if (mem && mem.jsHeapSizeLimit) { var hi = mem.usedJSHeapSize > 0.66 * mem.jsHeapSizeLimit; if (PSm && PSm.hold) PSm.K.conc = hi ? 1 : LD.K.conc; if (hi) LD.n.heapHigh = (LD.n.heapHigh || 0) + 1; LD.n.heapMax = Math.max(LD.n.heapMax || 0, Math.round(mem.usedJSHeapSize / 1048576)); } } catch (e) {} }
+    if (!LD.active) return;
+    var sw = LD.sweep; if (sw) { var f = Math.min(1, (t - sw.t0) / LD.K.sweepMs); try { yaw = sw.yaw0 + f * Math.PI * 2; } catch (e) {} if (f >= 1) sw.done = true; }
+    try { runQueue(LD.K.qBudget); } catch (e) { note("ld queue", e); }
+    var pg = renderer.info.programs ? renderer.info.programs.length : 0, st = LD.settle;
+    if (st) { if (dt > 0 && dt < LD.K.settleMs && pg === LDF.pg && !sw) st.n++; else st.n = 0; st.best = Math.max(st.best || 0, st.n); }
+    LDF.pg = pg;
+  }
+  async function ldHold() {
+    var t0 = now(), base = P.n.clientReadyMs || t0, cap = base + LD.K.cap, PSm = window.PLAN_STREAM, ks = [], yaw0 = 0, ry0 = 0, sweeps = 0, got = 0;
+    LD.active = true; LD.n.h0 = Math.round(t0); try { yaw0 = yaw; ry0 = player.rotation.y; } catch (e) {}
+    try { ks = PSm && PSm.hold ? PSm.hold.ks : []; } catch (e) {}
+    try {
+      for (;;) {
+        var t = now(); if (LD.skip || t > cap) { LD.n.end = LD.skip ? "enter now" : "cap"; break; }
+        got = 0; for (var i = 0; i < ks.length; i++) if (ldSettled(PSm, ks[i])) got++;
+        var fs = ks.length ? got / ks.length : 1;
+        if (!LD.sweep && sweeps < 2 && (sweeps === 0 || fs >= 1)) { try { yaw0 = yaw; } catch (e) {} LD.sweep = { t0: t, yaw0: yaw0 }; try { ldTexScene(); } catch (e) { note("ld tex scene", e); } }
+        if (LD.sweep && LD.sweep.done) { sweeps++; LD.sweep = null; try { yaw = yaw0; } catch (e) {} LD.n["sweep" + sweeps] = Math.round(t - t0); }
+        var left = finishSome(t + 3), q = WQ.length;
+        if (fs < 1) { ldStep("stream"); ldMsg("Streaming the land around you (" + got + " of " + ks.length + ")"); }
+        else if (sweeps < 2 || LD.sweep) { ldStep("tex"); ldMsg("Drawing every direction once: textures, shadows, materials"); }
+        else { ldStep("warm"); if (!LD.settle) { LD.settle = { n: 0, t0: t }; LD.n.settle0 = Math.round(t - t0); } ldMsg(left || q || LDT.q.length ? "Final warm-up (" + (left + q + LDT.q.length) + " left)" : "Final warm-up: waiting for a steady frame rate");
+          if ((LD.settle.n >= LD.K.settleN && !left && !q && !LDT.q.length) || t - LD.settle.t0 > LD.K.settleMax) { LD.n.end = LD.settle.n >= LD.K.settleN ? "warm" : "settle timeout"; LD.n.settleBest = LD.settle.best || 0; break; } }
+        var sf = LD.settle ? Math.min(1, LD.settle.n / LD.K.settleN) : 0;
+        ldBar("warm", 0.55 * fs + 0.25 * (Math.min(2, sweeps + (LD.sweep ? 0.5 : 0)) / 2) + 0.2 * sf);
+        await sleep(100);
+      }
+    } finally {
+      if (LD.settle) LD.n.settleBest = LD.settle.best || 0;
+      LD.sweep = null; LD.settle = null; LD.active = false; try { yaw = yaw0; player.rotation.y = ry0; CAM.snap = 2; } catch (e) {}
+      try { if (PSm && PSm.holdView) PSm.holdView(null, false); } catch (e) { note("ld view off", e); }
+      LD.n.holdMs = Math.round(now() - t0); LD.n.texUp = LDT.n; LD.n.texMs = Math.round(LDT.ms); LD.n.view = ks.length; LD.n.got = got; LD.n.sweeps = sweeps; LD.n.totalMs = Math.round(now());
+      ldBar("warm", 1); ldStep("done"); ldMsg("Welcome to Genesis");
+    }
+  }
+  // the view set starts streaming with the shader pass (downloads and transcodes run in workers while the rooms are sampled)
+  function ldStart() { if (!LD.on) return; var PSm = window.PLAN_STREAM; try { if (PSm && PSm.live && PSm.viewSet && PSm.holdView && !PSm.done) { var ks = PSm.viewSet(LD.K.viewB, LD.K.viewP, LD.K.viewS); PSm.holdView(ks, true, LD.K.conc); LD.n.viewKinds = ks.length; } } catch (e) { note("ld view", e); } }
+  P.ldHold = ldHold;
+
   var PRE = P.pre = { state: 0 };
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function nextFrame() { return new Promise(function (r) { requestAnimationFrame(function () { r(); }); }); }
@@ -490,8 +580,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     kinds.sort(function (a, b) { var pa = a === "terminal" ? 1e6 : a === "arcade" ? 1e5 : PLACE[a].length, pb = b === "terminal" ? 1e6 : b === "arcade" ? 1e5 : PLACE[b].length; return pb - pa; });
     var n = 0, t0 = now();
     for (var i = 0; i < kinds.length; i++) {
-      if (now() > deadline) break; var k = kinds[i], e = PLACE[k][0];
-      say("Preparing the graphics: " + (k === "terminal" ? "the Stellar FBO" : k === "arcade" ? "the arcade" : "interiors " + Math.round(100 * i / kinds.length) + "%"));
+      if (now() > deadline || LD.skip) break; var k = kinds[i], e = PLACE[k][0];
+      say("Preparing the graphics: " + (k === "terminal" ? "the terminal" : k === "arcade" ? "the arcade" : "interiors " + Math.round(100 * i / kinds.length) + "%"));
       var keep = { p: player.position.clone(), yaw: yaw, pitch: pitch, ry: player.rotation.y, cp: camera.position.clone(), cq: camera.quaternion.clone() };
       try { enterInterior({ kind: k, i: 0, e: e, r: MODELS[k].radius * e[4] }); if (inside && inside.g) { try { collectLights(); } catch (x) {} both(inside.g); n++; } } catch (err) { note("pre room " + k, err); }
       if (k === "terminal" && inside && inside.g) { await nextFrame(); await nextFrame(); pinPrograms(); if (window.R9 && R9.part("p")) { try { await r9WarmProbes(); } catch (e) { note("pre probes fbo", e); } } }   // two frames in the FBO behind the loading screen: the gfx floor probe and the hall pay their first-time costs here
@@ -566,7 +656,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // program at a time, the next only when the last has linked. Walking in then finds them all ready. ?r9y=0 turns it off.
   var R9Y = P.r9y = { st: 0, jobs: null, i: 0, cur: null, t: 0, n: { built: 0, jobs: 0, compiled: 0, skipped: 0, ms: 0, waitMs: 0 } };
   function r9yOn() { return !!(window.R9 && R9.part("y")); }
-  function r9yCalm() { try { if (inside || riding || (FLY && FLY.on) || document.hidden) return false; if (typeof ARC !== "undefined" && ARC.on) return false; if (typeof golf !== "undefined" && golf.playing) return false; if (typeof cartMode !== "undefined" && cartMode) return false; if (typeof SIT !== "undefined" && SIT.on) return false; if (typeof airborne !== "undefined" && airborne) return false; var L = document.getElementById("load"); if (L && !L.classList.contains("off")) return false; } catch (e) { return false; } return true; }
+  function r9yCalm() { try { if (inside || riding || (FLY && FLY.on) || document.hidden) return false; if (typeof ARC !== "undefined" && ARC.on) return false; if (typeof golf !== "undefined" && golf.playing) return false; if (typeof cartMode !== "undefined" && cartMode) return false; if (typeof SIT !== "undefined" && SIT.on) return false; if (typeof airborne !== "undefined" && airborne) return false; var L = document.getElementById("load"); if (L && !L.classList.contains("off") && !LD.active) return false; } catch (e) { return false; } return true; }
   function r9yClone(m) {   // a stand-in that compiles to the same program: the same parameters, hooks and program key
     var c = m.clone(); var own = function (k) { return Object.prototype.hasOwnProperty.call(m, k); };
     if (own("onBeforeCompile")) c.onBeforeCompile = m.onBeforeCompile; if (own("customProgramCacheKey")) c.customProgramCacheKey = m.customProgramCacheKey; if (m._userObc !== undefined) c._userObc = m._userObc; c.name = m.name; return c;
@@ -608,11 +698,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (R9Y.st >= 3 || !r9yOn()) return; var PTm = window.PLAN_TERMINAL;
     if (!R9Y.fw) { R9Y.fw = true; var f0 = window.fade; if (typeof f0 === "function") window.fade = function () { R9Y.fadeAt = now(); return f0.apply(this, arguments); }; }   // a door's fade to black: the build can hide behind it
     if (R9Y.st === 0) {
-      if (!P.readyAt || !PTm || !PTm.tsetDone || (PTm.tsetMissing && PTm.tsetMissing().length)) return;
+      if (!(P.readyAt || LD.active) || !PTm || !PTm.tsetDone || (PTm.tsetMissing && PTm.tsetMissing().length)) return;
       if (!(PLACE.terminal && PLACE.terminal.length && MODELS.terminal)) { R9Y.st = 3; return; }
       if (!r9yCalm()) { R9Y.since = 0; try { if (inside && inside.door && inside.door.kind === "terminal") R9Y.st = 3; } catch (e) {} return; }   // walked in first: nothing left to prepare
       var tn = now(); if (!R9Y.since) R9Y.since = tn; var black = R9Y.fadeAt && tn - R9Y.fadeAt > 200 && tn - R9Y.fadeAt < 300;   // the fade is fully dark 0.25 s after it starts
-      if (!black && tn - R9Y.since < 20000) return;   // otherwise at most 20 s of calm later: one 45 ms task, against a 0.1 to 0.9 s stall at the walk-in
+      if (!black && !LD.active && tn - R9Y.since < 20000) return;   // otherwise at most 20 s of calm later: one 45 ms task, against a 0.1 to 0.9 s stall at the walk-in
       R9Y.n.hidden = black; R9Y.st = 1; R9Y.t0 = tn; r9yBuild(); if (!R9Y.jobs || !R9Y.jobs.length) R9Y.st = 3; return;
     }
     if (R9Y.st === 1) {
@@ -630,7 +720,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   async function runPre(hold) { P.inFrame = (P.inFrame || 0) + 1; try { return await runPre0(hold); } finally { P.inFrame--; } }   /* R5: the pre-compile renders never wait for a link either */
   async function runPre0(hold) {
     var t0 = now(), msg = document.getElementById("loadmsg"), deadline = t0 + P.K.preHold;
-    var say = function (s) { if (hold && msg) msg.textContent = s; };
+    var say = function (s) { if (hold && msg) { if (LD.on) LD.shaders(s); else msg.textContent = s; } };
     var c0 = renderer.info.programs.length; say("Preparing the graphics"); await nextFrame();
     if (hold) { try { await sampleRooms(say, t0 + P.K.preHold * 0.55); } catch (e) { note("pre rooms", e); } }
     try { sampleModules(); } catch (e) { note("pre modules", e); }
@@ -642,7 +732,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     P.n.preIssued = renderer.info.programs.length - c0;
     var pw = null; if (hold && window.R9 && R9.part("x")) { try { pw = r9WarmPrompt().catch(function (e) { note("pre prompt", e); }); } catch (e) { note("pre prompt", e); } }   // R9x: every width of the action prompt's blurred pill, invisibly, behind the loading screen, while the driver links the scene's programs
     if (P.r5 && P.r5.on && P.r5.ns && P.r5.ns.par) deadline = Math.max(deadline, now() + 45000);   /* R5: nothing blocks now, so the loading screen waits (animated) while the driver links, up to 45 s */
-    for (;;) { var left = finishSome(now() + 40); var tot = renderer.info.programs.length; say("Preparing the graphics " + Math.round(100 * (tot - left) / Math.max(1, tot)) + "%"); if (!left || now() > deadline) break; await sleep(left ? 16 : 0); }
+    for (;;) { var left = finishSome(now() + 40); var tot = renderer.info.programs.length; say("Preparing the graphics " + Math.round(100 * (tot - left) / Math.max(1, tot)) + "%"); if (!left || now() > deadline || LD.skip) break; await sleep(left ? 16 : 0); }
     if (pw) { try { await pw; } catch (e) {} }
     P.n.preMs = Math.round(now() - t0); P.n.prePrograms = renderer.info.programs.length; pinPrograms();
     if (finishSome(0) > 0) P.queue(function () { return finishSome(now() + 3) === 0 ? true : "later"; });
@@ -662,8 +752,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
           P.queue(function () { try { if (FLY.on) return false; } catch (e) {} try { sampleModules(); } catch (e) { note("pre modules", e); } PRE.state = 2; return true; });
           return;
         }
-        el.classList.remove("off");
-        runPre(true).catch(function (e) { note("pre", e); }).then(function () { PRE.state = 2; el.classList.add("off"); });
+        el.classList.remove("off"); ldStart();   // R18 LD: the view set streams while the shaders compile
+        runPre(true).catch(function (e) { note("pre", e); }).then(function () { if (LD.on) return ldHold(); }).catch(function (e) { note("ld hold", e); }).then(function () { PRE.state = 2; el.classList.add("off"); });
         return;
       }
       if (PRE.state === 2) ready();
@@ -688,7 +778,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   (function hookAll() {
     var set = function (phase, name, fn) { var list = window.PLAN_HOOKS[phase]; for (var i = 0; i < list.length; i++) if (list[i] && list[i].name === name) { list[i].fn = fn; return; } list.push({ name: name, fn: fn }); };
     set("world", "perfWorld", function () { install(); });
-    set("frame", "perfFrame", function (dt, t) { try { cullFrame(t); } catch (e) { note("cull frame", e); } try { r9yFrame(); } catch (e) { note("r9y", e); } });
+    set("frame", "perfFrame", function (dt, t) { try { cullFrame(t); } catch (e) { note("cull frame", e); } try { r9yFrame(); } catch (e) { note("r9y", e); } try { ldFrame(); } catch (e) { note("ld frame", e); } });
   })();
 
   // ───────────────────────── indoor portal culling ─────────────────────────

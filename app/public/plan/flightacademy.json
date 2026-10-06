@@ -1,9 +1,8 @@
 {
-  "_about": "R17 Agent A: the Genesis One Flight Academy (plan_flightacademy.js). Every name and line of copy, the site frame and the stamp chain. Local frame: x along Runway 03/21 toward the north-east, z toward the Flight Line Taxilane and the runway (south-east), from the site centre.",
   "version": 1,
   "site": { "a": -452, "c": -158, "pad": 12.75, "taxilane": "s2_taxilane" },
   "names": {
-    "academy": "Genesis One Flight Academy",
+    "academy": "Genesis Flight Academy",
     "short": "Flight Academy",
     "hangar": "Training Hangar",
     "sim": "Sim Center",
@@ -11,33 +10,33 @@
   },
   "fleet": ["G1-01", "G1-02", "G1-03", "G1-04"],
   "info": {
-    "forecourt": { "t": "Genesis One Flight Academy", "k": "Ground school, sim pods and the academy apron", "p": "The academy on the Flight Line: a glass and steel training hangar with three sim pods, ground-school classrooms, a briefing room, a pilot lounge and dispatch. Walk round a trainer on the apron, sit in on ground school, then climb into a sim pod and fly your first lesson. Your pilot logbook is at the dispatch counter." },
+    "forecourt": { "t": "Genesis Flight Academy", "k": "Ground school, sim pods and the academy apron", "p": "The academy on the Flight Line: a glass and steel training hangar with three sim pods, ground-school classrooms, a briefing room, a pilot lounge and dispatch. Walk round a trainer on the apron, sit in on ground school, then climb into a sim pod and fly your first lesson. Your pilot logbook is at the dispatch counter." },
     "apron": { "t": "Academy apron", "k": "Tie-downs on the Flight Line", "p": "Three high-wing trainers on tie-downs, chocks at the main wheels, the fuel truck by the hangar. The apron opens onto the Flight Line Taxilane, which runs along the field to Runway 03/21. Walk all the way round a trainer (the nose and propeller, both wing tips and the tail) for your preflight stamp." },
     "windsock": { "t": "Windsock", "k": "Read the wind before every flight", "p": "The sock points where the wind is going. Fully stretched out it means about fifteen knots; drooping means calm. The white circle round it is a segmented circle, the ground marker pilots look for from the air." },
     "fuel": { "t": "Fuel truck", "k": "Avgas for the trainers", "p": "The academy's refueller carries aviation gasoline for the piston trainers. A pilot checks the fuel on every walkaround: a sample from each tank, clear and blue, no water." },
     "hangar": { "t": "Training Hangar", "k": "Glass and steel on the flight line", "p": "A clear span of steel portal frames under a roof that lifts toward the apron, glass hangar doors that stack open, sandstone at the base and warm metal above. One trainer is in for its inspection; the sim pods line the back wall." },
-    "simcenter": { "t": "Sim Center", "k": "Three pods, one circuit", "p": "Each pod is a wrap-around cockpit set up for Giveback One. Press E at an open pod for a lesson: the sim puts you on Runway 03, you fly the nine gates of the Solport circuit and land on Runway 21, then come back here for your debrief." },
-    "briefing": { "t": "Briefing room", "k": "The Solport circuit on the wall", "p": "The big chart shows the field as a pilot sees it: Runway 03/21, the taxiways and the Flight Line Taxilane, and the nine gates of the lesson route from the Stellar FBO over Main Street, Compass Plaza, The Outpost, Desert Golf and Genesis Park to the right base for Runway 21." },
+    "simcenter": { "t": "Sim Center", "k": "Three pods, one circuit", "p": "Each pod is a wrap-around cockpit set up for Giveback One. Press E at an open pod for a lesson: the sim puts you on Runway 03, you fly the nine gates of the Sunfield circuit and land on Runway 21, then come back here for your debrief." },
+    "briefing": { "t": "Briefing room", "k": "The Sunfield circuit on the wall", "p": "The big chart shows the field as a pilot sees it: Runway 03/21, the taxiways and the Flight Line Taxilane, and the nine gates of the lesson route from the Terminal over Main Street, Compass Plaza, The Outpost, Desert Golf and Genesis Park to the right base for Runway 21." },
     "classroom": { "t": "Ground school", "k": "Lift, weight, thrust and drag", "p": "Ground school covers the four forces, the airspace, the weather and the radio before anyone flies. Take a seat for a lesson (sit at a desk or at the briefing table)." },
     "lounge": { "t": "Pilot lounge", "k": "Coffee with a view of the apron", "p": "Where students wait out the weather, log their hours and watch the trainers taxi out. The coffee is always on." },
     "dispatch": { "t": "Dispatch", "k": "Check in, sign out, log your flight", "p": "Every lesson starts and ends here. The flight board shows the day's lessons; the logbook on the stand keeps your stamps and every sim lesson you fly." },
-    "heritage": { "t": "An airfield since 1928", "k": "Douglas Municipal Airport, 1928", "p": "This field opened in 1928 as Douglas Municipal Airport, one of the first international airports in the United States, on the border with Agua Prieta, Sonora. The biplane over the hangar floor is a 1928-style trainer like the ones that flew from this field. Our students learn on the same ground." }
+    "heritage": { "t": "An airfield since 1928", "k": "The old municipal field, 1928", "p": "This field has been flying for almost a century, right on the border. The biplane over the hangar floor is a 1928-style trainer like the ones that flew from this field. Our students learn on the same ground." }
   },
   "staff": {
     "fa_torres": { "name": "Maya Torres", "role": "Chief Flight Instructor · Flight Academy", "at": [21.0, -15.6], "face": 3.1416, "look": { "skin": "b97f5c", "shirt": "e9e2d3", "pants": "1c1f24", "hair": 1, "body": "f" }, "outfit": "outfit_flight",
       "greet": ["Welcome to the flight line.", "Pods are warm, the circuit is set."],
       "talk": [
-        { "t": "Welcome to the Genesis One Flight Academy. Ground school in the classrooms, the plan in the briefing room, and three sim pods back here for the flying. Ready to start a logbook?", "o": [["How do lessons work?", 1], ["What should I learn first?", 2], ["Tell me about this field", 3], ["See you on the flight line", null]] },
-        { "t": "Step up to any open sim pod and press E. The pod puts you in the left seat of Giveback One, lined up on Runway 03. Fly the nine gates of the Solport circuit, land on Runway 21 and stop. When you come back, your debrief and a logbook entry are waiting at the pod.", "o": [["What counts in the score?", 4], ["Back", 0]] },
+        { "t": "Welcome to the Genesis Flight Academy. Ground school in the classrooms, the plan in the briefing room, and three sim pods back here for the flying. Ready to start a logbook?", "o": [["How do lessons work?", 1], ["What should I learn first?", 2], ["Tell me about this field", 3], ["See you on the flight line", null]] },
+        { "t": "Step up to any open sim pod and press E. The pod puts you in the left seat of Giveback One, lined up on Runway 03. Fly the nine gates of the Sunfield circuit, land on Runway 21 and stop. When you come back, your debrief and a logbook entry are waiting at the pod.", "o": [["What counts in the score?", 4], ["Back", 0]] },
         { "t": "Start with a walkaround. Before every flight a pilot checks the aircraft: the nose and propeller, each wing tip, the tail. Walk all the way round one of our trainers on the apron, then sit in on ground school, then fly the sim.", "o": [["Back", 0]] },
-        { "t": "This field opened in 1928 as Douglas Municipal Airport, one of the first international airports in the United States, right on the border with Agua Prieta, Sonora. Our students fly from the same ground. The display in the lobby tells the story.", "o": [["Back", 0]] },
+        { "t": "This field has been flying for almost a century, right on the border. Our students fly from the same ground. The display in the lobby tells the story.", "o": [["Back", 0]] },
         { "t": "Gates, your touchdown rate, the centreline, the touchdown zone, smoothness and time. A gentle, centred landing on the aim point beats a fast one. Keep the sink rate under six hundred feet a minute and the wings level.", "o": [["Back", 0]] }
       ] },
     "fa_sam": { "name": "Sam Whitfield", "role": "Dispatch · Flight Academy", "at": [2.1, -23.6], "face": -1.5708, "look": { "skin": "e1b48f", "shirt": "2f4a3a", "pants": "2a2d33", "hair": 2, "body": "m" },
       "greet": ["Dispatch, good morning.", "Sign in and grab a pod."],
       "talk": [
         { "t": "Dispatch. The pods are open and Giveback One is on its stand by the Tower. Your logbook is on the stand right here: press E at it any time.", "o": [["What's on the board today?", 1], ["Where do I start?", 2], ["Thanks", null]] },
-        { "t": "Circuits all day: the Solport circuit in the sims, ground school on the hour in the classroom, walkarounds on the apron between lessons. Night lessons when the stars come out.", "o": [["Back", 0]] },
+        { "t": "Circuits all day: the Sunfield circuit in the sims, ground school on the hour in the classroom, walkarounds on the apron between lessons. Night lessons when the stars come out.", "o": [["Back", 0]] },
         { "t": "Walk round a trainer on the apron, sit in on ground school, then talk to Maya in the hangar about your first sim lesson. Every step stamps your logbook.", "o": [["Back", 0]] }
       ] }
   },
@@ -45,16 +44,16 @@
     "people": ["Ava", "Kai", "Priya", "Jonah", "Lena", "Marco", "Tess", "Omar"],
     "lines": {
       "walk": ["Fuel's clear, no water.", "Left wing tip, check.", "Control surfaces free and correct.", "Pitot cover off."],
-      "class": ["So the wing makes lift from the angle of attack...", "What's the frequency for Solport?", "I keep forgetting the left-turn rule."],
+      "class": ["So the wing makes lift from the angle of attack...", "What's the frequency for Sunfield?", "I keep forgetting the left-turn rule."],
       "map": ["Gate five is Desert Golf, then Genesis Park.", "Right base for Runway 21, got it."],
       "lounge": ["Did you grease it?", "Six hundred feet a minute, max.", "Best score this week, look."],
       "sim": ["My turn in pod two.", "I bounced it twice.", "Flaps thirty-five, one-ten knots."],
-      "heritage": ["1928, the same field.", "Imagine landing a biplane here."],
+      "heritage": ["Almost a century of flying, same field.", "Imagine landing a biplane here."],
       "chat": ["Winds are calm today.", "Runway 21 in use.", "See you at the debrief."]
     }
   },
   "lesson": {
-    "title": "Lesson 1 · The Solport circuit",
+    "title": "Lesson 1 · The Sunfield circuit",
     "brief": "The sim puts you in the left seat of Giveback One on Runway 03. Fly the nine gates, then land on Runway 21 in the green zone and stop.",
     "steps": [
       "The tug lines you up on Runway 03",
@@ -67,7 +66,7 @@
     "offline": "The sim cannot reach Giveback One right now. Try again in a moment."
   },
   "stamps": [
-    { "n": 389, "id": "p_fa_academy", "name": "Genesis One Flight Academy", "how": "Check in at dispatch (step into the lobby)" },
+    { "n": 389, "id": "p_fa_academy", "name": "Genesis Flight Academy", "how": "Check in at dispatch (step into the lobby)" },
     { "n": 390, "id": "t_fa_torres", "talk": "fa_torres", "kind": "local", "name": "Maya Torres", "org": "Chief Flight Instructor, Flight Academy", "how": "Talk to the chief flight instructor" },
     { "n": 391, "id": "p_fa_preflight", "name": "Preflight walkaround", "how": "Walk round a trainer: nose, both wing tips, tail" },
     { "n": 392, "id": "p_fa_groundschool", "name": "Ground school", "how": "Sit in on ground school or read the briefing chart" },

@@ -267,20 +267,20 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // the monument sign: bronze letters on a dark board
     var m = SA.r.mono; bronzePlate(x, m, "", ""); txt(x, "THE EXPANSE LIBRARY", m[0] + m[2] / 2, m[1] + 92, "700 76px " + FT.serif, "#e6c47e", 8, "center", m[2] - 80); txt(x, "AND THE 1928 ARCHIVE", m[0] + m[2] / 2, m[1] + 166, "400 46px " + FT.serif, "#efe2c4", 10, "center", m[2] - 80); txt(x, "BIBLIOTECA  ·  OPEN EVERY DAY", m[0] + m[2] / 2, m[1] + 218, "400 26px " + FT.serif, "#b8924e", 6, "center", m[2] - 80);
     bronzePlate(x, SA.r.vault, "THE 1928 ARCHIVE", null, 84);
-    bronzePlate(x, SA.r.mural, "DOUGLAS MUNICIPAL AIRPORT  ·  1928", "One of the first international airports in the United States, on the border with Agua Prieta, Sonora. An artist's impression of opening day.", 44, 25);
+    bronzePlate(x, SA.r.mural, "THE OLD MUNICIPAL FIELD  ·  1928", "Wheels down on the valley floor, a stone's throw from the line. An artist's impression of opening day.", 44, 25);
     bronzePlate(x, SA.r.prop, "A WOODEN PROPELLER", "Laminated hardwood and brass, from the open-cockpit years.", 34, 22);
-    bronzePlate(x, SA.r.mapL, "DOUGLAS AND AGUA PRIETA", "The valley, the line, the smelter and the field.", 32, 22);
-    bronzePlate(x, SA.r.smelt, "THE SMELTER YEARS", "Copper ores of the Bisbee mines, smelted here from 1904.", 34, 22);
+    bronzePlate(x, SA.r.mapL, "TWO TOWNS ON THE LINE", "The valley, the line, the smelter and the field.", 32, 22);
+    bronzePlate(x, SA.r.smelt, "THE SMELTER YEARS", "Copper ores from the mines up the road, smelted here for decades.", 34, 22);
     bronzePlate(x, SA.r.model, "A MODEL TRAINER", "A 1928-style open-cockpit biplane, in scale.", 34, 22);
     [["ph0", "WHEELS DOWN"], ["ph1", "THE SMELTER STACKS"], ["ph2", "A MAIN STREET ON THE LINE"], ["ph3", "OPENING DAY"]].forEach(function (q) { var r = SA.r[q[0]]; x.fillStyle = "#e9dcc0"; x.fillRect(r[0], r[1], r[2], r[3]); x.strokeStyle = "#6a4a2a"; x.lineWidth = 3; x.strokeRect(r[0] + 5, r[1] + 5, r[2] - 10, r[3] - 10); txt(x, q[1], r[0] + r[2] / 2, r[1] + r[3] / 2, "700 30px " + FT.serif, "#3a2716", 4, "center", r[2] - 30); });
-    card(x, SA.r.tl0, "1901", "A TOWN ON THE BORDER", "Douglas is laid out on the open flats of the Sulphur Springs Valley, beside the border.");
-    card(x, SA.r.tl1, "1904", "THE SMELTER YEARS", "Copper from the Bisbee mines is smelted here, and the young town grows fast.");
+    card(x, SA.r.tl0, "1900s", "A TOWN ON THE BORDER", "The town is laid out on the open flats of the wide valley, beside the border.");
+    card(x, SA.r.tl1, "COPPER", "THE SMELTER YEARS", "Copper from the mines up the road is smelted here, and the young town grows fast.");
     card(x, SA.r.tl2, "RAIL", "RAILS AND RANCHES", "Trains, cattle and cotton tie the valley to the rest of the country.");
     card(x, SA.r.tl3, "1920s", "BARNSTORMERS", "Open cockpits and packed-earth strips: the first flyers land on the valley floor.");
-    card(x, SA.r.tl4, "1928", "WHEELS DOWN", "The Douglas airfield opens: one of the first international airports in the United States.");
-    card(x, SA.r.tl5, "TODAY", "SOLPORT", "The 1928 airfield flies on as Solport: Runway 03/21, the same field.");
-    [["s0", "QUIET PLEASE · SILENCIO"], ["s1", "CIRCULATION"], ["s2", "REFERENCE"], ["s3", "FICTION"], ["s4", "ARIZONA"], ["s5", "AVIATION"], ["s6", "THE NIGHT SKY"], ["s7", "THE 1928 ARCHIVE"]].forEach(function (q) { woodBoard(x, SA.r[q[0]], q[1], q[1].length > 14 ? 24 : 32); });
-    var f = SA.r.files; x.fillStyle = "#d8ccb0"; x.fillRect(f[0], f[1], f[2], f[3]); for (var i = 0; i < 8; i++) { x.strokeStyle = "#5a4630"; x.lineWidth = 2; x.strokeRect(f[0] + i * 128 + 8, f[1] + 10, 112, 44); txt(x, ["SURVEYS", "FIELD PLANS", "THE LINE", "RAILROAD", "SMELTER", "RANCHES", "AIR MAIL", "MISC."][i], f[0] + i * 128 + 64, f[1] + 32, "700 15px " + FT.serif, "#3a2716", 1, "center", 104); }
+    card(x, SA.r.tl4, "1928", "WHEELS DOWN", "The airfield opens: packed earth, a hangar, a windsock and a town in its Sunday best.");
+    card(x, SA.r.tl5, "TODAY", "SUNFIELD", "The old airfield flies on as Sunfield: the same runway, the same field.");
+    [["s0", "QUIET PLEASE · SILENCIO"], ["s1", "CIRCULATION"], ["s2", "REFERENCE"], ["s3", "FICTION"], ["s4", "HIGH DESERT"], ["s5", "AVIATION"], ["s6", "THE NIGHT SKY"], ["s7", "THE 1928 ARCHIVE"]].forEach(function (q) { woodBoard(x, SA.r[q[0]], q[1], q[1].length > 14 ? 24 : 32); });
+    var f = SA.r.files; x.fillStyle = "#d8ccb0"; x.fillRect(f[0], f[1], f[2], f[3]); for (var i = 0; i < 8; i++) { x.strokeStyle = "#5a4630"; x.lineWidth = 2; x.strokeRect(f[0] + i * 128 + 8, f[1] + 10, 112, 44); txt(x, ["OLD MAPS", "FIELD PLANS", "THE LINE", "RAILROAD", "SMELTER", "RANCHES", "AIR MAIL", "MISC."][i], f[0] + i * 128 + 64, f[1] + 32, "700 15px " + FT.serif, "#3a2716", 1, "center", 104); }
   }); }
   // bronze lettering on transparent (alpha tested): row 0 EXPANSE LIBRARY, row 1 THE 1928 ARCHIVE
   function letterTex() { return canvasTex("letters", 2048, 256, function (x, W, H) {
@@ -290,7 +290,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     x.strokeStyle = "#8a6a3a"; x.lineWidth = 14; x.beginPath(); x.arc(c, c, c - 16, 0, TAU); x.stroke(); x.strokeStyle = "#2a2118"; x.lineWidth = 3; x.beginPath(); x.arc(c, c, c - 70, 0, TAU); x.stroke();
     for (var i = 0; i < 60; i++) { var a = i / 60 * TAU, r0 = c - 34, r1 = i % 5 ? c - 44 : c - 58; x.strokeStyle = "#2a2118"; x.lineWidth = i % 5 ? 3 : 7; x.beginPath(); x.moveTo(c + Math.sin(a) * r0, c - Math.cos(a) * r0); x.lineTo(c + Math.sin(a) * r1, c - Math.cos(a) * r1); x.stroke(); }
     var RN = ["XII", "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "IX", "X", "XI"]; RN.forEach(function (n, i) { var a = i / 12 * TAU, r = c - 102; x.save(); x.translate(c + Math.sin(a) * r, c - Math.cos(a) * r); x.rotate(a); txt(x, n, 0, 0, "700 40px " + FT.serif, "#2a2118", 0); x.restore(); });
-    txt(x, "DOUGLAS", c, c + 70, "400 22px " + FT.serif, "#5a4630", 6); }); }
+    txt(x, "SUNFIELD", c, c + 70, "400 22px " + FT.serif, "#5a4630", 6); }); }
 
   // ───────────────────────── the exterior (built once, merged per material, in the building frame) ─────────────────────────
   var EX = LB.ex = LB.ex || { g: null, solids: [], lights: [], anim: {} };

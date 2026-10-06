@@ -1,5 +1,4 @@
 {
-  "_about": "R8 Solar Cart Park, Shuttle Hub and Market Garden (plan_solarpark.js). Every name and line of copy. Rules: no em dashes, no percentages, no fees, no prices.",
   "version": 1,
   "names": {
     "park": "SOLAR CART PARK",
@@ -34,7 +33,7 @@
         89
       ],
       "r": 80,
-      "k": "Solport Convention Center · park, charge, ride",
+      "k": "Sunfield Convention Center · park, charge, ride",
       "poly": [
         [
           -466,
@@ -63,7 +62,7 @@
         92
       ],
       "r": 45,
-      "k": "Solport Convention Center · grown for the Market Hall",
+      "k": "Sunfield Convention Center · grown for the Market Hall",
       "poly": [
         [
           -244,
@@ -96,13 +95,13 @@
   "info": {
     "park": [
       "Solar Cart Park",
-      "Solport Convention Center · park under the sun",
+      "Sunfield Convention Center · park under the sun",
       "Thirty-five steel canopies carry the panels that run the campus and shade every bay. Golf carts park two to a bay and charge from the seventy pedestals while their owners are at the summit; the few car bays are by the connector to the Flight Line Gate road and by the Shuttle Hub, where the accessible bays are. The walk along the Market Hall takes you to its doors and on to the arena and the Festival Grounds."
     ],
     "hub": [
       "Shuttle Hub",
       "Grand Loop · bike share · cart share · drop-off",
-      "The Grand Loop electric shuttle calls here on every lap, then runs to the Convention Center drop-off, Link Plaza and the Stellar Aviation FBO, round all three stages to Main Street and the Commons and back. The board shows the next shuttle. Bikes and carts are free to borrow: leave them in any share bay."
+      "The Grand Loop electric shuttle calls here on every lap, then runs to the Convention Center drop-off, Link Plaza and the Sunfield Terminal, round all three stages to Main Street and the Commons and back. The board shows the next shuttle. Bikes and carts are free to borrow: leave them in any share bay."
     ],
     "ev": [
       "Cart charging",
@@ -116,7 +115,7 @@
     ],
     "garden": [
       "Market Garden",
-      "Solport Convention Center · a working desert farm",
+      "Sunfield Convention Center · a working desert farm",
       "Raised timber and corten beds of chiles, squash, herbs, greens and tomatoes, rows of corn, a citrus, pomegranate and olive orchard and a hoop greenhouse, all on drip lines. Everything goes fifty metres to the Market Hall kitchens, and what is left goes on the farm stand."
     ],
     "greenhouse": [
@@ -199,11 +198,11 @@
     "greet": [
       "Welcome to the garden.",
       "Mind the hens.",
-      "Everything here is grown 50 m from Sonoran Kitchen."
+      "Everything here is grown 50 m from Desert Kitchen."
     ],
     "talk": [
       {
-        "t": "Welcome to the Market Garden. Everything you see is grown 50 m from Sonoran Kitchen and the rest of the Market Hall: chiles, squash, corn, greens, tomatoes, herbs, citrus and eggs.",
+        "t": "Welcome to the Market Garden. Everything you see is grown 50 m from Desert Kitchen and the rest of the Market Hall: chiles, squash, corn, greens, tomatoes, herbs, citrus and eggs.",
         "o": [
           [
             "How do you farm in the desert?",
@@ -233,7 +232,7 @@
         ]
       },
       {
-        "t": "Most of it. Rosa at Sonoran Kitchen takes the chiles, corn and squash for her bowls, the coffee bar gets the citrus, and the eggs go to breakfast. The kitchens send their scraps back for the compost.",
+        "t": "Most of it. Rosa at Desert Kitchen takes the chiles, corn and squash for her bowls, the coffee bar gets the citrus, and the eggs go to breakfast. The kitchens send their scraps back for the compost.",
         "o": [
           [
             "A proper loop",
@@ -344,7 +343,7 @@
         "match": "convention center"
       },
       {
-        "label": "Stellar Aviation FBO",
+        "label": "Sunfield Terminal",
         "sub": "Arrivals Court",
         "match": "arrivals court"
       },
@@ -364,7 +363,7 @@
     "Solar Cart Park",
     "Convention Center",
     "Link Plaza",
-    "Arrivals Court (FBO)",
+    "Arrivals Court (Terminal)",
     "Crossing Plaza",
     "North Gate",
     "Night Field Gate",

@@ -1,9 +1,8 @@
 {
-  "_about": "R17 rodeo arena and saloon (plan_rodeo.js): every name and line of copy, the schedule, the riders, the staff talk cards, the roaming people and the stamp proposal. Edit the copy here; the module has the same values built in as a fallback.",
   "names": { "venue": "The Copper Chute", "short": "The Copper Chute", "kicker": "Saloon, steakhouse and rodeo arena", "mbull": "THE IRON BULL" },
   "schedule": { "slack": [14, 16], "night": [18.5, 22.5] },
   "info": {
-    "venue": { "t": "The Copper Chute", "k": "Saloon · steakhouse · rodeo arena", "p": "An Old West saloon and steakhouse joined to a working rodeo arena in the North Yard. Douglas grew up as a copper smelter town, so the name had to have copper in it. Bull riding and saddle bronc every evening, slack in the afternoon, brisket on the terrace." },
+    "venue": { "t": "The Copper Chute", "k": "Saloon · steakhouse · rodeo arena", "p": "An Old West saloon and steakhouse joined to a working rodeo arena in the North Yard. This town grew up around the copper smelters, so the name had to have copper in it. Bull riding and saddle bronc every evening, slack in the afternoon, brisket on the terrace." },
     "arena": { "t": "The arena", "k": "The Copper Chute · deep dirt, pipe fence", "p": "Forty-eight metres of deep raked dirt inside a pipe fence, four bucking chutes on the saloon side, a return alley to the pens and six light towers for night events. The grandstand is covered; the regulars watch from the saloon deck." },
     "chutes": { "t": "The bucking chutes", "k": "Four chutes · the catwalk · the lead-up alley", "p": "Bulls and broncs come up the alley from the pens into the chutes. Riders settle on from the catwalk, wrap the rope and nod. The gate swings toward the arena and the clock starts." },
     "stand": { "t": "The grandstand", "k": "Seven rows under a corrugated roof", "p": "Covered seating along the arena, slatted end screens against the low afternoon sun from the south-west. Press E by a seat to sit and watch the next ride." },
@@ -19,7 +18,7 @@
   "staff": {
     "della": { "greet": ["Welcome to the Copper Chute."], "talk": [
       { "t": "Welcome to the Copper Chute. Saloon up front, steakhouse in back, and the best seat in the house is the rail on the deck when the chutes open. What can I get you?", "o": [["Why the Copper Chute?", 1], ["When is the rodeo?", 2], ["Thanks, Della", null]] },
-      { "t": "Douglas grew up around the copper smelters, so a place in this town had to have copper in its name. The chute is where every ride starts: eight seconds that feel like an hour.", "o": [["When is the rodeo?", 2], ["Thanks", null]] },
+      { "t": "This town grew up around the copper smelters, so a place here had to have copper in its name. The chute is where every ride starts: eight seconds that feel like an hour.", "o": [["When is the rodeo?", 2], ["Thanks", null]] },
       { "t": "Slack runs in the afternoon, two to four, when the young riders practice. Rodeo Night starts at half past six every evening: bulls and broncs under the lights, Hollis on the microphone. The iron bull in here runs all day.", "o": [["Thanks", null]] } ] },
     "lou": { "greet": ["Smell that?"], "talk": [
       { "t": "Brisket has been on since four this morning. Mesquite and oak, low and slow, a little salt and a lot of patience. Grab a plate and a seat under the ramada.", "o": [["What is your secret?", 1], ["Thanks, Lou", null]] },
@@ -39,7 +38,7 @@
   },
   "riders": {
     "bull": [["Wade Calloway", "Copper Kettle"], ["Jace Romero", "Smelter"], ["Kenzie Dawes", "Dust Devil"], ["Colt Begay", "Haboob"], ["Rafael Soto", "Mesquite Thunder"], ["Ty Harlan", "Slag Heap"]],
-    "bronc": [["Lane Archer", "Sundown"], ["Sadie Holt", "Border Ghost"], ["Eli Whitfield", "Prickly Pete"], ["Mara Quinn", "Chiricahua"]]
+    "bronc": [["Lane Archer", "Sundown"], ["Sadie Holt", "Border Ghost"], ["Eli Whitfield", "Prickly Pete"], ["Mara Quinn", "Ridge Runner"]]
   },
   "lines": {
     "out": ["Out of chute {n}, {rider} on {animal}!", "Chute {n}: {rider}, and {animal} is not in a good mood tonight!", "{rider} nods for {animal} in chute {n}. Here we go!"],
@@ -51,7 +50,7 @@
     "ride": "Hold on! Lean with A and D (or the arrows) when it turns, SPACE when it bucks.",
     "won": "EIGHT SECONDS! You rode the iron bull. Best {best} s", "thrown": "Thrown at {t} s. Best {best} s. Junie says: lean into the turn.", "off": "Off at {t} s. Best {best} s"
   },
-  "banners": ["GIVEBACK", "THE COPPER CHUTE", "RODEO NIGHT EVERY EVENING", "DOUGLAS ARIZONA", "BBQ ON THE TERRACE", "HOLD ON FOR EIGHT"],
+  "banners": ["GIVEBACK", "THE COPPER CHUTE", "RODEO NIGHT EVERY EVENING", "THE HIGH DESERT", "BBQ ON THE TERRACE", "HOLD ON FOR EIGHT"],
   "roam": {
     "people": ["Cody", "Rae", "Dalton", "Lupita", "Jessa", "Boone", "Tilly", "Rico"],
     "lines": {

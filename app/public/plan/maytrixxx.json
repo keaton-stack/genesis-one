@@ -1,0 +1,69 @@
+{
+ "version": "r18-mx-1",
+ "_edit": "Maytrixxx in the Lobby of the Genesis Block Museum (plan_maytrixxx.js). Edit any line freely: talk pages are {t: text, o: [[button, next page index or null to close]], act: optional one-off effect ('rain' = the green code rain, 'offer' = the open-palms gesture), stamp: true on the page that awards her passport stamp}. Copy rules: no em dashes, no fee or share numbers, $GBACK is a utility (never price, returns or buying), Giveback Ventures is its largest holder (never the issuer), no real place names.",
+ "spot": { "lx": 50.35, "lz": 0.55, "face": 0.62 },
+ "files": { "body": "/models/mx_maytrixxx.glb", "body_m": "/models_m/mx_maytrixxx.glb", "lod": "/models/lod/mx_maytrixxx.glb", "anim": "/models/mx_maytrixxx_anim.glb" },
+ "range": { "show": 70, "lod": 24, "greet": 7, "leave": 12, "label": 16, "look": 8 },
+ "id": "mx_maytrixxx",
+ "name": "Maytrixxx",
+ "role": "Giveback · your guide out of the old code",
+ "prompt": "talk to Maytrixxx · take the red pill",
+ "greet": [
+  "Psst. Over here. Ready to see the code behind the walls?",
+  "Welcome to the real world. Well, almost.",
+  "Red pill or green light? Come and find out."
+ ],
+ "ambient": [
+  "Every block remembers. So does every gift.",
+  "The kindest glitches are the ones that spread.",
+  "Follow the green light."
+ ],
+ "bye": [
+  "Stay awake out there.",
+  "Take the green light with you."
+ ],
+ "talk": [
+  {
+   "t": "There you are. I'm Maytrixxx. You just walked past five thousand years of record keeping, but the real story is the one you are about to step into. Want to see how deep it goes?",
+   "act": "offer",
+   "o": [["Take the red pill", 1], ["Who are you?", 8], ["Not yet", null]]
+  },
+  {
+   "t": "Look around. For most of history the ledger had one keeper, and giving lived at the edge of it: a pledge at the end of the year, a coin in a jar, an afterthought. That is the matrix. No machines, just a system where doing good waits until everything else is done.",
+   "act": "rain",
+   "o": [["So how do we break it?", 2], ["Back", 0]]
+  },
+  {
+   "t": "You stop asking giving to wait its turn. See the green light running through every wall in here? That is our code rain. Every block points back to the one before it, and nothing can be quietly rewritten. Now put giving inside that chain instead of outside it.",
+   "o": [["Show me", 3], ["Back", 1]]
+  },
+  {
+   "t": "The first thing that changes is love. Not the greeting card kind. Love as showing up for each other: a hot meal served eye to eye, neighbours who turn up, a community that notices who is missing. When people can see it happen, they want in.",
+   "o": [["Love I get. What about impact?", 4], ["Back", 2]]
+  },
+  {
+   "t": "Impact is giving that does not depend on a good mood. It is automatic, so it keeps going when nobody is watching. It is permanent, so it cannot be paused or quietly forgotten. And it is verified on chain, so anyone can follow a gift from the giver to the people it helps. Gallery 8 shows you one.",
+   "o": [["And currency?", 5], ["Back", 3]]
+  },
+  {
+   "t": "Currency is value that moves with purpose. Picture a micro-economy of giving, where business activity, purchases and community participation automatically become giving, in any form, verified on chain. A school, a church, a food program, a neighbour. Giving was never only for nonprofits.",
+   "act": "offer",
+   "o": [["Where does $GBACK fit?", 6], ["Keep going", 7], ["Back", 4]]
+  },
+  {
+   "t": "$GBACK is an independent utility token on Solana, and Giveback Ventures is its largest holder, not its issuer. Here in Genesis it is a key to access and experiences, a way to take part. It is not an investment. What matters is what you do with it.",
+   "o": [["Keep going", 7], ["Back", 5]]
+  },
+  {
+   "t": "So that is the glitch in the old code: love that shows up, impact that cannot be switched off, currency that moves with purpose. From clay tablets to the giving ledger, it was always about trust. Now go and walk the chain. And when you leave, take the green light with you.",
+   "act": "rain",
+   "stamp": true,
+   "o": [["I'm awake", null], ["Start again", 0]]
+  },
+  {
+   "t": "Just someone who stopped waiting for the old system to change on its own. I'm with the Giveback team, and my job in here is simple: help you see the code behind the walls. Most people walk right past it. You stopped. That already says something.",
+   "o": [["Take the red pill", 1], ["Thanks, Maytrixxx", null]]
+  }
+ ],
+ "progress": { "stamp_talk": "p_mx_awake" }
+}

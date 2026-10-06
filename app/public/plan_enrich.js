@@ -427,7 +427,7 @@ window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || [];
       for (let k = 0; k < n; k++) { const a = k / n * 6.2832; const x = q.x + Math.cos(a) * (R - 0.9), z = q.z + Math.sin(a) * (R - 0.9); if (planNearCollider(x, z, 0.4) || solidHit(x, z, 0.3) || fountHit(x, z, -1.2) || keepHit(x, z, 0)) continue; plantAt(pal, x, z, 1.8); } cnt("islands"); } }
   // ───────────────────────── the runway fence: lines, gates and the planting behind it ─────────────────────────
   function fenceLines() { const P = window.PLAN; const lines = [];
-    for (const k of ["41001005F", "41001005G", "41001005H"]) { const p = P.parcels && P.parcels[k]; if (!p) continue; const r = p.ring;
+    for (const k of ["parcel_F", "parcel_G", "parcel_H"]) { const p = P.parcels && P.parcels[k]; if (!p) continue; const r = p.ring;
       for (let i = 0; i < r.length - 1; i++) { const a = rwTS(r[i][0], r[i][1]), b = rwTS(r[i + 1][0], r[i + 1][1]); if (Math.abs(a[1]) < 115 && Math.abs(b[1]) < 115 && Math.abs(a[1] - b[1]) < 6 && Math.abs(a[0] - b[0]) > 200) {
           const L = Math.hypot(r[i + 1][0] - r[i][0], r[i + 1][1] - r[i][1]); const ux = (r[i + 1][0] - r[i][0]) / L, uz = (r[i + 1][1] - r[i][1]) / L; lines.push({ k, a: r[i], b: r[i + 1], L, ux, uz }); continue; }
         // the airside edge where one of our taxilanes leaves the parcel for the City apron (the TTF-3 gate of the Flight Line)

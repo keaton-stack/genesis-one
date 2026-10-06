@@ -42,8 +42,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       lakehouse: { title: "Lodge great room", tag: "Log walls, a river rock chimney to the trusses and a sleeping loft up the timber stair." },
       glamp: { title: "Canvas bell tent", tag: "A ring of poles under a cone of canvas, a wood stove, string lights down the spokes and a bed piled with quilts." }
     },
-    card: { k: "A home in Genesis One", p: "Homes like this one will belong to residents of Genesis One. Details revealing soon.", foot: "Walk around: E lights the fire, dims the lamps, brews coffee and pulls a book." },
-    books: ["Field Notes from the Sky Islands", "The Long Trail North", "Adobe and Light", "A Year of Desert Gardens", "Night Skies over Cochise County", "The Cowhand's Cookbook", "Stories from the First Airfield", "Stone, Timber and Sun", "The Quiet Mesa", "Birds of the Chiricahuas"],
+    card: { k: "A home in Genesis", p: "Homes like this one are where the people of Genesis live. Make yourself at home.", foot: "Walk around: E lights the fire, dims the lamps, brews coffee and pulls a book." },
+    books: ["Field Notes from the Sky Islands", "The Long Trail North", "Adobe and Light", "A Year of Desert Gardens", "Night Skies over the High Desert", "The Cowhand's Cookbook", "Stories from the First Airfield", "Stone, Timber and Sun", "The Quiet Mesa", "Birds of the Far Ridge"],
     bookLines: ["A well-thumbed copy, a pressed ocotillo flower marking a page.", "Someone has underlined half of chapter three.", "The spine is cracked at the good part.", "A note inside the cover: for long evenings by the fire."],
     coffee: ["Fresh coffee. The whole house smells of it.", "A pour-over, slow and strong.", "Coffee in a heavy mug, the way it should be."],
     dogs: ["Biscuit", "Juniper", "Scout", "Mesa", "Rusty", "Pepper"],
@@ -121,7 +121,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function cache(key, make) { var g = GC[key]; if (!g) { g = make(); if (g.index) { var g2 = g.toNonIndexed(); g.dispose(); g = g2; } keep(g); GC[key] = g; RH.n.geoCached++; } return g; }
   function f3(v) { return Math.round(v * 1000); }   // cache keys: millimetres
   function scaleUv(g, su, sv) { var uv = g.attributes.uv; for (var i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); }
-  function boxG(w, h, d) { return cache("b" + f3(w) + "," + f3(h) + "," + f3(d), function () { var g = new THREE.BoxGeometry(w, h, d); var uv = g.attributes.uv; var dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]]; for (var f = 0; f < 6; f++) for (var k = 0; k < 4; k++) { var i = f * 4 + k; uv.setXY(i, uv.getX(i) * dims[f][0], uv.getY(i) * dims[f][1]); } return g; }); }
+  function boxG(w, h, d) { return cache("b" + f3(w) + "," + f3(h) + "," + f3(d), function () { var g = new THREE.BoxGeometry(w, h, d); var uv = g.attributes.uv; var dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]], re = new Float32Array(24 * 4); for (var f = 0; f < 6; f++) for (var k = 0; k < 4; k++) { var i = f * 4 + k, a0 = uv.getX(i), b0 = uv.getY(i); uv.setXY(i, a0 * dims[f][0], b0 * dims[f][1]); re[i * 4] = (a0 - 0.5) * dims[f][0]; re[i * 4 + 1] = (b0 - 0.5) * dims[f][1]; re[i * 4 + 2] = dims[f][0] / 2; re[i * 4 + 3] = dims[f][1] / 2 + 2; } g.setAttribute("riE", new THREE.BufferAttribute(re, 4)); return g; }); }   // riE (R18): the prop layer's face frame
   function boxU(w, h, d) { return cache("u" + f3(w) + "," + f3(h) + "," + f3(d), function () { return new THREE.BoxGeometry(w, h, d); }); }   // 0..1 per face (atlas pictures on a box)
   function planeG(w, h) { return cache("p" + f3(w) + "," + f3(h), function () { return new THREE.PlaneGeometry(w, h); }); }   // x-y plane facing +z, uvs 0..1
   function discG(r, seg) { return cache("o" + f3(r) + "," + (seg || 32), function () { var g = new THREE.CircleGeometry(r, seg || 32); g.rotateX(-HP); return g; }); }   // flat, uvs 0..1 (a round rug)
@@ -134,7 +134,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // a rounded box (radius r on every edge, seg steps a quarter), uvs in metres per face; bulge pillows the top and bottom (a cushion)
   function rboxG(w, h, d, r, seg, bulge) { seg = seg || 1; r = Math.max(0.002, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)); bulge = bulge || 0;
     return cache("r" + [w, h, d, r, bulge].map(f3).join(",") + "," + seg, function () {
-      var n = 2 * seg + 1, g = new THREE.BoxGeometry(1, 1, 1, n, n, n), pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
+      var n = 2 * seg + 1, g = new THREE.BoxGeometry(1, 1, 1, n, n, n), pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv, re = new Float32Array(pa.count * 4);
       var co = function (hh) { var a = []; for (var k = 0; k <= seg; k++) a.push(-hh + r - r * Math.cos(k / seg * HP)); for (var k2 = 0; k2 <= seg; k2++) a.push(hh - r + r * Math.sin(k2 / seg * HP)); return a; };
       var CX = co(w / 2), CY = co(h / 2), CZ = co(d / 2), hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
       for (var i = 0; i < pa.count; i++) { var x = CX[Math.round((pa.getX(i) + 0.5) * n)], y = CY[Math.round((pa.getY(i) + 0.5) * n)], z = CZ[Math.round((pa.getZ(i) + 0.5) * n)];
@@ -142,8 +142,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         if (L > 1e-6) { nx = vx / L; ny = vy / L; nz = vz / L; x = qx + nx * r; y = qy + ny * r; z = qz + nz * r; }
         if (bulge) { var fx = clamp(x / (w / 2), -1, 1), fz = clamp(z / (d / 2), -1, 1), k3 = (1 - fx * fx) * (1 - fz * fz); y += bulge * k3 * (y / (h / 2)); if (Math.abs(ny) > 0.5) { var sg = ny > 0 ? 1 : -1; nx += sg * 4 * bulge * fx / w * (1 - fz * fz); nz += sg * 4 * bulge * fz / d * (1 - fx * fx); var l2 = Math.sqrt(nx * nx + ny * ny + nz * nz); nx /= l2; ny /= l2; nz /= l2; } }
         pa.setXYZ(i, x, y, z); na.setXYZ(i, nx, ny, nz);
-        var ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz); if (ay >= ax && ay >= az) ua.setXY(i, x, z); else if (ax >= az) ua.setXY(i, z, y); else ua.setXY(i, x, y); }
-      return g; }); }
+        var ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz); if (ay >= ax && ay >= az) { ua.setXY(i, x, z); re[i * 4 + 2] = -w / 2; re[i * 4 + 3] = d / 2 + 2; } else if (ax >= az) { ua.setXY(i, z, y); re[i * 4 + 2] = -d / 2; re[i * 4 + 3] = h / 2 + 2; } else { ua.setXY(i, x, y); re[i * 4 + 2] = -w / 2; re[i * 4 + 3] = h / 2 + 2; } re[i * 4] = ua.getX(i); re[i * 4 + 1] = ua.getY(i); }
+      g.setAttribute("riE", new THREE.BufferAttribute(re, 4)); return g; }); }
   // a flat grid in x-z (y up) of nx by nz cells, uvs in metres, with a colour per vertex from fn(x, z) (baked ambient occlusion)
   function gridXZ(x0, z0, x1, z1, nx, nz, fn, down) { var P = [], N = [], U = [], Cc = [], ny = down ? -1 : 1;
     var v = function (i, j) { var x = x0 + (x1 - x0) * i / nx, z = z0 + (z1 - z0) * j / nz; P.push(x, 0, z); N.push(0, ny, 0); U.push(x, -z); var k = fn ? fn(x, z) : 1; Cc.push(k, k, k); };
@@ -164,8 +164,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // merge every family into one mesh in the room frame (y up from the floor); contact shading darkens what sits low (ao)
   Kit.prototype.build = function (parent, mats) { var out = [], tri = 0;
     for (var key in this.L) { var list = this.L[key], mt = mats[key]; if (!mt) { note("kit", "no material " + key); continue; } var n = 0; for (var i = 0; i < list.length; i++) n += list[i].g.attributes.position.count; if (!n) continue;
-      var P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = new Float32Array(n * 2), CC = new Float32Array(n * 3), o = 0, su = UVS[key] || 1;
+      var P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = new Float32Array(n * 2), CC = new Float32Array(n * 3), o = 0, su = UVS[key] || 1, RE = null, ne = 0;
+      try { if (window.PLAN_RL && PLAN_RL.propOn && PLAN_RL.propOn()) for (var q = 0; q < list.length; q++) if (list[q].g.attributes.riE) { RE = new Float32Array(n * 4); break; } } catch (x) {}
       for (var a = 0; a < list.length; a++) { var it = list[a], g = it.g, e = it.M.elements, pa = g.attributes.position.array, na = g.attributes.normal.array, ua = g.attributes.uv.array, ca = g.attributes.color ? g.attributes.color.array : null, cnt = g.attributes.position.count;
+        var rea = RE && g.attributes.riE ? g.attributes.riE.array : null; if (rea) { var me4 = it.M.elements, s1 = me4[0] * me4[0] + me4[1] * me4[1] + me4[2] * me4[2], s2 = me4[4] * me4[4] + me4[5] * me4[5] + me4[6] * me4[6], s3 = me4[8] * me4[8] + me4[9] * me4[9] + me4[10] * me4[10]; if (Math.abs(s1 - 1) > 0.01 || Math.abs(s2 - 1) > 0.01 || Math.abs(s3 - 1) > 0.01) rea = null; }
+        if (rea) { RE.set(rea.subarray(0, cnt * 4), o * 4); ne++; }
         _n3.getNormalMatrix(it.M); var m = _n3.elements, cr = it.c ? it.c.r : 1, cg = it.c ? it.c.g : 1, cb = it.c ? it.c.b : 1, r4 = it.uvr && it.uvr.length === 4 ? it.uvr : null, cu = it.uvr && it.uvr.length === 2 ? it.uvr : null, du = r4 ? r4[2] - r4[0] : 0, dv = r4 ? r4[3] - r4[1] : 0;
         for (var i2 = 0; i2 < cnt; i2++) { var x = pa[i2 * 3], y = pa[i2 * 3 + 1], z = pa[i2 * 3 + 2], j = (o + i2) * 3;
           var px = e[0] * x + e[4] * y + e[8] * z + e[12], py = e[1] * x + e[5] * y + e[9] * z + e[13], pz = e[2] * x + e[6] * y + e[10] * z + e[14]; P[j] = px; P[j + 1] = py; P[j + 2] = pz;
@@ -173,7 +176,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
           var k2 = (o + i2) * 2; if (r4) { U[k2] = r4[0] + ua[i2 * 2] * du; U[k2 + 1] = r4[1] + ua[i2 * 2 + 1] * dv; } else if (cu) { U[k2] = cu[0]; U[k2 + 1] = cu[1]; } else { U[k2] = ua[i2 * 2] * su; U[k2 + 1] = ua[i2 * 2 + 1] * su; }
           var k = it.ao ? 0.56 + 0.44 * smooth(0.0, 0.42, py) : 1; if (ca) { CC[j] = cr * ca[i2 * 3] * k; CC[j + 1] = cg * ca[i2 * 3 + 1] * k; CC[j + 2] = cb * ca[i2 * 3 + 2] * k; } else { CC[j] = cr * k; CC[j + 1] = cg * k; CC[j + 2] = cb * k; } }
         o += cnt; }
-      var geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(P, 3)); geo.setAttribute("normal", new THREE.BufferAttribute(N, 3)); geo.setAttribute("uv", new THREE.BufferAttribute(U, 2)); geo.setAttribute("color", new THREE.BufferAttribute(CC, 3)); geo.computeBoundingSphere();
+      var geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(P, 3)); geo.setAttribute("normal", new THREE.BufferAttribute(N, 3)); geo.setAttribute("uv", new THREE.BufferAttribute(U, 2)); geo.setAttribute("color", new THREE.BufferAttribute(CC, 3)); if (RE && ne) geo.setAttribute("riE", new THREE.BufferAttribute(RE, 4)); geo.computeBoundingSphere();
       var me = new THREE.Mesh(geo, mt); me.name = "rh " + key; me.userData.noSolid = true; me.userData.shSet = true; me.castShadow = false; me.receiveShadow = !mt.transparent; if (mt.transparent) me.renderOrder = 2; parent.add(me); out.push(me); tri += n / 3; }
     RH.n.tri = Math.round(tri); return out; };
 

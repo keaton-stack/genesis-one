@@ -17,12 +17,12 @@
   "front": {
    "t": "The Expanse Library",
    "k": "Expanse Gate and the 1928 Strip · Stage Three",
-   "p": "A Mission Revival library in the way Douglas built its civic buildings: lime stucco on a cantera stone plinth, red barrel tile, a front arcade of eight arches and the doorway, a curvilinear parapet over the door and a clock tower with a tiled dome. Inside are the reading room and, behind a vault door, the 1928 Archive."
+   "p": "A Mission Revival library in the way the old border towns built their civic buildings: lime stucco on a cantera stone plinth, red barrel tile, a front arcade of eight arches and the doorway, a curvilinear parapet over the door and a clock tower with a tiled dome. Inside are the reading room and, behind a vault door, the 1928 Archive."
   },
   "tower": {
    "t": "The clock tower",
    "k": "The Expanse Library",
-   "p": "A square tower with a bell in the belfry, a tiled dome and a weathervane in the shape of a biplane. The clock keeps Arizona time, which never changes for summer."
+   "p": "A square tower with a bell in the belfry, a tiled dome and a weathervane in the shape of a biplane. The clock keeps desert time, and nobody minds if it runs a little slow."
   },
   "fountain": {
    "t": "The forecourt fountain",
@@ -47,7 +47,7 @@
   "stacks": {
    "t": "The stacks",
    "k": "The reading room",
-   "p": "Oak bookcases on two levels: the ground floor holds the lending shelves, the gallery above holds reference, atlases and the Arizona collection. Rolling ladders run on brass rails."
+   "p": "Oak bookcases on two levels: the ground floor holds the lending shelves, the gallery above holds reference, atlases and the high desert collection. Rolling ladders run on brass rails."
   },
   "gallery": {
    "t": "The gallery",
@@ -82,7 +82,7 @@
   "mural": {
    "t": "Wheels down, 1928",
    "k": "The 1928 Archive · opening day",
-   "p": "Douglas opened its airfield in 1928, one of the first international airports in the United States, on the border with Agua Prieta, Sonora. A packed-earth field, a hangar and a windsock: where Runway 03/21 began. The painting is an artist's impression of opening day, and the case below holds a model of a field of that time."
+   "p": "The town opened its airfield on the valley floor, a stone's throw from the line. A packed-earth field, a hangar and a windsock: where the runway began. The painting is an artist's impression of opening day, and the case below holds a model of a field of that time."
   },
   "propeller": {
    "t": "A wooden propeller",
@@ -90,9 +90,9 @@
    "p": "Laminated hardwood, shaped by hand and sheathed in brass at the tips. Propellers like this one pulled the biplanes and trainers of the 1920s: open cockpits, wood, wire and fabric, an engine up front."
   },
   "map": {
-   "t": "Douglas and Agua Prieta",
-   "k": "The 1928 Archive · the survey table",
-   "p": "Two towns on one valley floor with the line between them: Douglas, laid out in 1901 on the open flats of the Sulphur Springs Valley, and Agua Prieta, Sonora, across the border. The smelter, the railroad and the field beyond the town. A hand-drawn survey of the valley, redrawn for the archive."
+   "t": "Two towns on the line",
+   "k": "The 1928 Archive · the map table",
+   "p": "Two towns on one valley floor with the line between them: this one, laid out on the open flats of the wide valley, and its neighbour across the line. The smelter, the railroad and the field beyond the town. A hand-drawn map of the valley, redrawn for the archive."
   },
   "photos": {
    "t": "Scenes of the era",
@@ -102,22 +102,22 @@
   "smelter": {
    "t": "The smelter years",
    "k": "The 1928 Archive · copper and the border town",
-   "p": "From 1904 copper from the Bisbee mines was smelted here, and the young town grew fast round the stacks. The green malachite and blue azurite in the case are copper ores; the miner's lamp and the assay balance come from the same working world."
+   "p": "For decades copper from the mines up the road was smelted here, and the young town grew fast round the stacks. The green malachite and blue azurite in the case are copper ores; the miner's lamp and the assay balance come from the same working world."
   },
   "model": {
    "t": "A model trainer",
    "k": "The 1928 Archive · in the glass case",
-   "p": "A scale model of a 1928-style open-cockpit trainer, like the biplane over the Solport terminal and the one in the 1928 Airfield Museum beside the Tower."
+   "p": "A scale model of a 1928-style open-cockpit trainer, like the biplane over the Sunfield Terminal and the one in the 1928 Airfield Museum beside the Tower."
   },
   "timeline": {
    "t": "A timeline of the valley",
    "k": "The 1928 Archive",
-   "p": "1901: Douglas is laid out beside the border. 1904: the smelter years. Rails and ranches tie the valley to the country. The 1920s: barnstormers land on the valley floor. 1928: the airfield opens, one of the first international airports in the United States. Today the same field flies on as Solport."
+   "p": "The 1900s: the town is laid out beside the border, and the smelter years begin. Rails and ranches tie the valley to the country. The 1920s: barnstormers land on the valley floor. Then the airfield opens: packed earth, a hangar and a windsock. Today the same field flies on as Sunfield."
   },
   "flatfiles": {
    "t": "The map drawers",
    "k": "The 1928 Archive",
-   "p": "Flat files of survey sheets, field plans and rolled maps, each drawer labelled by hand. Ask at the desk and the librarian will bring one out."
+   "p": "Flat files of old map sheets, field plans and rolled maps, each drawer labelled by hand. Ask at the desk and the librarian will bring one out."
   }
  },
  "librarian": {
@@ -164,7 +164,7 @@
     "o": []
    },
    {
-    "t": "The archive keeps the story of the field: opening day in 1928, a wooden propeller, the survey map of Douglas and Agua Prieta, photographs of the era and the smelter years. Read every case and you will know this valley better than most.",
+    "t": "The archive keeps the story of the field: opening day, a wooden propeller, the old map of the two towns on the line, photographs of the era and the smelter years. Read every case and you will know this valley better than most.",
     "o": [
      [
       "Back",
@@ -200,8 +200,8 @@
    "a": "R. Delgado",
    "p": [
     "Chapter One",
-    "The first flyers came down on the valley floor when it was still open range, and the cattle stood and watched them. By 1928 there was a field: packed earth, a hangar and a windsock, and a town that came out in its Sunday clothes to see the wheels touch down.",
-    "On a clear morning you could see the whole valley from a thousand feet: the grid of Douglas, the stacks of the smelter, the line, and Agua Prieta beyond it."
+    "The first flyers came down on the valley floor when it was still open range, and the cattle stood and watched them. Before long there was a field: packed earth, a hangar and a windsock, and a town that came out in its Sunday clothes to see the wheels touch down.",
+    "On a clear morning you could see the whole valley from a thousand feet: the grid of the town, the stacks of the smelter, the line, and the next town over beyond it."
    ]
   },
   {
@@ -214,11 +214,11 @@
    ]
   },
   {
-   "t": "Stars over the Chiricahuas",
+   "t": "Stars over the Far Ridge",
    "a": "E. Vance",
    "p": [
     "October",
-    "On a clear October night the Milky Way rises over the Chiricahua Mountains like smoke from a long fire. Find the Summer Triangle low in the west, then follow the river of stars south to Sagittarius.",
+    "On a clear October night the Milky Way rises over the far ridge like smoke from a long fire. Find the Summer Triangle low in the west, then follow the river of stars south to Sagittarius.",
     "Dry air at four thousand feet is a gift to anyone with a pair of eyes and a little patience."
    ]
   },
@@ -236,7 +236,7 @@
    "a": "collected",
    "p": [
     "Letter Twelve",
-    "Dear Elena, the new field opened today and half of Agua Prieta crossed over to see it. Your brother swears he will fly before he is twenty. I told him to finish his homework first.",
+    "Dear Elena, the new field opened today and half the town across the line came over to see it. Your brother swears he will fly before he is twenty. I told him to finish his homework first.",
     "Write soon. The swallows are back under the depot roof."
    ]
   },
@@ -305,7 +305,7 @@
    "archive": [
     "That propeller is taller than I am.",
     "You can find the field on the map.",
-    "Opening day in 1928. Imagine the noise.",
+    "Opening day. Imagine the noise.",
     "Look at the stacks in that photograph."
    ],
    "fire": [

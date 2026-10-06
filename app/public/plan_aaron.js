@@ -199,7 +199,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     G.qB.slerp(Q1, 1 - Math.exp(-dt * 5.5)); G.B.quaternion.copy(G.qB);
   }
   // the stream overlay: camera view, LIVE pill, viewers, hearts, chat, the LIVE light strip
-  var USERS = ["solport_fan", "zone_saturday", "desert_dee", "jet_jay", "walk_with_us", "kindness_kev", "az_amy", "rv_rider"];
+  var USERS = ["sunfield_fan", "zone_saturday", "desert_dee", "jet_jay", "walk_with_us", "kindness_kev", "desert_amy", "rv_rider"];
   function drawScreen(c, dt, force) {
     var G = c.gim; if (!G) return; var x = G.x, W = 512, H = 240, t = now() / 1000; G.frame++;
     var mode = G.mode, img = mode === "film" ? G.img2 : G.img;

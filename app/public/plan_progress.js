@@ -197,7 +197,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var t = Date.now(); if (t - S.lastLanding < 20000) return 0; S.lastLanding = t;
     return commit(function (r, fx) {
       bump(r, "landings");
-      if (!r.aw["first:landing"]) { r.aw["first:landing"] = nowS(); fx.push({ type: "toast", k: "First landing", t: "Welcome back to Solport", xp: awardXP("first:landing") }); return; }
+      if (!r.aw["first:landing"]) { r.aw["first:landing"] = nowS(); fx.push({ type: "toast", k: "First landing", t: "Welcome back to Sunfield", xp: awardXP("first:landing") }); return; }
       var g = repeatXP(r, X().landing || 25, fx); fx.push({ type: "toast", k: "Landing", t: "Smooth landing", xp: g, quiet: true });
     });
   }
@@ -215,7 +215,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     return commit(function (r, fx) {
       if (r.vd === day) return; var sk = r.vd === day - 1 ? (r.sk || 0) + 1 : 1; r.vd = day; r.sk = sk; bump(r, "visits");
       var x = X(); var g = (x.visit || 25) + (x.visit_streak_step || 5) * Math.min(sk - 1, x.visit_streak_cap || 10); r.rx += g;
-      fx.push({ type: "toast", k: sk > 1 ? "Daily visit · " + sk + " day streak" : "Daily visit", t: sk > 1 ? "Welcome back" : "Welcome to Genesis One", xp: g });
+      fx.push({ type: "toast", k: sk > 1 ? "Daily visit · " + sk + " day streak" : "Daily visit", t: sk > 1 ? "Welcome back" : "Welcome to Genesis: The Awakening", xp: g });
       (x.streaks || []).forEach(function (st) { var k = "streak:" + st[0]; if (sk >= st[0] && !r.aw[k]) { r.aw[k] = nowS(); fx.push({ type: "toast", k: "Streak bonus", t: st[0] + " days in a row", xp: st[1] }); } });
     });
   }
@@ -555,10 +555,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // the compass star
     x.save(); x.translate(128, 170); x.fillStyle = acc; x.beginPath(); for (var i = 0; i < 16; i++) { var a = -Math.PI / 2 + i * Math.PI / 8, r = i % 2 ? 22 : (i % 4 === 0 ? 70 : 40); x.lineTo(Math.cos(a) * r, Math.sin(a) * r); } x.closePath(); x.fill(); x.restore();
     x.fillStyle = ink; x.textAlign = "center"; x.font = "400 58px Anton, Impact, sans-serif";
-    ["GENESIS", "ONE"].forEach(function (w, i) { x.fillText(w, 128, 330 + i * 66); });
+    ["GENESIS"].forEach(function (w, i) { x.fillText(w, 128, 362 + i * 66); });
     x.font = "700 21px 'JetBrains Mono', monospace"; try { x.letterSpacing = "5px"; } catch (e) {} x.fillStyle = acc;
     x.fillText(gold ? "SOL PASSPORT" : "COMMUNITY", 128, 470); x.fillText(gold ? "EVERY STAMP" : "IN-GAME", 128, 510); x.fillText(gold ? "COUNTS" : "IMPACT", 128, 544);
-    try { x.letterSpacing = "0px"; } catch (e) {} x.font = "400 30px Anton, Impact, sans-serif"; x.fillStyle = ink; x.fillText("SOLPORT", 128, 640);
+    try { x.letterSpacing = "0px"; } catch (e) {} x.font = "400 30px Anton, Impact, sans-serif"; x.fillStyle = ink; x.fillText("SUNFIELD", 128, 640);
     var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   }
   function buildBanners() {
@@ -619,7 +619,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var jp = [[0, 22], [2.6, 14], [3, 4], [26, -6], [26, -10], [3, -6], [2.2, -18], [9, -24], [9, -27], [0, -24], [-9, -27], [-9, -24], [-2.2, -18], [-3, -6], [-26, -10], [-26, -6], [-3, 4], [-2.6, 14]];
     var per = 0, segs = []; for (var s = 0; s < jp.length; s++) { var A = jp[s], B = jp[(s + 1) % jp.length]; var L = Math.hypot(B[0] - A[0], B[1] - A[1]); segs.push([A, B, L]); per += L; }
     for (var q = 0; q < N; q++) { var dist = q / N * per; for (var s2 = 0; s2 < segs.length; s2++) { if (dist <= segs[s2][2]) { var u = dist / segs[s2][2]; jet.push([segs[s2][0][0] + (segs[s2][1][0] - segs[s2][0][0]) * u, segs[s2][0][1] + (segs[s2][1][1] - segs[s2][0][1]) * u + 4]); break; } dist -= segs[s2][2]; } }
-    var text = sampleText("GENESIS ONE", N, 78, 20);
+    var text = sampleText("GENESIS", N, 78, 20);
     F.forms = [{ p: grid, c: [0.95, 0.95, 1] }, { p: ring, c: [0.3, 0.87, 0.44] }, { p: text, c: [1, 0.85, 0.4] }, { p: jet, c: [0.9, 0.97, 1] }, { p: star, c: [0.96, 0.78, 0.3] }];
     var geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 3), 3).setUsage(THREE.DynamicDrawUsage)); geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(N * 3), 3).setUsage(THREE.DynamicDrawUsage));
     var mat = new THREE.PointsMaterial({ size: 1.5, map: F.tex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, sizeAttenuation: true });
@@ -767,7 +767,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!S.built || !S.cur || !player || fl || (ld && !ld.classList.contains("off"))) { S.r9t0 = 0; return; }
     if (!S.r9t0) { S.r9t0 = now; return; } if (now - S.r9t0 < 3000) return; S.r9w = true;
     var nm = ""; try { nm = (localStorage.getItem("g1:name") || "").trim(); } catch (e) {}
-    var t = S.r9back ? (nm ? "Welcome back, " + nm : "Welcome back") : "Welcome to Genesis One";
+    var t = S.r9back ? (nm ? "Welcome back, " + nm : "Welcome back") : "Welcome to Genesis: The Awakening";
     toast(copy("welcomeK", "Sol Passport"), t, 0, false, insigniaSVG(S.cur.rank || 0, "w"));
   }
   function hudTick() {
@@ -799,7 +799,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     else if (f.type === "chapter") { var c = f.chapter; emit("district", { id: c.id, name: c.name, xp: f.xp }); emit("reward", { chapter: c.id, rewards: chapterRewards(c).map(function (r) { return r.id; }) }); queueMoment({ kind: "chapter", chapter: c, xp: f.xp }); }
     else if (f.type === "passport") { queueMoment({ kind: "passport", xp: f.xp }); }
     else if (f.type === "milestone") { toast("Community milestone", f.m.name + " unlocked", f.xp); emit("milestone", { id: f.m.id, name: f.m.name }); try { sfx("rank"); } catch (e) {} }
-    else if (f.type === "rank") { emit("rank", { rank: f.rank, prev: f.prev, name: rankDef(f.rank).name }); queueMoment({ kind: "rank", rank: f.rank }); try { logLine("Genesis One", (localStorage.getItem("g1:name") || "You") + " is now a " + rankDef(f.rank).name); } catch (e) {} }
+    else if (f.type === "rank") { emit("rank", { rank: f.rank, prev: f.prev, name: rankDef(f.rank).name }); queueMoment({ kind: "rank", rank: f.rank }); try { logLine("Genesis", (localStorage.getItem("g1:name") || "You") + " is now a " + rankDef(f.rank).name); } catch (e) {} }
   }
 
   // ───────────────────────── the celebration moments (rank up, chapter complete, passport complete) ─────────────────────────
@@ -831,7 +831,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (s.talk) {
       var org = stampOrg(s).toUpperCase(); org = org.length > 30 ? org.slice(0, 29) + "…" : org; var fs = name.length > 14 ? 10 : 12.5;
       return '<svg viewBox="0 0 100 100"><g transform="rotate(' + rot + ' 50 50)" filter="' + (mini ? "" : "url(#pp-ink)") + '" opacity=".92"><rect x="6" y="20" width="88" height="60" rx="9" fill="none" stroke="' + ink + '" stroke-width="3"/><rect x="11" y="25" width="78" height="50" rx="6" fill="none" stroke="' + ink + '" stroke-width="1"/>'
-        + '<text x="50" y="37" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="5.6" letter-spacing="1.6" fill="' + ink + '">' + (s.kind === "partner" ? "INDUSTRY PARTNER" : "LOCAL OF GENESIS ONE") + '</text>'
+        + '<text x="50" y="37" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="5.6" letter-spacing="1.6" fill="' + ink + '">' + (s.kind === "partner" ? "INDUSTRY PARTNER" : "LOCAL OF GENESIS") + '</text>'
         + '<text x="50" y="52" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="' + fs + '" letter-spacing=".6" fill="' + ink + '">' + esc(nm) + '</text>'
         + '<text x="50" y="61.5" text-anchor="middle" font-family="Space Grotesk,sans-serif" font-weight="600" font-size="4.6" fill="' + ink + '">' + esc(org) + '</text>'
         + '<text x="50" y="71" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="5" letter-spacing="1" fill="' + ink + '">' + esc(date || "MET") + '</text></g></svg>';
@@ -842,7 +842,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       + '<text font-family="JetBrains Mono,monospace" font-weight="700" font-size="' + fsz + '" letter-spacing="1.1" fill="' + ink + '"><textPath href="#' + id + '" startOffset="25%" text-anchor="middle">' + esc(nm) + '</textPath></text>'
       + chapterGlyph(c.id, ink)
       + '<text x="50" y="66" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="5.2" letter-spacing=".8" fill="' + ink + '">' + esc(date) + '</text>'
-      + '<text x="50" y="41" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="6.5" letter-spacing="1.4" fill="' + ink + '">SOLPORT</text></g></svg>';
+      + '<text x="50" y="41" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="6.5" letter-spacing="1.4" fill="' + ink + '">SUNFIELD</text></g></svg>';
   }
   function chapterGlyph(id, ink) {
     var g = { solport: "M50 44L51.4 50.4L58 53.6L58 55L51.4 53.2L51.2 57.4L53.2 59L53.2 60L50 59.3L46.8 60L46.8 59L48.8 57.4L48.6 53.2L42 55L42 53.6L48.6 50.4Z", outpost: "M42 58A8 8 0 0 1 58 58Z M48.5 48L51.5 48L51 44L49 44Z", park: "M50 44C54 48 56 51 56 54A6 6 0 0 1 44 54C44 51 46 48 50 44Z", design: "M50 43L52 50L59 52L52 54L50 61L48 54L41 52L48 50Z", mainstreet: "M43 60L43 49L50 44L57 49L57 60Z" }[id];
@@ -874,8 +874,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var pct = c.next ? clamp((c.xp - c.prevXp) / Math.max(1, c.next.xp - c.prevXp), 0, 1) : 1; var name = holderName();
     var chs = c.chapters.map(function (h) { var ch = chapterById(h.id); return '<div class="ch' + (S.tab === "stamps" && S.chap === h.id ? " on" : "") + '" data-ch="' + esc(h.id) + '"><span class="dt" style="background:' + esc(ch.ink) + '"></span>' + esc(h.name) + '<span class="ct">' + h.got + "/" + h.total + '</span>' + (h.done ? '<span class="sl">' + sealSVG(ch) + '</span>' : '<span class="sl"></span>') + '</div>'; }).join("");
     var mrzName = name.toUpperCase().replace(/[^A-Z0-9]+/g, "<"); var l1 = ("P<" + (copy("mrzTag", "SOL")) + "<<" + mrzName + "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<").slice(0, 44);
-    var l2 = ("G1" + String(c.stamps).padStart(3, "0") + "<" + R.name.toUpperCase() + "<<" + String(c.xp).padStart(6, "0") + "<<SOLPORT<DOUGLAS<AZ<<<<<<<<<<<<<<<<<<<<").slice(0, 44);
-    pl.innerHTML = '<div class="hd"><img src="/logo.png" alt=""><div><b>' + esc(copy("title", "SOL PASSPORT")) + '</b><i>' + esc(copy("issuer", "Genesis One · Solport, Douglas, Arizona")) + '</i></div></div>'
+    var l2 = ("G1" + String(c.stamps).padStart(3, "0") + "<" + R.name.toUpperCase() + "<<" + String(c.xp).padStart(6, "0") + "<<SUNFIELD<SNF<<<<<<<<<<<<<<<<<<<<<<<<<<").slice(0, 44);
+    pl.innerHTML = '<div class="hd"><img src="/logo.png" alt=""><div><b>' + esc(copy("title", "SOL PASSPORT")) + '</b><i>' + esc(copy("issuer", "Genesis · Sunfield, the high desert")) + '</i></div></div>'
       + '<div class="id"><div class="big">' + insigniaSVG(c.rank, "b") + '</div><div style="min-width:0"><div class="lb">Holder</div><div class="nm">' + esc(name) + '</div><div class="lb" style="margin-top:6px">Rank</div><div class="rkn" style="color:' + (c.rank === 0 ? "#6b5d3a" : c.rank === 1 ? "#1f7a3e" : c.rank === 2 ? "#9a6a10" : "#1b7f8c") + '">' + esc(R.name) + '</div>' + (r.ti ? '<div class="tl">' + esc(titleName(r.ti) || "") + '</div>' : "") + '</div></div>'
       + '<div class="xpb"><div class="row"><span><b>' + fmt(c.xp) + '</b> XP</span><span>' + (c.next ? fmt(c.next.xp - c.xp) + " to " + esc(c.next.name) : "Top rank") + '</span></div><div class="br"><i style="width:' + (pct * 100).toFixed(1) + '%"></i></div></div>'
       + '<div class="stats"><div><b>' + c.stamps + '/' + c.total + '</b><span>Stamps</span></div><div><b>' + c.chapters.filter(function (h) { return h.done; }).length + '/' + c.chapters.length + '</b><span>Chapters</span></div><div><b>' + (r.sk || 0) + '</b><span>Day streak</span></div></div>'

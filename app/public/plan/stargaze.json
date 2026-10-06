@@ -1,9 +1,8 @@
 {
-  "_about": "The Stargazer Pyramids and the Solport Dark Sky Observatory (plan_stargaze.js). Every name, line of copy, size, light level and position is here so it can be changed without touching code. World metres: x = east, z = south. rot is the yaw in degrees (180 = the deck and door face north). Rules: no em dashes, no prices, no percentages, no investment language. If you move the site, also move the three stamps of the 'darksky' chapter in plan/progress.json.",
   "names": {
     "retreat": "The Stargazer Pyramids",
     "retreatShort": "Stargazer Pyramids",
-    "observatory": "Solport Dark Sky Observatory",
+    "observatory": "Sunfield Dark Sky Observatory",
     "modelPyramid": "The Model Pyramid",
     "amphitheatre": "The Star Theatre",
     "terrace": "The Stargazing Terrace",
@@ -12,7 +11,7 @@
   "sign": {
     "line1": "THE STARGAZER PYRAMIDS",
     "line2": "A DARK SKY RETREAT",
-    "line3": "SOLPORT DARK SKY OBSERVATORY"
+    "line3": "SUNFIELD DARK SKY OBSERVATORY"
   },
   "site": {
     "rot": 180,
@@ -78,7 +77,7 @@
       "title": "Stargazing",
       "hint": "Drag to look around · C constellations · T telescope · L star trails · 1 to 9 point at a target · Esc or E to get up",
       "upTonight": "Up tonight",
-      "noTargets": "Look up: the sky above Douglas, Arizona",
+      "noTargets": "Look up: the sky above the high desert",
       "constellationsOn": "Constellations on",
       "constellationsOff": "Constellations off",
       "telescope": "Telescope",
@@ -102,8 +101,8 @@
     "fire": "sit by the fire"
   },
   "info": {
-    "sign": { "t": "The Stargazer Pyramids", "k": "A dark sky retreat · Stage Three · The Expanse", "p": "Fourteen glass pyramids on raised timber decks in the desert of the Ridge Arroyo, each with panoramic triple pane glass, smart glass that switches from clear to frosted, a telescope by the glass, a king bed under the stars, and a private deck with a hot tub and a fire pit. The Solport Dark Sky Observatory sits at the heart of the retreat. Every light out here is shielded, amber and pointed down." },
-    "observatory": { "t": "Solport Dark Sky Observatory", "k": "Dome, telescope, theatre and terrace", "p": "The dome opens its slit after sunset. Inside, a large reflecting telescope tracks tonight's targets under dim red light that keeps your night vision. Talks run at the Star Theatre beside the dome, and the Stargazing Terrace has loungers for anyone who wants to lie back and look up." },
+    "sign": { "t": "The Stargazer Pyramids", "k": "A dark sky retreat · Stage Three · The Expanse", "p": "Fourteen glass pyramids on raised timber decks in the desert of the Ridge Arroyo, each with panoramic triple pane glass, smart glass that switches from clear to frosted, a telescope by the glass, a king bed under the stars, and a private deck with a hot tub and a fire pit. The Sunfield Dark Sky Observatory sits at the heart of the retreat. Every light out here is shielded, amber and pointed down." },
+    "observatory": { "t": "Sunfield Dark Sky Observatory", "k": "Dome, telescope, theatre and terrace", "p": "The dome opens its slit after sunset. Inside, a large reflecting telescope tracks tonight's targets under dim red light that keeps your night vision. Talks run at the Star Theatre beside the dome, and the Stargazing Terrace has loungers for anyone who wants to lie back and look up." },
     "terrace": { "t": "The Stargazing Terrace", "k": "Lie back · E on any lounger", "p": "A ring of zero gravity loungers on a gravel terrace with almost no light of its own. Lie back, let your eyes adapt, and look up. The bronze compass rose in the centre shows north, where Polaris holds still while the sky turns around it." },
     "theatre": { "t": "The Star Theatre", "k": "Astronomy talks around the fire", "p": "Stone tiers around a fire pit lounge, open toward the dome. The resident astronomer gives short talks here after dark about what is up tonight." },
     "model": { "t": "The Model Pyramid", "k": "Open for anyone to walk through", "p": "Walk in through the glass door: a king bed that faces up through the glass, a lounge with a sofa and a fireplace, a dining table, a full kitchen with an espresso machine, a spa bathroom with a rain shower and a telescope by the glass. Switch the smart glass from clear to frosted by the door." }
@@ -118,18 +117,18 @@
   "astronomer": {
     "id": "astronomer",
     "name": "Dr. Celeste Ruiz",
-    "role": "Resident Astronomer · Solport Dark Sky Observatory",
+    "role": "Resident Astronomer · Sunfield Dark Sky Observatory",
     "look": { "skin": "c98f63", "shirt": "1d2a3a", "pants": "1c1f24", "hair": 2, "body": "f" },
     "greet": ["Give your eyes twenty minutes. The sky keeps getting better.", "Clear skies tonight. Come and look.", "Red light only out here, it keeps your night vision."],
     "talk": [
-      { "t": "Welcome to the Solport Dark Sky Observatory. Out here, on a moonless night, the Milky Way is bright enough to cast a faint glow on the sand. What would you like to know?", "o": [["What is up tonight?", 1], ["Why is it so dark here?", 2], ["How do I stargaze here?", 3], ["Tell me about the pyramids", 4], ["Thanks", null]] },
+      { "t": "Welcome to the Sunfield Dark Sky Observatory. Out here, on a moonless night, the Milky Way is bright enough to cast a faint glow on the sand. What would you like to know?", "o": [["What is up tonight?", 1], ["Why is it so dark here?", 2], ["How do I stargaze here?", 3], ["Tell me about the pyramids", 4], ["Thanks", null]] },
       { "t": "{tonight}", "o": [["How do I find them?", 3], ["Why is it so dark here?", 2], ["Thanks", null]] },
-      { "t": "Southern Arizona is one of the best stargazing regions in the country: high desert, dry air and very few city lights. Every fixture at the retreat is shielded, amber and pointed down, so no light goes up into the sky. Give your eyes twenty to thirty minutes in the dark and you will see several times more stars. Red light does not undo that, which is why the dome glows red inside.", "o": [["What is up tonight?", 1], ["How do I stargaze here?", 3], ["Thanks", null]] },
+      { "t": "This is one of the best places anywhere to stargaze: high desert, dry air and very few city lights. Every fixture at the retreat is shielded, amber and pointed down, so no light goes up into the sky. Give your eyes twenty to thirty minutes in the dark and you will see several times more stars. Red light does not undo that, which is why the dome glows red inside.", "o": [["What is up tonight?", 1], ["How do I stargaze here?", 3], ["Thanks", null]] },
       { "t": "Lie back on any lounger on the terrace, or on the bed in the Model Pyramid, and press E. Drag to look around the sky. C draws the constellations, T puts you behind the telescope, L runs a short star trail time lapse, and the list of what is up tonight swings your view onto a target. E or Esc to get up again.", "o": [["What is up tonight?", 1], ["Tell me about the pyramids", 4], ["Thanks", null]] },
       { "t": "Fourteen glass pyramids, some about five hundred square feet and some about eight hundred, each on its own timber deck with a hot tub and a fire pit. The glass is triple pane, and the smart glass switches from clear to frosted when you want privacy. The Model Pyramid next to the theatre is open to everyone.", "o": [["What is up tonight?", 1], ["Thanks", null]] }
     ],
     "tonightFallback": "Tonight, look north for Polaris, which holds still while everything else wheels around it, and follow the Milky Way from horizon to horizon. Lie back on a lounger and give your eyes a few minutes.",
-    "tonightIntro": "Tonight from Douglas:",
+    "tonightIntro": "Tonight from the high desert:",
     "kw": [["star|sky|planet|moon|telescope|milky", "Lie back on a lounger and press E. The list of what is up tonight points you straight at it."], ["hello|hi|hey", "Good evening. Clear skies."]]
   },
   "progress": {

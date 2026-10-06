@@ -1,12 +1,11 @@
 {
-  "_about": "R13 Copper Canyon Customs (plan_bodyshop.js): the custom body shop for golf carts and bikes in the Motor Yard, and its Customizer. Every name, line of copy, colour, position and the catalog's display names live here. Prices and rank gates are set by the server (app/src/logic.js BS_ITEMS) and mirrored in 'catalog' so the screen can show them; keep the two in step. Rules: no em dashes, no fee percentages, no investment language, no real brand names except GIVEBACK.",
   "version": 1,
   "names": { "shop": "Copper Canyon Customs", "short": "Copper Canyon Customs", "kicker": "Custom carts and bikes", "district": "Motor Yard" },
   "site": { "cx": -376, "cz": 422, "w": 54, "d": 36, "wall": 9.0, "ridge": 12.4, "pad": 11.4, "forecourt": [-404, 374, -357, 404], "hub": [-380, 386], "door": [12.5, 6.8], "reveal": [0, -6.5], "showroom": [-17.5, -10.5] },
   "progress": { "shop": "p_bs_shop", "first": "p_bs_first", "bike": "p_bs_bike", "talk": "t_dusty", "loaded": "p_bs_loaded" },
   "prompts": { "custom": "open the Customizer", "customBike": "open the Customizer (bike)", "door": "Copper Canyon Customs", "leave": "drive or walk out through the big door" },
   "info": {
-    "forecourt": { "t": "Copper Canyon Customs", "k": "Motor Yard · custom carts and bikes", "p": "The desert's custom shop for golf carts and bikes. Roll your cart through the big door onto the turntable and press E to open the Customizer: paint and finishes, roofs, seats, wheels, stance, badges, wraps, plates and accessories. Pay with the coins you earn around Genesis One." },
+    "forecourt": { "t": "Copper Canyon Customs", "k": "Motor Yard · custom carts and bikes", "p": "The desert's custom shop for golf carts and bikes. Roll your cart through the big door onto the turntable and press E to open the Customizer: paint and finishes, roofs, seats, wheels, stance, badges, wraps, plates and accessories. Pay with the coins you earn around Genesis." },
     "bays": { "t": "The service bays", "k": "Three lifts · tool chests · air", "p": "Three bays with two-post lifts. Every build starts here: lift kits, lowering springs, wheel swaps and the wiring for light bars and speaker bars." },
     "booth": { "t": "The paint booth", "k": "Gloss · matte · metallic · pearl · chrome", "p": "A downdraft booth with filtered air and full-length lights. Pearl and candy finishes go on in thin coats; the chrome finish is earned at Captain rank." },
     "wrap": { "t": "Wrap and decal station", "k": "Vinyl · stripes · flames · camo", "p": "Racing stripes, pinstripes, flames, tribal, lightning, camo and the desert sunset wrap, cut on the plotter and laid by hand. Plates and side labels are printed here too." },
@@ -23,7 +22,7 @@
         { "t": "Drive your cart, or walk in, onto the turntable in the middle of the shop and press E. The Customizer shows every option on your own cart. You only pay for what is new, and anything you already own is free to put back on.", "o": [["What do things cost?", 4], ["Thanks", -1]] },
         { "t": "Paint in thirty colours and six finishes, two-tone splits, roofs, seats, rims, tyres, a lift or a drop, badges, wraps, a plate with your name on it and a wall of accessories. Bikes get a smaller menu: frame, fenders, wheels, grips, seat, a basket and decals.", "o": [["Anything I cannot buy?", 5], ["Thanks", -1]] },
         { "t": "Dusty Navarro. I have been bending tube and laying paint in the desert since before the runway got its new lines. The crew on the floor are the best in the county.", "o": [["Back", 0], ["Thanks", -1]] },
-        { "t": "Everything is paid in the coins you earn around Genesis One: games, flights, stamps and time on site. The total shows before you commit, and Undo puts everything back.", "o": [["Back", 0], ["Thanks", -1]] },
+        { "t": "Everything is paid in the coins you earn around Genesis: games, flights, stamps and time on site. The total shows before you commit, and Undo puts everything back.", "o": [["Back", 0], ["Thanks", -1]] },
         { "t": "A few pieces are earned, not bought. Pearl paint and the light bar come with Pilot rank, chrome and underglow with Captain, candy flake with Tower. Earn the rank through your Sol Passport and they are yours.", "o": [["Back", 0], ["Thanks", -1]] }
       ] }
   },
@@ -51,7 +50,7 @@
     { "where": "lift", "look": { "p": 10, "f": 2, "r": 1, "s": 2, "w": 6, "wc": 2, "ty": 3, "l": 1, "e": 4, "d": 7, "a": 1229, "fl": 2 } },
     { "where": "booth", "look": { "p": 7, "f": 3, "r": 5, "s": 4, "w": 1, "wc": 1, "e": 3 } },
     { "where": "wrap", "look": { "p": 19, "r": 0, "s": 3, "w": 7, "wc": 1, "ty": 1, "d": 6, "e": 8, "a": 640 } },
-    { "where": "fore1", "look": { "p": 14, "f": 2, "t": 1, "p2": 5, "r": 6, "rs": 2, "s": 4, "sp": 5, "w": 3, "wc": 6, "ty": 2, "e": 5, "d": 1, "dc": 0, "a": 836, "fl": 1, "pl": "SOLPORT" } },
+    { "where": "fore1", "look": { "p": 14, "f": 2, "t": 1, "p2": 5, "r": 6, "rs": 2, "s": 4, "sp": 5, "w": 3, "wc": 6, "ty": 2, "e": 5, "d": 1, "dc": 0, "a": 836, "fl": 1, "pl": "SUNFLD" } },
     { "where": "fore2", "look": { "p": 23, "f": 4, "r": 1, "rs": 1, "s": 1, "w": 5, "wc": 2, "ty": 0, "l": 0, "e": 7, "d": 2, "dc": 1, "a": 1, "lb": "GOLD RUSH" } },
     { "where": "fore3", "look": { "p": 13, "f": 1, "t": 2, "p2": 4, "r": 4, "rs": 6, "s": 1, "w": 6, "wc": 4, "ty": 3, "l": 1, "e": 6, "d": 3, "dc": 4, "a": 1101, "fl": 5 } }
   ],
@@ -72,12 +71,12 @@
     "rimColors": [["Silver", "c9ccd0"], ["Chrome", "f4f6f8"], ["Gloss black", "141416"], ["Gold", "d8a930"], ["Bronze", "8a5a2e"], ["Gunmetal", "3e4247"], ["White", "f2f2f0"], ["Red", "c0262a"], ["Body match", "match"], ["Copper", "b8643a"]],
     "tyres": [["Street", "Smooth road tyres"], ["Whitewall", "Classic white sidewall"], ["Redline", "A thin red line"], ["Off-road", "Big knobby tread"], ["Low profile", "Thin sidewall, bigger rim"]],
     "stance": [["Stock", "Factory ride height"], ["Lifted", "Lift kit and taller tyres"], ["Lowered", "Dropped close to the ground"]],
-    "emblems": [["None", ""], ["GIVEBACK badge", ""], ["Wings", ""], ["Sun", ""], ["Cactus", ""], ["Star", ""], ["Flames", ""], ["Solport roundel", ""], ["Copper Canyon badge", ""]],
+    "emblems": [["None", ""], ["GIVEBACK badge", ""], ["Wings", ""], ["Sun", ""], ["Cactus", ""], ["Star", ""], ["Flames", ""], ["Sunfield roundel", ""], ["Copper Canyon badge", ""]],
     "decals": [["None", ""], ["Racing stripes", ""], ["Pinstripes", ""], ["Flames", ""], ["Tribal", ""], ["Lightning", ""], ["Desert sunset wrap", ""], ["Desert camo", ""], ["Urban camo", ""], ["Checker band", ""], ["Retro sweep", ""]],
     "decalColors": [["White", "f5f5f2"], ["Black", "151515"], ["Gold", "e1b12f"], ["Red", "d0302a"], ["Orange", "f07a22"], ["Teal", "2ab3b0"], ["Pink", "f06aa0"], ["Silver", "b9bec4"], ["Lime", "9be33c"], ["Navy", "1c2a55"]],
     "accessories": [["Light bar", "LED bar on the roof"], ["Underglow", "Neon under the body"], ["Roof rack", "Rails on the canopy"], ["Cooler", "Side mounted cooler"], ["Speaker bar", "Sound under the roof"], ["Flag pole", "Whip flag, back corner"], ["Brush guard", "Tube guard on the nose"], ["Side steps", "Running boards"], ["Mud flaps", "Behind every wheel"], ["Rear basket", "Wire basket on the back"], ["Phone mount", "On the steering column"]],
     "glow": [["Giveback green", "4dde6f"], ["Teal", "2ae0e0"], ["Purple", "a050ff"], ["Pink", "ff4fb0"], ["Orange", "ff8a2a"], ["White", "f0f4ff"]],
-    "flags": [["GIVEBACK", ""], ["Checkered", ""], ["Desert sun", ""], ["Solport", ""], ["Cactus", ""], ["Flames", ""], ["Copper star", ""], ["Copper Canyon", ""]],
+    "flags": [["GIVEBACK", ""], ["Checkered", ""], ["Desert sun", ""], ["Sunfield", ""], ["Cactus", ""], ["Flames", ""], ["Copper star", ""], ["Copper Canyon", ""]],
     "horns": [["Stock", "Beep beep"], ["Aooga", "The old klaxon"], ["Air horn", "Big rig blast"], ["Tri-tone", "Three-note chord"], ["Roadrunner", "Meep meep, quick"]],
     "bikePaint": [["Teal", "2a9d9a"], ["White", "f2f1ec"], ["Black", "18181a"], ["Red", "c42e2a"], ["Blue", "2a5fb8"], ["Pink", "ec6aa0"], ["Copper", "b8643a"], ["Lime", "8fdc3a"], ["Orange", "ec7a2a"], ["Purple", "7a46c8"], ["Gold", "d9a930"], ["Chrome", "e8ecf0"]],
     "bikeRims": [["White", "f2f2ee"], ["Black", "18181a"], ["Chrome", "f0f3f6"], ["Gold", "d8a930"], ["Copper", "b8643a"], ["Red", "c0262a"], ["Teal", "2a9d9a"], ["Pink", "ec6aa0"]],
@@ -141,7 +140,7 @@
     "rude": "Please pick a friendlier word.",
     "reveal": "Your ride is ready",
     "revealSub": "Copper Canyon Customs",
-    "poor": "Not enough coins for everything new. Earn more around Genesis One, or take something off.",
+    "poor": "Not enough coins for everything new. Earn more around Genesis, or take something off.",
     "locked": "Some choices are earned by rank. Earn XP in your Sol Passport (J).",
     "saved": "Applied. Everyone sees your new look."
   }

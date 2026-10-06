@@ -114,7 +114,7 @@
     const d = (typeof planDistrictAt === "function" ? planDistrictAt(s.x, s.z) : null) || nearestDistrict(s.x, s.z);
     let stage = d ? planStageOf(d) : null; let gp = s.park === "genesis_park" || /^gp_/.test(s.id) || stage === "GP"; if (gp) stage = "GP"; if (!stage) stage = s.city_item ? "AIRPORT" : "S1";
     const all = (s.faces || []).join(" | ");
-    if (s.type === "gateway" || s.type === "totem") { if (/^(SOLPORT|DOUGLAS MUNICIPAL)/i.test(all)) { stage = "AIRPORT"; gp = false; } else if (/^GENESIS PARK/i.test(all)) { stage = "GP"; gp = true; } else { const st = stageFromText(all); if (st) { stage = st; gp = false; } } }
+    if (s.type === "gateway" || s.type === "totem") { if (/^(SOLPORT|SUNFIELD|DOUGLAS MUNICIPAL)/i.test(all)) { stage = "AIRPORT"; gp = false; } else if (/^GENESIS PARK/i.test(all)) { stage = "GP"; gp = true; } else { const st = stageFromText(all); if (st) { stage = st; gp = false; } } }
     const rec = { id: s.id, s, type: s.type, x: s.x, z: s.z, x0: s.x, z0: s.z, stage, gp, district: d ? d.name : null, theme: d ? (d.theme || "") : "", th: 0 };
     if (s.type === "gateway") { const sc = String(s.scale || ""); rec.fam = /monument/.test(sc) ? "mo" : "dm"; rec.coBrand = /co-branded/.test(sc) || (gp && /monument/.test(sc)); rec.ped = /pedestrian/.test(sc); }
     else rec.fam = { fingerpost: "fp", blade: "bl", kiosk: "ki", trailblazer: "tb", totem: "tm", runway: "rw" }[s.type] || null;
@@ -351,7 +351,7 @@
     faceQuads(rec, f, 0, py, D / 2 + 0.025 + 0.004, pw - 0.04, ph - 0.04, rect);
     addSolid(rec.x, rec.z, rec.th, W, D, rec.y, rec.y + Hh, "world");
   }
-  function monumentData(rec) { const p = clean(rec.s.faces[0] || "").split("|").map((q) => q.trim()).filter(Boolean); const d = { word: p[0] || "GENESIS ONE", lines: p.slice(1), stage: rec.stage, gp: rec.gp, cb: rec.coBrand };
+  function monumentData(rec) { const p = clean(rec.s.faces[0] || "").split("|").map((q) => q.trim()).filter(Boolean); const d = { word: p[0] || "GENESIS", lines: p.slice(1), stage: rec.stage, gp: rec.gp, cb: rec.coBrand };
     const m = /^Stage (One|Two|Three)\s+(.*)$/i.exec(d.lines[0] || ""); if (m) { d.stageNo = NUMW[m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()]; d.stageName = m[2]; d.lines = d.lines.slice(1); } return d; }
 
   function buildMarker(rec) {
@@ -519,7 +519,7 @@
     const poly = (pts, fill, stroke, lw) => { x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(X(p[0]), Z(p[1])) : x.moveTo(X(p[0]), Z(p[1]))); x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.strokeStyle = stroke; x.lineWidth = lw || 1; x.stroke(); } };
     const line = (pts, col, lw, dash) => { x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(X(p[0]), Z(p[1])) : x.moveTo(X(p[0]), Z(p[1]))); x.strokeStyle = col; x.lineWidth = lw; x.lineCap = "round"; x.lineJoin = "round"; x.setLineDash(dash || []); x.stroke(); x.setLineDash([]); };
     const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
-    const pc = P.parcels || {}; const stageOfParcel = { "41001005F": "S1", "41001005H": "S2", "41001005G": "S3", "41001005E": "AIRPORT" };
+    const pc = P.parcels || {}; const stageOfParcel = { "parcel_F": "S1", "parcel_H": "S2", "parcel_G": "S3", "parcel_E": "AIRPORT" };
     for (const k in pc) { const st = stageOfParcel[k]; if (!pc[k].ring) continue; poly(pc[k].ring, st === "AIRPORT" ? "rgba(245,241,230,0.04)" : rgba(HEX[st] || HEX.S1, 0.08), st === "AIRPORT" ? "rgba(245,241,230,0.18)" : rgba(HEX[st] || HEX.S1, 0.55), Math.max(1, S * 3)); }
     for (const d of P.districts || []) { const st = planStageOf(d); poly(d.poly, rgba(HEX[st] || HEX.S1, park ? 0.16 : 0.12), rgba(HEX[st] || HEX.S1, 0.28), 1); }
     const gp = P.genesis_park || {};
@@ -585,12 +585,12 @@
       if (d.park) { const s2 = Math.round(ms * 0.24); c.drawImage(MAPS.inset, x + pad + 5, my + ms - s2 - 5, s2, s2); c.strokeStyle = "rgba(245,241,230,0.6)"; c.lineWidth = 1.5; c.strokeRect(x + pad + 5, my + ms - s2 - 5, s2, s2); }
       const bb = d.park ? PARK_BB : SITE_BB; const px = x + pad + (d.x - bb[0]) / (bb[1] - bb[0]) * ms, py = my + (d.z - bb[2]) / (bb[3] - bb[2]) * ms; c.strokeStyle = "#ff3b30"; c.lineWidth = 3; c.beginPath(); c.arc(px, py, 11, 0, 6.283); c.stroke();
       rec.mapRect = [x + pad, my, ms, ms]; rec.mapBB = bb;
-      let ly = my + ms + Math.round(h * 0.022); c.font = `600 ${Math.round(h * 0.0145)}px ${FB}`; c.textAlign = "left"; const leg = d.park ? [["the Loop", "#d0864f"], ["Genesis Creek", "#5fb3e6"], ["Genesis One", "#4DDE6F"]] : [["Horizon Line", "#ffffff"], ["brass line", "#c9a152"], ["S1", HEX.S1], ["S2", HEX.S2], ["S3", HEX.S3], ["Park", HEX.GP]]; let lx = x + pad;
+      let ly = my + ms + Math.round(h * 0.022); c.font = `600 ${Math.round(h * 0.0145)}px ${FB}`; c.textAlign = "left"; const leg = d.park ? [["the Loop", "#d0864f"], ["Genesis Creek", "#5fb3e6"], ["Genesis", "#4DDE6F"]] : [["Horizon Line", "#ffffff"], ["brass line", "#c9a152"], ["S1", HEX.S1], ["S2", HEX.S2], ["S3", HEX.S3], ["Park", HEX.GP]]; let lx = x + pad;
       for (const [t, col] of leg) { c.fillStyle = col; c.fillRect(lx, ly - 4, 14, 8); c.fillStyle = "#cfc8b8"; c.fillText(t, lx + 18, ly); lx += 26 + c.measureText(t).width; }
       ly += Math.round(h * 0.03); const rows = d.list.slice(0, 8); const rh = Math.min(Math.round(h * 0.04), Math.floor((y + h * 0.955 - ly) / Math.max(1, rows.length)));
       for (const r of rows) { c.fillStyle = r.colour; c.fillRect(x + pad, ly + 3, 6, rh - 8); c.textAlign = "left"; c.fillStyle = "#f5f1e6"; const nm = r.name + (r.vias.length ? "  (" + r.vias.join(", ") + ")" : ""); fit(c, nm, 600, FB, Math.round(rh * 0.46), w * 0.6, 8); c.fillText(nm, x + pad + 14, ly + rh * 0.45);
         c.textAlign = "right"; c.fillStyle = "#bfb8a8"; const inf = `${r.dir}  ${r.dist}  ${r.mins.replace(" walk", "")}`; fit(c, inf, 500, FM, Math.round(rh * 0.38), w * 0.3, 8); c.fillText(inf, x + w - pad, ly + rh * 0.45); ly += rh; }
-      c.textAlign = "center"; c.fillStyle = "#9d978a"; c.font = `500 ${Math.round(h * 0.0135)}px ${FB}`; const foot = d.park ? "Genesis Park: a partnership proposal, subject to agreement with the City of Douglas" : "Grand Loop shuttle every 15 min  \u00b7  Crossing Shuttle every 3 min"; fit(c, foot, 500, FB, Math.round(h * 0.0135), w - pad * 2, 7); c.fillText(foot, x + w / 2, y + h * 0.975); },
+      c.textAlign = "center"; c.fillStyle = "#9d978a"; c.font = `500 ${Math.round(h * 0.0135)}px ${FB}`; const foot = d.park ? "Genesis Park · open to everyone, sunrise to sunset" : "Grand Loop shuttle every 15 min  \u00b7  Crossing Shuttle every 3 min"; fit(c, foot, 500, FB, Math.round(h * 0.0135), w - pad * 2, 7); c.fillText(foot, x + w / 2, y + h * 0.975); },
     monument(c, x, y, w, h, d, rec) { const gp = d.gp, air = d.stage === "AIRPORT"; c.fillStyle = gp ? pattern(c, "copper") : air ? pattern(c, "alu") : pattern(c, "corten"); c.fillRect(x, y, w, h);
       const g = c.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(255,255,255,0.06)"); g.addColorStop(1, "rgba(0,0,0,0.22)"); c.fillStyle = g; c.fillRect(x, y, w, h); c.strokeStyle = "rgba(0,0,0,0.35)"; c.lineWidth = 4; c.strokeRect(x + 3, y + 3, w - 6, h - 6);
       const ink = air ? "#1d2226" : "#f3ead8", shade = air ? "rgba(255,255,255,0.5)" : "rgba(15,6,2,0.6)"; const col = HEX[d.stage] || HEX.S1; c.textAlign = "center"; c.textBaseline = "middle";
@@ -600,7 +600,7 @@
       let yy = y + h * 0.55;
       if (d.stageNo) { const t = `STAGE ${d.stageNo}  \u00b7  ${d.stageName.toUpperCase()}`; fit(c, t, 700, FB, Math.round(h * 0.11), w * 0.86, 12); c.fillStyle = shade; c.fillText(t, x + w / 2 + 2, yy + 2); c.fillStyle = col; c.fillText(t, x + w / 2, yy); yy += h * 0.15; }
       const rest = d.lines.slice(); c.fillStyle = ink; for (let i = 0; i < rest.length && yy < y + h * 0.95; i++) { const sz = i === 0 && !d.stageNo ? h * 0.1 : h * 0.07; c.font = `${i === 0 && !d.stageNo ? 700 : 500} ${Math.round(sz)}px ${FB}`; const ln = wrap(c, rest[i], w * 0.86).slice(0, 2); for (const t of ln) { c.fillText(t, x + w / 2, yy); yy += sz * 1.25; } }
-      if (gp && yy < y + h * 0.97) { c.font = `500 ${Math.round(h * 0.05)}px ${FB}`; c.fillStyle = "rgba(243,234,216,0.85)"; c.fillText("A partnership proposal, subject to agreement with the City of Douglas", x + w / 2, Math.min(y + h * 0.92, yy + h * 0.02)); } },
+      if (gp && yy < y + h * 0.97) { c.font = `500 ${Math.round(h * 0.05)}px ${FB}`; c.fillStyle = "rgba(243,234,216,0.85)"; c.fillText("Open to everyone, sunrise to sunset", x + w / 2, Math.min(y + h * 0.92, yy + h * 0.02)); } },
     marker(c, x, y, w, h, d) { c.fillStyle = d.gp ? pattern(c, "copper") : pattern(c, "corten"); c.fillRect(x, y, w, h); c.fillStyle = "rgba(0,0,0,0.18)"; c.fillRect(x, y + h - 6, w, 6); c.textAlign = "center"; c.textBaseline = "middle";
       const L = d.lines; let head = L[0] || "", stage = L[1] || "", sub = L[2] || ""; if (/\|/.test(head)) { const p = head.split("|").map((q) => q.trim()); head = p[0]; stage = p[1] || ""; sub = p.slice(2).join(", "); }
       c.font = `400 ${Math.round(w * 0.2)}px ${FD}`; let lines = wrap(c, head.toUpperCase(), w * 0.84); let sz = Math.round(w * 0.2); while (lines.length > 5 && sz > 16) { sz -= 2; c.font = `400 ${sz}px ${FD}`; lines = wrap(c, head.toUpperCase(), w * 0.84); }

@@ -29,7 +29,7 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   var QS = location.search;
   var PREV = window.PLAN_RL; if (PREV && PREV.uninstall) { try { PREV.uninstall(); } catch (e) {} }   // evaluated again in a running game (development): swap in place
   var RL = window.PLAN_RL = {};
-  RL.v = "r16i-1"; RL.errs = []; RL.n = { rooms: 0, auto: 0, fix: 0, caps: 0, capMs: 0, capMax: 0, envHit: 0, envMiss: 0, envEvict: 0, bakes: 0, bakeMs: 0, shafts: 0, frames: 0, poolMs: 0 };
+  RL.v = "r18i2-1"; RL.errs = []; RL.n = { rooms: 0, auto: 0, fix: 0, caps: 0, capMs: 0, capMax: 0, envHit: 0, envMiss: 0, envEvict: 0, bakes: 0, bakeMs: 0, shafts: 0, frames: 0, poolMs: 0 };
   RL.on = !/[?&]rl=0\b/.test(QS);
   function qOn(k) { return new RegExp("[?&]" + k + "=1(?![0-9])").test(QS); }
   function qOff(k) { return new RegExp("[?&]" + k + "=0\\b").test(QS); }
@@ -37,9 +37,9 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   // surface pass). The room capture is on by default on high and ultra (decided at the world hook, when the tier is known; ?rle=0 off,
   // ?rle=1 on every tier); ?ris=0 the surface pass alone.
   RL.r16 = RL.on && !qOff("ri");
-  RL.part = { pool: RL.on && !qOff("rlp"), env: RL.on && qOn("rle"), floor: RL.on && !qOff("rlf"), bake: RL.on && !qOff("rlb"), atmo: RL.on && !qOff("rla"), grade: RL.on && !qOff("rlg"), surf: RL.r16 && !qOff("ris") };
+  RL.part = { pool: RL.on && !qOff("rlp"), env: RL.on && qOn("rle"), floor: RL.on && !qOff("rlf"), bake: RL.on && !qOff("rlb"), atmo: RL.on && !qOff("rla"), grade: RL.on && !qOff("rlg"), surf: RL.r16 && !qOff("ris"), prop: RL.r16 && !qOff("rip") };
   function hiTier() { try { return typeof QUAL !== "undefined" && (QUAL.level === "ultra" || QUAL.level === "high"); } catch (e) { return false; } }
-  RL.tierPick = function () { if (RL.tierDone) return; RL.tierDone = true; RL.hi = hiTier(); try { RL.lite = QUAL.level !== "ultra"; } catch (e) { RL.lite = true; } if (RL.r16 && !qOff("rle") && !qOn("rle") && RL.hi) RL.part.env = RL.on; if (!RL.hi) RL.part.surf = false; };
+  RL.tierPick = function () { if (RL.tierDone) return; RL.tierDone = true; RL.hi = hiTier(); try { RL.lite = QUAL.level !== "ultra"; } catch (e) { RL.lite = true; } if (RL.r16 && !qOff("rle") && !qOn("rle") && RL.hi) RL.part.env = RL.on; if (!RL.hi) { RL.part.surf = false; RL.part.prop = false; } };
   RL.set = function (o) { for (var k in o) if (k in RL.part) RL.part[k] = !!o[k] && RL.on; RL.dirty = true; return RL.part; };
   var TAU = Math.PI * 2;
   function note(w, e) { if (RL.errs.length < 40) RL.errs.push(w + ": " + ((e && e.message) || e)); if (RL.errs.length <= 5) try { console.warn("plan_roomlight " + w, e); } catch (x) {} }
@@ -572,21 +572,49 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   // Textured materials without a normal map (the homes) get one derived from their colour (a worker, off the main thread); the
   // venues' and shops' painted normal maps get the roughness alpha the same way. ?ris=0: off.
   var SURF = RL.surf = { U: null, tex: {}, ready: 0, n: { mats: 0, skip: 0, compiled: 0, miss: 0, derive: 0, deriveMs: 0, swaps: 0, freed: 0, queued: 0 }, Q: [], wait: new Map(), done: new Map(), fly: new Map(), wk: null, busy: 0, seen: new WeakSet() };
-  SURF.U = PREV && PREV.surf && PREV.surf.U ? PREV.surf.U : { uRiRot: { value: new THREE.Matrix3() }, uRiPos: { value: new THREE.Vector3() }, uRiMin: { value: new THREE.Vector3(-5, -1, -5) }, uRiMax: { value: new THREE.Vector3(5, 4, 5) }, uRiCap: { value: new THREE.Vector3() }, uRiOn: { value: new THREE.Vector4(0, 0, 1, 0) } };
+  SURF.U = PREV && PREV.surf && PREV.surf.U ? PREV.surf.U : { uRiRot: { value: new THREE.Matrix3() }, uRiPos: { value: new THREE.Vector3() }, uRiMin: { value: new THREE.Vector3(-5, -1, -5) }, uRiMax: { value: new THREE.Vector3(5, 4, 5) }, uRiCap: { value: new THREE.Vector3() }, uRiOn: { value: new THREE.Vector4(0, 0, 1, 0) }, uRiPr: { value: new THREE.Vector4(0, 0, 0, 0) } };
   var DK = { wood: [4.0, 0.5, 0.55, 0.34], plaster: [2.5, 0.55, 0.3, 0.12], stone: [3.0, 0.34, 0.6, 0.42], metal: [5.0, 0.26, 0.8, 0.45], fabric: [8.0, 0.7, 0.2, 0.06], leather: [6.0, 0.6, 0.45, 0.2] };   // tiles a metre, normal, roughness grain, smudge
   // roughness alpha: [groove gain, darker-than-around gain, offset]; derived normal strength (colour-derived maps only)
   var RC = { wood: [0.55, 0.55, 0, 2.6], plaster: [0.3, 0.35, 0, 1.4], stone: [1.1, 0.35, 0, 3.4], metal: [0.9, 0.3, 0.02, 1.2], fabric: [0.3, 0.2, 0, 2.2], leather: [0.5, 0.3, 0, 2.0], photo: [0, 0, 0, 0] };
+  if (!SURF.U.uRiPr) SURF.U.uRiPr = { value: new THREE.Vector4(0, 0, 0, 0) };
   if (PREV && PREV.surf && PREV.surf.tex) { SURF.tex = PREV.surf.tex; SURF.ready = PREV.surf.ready; SURF.seen = PREV.surf.seen || SURF.seen; }   // a module evaluated again (development) keeps the shared uniforms the patched programs read
   function detTex(kind) { var t = SURF.tex[kind]; if (t) return t; try { t = new THREE.TextureLoader().load((window.AV || String)("/tex/rl_det_" + kind + ".png?v=" + (window.BUILD || "r16i")), function () { SURF.ready++; }, undefined, function () { note("detail " + kind, "load failed"); }); } catch (e) { note("detail " + kind, e); t = new THREE.Texture(); }
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.name = "rl_det_" + kind; t.userData.avShared = true; SURF.tex[kind] = t; try { if (window.PLAN_ROOMS && PLAN_ROOMS.warm) PLAN_ROOMS.warm(t); } catch (e) {} return t; }
+  // ── R18 (Agent I2): the prop layer. One shared 512 px pattern map (tex/rl_prop.png: R wood figure, G brushed metal, B weave, A mottle)
+  // gives the plain (untextured) families of the R14 rooms real surfaces: wood grain on warm-hued paint and satin (furniture, crates,
+  // shelves, frames), brush and mottle on painted pieces, brushed streaks, scratches and tarnish on metal, a weave on cloth, glaze
+  // pooling on ceramics; plus, on every box the kits build (riE: face-local metres and half sizes), a rounded edge in the normal
+  // (bevel highlights), edge wear and macro grime. Same shader text for every family (no new program), one fetch (two on ultra).
+  function propTex() { var t = SURF.tex.prop; if (t) return t; try { t = new THREE.TextureLoader().load((window.AV || String)("/tex/rl_prop.png?v=" + (window.BUILD || "r18i2")), function () { SURF.propReady = true; }, undefined, function () { note("prop map", "load failed"); }); } catch (e) { note("prop map", e); t = new THREE.Texture(); }
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = RL.lite ? 4 : 8; t.name = "rl_prop"; t.userData.avShared = true; SURF.tex.prop = t; try { if (window.PLAN_ROOMS && PLAN_ROOMS.warm) PLAN_ROOMS.warm(t); } catch (e) {} return t; }
+  RL.propTex = propTex;
+  // [class, strength, scale, wear] [bevel, radius m, grime]: class 1 wood or paint by the colour's hue, 2 metal, 3 cloth, 4 glaze,
+  // 5 leather and vinyl, 6 paint only, 7 a bottle (a printed paper label on the body band its lathe uvs mark: u = style + around, v 1..2); 0 = no pattern (textured families keep their maps and only get the bevels and grime)
+  var PC = RL.PC = {
+    paint: [1, 1, 1, 1], satin: [1, 0.9, 1, 0.8], matte: [1, 1, 1, 1], gloss: [1, 0.75, 1, 0.6], cloth: [3, 1, 1, 0.3], ceramic: [4, 1, 1, 0.2],
+    brass: [2, 0.8, 1, 0.6], copper: [2, 0.9, 1, 0.7], gold: [2, 0.5, 1, 0.4], chrome: [2, 0.35, 1.4, 0.3], steel: [2, 0.8, 1, 0.5], iron: [2, 1.1, 0.8, 0.9], metal: [2, 0.9, 1, 0.6], bottleG: [7, 1, 1, 0],
+    // the walk-ins' own (plan_interiors.js, ri_): upholstery, lacquer, stone, metals
+    ebony: [1, 1, 1, 0.6], slate: [6, 0.8, 1, 0.3], hearth: [6, 0.8, 1, 0.3], blackL: [5, 1, 1, 0.5], green: [3, 1, 1, 0.3], navy: [3, 1, 1, 0.3], cream: [3, 1, 1, 0.3], rust: [3, 1, 1, 0.3], sage: [3, 1, 1, 0.3], char: [3, 1, 1, 0.3], teal: [3, 1, 1, 0.3], linen: [3, 0.8, 1, 0.2],
+    bronze: [2, 0.9, 1, 0.6], brushed: [2, 0.9, 1, 0.4], white: [6, 0.7, 1, 0.5], black: [6, 0.7, 1, 0.6], pot: [4, 1.2, 1, 0.3]
+  };
+  // per-module overrides by full name (the hangars' painted tool chests, bins, cartons, upholstery)
+  var PCX = RL.PCX = { rg_navy: [6, 0.9, 1, 0.7], rg_stellar: [6, 0.9, 1, 0.7], rg_red: [6, 0.9, 1, 0.8], rg_yellow: [6, 0.9, 1, 0.8], rg_orange: [6, 0.9, 1, 0.8], rg_white: [6, 0.8, 1, 0.6], rg_black: [6, 0.8, 1, 0.6],
+    rg_truss: [2, 0.7, 0.8, 0.5], rg_dado: [2, 0.8, 1, 0.6], rg_housing: [2, 0.8, 1, 0.5], rg_rubber: [5, 1, 1, 0.2], rg_box: [6, 1.3, 1, 0.9], rg_bin: [6, 0.8, 1, 0.6], rg_bin2: [6, 0.8, 1, 0.6], rg_fabric: [3, 1, 1, 0.3], rg_fabric2: [3, 1, 1, 0.3] };
+  function propCat(nm, m) {
+    var k = nm.replace(/^(rv |rs_|rh_|ri_|rg_)/, ""), tex = !!(m.map && !tinyTex(m.map)), c = !tex && (PCX[nm] || PC[k]) ? (PCX[nm] || PC[k]) : [0, 0, 1, 0];
+    if (/^(r[ig]_)(lamp|lampC|lampW|shade|strip|ember|line|brand|photos|bottles|books|wine|shop|art\d|rug\d|plate_|menu_|easel|leaf|soil|housing)/.test(nm)) return [[0, 0, 1, 0], [0, 0, 0, 0]];
+    if (/mirror|sheet_|^art|^stock|^sign|^screen|^paint(Air|Chir)$|^mural|^retablo|^wanted|^tack|^bottles|^logo|^books|^keys|^pianokeys|^clock|^topo|^flag|^rug|^runner|lamp|neon|candle|ember|glow|fire|glass/.test(k)) return [[0, 0, 1, 0], [0, 0, 0, 0]];
+    if (c[0] === 7) return [c, [0, 0, 0, 0]]; var bev = c[0] === 2 ? 0.9 : c[0] === 3 ? 0.35 : 0.75, rad = c[0] === 3 ? 0.03 : c[0] === 2 ? 0.006 : 0.011; if (c[0] === 3) bev = 1;
+    return [c, [bev, rad, tex ? 0.6 : 1, 0]];
+  }
   // a material's family by its module's name for it: [detail kind, normal, grain, smudge, roughness-alpha kind]
   function surfCat(nm) {
-    var k = nm.replace(/^(rv |rs_|rh_)/, "");
+    var k = nm.replace(/^(rv |rs_|rh_|ri_|rg_)/, "");
     if (/^sheet_|^art$|^stock$|^paint(Air|Chir)$|^mural|^retablo|^art[ABC]$|^wanted|^tack|^bottles|^logo|^books|^keys|^pianokeys|^clock|^topo|^flagAZ|^sign|^screen|^facade/.test(k)) return ["plaster", 0.06, 0.1, 0.05, "photo"];
     if (/lamp|neon|candle|ember|glow|fire/.test(k)) return ["plaster", 0, 0, 0, "photo"];
     if (/mirror/.test(k)) return ["metal", 0.12, 0.25, 1.4, "photo"];   // an old silvered mirror: its own fake as the tarnish, smudges
     if (/bottle|glass/.test(k)) return ["stone", 0.03, 0.1, 0.5, "photo"];
-    if (/plank|oak|barn|pine|bark|latill|^strip|^grain|^bead|shiplap|^wood|^logs/.test(k)) return ["wood", 1, 1, 1, "wood"];
+    if (/plank|oak|barn|pine|bark|latill|^strip|^grain|^bead|shiplap|^wood|^logs|walnut|ebony|burl/.test(k)) return ["wood", 1, 1, 1, "wood"];
     if (/^tin$|brass|copper|chrome|iron|steel|gold|^metal|mirror/.test(k)) return ["metal", 1, 1, 1, "metal"];
     if (/marble|inlay|checker|^hex|terra|saltillo|^stone|brick|concrete|ceramic|trav/.test(k)) return ["stone", 1, 1, 1, "stone"];
     if (/tufted|vinyl|leather/.test(k)) return ["leather", 1, 1, 1, "leather"];
@@ -596,13 +624,14 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   }
   var PATCH = null;
   function buildPatch() {
-    if (PATCH) return PATCH; var C = THREE.ShaderChunk, nfm = C.normal_fragment_maps, env = C.envmap_physical_pars_fragment, miss = 0, lite = !!RL.lite;   // high: the cheaper version (decided with the tier, as the key is)
+    if (PATCH) return PATCH; var C = THREE.ShaderChunk, nfm = C.normal_fragment_maps, env = C.envmap_physical_pars_fragment, miss = 0, lite = !!RL.lite, PATCH_LITE = lite;   // high: the cheaper version (decided with the tier, as the key is)
     var A0 = "vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;"; if (nfm.indexOf(A0) >= 0) nfm = nfm.replace(A0, "vec4 riNA = texture2D( normalMap, vNormalMapUv ); vec3 mapN = riNA.xyz * 2.0 - 1.0;"); else miss++;
     var B0 = "return PI * envMapColor.rgb * envMapIntensity;"; if (env.indexOf(B0) >= 0) env = env.replace(B0, "return PI * envMapColor.rgb * mix( envMapIntensity, uRiOn.z, uRiOn.y );"); else miss++;
     var B1 = "reflectVec = inverseTransformDirection( reflectVec, viewMatrix );"; if (env.indexOf(B1) >= 0) env = env.replace(B1, B1 + "\n\t\treflectVec = riBox( reflectVec );"); else miss++;
     var PARS = [
       "uniform mat3 uRiRot; uniform vec3 uRiPos; uniform vec3 uRiMin; uniform vec3 uRiMax; uniform vec3 uRiCap; uniform vec4 uRiOn;",
       "uniform sampler2D tRiD; uniform vec4 uRiM; uniform vec4 uRiS;",
+      "uniform sampler2D tRiP; uniform vec4 uRiP; uniform vec4 uRiQ; uniform vec4 uRiPr; RI_VARY",
       "vec3 riWP() { return ( vec4( - vViewPosition, 0.0 ) * viewMatrix ).xyz + cameraPosition; }",
       "vec3 riBox( vec3 v ) { if ( uRiOn.x < 0.5 ) return v; vec3 lp = uRiRot * ( riWP() - uRiPos ), nd = uRiRot * v;",
       "  vec3 dd = vec3( nd.x >= 0.0 ? max( nd.x, 1e-4 ) : min( nd.x, -1e-4 ), nd.y >= 0.0 ? max( nd.y, 1e-4 ) : min( nd.y, -1e-4 ), nd.z >= 0.0 ? max( nd.z, 1e-4 ) : min( nd.z, -1e-4 ) );",
@@ -627,28 +656,94 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
       "\tnormal = normalize( normal + riDN.x * riTv + riDN.y * riBv );",
       "\troughnessFactor = clamp( roughnessFactor * ( 1.0 + uRiM.y * riK * ( riD.b * 2.0 - 1.0 ) + uRiM.z * uRiOn.w * riSm ), 0.03, 1.0 );",
       "}"].join("\n");
-    SURF.n.miss = miss; PATCH = { nfm: nfm, env: env, pars: PARS, det: DET, ok: miss === 0, lite: lite }; return PATCH;
+    var PROP = [
+      "if ( uRiPr.x + uRiPr.y > 0.0 && ( uRiP.x > 0.5 ? uRiP.y > 0.0 : ( vRiE.w > 1.5 && uRiQ.x + uRiQ.z > 0.0 ) ) ) {",
+      "\tvec3 pL = uRiRot * ( riWP() - uRiPos ); vec3 pG = uRiRot * normalize( ( vec4( nonPerturbedNormal, 0.0 ) * viewMatrix ).xyz ); vec3 pA = abs( pG );",
+      "\tbool pBox = vRiE.w > 1.5; vec2 pH = abs( vec2( vRiE.z, vRiE.w - 2.0 ) ); vec2 pUV; float pSd = 0.0;",
+      // a box face: its own metres, the pattern's x (the grain) along the face's longer side, an offset per face plane and size
+      "\tif ( pBox ) { pUV = pH.x >= pH.y ? vRiE.xy : vRiE.yx; pSd = fract( sin( dot( vec3( dot( pL, pG ), pH ), vec3( 12.9898, 78.233, 37.719 ) ) ) * 43758.5453 ); }",
+      // anything else: the room's axes (grain upright on sides: legs, posts, turned work; along the room on tops)
+      "\telse if ( pA.y >= pA.x && pA.y >= pA.z ) pUV = pL.xz; else if ( pA.x >= pA.z ) pUV = pL.yz; else pUV = pL.yx;",
+      "\tpUV += pSd * vec2( 7.31, 3.17 );",
+      "\tfloat pCl = uRiP.x, pK = uRiP.y * uRiPr.x; vec2 pS = ( pCl < 1.5 || pCl > 5.5 ) ? vec2( 1.15, 1.9 ) : pCl < 2.5 ? vec2( 0.9, 2.6 ) : pCl < 3.5 ? vec2( 3.4, 3.4 ) : vec2( 1.3, 1.3 );",
+      "\tvec4 pT = pCl > 0.5 ? texture2D( tRiP, pUV * pS * uRiP.z ) : vec4( 0.5 );",
+      PATCH_LITE ? "\tfloat pM = 0.5;" : "\tfloat pM = uRiPr.z > 0.5 ? texture2D( tRiP, ( pBox ? pUV : pL.xz + pL.y * 0.37 ) * 0.17 + vec2( 0.41, 0.23 ) ).a : 0.5;",
+      "\tvec3 pC = diffuseColor.rgb; float pMx = max( pC.r, max( pC.g, pC.b ) ), pMn = min( pC.r, min( pC.g, pC.b ) ), pSat = ( pMx - pMn ) / max( pMx, 1e-4 ), pGr = pC.g / max( pC.r, 1e-4 );",
+      // wood by hue: warm (r >= g >= b), saturated but not a red or orange enamel, any brightness up to pale pine
+      "\tfloat pWd = pCl < 1.5 && pBox ? step( pC.b, pC.g * 1.04 ) * step( pC.g, pC.r * 1.02 ) * smoothstep( 0.14, 0.32, pSat ) * ( 1.0 - smoothstep( 0.8, 0.95, pSat ) ) * smoothstep( 0.22, 0.38, pGr ) * ( 1.0 - smoothstep( 0.86, 0.97, pGr ) ) : 0.0;",
+      // the bevel: face-local derivatives give the face's axes; a rounded edge of radius r tilts the normal outward (fades when sub-pixel)
+      "\tfloat pE = 0.0;",
+      "\tif ( pBox && vRiE.z > 0.0 && uRiPr.y > 0.0 && uRiQ.x > 0.0 ) {",
+      "\t\tvec3 pP = - vViewPosition, d1 = dFdx( pP ), d2 = dFdy( pP ); vec2 e1 = dFdx( vRiE.xy ), e2 = dFdy( vRiE.xy );",
+      "\t\tvec3 q1 = cross( d2, nonPerturbedNormal ), q2 = cross( nonPerturbedNormal, d1 ); vec3 tU = q1 * e1.x + q2 * e2.x, tV = q1 * e1.y + q2 * e2.y;",
+      "\t\ttU *= inversesqrt( max( dot( tU, tU ), 1e-24 ) ); tV *= inversesqrt( max( dot( tV, tV ), 1e-24 ) );",
+      "\t\tfloat pr = min( uRiQ.y, ( pCl > 2.5 && pCl < 3.5 ? 0.5 : 0.4 ) * min( pH.x, pH.y ) ); vec2 fw = fwidth( vRiE.xy ); float vis = smoothstep( 0.7, 1.8, pr / max( max( fw.x, fw.y ), 1e-6 ) );",
+      "\t\tvec2 pd = pH - abs( vRiE.xy ); vec2 pb = 1.0 - smoothstep( vec2( 0.0 ), vec2( pr ), pd ); pb *= pb * ( 2.0 - pb );",
+      "\t\tnormal = normalize( normal + ( sign( vRiE.x ) * pb.x * tU + sign( vRiE.y ) * pb.y * tV ) * ( 0.95 * uRiQ.x * vis * uRiPr.y ) );",
+      "\t\tpE = max( pb.x, pb.y ) * vis * uRiPr.y; pE = max( pE, ( 1.0 - smoothstep( 0.0, pr * 3.5, min( pd.x, pd.y ) ) ) * 0.45 * vis * uRiPr.y );",
+      "\t}",
+      "\tfloat pMod = 1.0, pRo = 1.0, pWear = uRiP.w * pE * smoothstep( 0.25, 0.75, pT.a );",
+      "\tif ( pCl > 0.5 && pCl < 1.5 || pCl > 5.5 ) {",
+      "\t\tfloat wg = 0.5 + 0.62 * pT.r, pn = 1.0 + 0.3 * ( pT.a - 0.5 ) + 0.08 * ( pT.g - 0.5 );",
+      "\t\tpMod = mix( pn, wg, pWd ); pRo = mix( 1.0 + 0.32 * ( pT.a - 0.5 ), 1.0 + 0.35 * ( 0.72 - pT.r ), pWd );",
+      "\t\tdiffuseColor.rgb *= mix( vec3( 1.0 ), mix( vec3( 1.0 ), vec3( 1.04, 0.98, 0.9 ), pWd ) * pMod, pK );",
+      "\t\tdiffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * mix( 1.38, 1.22, pWd ) + 0.015, pWear * pK );",   // worn edges: paint thinned to its ground, varnish rubbed
+      "\t\troughnessFactor *= mix( 1.0, pRo, pK ) * ( 1.0 + 0.25 * pWear * pK );",
+      "\t} else if ( pCl < 2.5 ) {",
+      "\t\tdiffuseColor.rgb *= 1.0 + pK * ( 0.2 * ( pT.g - 0.5 ) - 0.22 * smoothstep( 0.45, 0.9, pM ) );",
+      "\t\troughnessFactor *= mix( 1.0, ( 0.62 + 0.75 * pT.g ) * ( 1.0 + 0.5 * smoothstep( 0.5, 0.95, pM ) ) * ( 1.0 - 0.45 * pE ), pK );",
+      "\t} else if ( pCl < 3.5 ) {",
+      "\t\tdiffuseColor.rgb *= mix( 1.0, ( 0.7 + 0.46 * pT.b ) * ( 1.0 + 0.22 * ( pT.a - 0.5 ) ), pK ); roughnessFactor = mix( roughnessFactor, max( roughnessFactor, 0.82 + 0.15 * pT.b ), pK );",
+      "\t} else if ( pCl < 4.5 ) {",
+      "\t\tdiffuseColor.rgb *= 1.0 + pK * 0.1 * ( pT.a - 0.5 ); roughnessFactor *= mix( 1.0, 0.75 + 0.5 * pT.a, pK );",
+      "\t} else {",
+      "\t\tdiffuseColor.rgb *= 1.0 + pK * 0.24 * ( pT.a - 0.5 ); roughnessFactor *= mix( 1.0, 0.8 + 0.4 * pT.a + 0.2 * pE, pK );",
+      "\t}",
+      // a bottle's label: paper in one of six styles, a border, a title in blocks, small print (anti-aliased by its footprint)
+      "#ifdef USE_MAP",
+      "	if ( pCl > 6.5 && pK > 0.0 ) { vec2 lu = vec2( fract( vMapUv.x ), vMapUv.y - 1.0 ); float sty = mod( floor( vMapUv.x ), 6.0 );",
+      "		if ( lu.y > 0.14 && lu.y < 0.82 && lu.x > 0.04 && lu.x < 0.6 ) { vec2 q = vec2( ( lu.x - 0.04 ) / 0.56, ( lu.y - 0.14 ) / 0.68 );",
+      "			vec3 pap = sty < 1.5 ? vec3( 0.72, 0.6, 0.38 ) : sty < 2.5 ? vec3( 0.82, 0.78, 0.68 ) : sty < 3.5 ? vec3( 0.42, 0.06, 0.04 ) : sty < 4.5 ? vec3( 0.05, 0.05, 0.06 ) : vec3( 0.6, 0.66, 0.5 );",
+      "			vec3 ink = sty > 2.5 && sty < 4.5 ? vec3( 0.75, 0.56, 0.22 ) : vec3( 0.06, 0.04, 0.03 );",
+      "			float aa = clamp( 1.6 - fwidth( q.x * 22.0 ) * 2.0, 0.0, 1.0 ), aa2 = clamp( 1.6 - fwidth( q.x * 9.0 ) * 2.0, 0.0, 1.0 );",
+      "			float brd = 1.0 - step( 0.05, q.x ) * step( q.x, 0.95 ) * step( 0.06, q.y ) * step( q.y, 0.94 );",
+      "			float row = step( 0.56, q.y ) * step( q.y, 0.76 ) * step( 0.14, q.x ) * step( q.x, 0.86 ); float lt = row * mix( 0.5, step( 0.3, fract( q.x * 9.0 + sty * 0.21 ) ) * step( fract( q.x * 9.0 + sty * 0.21 ), 0.86 ), aa2 );",
+      "			float sm = step( 0.2, q.y ) * step( q.y, 0.46 ) * step( 0.18, q.x ) * step( q.x, 0.82 ) * mix( 0.3, step( 0.55, fract( q.y * 11.0 ) ) * step( 0.32, fract( q.x * 22.0 + floor( q.y * 11.0 ) * 0.37 ) ), aa );",
+      "			float em = 1.0 - smoothstep( 0.08, 0.11, length( ( q - vec2( 0.5, 0.86 ) ) * vec2( 1.0, 2.4 ) ) );",
+      "			diffuseColor.rgb = mix( pap, ink, clamp( max( max( brd * 0.85, lt ), max( sm * 0.75, em * 0.8 ) ), 0.0, 1.0 ) ) * ( 0.88 + 0.24 * pT.a ); roughnessFactor = 0.68; metalnessFactor = 0.0; } }",
+      "#endif",
+      // macro grime and handling: a soft large blotch darkens and roughens (ultra)
+      "\tfloat pGm = uRiQ.z * uRiPr.z * smoothstep( 0.42, 0.92, pM );",
+      "\tif ( uRiPr.w > 0.5 ) diffuseColor.rgb = vec3( pE, pWd, pBox ? 0.6 : 0.0 );",
+      "\tdiffuseColor.rgb *= ( 1.0 - 0.2 * pGm ) * ( pBox && pCl > 0.5 ? 1.0 + 0.1 * ( pSd - 0.5 ) * pK : 1.0 ); roughnessFactor = clamp( roughnessFactor * ( 1.0 + 0.18 * pGm ), 0.03, 1.0 );",
+      "}"].join("\n");
+    SURF.n.miss = miss; PATCH = { nfm: nfm, env: env, pars: PARS, det: DET + "\n" + PROP, ok: miss === 0, lite: lite }; return PATCH;
   }
   // (the material is passed in: the client's CSM material classes chain hooks and older ones drop "this")
   function surfOBC(m, sh, r) {
     var u = m.userData.riU; if (m.userData.riPrev) { try { m.userData.riPrev.call(m, sh, r); } catch (e) { note("surf prev", e); } } if (!u) return; var P = buildPatch(); if (!P.ok) return;
     for (var k in SURF.U) sh.uniforms[k] = SURF.U[k]; sh.uniforms.tRiD = u.tRiD; sh.uniforms.uRiM = u.uRiM; sh.uniforms.uRiS = u.uRiS;
+    sh.uniforms.tRiP = u.tRiP || { value: propTex() }; sh.uniforms.uRiP = u.uRiP || { value: new THREE.Vector4() }; sh.uniforms.uRiQ = u.uRiQ || { value: new THREE.Vector4() };
+    var vs = sh.vertexShader, vary = "varying vec4 vRiE;";
+    if (vs.indexOf("#include <common>") >= 0 && vs.indexOf("#include <begin_vertex>") >= 0) sh.vertexShader = vs.replace("#include <common>", "#include <common>\nattribute vec4 riE;\nvarying vec4 vRiE;").replace("#include <begin_vertex>", "#include <begin_vertex>\n\tvRiE = riE;");
+    else vary = "const vec4 vRiE = vec4( 0.0 );";
     var fs = sh.fragmentShader;
     if (fs.indexOf("#include <normal_fragment_maps>") < 0 || fs.indexOf("#include <envmap_physical_pars_fragment>") < 0 || fs.indexOf("#include <common>") < 0) { SURF.n.miss++; return; }
-    sh.fragmentShader = fs.replace("#include <common>", "#include <common>\n" + P.pars).replace("#include <envmap_physical_pars_fragment>", P.env).replace("#include <normal_fragment_maps>", P.nfm + "\n" + P.det);
+    sh.fragmentShader = fs.replace("#include <common>", "#include <common>\n" + P.pars.replace("RI_VARY", vary)).replace("#include <envmap_physical_pars_fragment>", P.env).replace("#include <normal_fragment_maps>", P.nfm + "\n" + P.det);
   }
-  function surfKey() { var p = this.userData.riPrevKey ? this.userData.riPrevKey.call(this) : ""; return p + (RL.lite ? "|ri16s1h" : "|ri16s1"); }
+  function surfKey() { var p = this.userData.riPrevKey ? this.userData.riPrevKey.call(this) : ""; return p + (RL.lite ? "|ri18p1h" : "|ri18p1"); }
   function tinyTex(t) { var im = t && (t.image || (t.source && t.source.data)) || {}; return !((im.width || 0) > 8); }
   var FLATN = null;   // a flat normal with a neutral roughness alpha: the placeholder until a derived map is ready
   function flatN() { if (FLATN) return FLATN; FLATN = new THREE.DataTexture(new Uint8Array([128, 128, 255, 128, 128, 128, 255, 128, 128, 128, 255, 128, 128, 128, 255, 128]), 2, 2); FLATN.needsUpdate = true; FLATN.wrapS = FLATN.wrapT = THREE.RepeatWrapping; FLATN.userData.avShared = true; FLATN.name = "rl flat normal"; return FLATN; }
   // patch one material (only before its first compile: a material that already has a program keeps it, so nothing compiles twice)
-  RL.surfMat = function (m) {
+  RL.surfMat = function (m, opt) {
     if (!RL.part.surf || !RL.tierDone || !m || SURF.seen.has(m)) return false; SURF.seen.add(m);
     if (!m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || m.transparent || m.alphaTest > 0 || m.userData.riU || m.userData.riNo) { SURF.n.skip++; return false; }
-    var nm = m.name || ""; if (!/^(rv |rs_|rh_)/.test(nm) || /^rs_facade/.test(nm)) { SURF.n.skip++; return false; }
+    var nm = m.name || ""; if (!(opt && opt.cat) && (!/^(rv |rs_|rh_|ri_|rg_)/.test(nm) || /^rs_facade/.test(nm))) { SURF.n.skip++; return false; }
     try { var pr = renderer.properties.get(m); if (pr && pr.currentProgram) { SURF.n.compiled++; return false; } } catch (e) {}
     var c = surfCat(nm), d = DK[c[0]]; var u = { tRiD: { value: detTex(c[0]) }, uRiM: { value: new THREE.Vector4(d[1] * c[1], d[2] * c[2], d[3] * c[3], 0) }, uRiS: { value: new THREE.Vector4(d[0], 0.083, 0, 0) } };
-    m.userData.riU = u; m.userData.riCat = c;
+    var pc = opt && opt.cat ? [opt.cat, opt.flat ? [0, 0, 0, 0] : [opt.cat[0] === 2 ? 0.9 : opt.cat[0] === 3 ? 1 : 0.75, opt.cat[0] === 3 ? 0.03 : opt.cat[0] === 2 ? 0.006 : 0.011, 1, 0]] : propCat(nm, m); u.tRiP = { value: propTex() }; u.uRiP = { value: new THREE.Vector4(pc[0][0], pc[0][1], pc[0][2], pc[0][3]) }; u.uRiQ = { value: new THREE.Vector4(pc[1][0], pc[1][1], pc[1][2], pc[1][3]) };
+    m.userData.riU = u; m.userData.riCat = c; m.userData.riProp = pc;
     // the client's CSM material class (high, ultra) runs its own hook first and keeps one user hook (_userObc): chain only that one
     if ("_csmObc" in m || "_userObc" in m) { if (m._userObc) m.userData.riPrev = m._userObc; } else if (m.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile) m.userData.riPrev = m.onBeforeCompile;
     if (m.customProgramCacheKey !== THREE.Material.prototype.customProgramCacheKey) m.userData.riPrevKey = m.customProgramCacheKey;
@@ -706,6 +801,7 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   var _m3 = new THREE.Matrix3(), _bc = new THREE.Vector3();
   function surfFrame(R) {
     var U = SURF.U, on = U.uRiOn.value; on.w = RL.part.surf && SURF.ready >= 6 ? 1 : 0;
+    var pr = U.uRiPr.value, po = RL.part.surf && RL.part.prop; pr.x = po && SURF.propReady ? 1 : 0; pr.y = po ? 1 : 0; pr.z = po && !RL.lite ? 1 : 0; pr.w = RL.propDbg ? 1 : 0;
     if (!R) { if (on.x || on.y) { on.x = 0; on.y = 0; U.uRiRot.value.identity(); U.uRiPos.value.set(0, 0, 0); } return; }
     if (SURF.R !== R) { SURF.R = R; _m3.setFromMatrix4(R.Mi); U.uRiRot.value.copy(_m3); var b = R.box; _bc.set((b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2); U.uRiPos.value.copy(_bc).applyMatrix4(R.M);
       U.uRiMin.value.set(b[0] - _bc.x, b[2] - _bc.y - 0.02, b[4] - _bc.z); U.uRiMax.value.set(b[1] - _bc.x, b[3] - _bc.y, b[5] - _bc.z); U.uRiCap.value.set(0, b[2] + Math.min(1.7, (b[3] - b[2]) * 0.45) - _bc.y, 0); }
@@ -713,6 +809,18 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
     on.x = own && RL.part.surf ? 1 : 0; on.y = own && RL.part.surf ? 1 : 0; on.z = (Lk.irr === undefined ? 0.75 : Lk.irr) * (R.k && R.k.irr || 1) * (1 + 0.3 * nightK());
   }
   RL.surfFrame = surfFrame;
+  // development: after evaluating this file again in a running game, re-patch every room material with the new shader text
+  RL.devRepatch = function () { var n = 0, v = (RL.devN = (RL.devN || 0) + 1); var one = function (m) { if (!m || !m.isMaterial || !m.userData.riU) return; m.onBeforeCompile = function (sh, r) { surfOBC(m, sh, r); }; m.customProgramCacheKey = function () { return surfKey.call(m) + "|dev" + v; }; m.needsUpdate = true; n++; };
+    [window.PLAN_ROOMS_VENUES && PLAN_ROOMS_VENUES.MT, window.PLAN_ROOMS_SHOPS && PLAN_ROOMS_SHOPS.mat, window.PLAN_RH && PLAN_RH.mt].forEach(function (c) { if (c) for (var k in c) one(c[k]); }); try { if (inside && inside.g) inside.g.traverse(function (o) { if (o.material && !Array.isArray(o.material)) one(o.material); }); } catch (e) {} return n; };
+  var XMOD = ["PLAN_LIBRARY", "PLAN_CHAINMUSEUM", "PLAN_MERCADO", "PLAN_RODEO", "PLAN_SPORTSCLUB", "PLAN_FLIGHTACADEMY", "PLAN_DOMES", "PLAN_MARKET", "PLAN_CONV", "PLAN_BODYSHOP", "PLAN_TERMINAL"];
+  function xCat(n) { n = (n || "").toLowerCase(); if (/glass|water|lamp|emit|glow|bulb|lens|leaf|ember|wire|far|shade|sign|screen|neon|ball|marks|pool|tub/.test(n)) return null;
+    if (/chrome/.test(n)) return [2, 0.35, 1.4, 0.3]; if (/iron|steel|bronze|brass|metal|inox|tin\b|copper|gold|hub|band|strut|pipe/.test(n)) return [2, 0.85, 1, 0.6]; if (/cloth|linen|fabric|felt|carpet|soft/.test(n)) return [3, 1, 1, 0.3];
+    if (/ceramic|enamel|glaze/.test(n)) return [4, 1, 1, 0.3]; if (/leather|rubber/.test(n)) return [5, 1, 1, 0.4]; if (/paint|plain|matte|composite|corten|basalt|pot\b|dark|bright/.test(n)) return [6, 0.85, 1, 0.6]; return null; }
+  RL.xScan = function () { if (!RL.part.surf || !RL.part.prop || !RL.tierDone) return 0; var n = 0, seen = new Set();
+    var walk = function (o, d) { if (!o || typeof o !== "object" || seen.has(o) || d > 3) return; seen.add(o); if (o.isMaterial) { if (o.isMeshStandardMaterial && !o.isMeshPhysicalMaterial && !o.transparent && !(o.alphaTest > 0) && !o.emissiveMap && (!o.map || tinyTex(o.map)) && !o.userData.riU && !SURF.seen.has(o) && !(o.onBeforeCompile !== THREE.Material.prototype.onBeforeCompile && !("_csmObc" in o)) && !o._userObc) { var c = (o.emissive && o.emissive.getHex()) ? null : xCat(o.name); if (RL.surfMat(o, { cat: c || [0, 0, 1, 0], flat: !c })) n++; } return; }
+      if (o.isObject3D || o.isTexture || o.isBufferGeometry || ArrayBuffer.isView(o) || Array.isArray(o) && o.length > 200) return; var i = 0; for (var k in o) { if (++i > 400) break; try { walk(o[k], d + 1); } catch (e) {} } };
+    for (var j = 0; j < XMOD.length; j++) { try { walk(window[XMOD[j]], 0); } catch (e) {} } RL.n.xMats = (RL.n.xMats || 0) + n; return n; };
+  RL.propOn = function () { return !!(RL.part.surf && RL.part.prop && RL.tierDone); };
 
   // ───────────────────────── the frame ─────────────────────────
   function enterRoom(R) { CUR.R = R; CUR.at = performance.now(); POOLX.snap = true; R.stamp++; if (!R.ready) { R.ready = true; } try { if (RL.atmoBegin) RL.atmoBegin(R); } catch (e) { note("atmo begin", e); } envBegin(R); try { floorBegin(R); } catch (e) { note("floor begin", e); } }
@@ -731,6 +839,7 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
     if (R !== CUR.R) { if (CUR.R) leaveRoom(CUR.R); if (R) enterRoom(R); }
     if (R) { try { fillFrame(R); } catch (e) { note("fill", e); } try { var sk = lookR(R).sky * (R.k && R.k.sky !== undefined ? R.k.sky : 1); if (sk !== 1 && typeof hemi !== "undefined" && hemi && hemi._intensity !== undefined) hemi._intensity *= sk; } catch (e) {}   /* the stored value (the client reports it x PI) */ try { envStep(); envFrame(R); } catch (e) { note("env", e); } try { if (RL.atmoFrame) RL.atmoFrame(R, dt, now); } catch (e) { note("atmo", e); } }
     if (RL.r16) { try { surfFrame(R); if (SURF.Q.length) surfIdle(now); } catch (e) { note("surf", e); } }
+    if (RL.part.prop && RL.part.surf && (RL.n.xT === undefined || (now - RL.n.xT > 5000 && now - (RL.n.x0 || now) < 90000))) { if (RL.n.x0 === undefined) RL.n.x0 = now; RL.n.xT = now; try { var xt = performance.now(); RL.xScan(); RL.n.xMs = Math.max(RL.n.xMs || 0, performance.now() - xt); } catch (e) { note("xscan", e); } }
     gradeFrame(R, dt);
   }
   function unhook(phase, name) { var a = window.PLAN_HOOKS[phase]; if (!a) return; for (var i = a.length - 1; i >= 0; i--) if (a[i] && a[i].name === name) a.splice(i, 1); }
@@ -740,8 +849,9 @@ window.PLAN_RLQ = window.PLAN_RLQ || [];
   window.__rlqAll = [];
   if (RL.on) {
     window.PLAN_HOOKS.frame.push({ name: "planRoomLight", fn: frame });
-    window.PLAN_HOOKS.world.push({ name: "planRoomLightInstall", fn: function () { RL.tierPick(); installPool(); drainQ(); RL.envPrep(); try { RL.kitWarm(); } catch (e) { note("kit warm", e); } if (RL.part.surf) for (var dk in DK) detTex(dk); } });
+    window.PLAN_HOOKS.world.push({ name: "planRoomLightInstall", fn: function () { RL.tierPick(); installPool(); drainQ(); RL.envPrep(); try { RL.kitWarm(); } catch (e) { note("kit warm", e); } if (RL.part.surf) { for (var dk in DK) detTex(dk); propTex(); }
+      window.PLAN_HOOKS.world.push({ name: "planRoomLightX", fn: function () { try { RL.xScan(); } catch (e) { note("xscan", e); } } }); } });   // runs after every module's world hook (the list is read live)
   }
-  if (PREV && RL.on) { try { if (typeof scene !== "undefined" && scene && typeof renderer !== "undefined") { RL.tierPick(); installPool(); drainQ(); RL.envPrep(); RL.kitWarm(); if (RL.part.surf) for (var dk2 in DK) detTex(dk2); } } catch (e) { note("hot install", e); } }
+  if (PREV && RL.on) { try { if (typeof scene !== "undefined" && scene && typeof renderer !== "undefined") { RL.tierPick(); installPool(); drainQ(); RL.envPrep(); RL.kitWarm(); if (RL.part.surf) { for (var dk2 in DK) detTex(dk2); propTex(); } } } catch (e) { note("hot install", e); } }
   RL.state = function () { var R = CUR.R; return { room: R && R.id, type: R && R.type, fix: R && R.fix.length, slots: SP.map(function (s) { return s.c ? +(s.k).toFixed(2) : 0; }), spots: SS.map(function (s) { return s.c ? +(s.k).toFixed(2) : 0; }), env: !!(ENV.active && ENV.active.R === R), cache: ENV.cache.size, n: RL.n, part: RL.part, errs: RL.errs.length }; };
 })();

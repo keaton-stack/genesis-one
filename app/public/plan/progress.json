@@ -1,5 +1,4 @@
 {
-  "_about": "Sol Passport, ranks and the community impact meter (plan_progress.js). Edit any wording, XP value, threshold or reward here without touching code. Rules: no em dashes, no percentages, no prices or money figures, no donation claims. Ranks are earned by play only: never bought, never tied to coins, tokens or money. IDs and the numbers in \"n\" are stable keys saved in every player's passport: never renumber or reuse an n; add new stamps with a new n (stamps 0 to 255, chapters 0 to 31, activities 0 to 31, milestones 0 to 15, rides 0 to 15).",
   "version": 1,
   "key": "KeyJ",
   "keyLabel": "J",
@@ -20,7 +19,7 @@
       "name": "Pilot",
       "xp": 750,
       "color": "#4DDE6F",
-      "blurb": "You have found your way around Solport.",
+      "blurb": "You have found your way around Sunfield.",
       "perks": [
         "Pilot wings on your nameplate, seen by everyone",
         "Stamp Travel: travel instantly from your passport to any place you have stamped",
@@ -32,7 +31,7 @@
       "name": "Captain",
       "xp": 5000,
       "color": "#f4cd5a",
-      "blurb": "A regular of Genesis One, known all over the site.",
+      "blurb": "A regular of Genesis, known all over the site.",
       "perks": [
         "The Captain's gold badge and nameplate trim",
         "Captain's Cheer: your Cheer emote launches a gold firework everyone nearby can see",
@@ -44,10 +43,10 @@
       "name": "Tower",
       "xp": 15000,
       "color": "#7fe3f0",
-      "blurb": "The rarest rank. You have seen everything Genesis One has to offer.",
+      "blurb": "The rarest rank. You have seen everything Genesis has to offer.",
       "perks": [
         "The Tower beacon badge on your nameplate",
-        "The Tower Lookout: ride the lift to the roof deck of the Solport control tower",
+        "The Tower Lookout: ride the lift to the roof deck of the Sunfield control tower",
         "Tower Crimson paint for your golf cart"
       ]
     }
@@ -195,13 +194,14 @@
     {
       "id": "solport",
       "n": 0,
-      "name": "Solport Airfield",
-      "sub": "The 1928 airfield, City of Douglas",
+      "name": "Sunfield Airfield",
+      "sub": "The old airfield, where every visit starts",
       "ink": "#2c5d9c",
       "stamps": [
         {
           "n": 0,
           "id": "p_terminal",
+          "name": "Sunfield Terminal",
           "place": "terminal",
           "r": 34
         },
@@ -469,6 +469,38 @@
           "name": "Stargazing Loungers",
           "x": 430,
           "z": -600,
+          "r": 0.3
+        },
+        {
+          "n": 395,
+          "id": "p_ar_letters",
+          "name": "GENESIS in letters",
+          "x": 153.7,
+          "z": -137.4,
+          "r": 0.3
+        },
+        {
+          "n": 396,
+          "id": "p_ar_steps",
+          "name": "A seat on the Welcome Steps",
+          "x": 125.5,
+          "z": -107.2,
+          "r": 0.3
+        },
+        {
+          "n": 397,
+          "id": "p_ar_sunring",
+          "name": "The Sun Ring",
+          "x": 173.9,
+          "z": -123.7,
+          "r": 0.3
+        },
+        {
+          "n": 398,
+          "id": "p_ar_waterwalls",
+          "name": "Between the water walls",
+          "x": 112.0,
+          "z": -122.6,
           "r": 0.3
         }
       ]
@@ -959,7 +991,7 @@
       "id": "park",
       "n": 8,
       "name": "Genesis Park",
-      "sub": "A partnership proposal with the City of Douglas",
+      "sub": "The town park: the bandshell, the barn, the stables and the ball fields",
       "ink": "#a65a26",
       "stamps": [
         {
@@ -1039,7 +1071,7 @@
       "id": "partners",
       "n": 9,
       "name": "Industry Partners",
-      "sub": "Meet the partners in the FBO and at GBANK",
+      "sub": "Meet the partners in the Terminal",
       "ink": "#0f4a2c",
       "bonus": 400,
       "stamps": [
@@ -1048,16 +1080,8 @@
           "id": "t_pt_stellar",
           "talk": "pt_stellar",
           "kind": "partner",
-          "name": "Brad Kost",
-          "org": "Stellar Aviation"
-        },
-        {
-          "n": 171,
-          "id": "t_pt_paul",
-          "talk": "pt_paul",
-          "kind": "partner",
-          "name": "Paul Mazzapica",
-          "org": "FinanceAdvisors.com"
+          "name": "Dale Calder",
+          "org": "Sunfield Terminal"
         },
         {
           "n": 172,
@@ -1065,7 +1089,7 @@
           "talk": "pt_jetfinders",
           "kind": "partner",
           "name": "Jake",
-          "org": "JetFinders"
+          "org": "Tailwind Jets"
         },
         {
           "n": 173,
@@ -1073,22 +1097,14 @@
           "talk": "freedomair",
           "kind": "partner",
           "name": "Joe",
-          "org": "Freedom Air"
-        },
-        {
-          "n": 174,
-          "id": "t_will",
-          "talk": "will",
-          "kind": "partner",
-          "name": "Will Deitrick",
-          "org": "GBANK · Riverside Management Group"
+          "org": "Open Range Air"
         }
       ]
     },
     {
       "id": "locals",
       "n": 10,
-      "name": "Locals of Genesis One",
+      "name": "Locals of Genesis",
       "sub": "Everyone who makes the site feel like home",
       "ink": "#8a3558",
       "stamps": [
@@ -1222,7 +1238,7 @@
       "id": "darksky",
       "n": 11,
       "name": "The Dark Sky",
-      "sub": "The Stargazer Pyramids and the Solport Dark Sky Observatory",
+      "sub": "The Stargazer Pyramids and the Sunfield Dark Sky Observatory",
       "ink": "#2b2f6b",
       "stamps": [
         {
@@ -1236,7 +1252,7 @@
         {
           "n": 201,
           "id": "p_dark_sky_observatory",
-          "name": "Solport Dark Sky Observatory",
+          "name": "Sunfield Dark Sky Observatory",
           "x": 772,
           "z": 772,
           "r": 13
@@ -1255,7 +1271,7 @@
           "talk": "astronomer",
           "kind": "local",
           "name": "Dr. Celeste Ruiz",
-          "org": "Solport Dark Sky Observatory"
+          "org": "Sunfield Dark Sky Observatory"
         }
       ]
     },
@@ -1359,14 +1375,14 @@
     {
       "id": "convention",
       "n": 13,
-      "name": "Solport Convention Center",
-      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Cart Park and the Market Garden beside the Stellar FBO",
+      "name": "Sunfield Convention Center",
+      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Cart Park and the Market Garden beside the Sunfield Terminal",
       "ink": "#8a4a22",
       "stamps": [
         {
           "n": 221,
           "id": "p_solport_arena",
-          "name": "Solport Convention Center",
+          "name": "Sunfield Convention Center",
           "x": -270,
           "z": -90,
           "r": 30
@@ -1385,7 +1401,7 @@
           "talk": "maren",
           "kind": "local",
           "name": "Maren",
-          "org": "Host, Solport Convention Center"
+          "org": "Host, Sunfield Convention Center"
         },
         {
           "n": 230,
@@ -1417,7 +1433,7 @@
           "talk": "jordan",
           "kind": "local",
           "name": "Jordan",
-          "org": "Campus host, Solport Convention Center"
+          "org": "Campus host, Sunfield Convention Center"
         },
         {
           "n": 240,
@@ -1457,7 +1473,7 @@
           "talk": "rosa_mk",
           "kind": "local",
           "name": "Rosa",
-          "org": "Sonoran Kitchen, Market Hall"
+          "org": "Desert Kitchen, Market Hall"
         },
         {
           "n": 245,
@@ -1617,7 +1633,7 @@
     {
       "id": "shops",
       "n": 15,
-      "name": "Shops of Genesis One",
+      "name": "Shops of Genesis",
       "sub": "Main Street, the Flight Line Market and the Club Walk, shop by shop",
       "ink": "#c9a24a",
       "stamps": [
@@ -1680,7 +1696,7 @@
         {
           "n": 287,
           "id": "p_rs_makers",
-          "name": "Made in Douglas",
+          "name": "Made on Main Street",
           "x": -316.1,
           "z": 167.3,
           "r": 0.3
@@ -1844,7 +1860,7 @@
     {
       "id": "homes",
       "n": 18,
-      "name": "Homes of Genesis One",
+      "name": "Homes of Genesis",
       "sub": "Desert villas, ranch houses, the lodge and the bell tents",
       "ink": "#b86e4a",
       "stamps": [
@@ -2178,14 +2194,14 @@
     {
       "id": "academy",
       "n": 24,
-      "name": "Genesis One Flight Academy",
+      "name": "Genesis Flight Academy",
       "sub": "Ground school, sim pods and the academy apron on the Flight Line",
       "ink": "#6fb7e8",
       "stamps": [
         {
           "n": 389,
           "id": "p_fa_academy",
-          "name": "Genesis One Flight Academy",
+          "name": "Genesis Flight Academy",
           "x": -268.1,
           "z": 446.6,
           "r": 0.3
@@ -2294,6 +2310,14 @@
           "x": 205.7,
           "z": 371.3,
           "r": 0.3
+        },
+        {
+          "n": 399,
+          "id": "p_mx_awake",
+          "name": "Awake, with Maytrixxx",
+          "x": 270.34,
+          "z": 291.26,
+          "r": 0.3
         }
       ]
     }
@@ -2301,7 +2325,7 @@
   "titles": [
     {
       "id": "solport_regular",
-      "name": "Solport Regular",
+      "name": "Sunfield Regular",
       "unlock": "chapter:solport"
     },
     {
@@ -2439,7 +2463,7 @@
   ],
   "impact": {
     "label": "In-game impact",
-    "note": "Counts what everyone does in Genesis One: passport stamps, first conversations, flights, landings, activities, rides and daily visits. It is a game counter only: no money is involved and nothing here is a donation.",
+    "note": "Counts what everyone does in Genesis: passport stamps, first conversations, flights, landings, activities, rides and daily visits. It is a game counter only: no money is involved and nothing here is a donation.",
     "rows": [
       {
         "key": "stamps",
@@ -2523,7 +2547,7 @@
     },
     {
       "t": "Meet the Industry Partners",
-      "d": "Your first conversation with Brad, Paul, Jake, Joe and Will.",
+      "d": "Your first conversation with Dale, Jake and Joe.",
       "xp": "+100 XP each"
     },
     {
@@ -2580,7 +2604,7 @@
   "rules": "Ranks are earned by play only. They are never bought and never tied to coins, tokens or money. Repeat XP from activities, flights, landings and rides is capped each day; stamps, firsts and bonuses are not.",
   "copy": {
     "title": "SOL PASSPORT",
-    "issuer": "Genesis One · Solport, Douglas, Arizona",
+    "issuer": "Genesis · Sunfield, the high desert",
     "mrzTag": "SOL",
     "hudHint": "Passport",
     "stampToast": "Passport stamp",

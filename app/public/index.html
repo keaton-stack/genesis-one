@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <title>Genesis One · Concept Walkthrough</title>
-    <meta property="og:title" content="Genesis One · Concept Walkthrough" />
-    <meta property="og:description" content="Walk the 430-acre Genesis One site at Solport in Douglas, Arizona, built on the real terrain, together with the Giveback community." />
+    <title>Genesis: The Awakening</title>
+    <meta property="og:title" content="Genesis: The Awakening" />
+    <meta property="og:description" content="Land at an old desert airfield and explore three stages of streets, games and places to stay, together with the Giveback community." />
     <meta property="og:image" content="https://genesis-one.higgsfield.app/cover.png" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -174,12 +174,56 @@
       #tbtns button { width:54px; height:40px; border-radius:10px; border:1px solid rgba(245,241,230,.35); background:rgba(10,22,16,.6); color:var(--cream); font:600 11px inherit; }
       body.touch #joy, body.touch #tbtns { display:flex; }
       body.touch #hint, body.touch #warp { display:none; }
-      /* loading */
-      #load { position:fixed; inset:0; display:grid; place-items:center; background:#0a1610; z-index:30; transition:opacity .6s; }
-      #load .in { text-align:center; }
-      #load .bar { width:220px; height:3px; background:rgba(245,241,230,.15); border-radius:2px; margin:14px auto 0; overflow:hidden; }
-      #load .bar i { display:block; height:100%; width:0; background:var(--green); transition:width .3s; }
+      /* loading (R18 LD, HANDOFF_R18_LOADING.md): a slow, low-opacity slideshow of the land and facts about things to do, both
+         pure CSS animations of opacity and transform (they run on the compositor, smooth even while the main thread is busy);
+         the progress bar, the steps and the Enter now button are driven by plan_perf.js (PLAN_PERF.ld) */
+      #load { position:fixed; inset:0; display:block; background:#0a1610; z-index:30; transition:opacity .9s ease; overflow:hidden; color:var(--cream); }
       #load.off { opacity:0; pointer-events:none; }
+      #load .ld-show { position:absolute; inset:0; opacity:.46; }
+      #load .ld-s { position:absolute; inset:0; opacity:0; animation:ldFade 152.0s linear infinite; will-change:opacity; }
+      #load .ld-s i { position:absolute; inset:-4%; background:#0a1610 center/cover no-repeat; animation:ldPan 152.0s linear infinite; animation-delay:inherit; will-change:transform; }
+      #load .ld-s:nth-child(2n) i { animation-name:ldPan2; }
+      #load .ld-s b { position:absolute; right:22px; bottom:58px; font:600 10px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--cream); opacity:.9; }
+      #load .ld-s b em { font-style:normal; color:var(--green); margin-left:10px; }
+      @keyframes ldFade { 0% { opacity:0; } 1.447% { opacity:1; } 5.263% { opacity:1; } 6.711% { opacity:0; } 100% { opacity:0; } }
+      @keyframes ldPan { 0% { transform:scale(1.12) translate(-1.6%, .8%); } 6.711% { transform:scale(1.02) translate(1.4%, -.6%); } 100% { transform:scale(1.02) translate(1.4%, -.6%); } }
+      @keyframes ldPan2 { 0% { transform:scale(1.03) translate(1.2%, .4%); } 6.711% { transform:scale(1.13) translate(-1.2%, -.8%); } 100% { transform:scale(1.13) translate(-1.2%, -.8%); } }
+      #load .ld-veil { position:absolute; inset:0; background:radial-gradient(ellipse at 50% 46%, rgba(10,22,16,.18) 0%, rgba(10,22,16,.66) 62%, rgba(10,22,16,.94) 100%), linear-gradient(180deg, rgba(10,22,16,.7) 0%, transparent 22%, transparent 70%, rgba(10,22,16,.9) 100%); }
+      #load .ld-top { position:absolute; left:22px; right:22px; top:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      #load .ld-brand { display:flex; align-items:center; gap:12px; }
+      #load .ld-brand img { height:34px; width:auto; filter:drop-shadow(0 2px 8px rgba(0,0,0,.6)); }
+      #load .ld-brand span { font:600 10px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.2em; color:var(--dim); text-transform:uppercase; }
+      #load .ld-pill { padding:7px 13px; border:1px solid var(--line); border-radius:999px; background:rgba(7,17,12,.55); font:600 9.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.16em; text-transform:uppercase; color:var(--green); white-space:nowrap; }
+      #load .in { position:absolute; left:50%; top:47%; transform:translate(-50%,-50%); width:min(560px, calc(100vw - 32px)); text-align:center; }
+      #load .ld-kick { color:var(--dim); font-size:10px; }
+      #load h1 { margin:10px 0 0; font:400 clamp(54px, 10vw, 104px)/.92 "Anton", Impact, sans-serif; letter-spacing:.04em; text-shadow:0 6px 40px rgba(0,0,0,.6); }
+      #load h1 span { display:block; margin-top:12px; font-size:clamp(17px, 2.6vw, 25px); letter-spacing:.42em; padding-left:.42em; color:var(--green); text-shadow:0 0 22px rgba(77,222,111,.35); }
+      #load .ld-prog { display:flex; align-items:center; gap:12px; margin:30px auto 0; width:min(400px, 100%); }
+      #load .bar { flex:1; height:3px; background:rgba(245,241,230,.15); border-radius:2px; overflow:hidden; }
+      #load .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg, var(--deep), var(--green)); box-shadow:0 0 10px rgba(77,222,111,.6); transition:width .4s ease; }
+      #ldpct { font:600 11px "JetBrains Mono", ui-monospace, monospace; color:var(--green); min-width:38px; text-align:right; }
+      #loadmsg { color:rgba(245,241,230,.72); margin-top:10px; min-height:15px; }
+      #ldsteps { list-style:none; display:flex; justify-content:center; flex-wrap:wrap; gap:6px 16px; margin:16px 0 0; padding:0; color:rgba(245,241,230,.38); font-size:9px; }
+      #ldsteps li { display:flex; align-items:center; gap:6px; transition:color .3s; }
+      #ldsteps li::before { content:""; width:6px; height:6px; border-radius:50%; border:1px solid currentColor; }
+      #ldsteps li.on { color:var(--cream); } #ldsteps li.on::before { background:var(--green); border-color:var(--green); animation:ldPulse 1.1s ease-in-out infinite; }
+      #ldsteps li.ok { color:var(--green); } #ldsteps li.ok::before { background:var(--green); border-color:var(--green); }
+      @keyframes ldPulse { 50% { box-shadow:0 0 0 4px rgba(77,222,111,.18); } }
+      #ldgo { margin-top:20px; padding:10px 22px; border-radius:999px; border:1px solid var(--line); background:rgba(77,222,111,.1); color:var(--green); font:600 10.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.18em; text-transform:uppercase; cursor:pointer; opacity:0; pointer-events:none; transform:translateY(6px); transition:opacity .5s, transform .5s, background .15s, color .15s; }
+      #load.ld-can-go #ldgo { opacity:1; pointer-events:auto; transform:none; }
+      #ldgo:hover { background:var(--green); color:#0a1610; } #ldgo:disabled { opacity:.5; cursor:default; }
+      #ldgo small { display:block; margin-top:4px; font-size:8.5px; letter-spacing:.12em; color:var(--dim); text-transform:none; }
+      #load .ld-facts { position:absolute; left:22px; bottom:52px; width:min(420px, calc(100vw - 44px)); height:116px; }
+      #load .ld-facts > .mono { color:var(--green); }
+      #load .ld-f { position:absolute; left:0; right:0; top:20px; opacity:0; animation:ldFact 98.0s ease infinite; will-change:opacity, transform; }
+      #load .ld-f b { display:block; font:400 24px/1.1 "Anton", Impact, sans-serif; letter-spacing:.04em; text-transform:uppercase; }
+      #load .ld-f p { margin:6px 0 0; font-size:14px; line-height:1.45; color:rgba(245,241,230,.82); }
+      @keyframes ldFact { 0% { opacity:0; transform:translateY(8px); } 0.714% { opacity:1; transform:none; } 6.531% { opacity:1; transform:none; } 7.143% { opacity:0; transform:translateY(-6px); } 100% { opacity:0; } }
+      #load .ld-foot { position:absolute; left:22px; right:22px; bottom:18px; display:flex; justify-content:space-between; gap:12px; color:rgba(245,241,230,.5); font-size:9px; border-top:1px solid var(--line2); padding-top:10px; }
+      #load .ld-foot b { color:var(--green); font-weight:600; }
+      @media (max-width: 760px) { #load .in { top:40%; } #load .ld-s b, #load .ld-foot span:last-child, #load .ld-pill { display:none; } #load .ld-facts { left:16px; bottom:46px; width:calc(100vw - 32px); height:128px; } #load .ld-f b { font-size:20px; } #load .ld-f p { font-size:13px; } #load .ld-top { left:16px; right:16px; } #load .ld-foot { left:16px; right:16px; } }
+      @media (max-height: 640px) { #load .ld-facts { display:none; } }
+      @media (prefers-reduced-motion: reduce) { #load .ld-s i { animation:none; } }
       /* VR (plan_vr.js): the 2D HUD cannot show in the headset; the desktop window keeps a small panel to leave VR */
       #tr #vrbtn { border-color:var(--line); color:var(--green); background:rgba(77,222,111,.1); }
       body.xr .hud, body.xr .card, body.xr #fade { display:none !important; }
@@ -195,14 +239,23 @@
     <canvas id="gl"></canvas>
     <div id="fade" style="position:fixed;inset:0;background:#0a1610;opacity:0;pointer-events:none;transition:opacity .25s;z-index:15"></div>
 
-    <div id="load"><div class="in">
-      <img src="/logo.png" alt="Giveback Ventures" style="height:44px" />
-      <div style="font-family:Anton,Impact,sans-serif;font-size:30px;letter-spacing:.04em;margin-top:14px">GENESIS ONE</div>
-      <div class="mono" style="color:rgba(245,241,230,.6);margin-top:6px" id="loadmsg">Loading the site &middot; Douglas, Arizona</div>
-      <div class="bar"><i id="loadbar"></i></div>
-    </div></div>
+    <div id="load" role="status" aria-live="polite" aria-label="Loading Genesis: The Awakening">
+      <div class="ld-show" aria-hidden="true"><div class="ld-s" style="animation-delay:0.0s"><i style="background-image:url(/tex/ld_arrivals_sungate_gold.webp)"></i><b>Arrivals Court<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:8.0s"><i style="background-image:url(/tex/ld_mercado_blue.webp)"></i><b>Mercado Plaza<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:16.0s"><i style="background-image:url(/tex/ld_library_reading.webp)"></i><b>The Expanse Library reading room<em>Late afternoon</em></b></div><div class="ld-s" style="animation-delay:24.0s"><i style="background-image:url(/tex/ld_arrivals_canopy_blue.webp)"></i><b>Arrivals Court<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:32.0s"><i style="background-image:url(/tex/ld_rodeo_night.webp)"></i><b>The Copper Chute<em>Rodeo night</em></b></div><div class="ld-s" style="animation-delay:40.0s"><i style="background-image:url(/tex/ld_mercado_air_gold.webp)"></i><b>Mercado Plaza from the air<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:48.0s"><i style="background-image:url(/tex/ld_pyramids_milkyway.webp)"></i><b>Stargazer Pyramids<em>Under the stars</em></b></div><div class="ld-s" style="animation-delay:56.0s"><i style="background-image:url(/tex/ld_mainstreet_gold.webp)"></i><b>Main Street<em>Late afternoon</em></b></div><div class="ld-s" style="animation-delay:64.0s"><i style="background-image:url(/tex/ld_saloon_bar.webp)"></i><b>The Copper Chute saloon<em>Evening</em></b></div><div class="ld-s" style="animation-delay:72.0s"><i style="background-image:url(/tex/ld_domes_gold.webp)"></i><b>The Dome Suites<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:80.0s"><i style="background-image:url(/tex/ld_arrivals_air_blue.webp)"></i><b>Arrivals Court from the air<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:88.0s"><i style="background-image:url(/tex/ld_library_gold.webp)"></i><b>The Expanse Library<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:96.0s"><i style="background-image:url(/tex/ld_museum_night.webp)"></i><b>Genesis Block Museum<em>Night</em></b></div><div class="ld-s" style="animation-delay:104.0s"><i style="background-image:url(/tex/ld_carts_gold.webp)"></i><b>Crosswind Racquet Club<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:112.0s"><i style="background-image:url(/tex/ld_homes_blue.webp)"></i><b>Desert-modern homes<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:120.0s"><i style="background-image:url(/tex/ld_apron_gold.webp)"></i><b>The Flight Line<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:128.0s"><i style="background-image:url(/tex/ld_pyramids_air_night.webp)"></i><b>Stargazer Pyramids<em>Night</em></b></div><div class="ld-s" style="animation-delay:136.0s"><i style="background-image:url(/tex/ld_rodeo_gold.webp)"></i><b>The Copper Chute arena<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:144.0s"><i style="background-image:url(/tex/ld_racquet_air_blue.webp)"></i><b>Crosswind Racquet Club<em>Blue hour</em></b></div></div>
+      <div class="ld-veil"></div>
+      <div class="ld-top"><div class="ld-brand"><img src="/logo.png" alt="Giveback Ventures" /><span>Giveback Ventures</span></div></div>
+      <div class="in">
+        <div class="mono ld-kick">A Giveback world</div>
+        <h1 aria-label="Genesis: The Awakening">GENESIS<span>THE AWAKENING</span></h1>
+        <div class="ld-prog"><div class="bar"><i id="loadbar"></i></div><span id="ldpct">0%</span></div>
+        <div class="mono" id="loadmsg">Loading the world</div>
+        <ol id="ldsteps" class="mono"><li data-k="world">World</li><li data-k="shaders">Shaders</li><li data-k="stream">Streaming</li><li data-k="tex">Textures</li><li data-k="warm">Warm-up</li></ol>
+        <button id="ldgo" type="button">Enter now<small>Still warming up: the first moments may stutter</small></button>
+      </div>
+      <div class="ld-facts" aria-hidden="true"><div class="mono">Things to do</div><div class="ld-f" style="animation-delay:0.0s"><b>Rodeo night</b><p>Every evening from 18:30 the arena at The Copper Chute fills up. Climb on the bull and hold on for eight seconds.</p></div><div class="ld-f" style="animation-delay:7.0s"><b>Fly your own jet</b><p>Board Giveback One at the terminal, take off from the runway and bring her down again for a landing bonus.</p></div><div class="ld-f" style="animation-delay:14.0s"><b>Flight lessons</b><p>At the Flight Academy, walk round a trainer on the apron, sit in on ground school, then fly your first lesson in a sim pod.</p></div><div class="ld-f" style="animation-delay:21.0s"><b>Fill your Sol Passport</b><p>Arrive at a place to stamp it. Finish a page of stamps for a title, a cart paint or a seal.</p></div><div class="ld-f" style="animation-delay:28.0s"><b>Mercado Plaza</b><p>The border market square: stone portales, a bandstand, a fountain and the food row.</p></div><div class="ld-f" style="animation-delay:35.0s"><b>The 1928 Archive</b><p>Walk through the reading room of the Expanse Library, then step through the vault door into the archive.</p></div><div class="ld-f" style="animation-delay:42.0s"><b>Genesis Block Museum</b><p>Five thousand years of record keeping, from clay tablets to an on-chain giving ledger, one linked block at a time.</p></div><div class="ld-f" style="animation-delay:49.0s"><b>Atardecer</b><p>The spa at Sunset Bluff. Sit by the runnel in the Olive Court, then climb to the roof for the sunset and the stars.</p></div><div class="ld-f" style="animation-delay:56.0s"><b>Crosswind Racquet Club</b><p>Tennis, pickleball and padel under tensile sails, with a terrace to watch the evening matches from.</p></div><div class="ld-f" style="animation-delay:63.0s"><b>Under the stars</b><p>The Stargazer Pyramids point their telescopes at the real night sky.</p></div><div class="ld-f" style="animation-delay:70.0s"><b>Games on the land</b><p>Desert Golf, the Cart Course, the Drag Strip, the Low-G Course, Sky Rings and the Balloon Race. Try them all.</p></div><div class="ld-f" style="animation-delay:77.0s"><b>Take a ride</b><p>The Outpost Rover, the Stagecoach, The Crossing shuttle or a friend&#x27;s cart: walk up and press F to ride along.</p></div><div class="ld-f" style="animation-delay:84.0s"><b>Your own look</b><p>Press K for the Character Studio and change your look before you set off.</p></div><div class="ld-f" style="animation-delay:91.0s"><b>Any hour you like</b><p>Press N to change the time of day and see the land at golden hour or under the stars.</p></div></div>
+      <div class="ld-foot mono"><span><b>GIVEBACK</b> &middot; Genesis: The Awakening</span></div>
+    </div>
 
-    <div id="tl" class="hud brk"><img src="/logo.png" alt="" /><div><div class="t">GENESIS ONE</div><div class="s mono">Concept walkthrough</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
+    <div id="tl" class="hud brk"><img src="/logo.png" alt="" /><div><div class="t">GENESIS</div><div class="s mono">The Awakening</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
     <div id="compass" class="hud"><canvas id="cmp" width="900" height="56"></canvas></div>
     <div id="tr" class="hud mono brk"><div><b id="online">1</b> online now</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist"></div><button id="snd">SOUND OFF</button> <button id="aud">SETTINGS</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button> <button id="emo">EMOTES</button> <button id="bikebtn">BIKE</button> <button id="cartbtn">CART</button> <button id="fpvbtn" title="First person (O)">VIEW 3RD</button> <button id="vrbtn" style="display:none" title="Put on your headset and walk the site in VR">ENTER VR</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
@@ -214,8 +267,8 @@
     <div id="hint" class="hud mono"><kbd>W A S D</kbd> move &middot; <kbd>space</kbd> jump &middot; <kbd>C</kbd> cart &middot; <kbd>F</kbd> ride / join a friend's cart &middot; <kbd>K</kbd> character &middot; <kbd>E</kbd> info / play &middot; <kbd>enter</kbd> chat &middot; <kbd>L</kbd> scores &middot; <kbd>G</kbd> guestbook &middot; <kbd>1-8</kbd> emote · <kbd>B</kbd> dances &middot; <kbd>M</kbd> tower &middot; <kbd>N</kbd> time &middot; <kbd>V</kbd> voice &middot; <kbd>X</kbd> sound &middot; <kbd>H</kbd> photo</div>
     <div id="status" class="hud mono">connecting&hellip;</div>
     <button id="skipfly" class="hud mono" style="display:none;position:absolute;right:18px;bottom:110px;pointer-events:auto;background:rgba(10,22,16,.7);border:1px solid rgba(77,222,111,.4);color:#f5f1e6;border-radius:10px;padding:8px 12px;font-size:12px;cursor:pointer">SKIP FLIGHT</button>
-    <div id="vrpanel"><div class="mono" style="color:var(--green)">Genesis One · VR</div><h2>YOU ARE IN VR</h2><div class="mono" style="color:var(--dim);max-width:340px;line-height:1.6">Left stick walk · click it to run · right stick turn · trigger to use · B or Y to re-centre</div><button class="btn" id="vrexit">Exit VR</button></div>
-    <div id="fine" class="hud">Concept walkthrough on the real terrain of Solport, Douglas, Arizona. Every structure is illustrative.</div>
+    <div id="vrpanel"><div class="mono" style="color:var(--green)">Genesis · VR</div><h2>YOU ARE IN VR</h2><div class="mono" style="color:var(--dim);max-width:340px;line-height:1.6">Left stick walk · click it to run · right stick turn · trigger to use · B or Y to re-centre</div><button class="btn" id="vrexit">Exit VR</button></div>
+    <div id="fine" class="hud">Genesis: The Awakening · a Giveback world</div>
     <div id="log" class="hud"></div>
     <div id="chat" class="hud"><input id="chat-in" maxlength="80" placeholder="Say something to everyone on the site" autocomplete="off" /></div>
     <div id="warp" class="hud mono"><button data-w="tower">Tower</button><button data-w="lake">Lake</button><button data-w="flightline">Flight Line</button><button data-w="landing">The Landing</button><button data-w="expanse">Main Street</button><button data-w="design">Design District</button><button data-w="commons">The Commons</button><button data-w="golf">Golf</button><button data-w="course">Cart course</button><button data-w="obby">Sky obby</button><button data-w="drag">Drag strip</button><button data-w="fireside">Fireside</button><button data-w="arcade">Arcade</button></div>
@@ -225,9 +278,9 @@
     <div id="tbtns" class="hud"><button data-k="Space">JUMP</button><button data-k="KeyC">CART</button><button data-k="KeyF">RIDE</button><button data-k="KeyE">INFO</button><button data-k="Enter">CHAT</button><button data-k="KeyL">SCORES</button><button data-k="KeyM">TOWER</button><button data-k="KeyN">TIME</button><button data-k="Digit1">WAVE</button><button data-k="KeyQ">DOWN</button></div>
 
     <div id="name" class="card">
-      <h2>Welcome to Genesis One</h2>
+      <h2>Welcome to Genesis: The Awakening</h2>
       <div class="k mono">Choose a name for the site</div>
-      <p>You have landed at Solport, the real 1928 airfield in Douglas, Arizona. Walk through the Stellar Aviation FBO and out onto the site, or use the travel buttons. Other visitors can see you, ride with you and talk to you.</p>
+      <p>You have landed at Sunfield, the old airfield out in the high desert. Walk through Sunfield Terminal and out onto the site, or use the travel buttons. Other visitors can see you, ride with you and talk to you.</p>
       <div class="row"><input id="name-in" maxlength="18" placeholder="Your name" autocomplete="off" /><button class="btn" id="name-go">Enter</button></div>
     </div>
     <div id="info" class="card">
@@ -271,7 +324,7 @@
     <div id="av" class="card" style="width:min(480px,92vw)">
       <h2>AV Hub</h2><div class="k mono">What plays on the Drive-In screens and the Concert Bowl wall · everyone on the site sees the same feed</div>
       <style>#av .avb.on { background:#4DDE6F; color:#0a1610; border-color:#4DDE6F; } #av label { display:block; margin-top:10px; }</style>
-      <label>Main screen</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="main:film">The Awakening</button><button class="btn ghost avb" data-av="main:trailer">Genesis One trailer</button><button class="btn ghost avb" data-av="main:off">Off</button></div>
+      <label>Main screen</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="main:film">The Awakening</button><button class="btn ghost avb" data-av="main:trailer">Genesis trailer</button><button class="btn ghost avb" data-av="main:off">Off</button></div>
       <label>Second screen</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="side:film">The Awakening</button><button class="btn ghost avb" data-av="side:off">Off</button></div>
       <label>Concert Bowl wall</label><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost avb" data-av="wall:loop">GBACK music loop</button><button class="btn ghost avb" data-av="wall:off">Light show boards</button></div>
       <div id="av-state" class="k mono" style="margin:10px 0 4px"></div>
@@ -385,6 +438,7 @@
     <script src="/plan_ext_homes.js?v=dev"></script>
     <script src="/plan_library.js?v=dev"></script>
     <script src="/plan_chainmuseum.js?v=dev"></script>
+    <script src="/plan_maytrixxx.js?v=dev"></script>
     <script src="/plan_mercado.js?v=dev"></script>
     <script src="/plan_rodeo.js?v=dev"></script>
     <script src="/plan_sportsclub.js?v=dev"></script>
@@ -394,6 +448,9 @@
     <script src="/plan_fill_b.js?v=dev"></script>
     <script src="/plan_arrivals.js?v=dev"></script>
     <script src="/plan_roomlight.js?v=dev"></script>
+    <script src="/plan_tidy.js?v=dev"></script>
+    <script src="/plan_streetscape.js?v=dev"></script>
+    <script src="/plan_flora.js?v=dev"></script>
     <script src="/plan_flight.js?v=dev"></script>
     <script src="/plan_interiors.js?v=dev"></script>
     <script src="/plan_gfx.js?v=dev"></script>

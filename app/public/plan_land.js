@@ -451,7 +451,7 @@
 
   // district infill: the Outpost gets homestead domes round a red gravel court with a parked rover, The Commons glamping
   // tents and a dome round a fire ring; units on an arc, doors to the court, the open side to the walk, every pad levelled
-  const INFILL = { S3_OUTPOST: { kinds: ["dome", "dome", "dome"], max: 2, centre: "rover", t: "Outpost Homesteads", p: "Homestead domes round a red gravel court on the edge of The Outpost, a rover parked at the centre. Future homes, subject to rezoning." },
+  const INFILL = { S3_OUTPOST: { kinds: ["dome", "dome", "dome"], max: 2, centre: "rover", t: "Outpost Homesteads", p: "Homestead domes round a red gravel court on the edge of The Outpost, a rover parked at the centre. Homes for anyone who wants to stay out here." },
     S3_COMMONS: { kinds: ["glamp", "dome", "glamp"], max: 2, centre: "fire", dc: 16, walkMin: 13, ring: 15.5, step: 1.1, t: "Glamping Court", p: "Glamping tents and a dome round a shared fire ring, a short walk from The Commons." } };
   function infill(bare, recs) { const out = L.infill = []; const done = {}, tries = {}; const why = L.infillWhy = {}; const no = (d, r) => { const q = why[d] || (why[d] = {}); q[r] = (q[r] || 0) + 1; };
     const marks = []; for (const q of PLAN.places || []) if (q.type === "landmark" || q.type === "plaza") marks.push([q.x, q.z, (q.r || 10) + (q.type === "landmark" ? 34 : 18)]);

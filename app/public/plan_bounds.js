@@ -126,9 +126,9 @@ if (window.PLAN_MODEL_NEEDS.indexOf("stone_pillar") < 0) window.PLAN_MODEL_NEEDS
     for (let i = 0; i < PLAQUE_ROWS; i++) { const y0 = i * RH;
       const gr = g.createLinearGradient(0, y0, 0, y0 + RH); gr.addColorStop(0, "#5b4630"); gr.addColorStop(0.5, "#3f3020"); gr.addColorStop(1, "#2c2116"); g.fillStyle = gr; g.fillRect(0, y0, W, RH);
       g.strokeStyle = "rgba(226,186,112,0.85)"; g.lineWidth = 4; g.strokeRect(9, y0 + 9, W - 18, RH - 18); g.strokeStyle = "rgba(20,14,8,0.6)"; g.lineWidth = 2; g.strokeRect(15, y0 + 15, W - 30, RH - 30);
-      const sub = i === 0 ? "DOUGLAS · ARIZONA" : String(names[i - 1] || "").toUpperCase();
+      const sub = i === 0 ? "THE HIGH DESERT" : String(names[i - 1] || "").toUpperCase();
       g.textAlign = "center"; g.textBaseline = "middle";
-      g.font = "64px Anton, Impact, 'Arial Narrow', sans-serif"; const title = "GENESIS ONE".split("").join(String.fromCharCode(8202));
+      g.font = "64px Anton, Impact, 'Arial Narrow', sans-serif"; const title = "GENESIS".split("").join(String.fromCharCode(8202));
       g.fillStyle = "rgba(10,6,2,0.55)"; g.fillText(title, W / 2 + 2, y0 + 52 + 2); g.fillStyle = "#e3bd72"; g.fillText(title, W / 2, y0 + 52);
       g.font = "600 19px 'JetBrains Mono', Consolas, monospace"; const sp = sub.split("").join(" "); g.fillStyle = "rgba(10,6,2,0.5)"; g.fillText(sp, W / 2 + 1, y0 + 96 + 1); g.fillStyle = "#d8b67a"; g.fillText(sp, W / 2, y0 + 96); }
   }
@@ -492,7 +492,7 @@ if (window.PLAN_MODEL_NEEDS.indexOf("stone_pillar") < 0) window.PLAN_MODEL_NEEDS
     try { const orig = leaveShuttle; leaveShuttle = function () { try { const c = SITES.ride; if (B.ready && c && c.g && sdist(c.g.position.x, c.g.position.z, {}).d < STOP.walk) { const now = performance.now(); if (now - (B.shuttleMsg || 0) > 2500) { B.shuttleMsg = now; setStatus("the shuttle is on the public section road · you can hop off at the next gate"); } return; } } catch (e) {} return orig.apply(this, arguments); }; } catch (e) { err("leaveShuttle", e); }
     try { drawMinimap = drawMap; } catch (e) { err("drawMinimap", e); }
     try { const mm = document.getElementById("mm"); if (mm && !mm._e3) { mm._e3 = true; mm.addEventListener("click", mapClick, true); } } catch (e) { err("map click", e); }
-    try { MAPS.aerial = new Image(); MAPS.aerial.decoding = "async"; MAPS.aerial.src = "/ground.jpg"; } catch (e) {}
+    try { MAPS.aerial = new Image(); MAPS.aerial.decoding = "async"; MAPS.aerial.src = "/minimap_hd.jpg"; } catch (e) {}
     try { makeNote(); } catch (e) { err("note", e); }
   }
   function deferHook() {
@@ -513,10 +513,10 @@ if (window.PLAN_MODEL_NEEDS.indexOf("stone_pillar") < 0) window.PLAN_MODEL_NEEDS
     if (B.mats && FR % 6 === 0) { const nk = Math.max(0, Math.min(1, (night - 0.25) / 0.55)); if (Math.abs(nk - (B.nk === undefined ? -1 : B.nk)) > 0.01) { B.nk = nk; B.mats.glass.emissiveIntensity = 0.05 + nk * 2.4; if (B.glow) { B.glow.visible = nk > 0.02; B.glow.material.opacity = nk * 0.9; } if (B.lights) for (const l of B.lights) l.intensity = nk * 1.1 * l.userData.dim; } }
     // the note: once per approach, when the ease has brought you close to the stop line
     const p = B.push; if (now - p.at < 350) { const close = p.mode === "walk" ? 2.2 : p.mode === "jet" ? 30 : 6; if (p.x0s < close && B.armed !== false) { B.armed = false; const gt = inGateMouth(p.x, p.z); const road = sideRoad(p.nx, p.nz);
-        showNote("The edge of Genesis One", gt && gt.vehicle ? `This gate opens onto ${road}, a public county road. Turn around to keep exploring.` : `This fence is the section line, with ${road} beyond it. Turn around to keep exploring.`); } }
+        showNote("The edge of Genesis", gt && gt.vehicle ? `This gate opens onto ${road}, a public county road. Turn around to keep exploring.` : `This fence is the section line, with ${road} beyond it. Turn around to keep exploring.`); } }
     if (FR % 15 === 0) { const s = sdist(player.position.x, player.position.z, {}); const onFoot = !riding && !FLY.on && !SITES.ride && !SITES.bride && !inside;
       if (s.d - STOP.walk > 20) B.armed = true;
-      if (onFoot && s.d < -1.5) { if (!B.outShown) { B.outShown = true; const ng = nearestGate(player.position.x, player.position.z, true); showNote("Outside Genesis One", ng ? `The nearest gate is ${Math.round(ng.d / 10) * 10} m to the ${compass8(ng.g.x - player.position.x, ng.g.z - player.position.z)}: ${ng.g.name || "a public gate"}.` : "Head back toward the fence line and in through a gate."); } } else if (s.d > 2) B.outShown = false;
+      if (onFoot && s.d < -1.5) { if (!B.outShown) { B.outShown = true; const ng = nearestGate(player.position.x, player.position.z, true); showNote("Outside Genesis", ng ? `The nearest gate is ${Math.round(ng.d / 10) * 10} m to the ${compass8(ng.g.x - player.position.x, ng.g.z - player.position.z)}: ${ng.g.name || "a public gate"}.` : "Head back toward the fence line and in through a gate."); } } else if (s.d > 2) B.outShown = false;
       // someone who starts outside (an old saved spot) is brought in once, at the start
       if (!B.rescued && FR > 20 && now - B.readyAt < 30000 && onFoot && s.d < -1.5 && s.d > -2500) { B.rescued = true; try { const [x, z] = clampInside(player.position.x, player.position.z, STOP.walk + 10); warpTo(x, z); } catch (e) {} }
       if (now - B.readyAt > 30000) B.rescued = true; }

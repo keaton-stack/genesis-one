@@ -1,5 +1,4 @@
 {
-  "_about": "R14 venues (plan_rooms_venues.js). Editable copy: people.<name> replaces that person's talk card, greetings or ambient lines (same shape as the built-in copy: talk = [{ t, o: [[label, next|null]] }]). No fee or charity-share numbers, no investment language, no em dashes. The stamps block is the proposal for progress.json (the main session owns it).",
   "people": {
     "Dot": { "greet": ["Hi hon!", "Coffee?"] },
     "Marisela": { "greet": ["Welcome."] }

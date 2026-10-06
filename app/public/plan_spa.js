@@ -252,7 +252,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var txt = function (t, y, size, font, col, spacing) { x.save(); x.fillStyle = col || "#ecd09c"; var fp = String(font).split(" "), fam = fp.slice(1).join(" "); x.font = /^[0-9]+$|^italic$/.test(fp[0]) && fam ? (fp[0] === "italic" ? "italic " + fp[1] + " " + size + "px " + fp.slice(2).join(" ") : fp[0] + " " + size + "px " + fam) : size + "px " + font; x.textAlign = "center"; x.textBaseline = "middle"; try { x.letterSpacing = (spacing || 0) + "px"; } catch (e) {} x.shadowColor = "rgba(0,0,0,0.45)"; x.shadowOffsetY = 2; x.shadowBlur = 2; x.fillText(t, W / 2, y, W - 60); x.restore(); };
     var row = function (i, t, size, font, spacing, sub) { var y = i * 128; bg(y, 128); txt(t, y + (sub ? 54 : 66), size, font, null, spacing); if (sub) txt(sub, y + 104, 24, "500 " + FONT.m, "#d4b083", 4); };
     row(0, C("names.sign", "ATARDECER"), 92, "300 " + FONT.d, 18);
-    row(1, C("names.signSub", "THE SPA AT SUNSET BLUFF"), 56, "400 " + FONT.s, 10, C("names.signLine", "GENESIS ONE  ·  SUNSET BLUFF"));
+    row(1, C("names.signSub", "THE SPA AT SUNSET BLUFF"), 56, "400 " + FONT.s, 10, C("names.signLine", "GENESIS  ·  SUNSET BLUFF"));
     row(2, C("names.lounge", "HEARTH LOUNGE"), 70, "400 " + FONT.s, 12);
     row(3, C("names.bath", "BATH HOUSE"), 70, "400 " + FONT.s, 12);
     row(4, C("names.garden", "SOAKING GARDEN"), 70, "400 " + FONT.s, 12);

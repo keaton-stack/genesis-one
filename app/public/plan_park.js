@@ -15,7 +15,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   const HOOKS = window.PLAN_HOOKS;
-  const LEGAL = "Genesis Park · a partnership proposal, subject to agreement with the City of Douglas";
+  const LEGAL = "Genesis Park · open to everyone";
   const GP = window.GP_PARK = { built: false, on: 1, zones: [], stats: {}, anim: [], lights: {}, animals: [], hs: [], errs: [] };
   { const S = window.PLAN_SKIP = window.PLAN_SKIP || new Set(); if (typeof S.add === "function") S.add("gp_p_overlook"); else if (Array.isArray(S)) S.push("gp_p_overlook"); }   // the spiral ramp is built here
   { const N = window.PLAN_MODEL_NEEDS = window.PLAN_MODEL_NEEDS || []; for (const k of ["grotto", "little_hangar", "biplane", "bridge_trestle", "bridge_truss", "cow", "goat", "sheep", "pig", "chicken", "dog", "agave_cluster", "bandshell", "gbarn"]) if (N.indexOf(k) < 0) N.push(k); }   // new model kinds this module places
@@ -516,12 +516,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     { const p = P("gp_x_msteps"); if (p) add(p.x, p.z, 7, "Mesquite Steps", "A stepped rock chute into the riffles above the Splash Meadow. Water to watch and listen to, never deeper than 20 cm."); }
     { const p = P("gp_x_sink"); if (p) add(p.x, p.z, 7, "The Sink", "The end of Genesis Creek. The water fans out over a cobble bar and disappears into the ground, as desert streams do, and a collection gallery under the cobbles returns it to the covered cistern. Every night the creek drains away."); }
     { const p = P("gp_x_spring_bridge"); if (p) add(p.x, p.z, 7, "Spring Bridge", "A timber trestle carrying the Genesis Park Loop over the creek just below Genesis Spring."); }
-    { const p = P("gp_x_confluence_bridge"); if (p) add(p.x, p.z, 9, "Confluence Bridge", "A riveted steel truss, a nod to the 1928 hangars, carrying the Cottonwood Walk over Genesis Creek between Cottonwood Falls and the Confluence."); }
+    { const p = P("gp_x_confluence_bridge"); if (p) add(p.x, p.z, 9, "Confluence Bridge", "A riveted steel truss, a nod to the old field's first hangars, carrying the Cottonwood Walk over Genesis Creek between Cottonwood Falls and the Confluence."); }
     { const p = P("gp_x_willow_bridge"); if (p) add(p.x, p.z, 7, "Willow Bridge", "The Sacaton Boardwalk crosses the creek on a low timber bridge. The meadow is drip-watered bunchgrass, kept dry beside a working runway, with the story of the San Bernardino cienegas on its rail panels."); }
     { const p = P("gp_x_splash_meadow_footbridge"); if (p) add(p.x, p.z, 5, "Splash Meadow footbridge", "A low timber footbridge from the East Bank Walk over the creek to the Splash Meadow."); }
     { const p = P("gp_x_run_footbridge"); if (p) add(p.x, p.z, 5, "Run footbridge", "The Loop crosses the Landing Run, the narrow rill that carries the line of the Stage One Landing Wash down to the Confluence."); }
     { const p = P("gp_x_little_hangar"); if (p) add(p.x, p.z, 9, "The Little Hangar", "A bow-truss climbing frame with slides and a rope net: the Hangar Playground's little airfield, with the Little Runway balance-bike loop round it."); }
-    { const p = P("gp_x_biplane"); if (p) add(p.x, p.z, 6, "Climb-aboard biplane", "The master plan's 1928 biplane, re-used as a climb-aboard for the Hangar Playground."); }
+    { const p = P("gp_x_biplane"); if (p) add(p.x, p.z, 6, "Climb-aboard biplane", "The 1928 biplane, re-used as a climb-aboard for the Hangar Playground."); }
     { const f = window.PLAN.fountains.find((q) => q.id === "gp_f_windmill"); if (f) add(f.x, f.z, 5, "Windmill Trough", "The windpump spills into a slotted stone trough that never fills: the water runs through its grated floor to a drain, and stops when the wind drops."); }
     { const f = window.PLAN.fountains.find((q) => q.id === "gp_f_barnyard"); if (f) add(f.x, f.z, 4, "Barnyard Pump", "A cast-iron hand pump children work themselves, spilling down a timber flume to a grated drain."); }
     { const b = window.PLAN.buildings.find((q) => q.id === "gp_b14"); if (b) add(b.x + 7, b.z, 7, "Farm Stand", "Eggs, honey, mesquite flour and the Kitchen Garden's chiles, with feed cups for the goats. On Saturdays the farm market fills the Barnyard."); }

@@ -64,17 +64,20 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // ───────────────────────── geometry kit: primitives collected per material key, merged into one mesh per key ─────────────────────────
   function mergeGeos(list) {
     var nv = 0, ni = 0; for (var i = 0; i < list.length; i++) { var g = list[i]; nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
-    var pos = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), nrm = new Float32Array(nv * 3), idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni); var vo = 0, io = 0;
-    for (var j = 0; j < list.length; j++) { var q = list[j]; var c = q.attributes.position.count; pos.set(q.attributes.position.array, vo * 3); if (q.attributes.uv) uv.set(q.attributes.uv.array, vo * 2); if (q.attributes.normal) nrm.set(q.attributes.normal.array, vo * 3);
+    var pos = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), nrm = new Float32Array(nv * 3), idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni); var vo = 0, io = 0, re = null;
+    for (var j0 = 0; j0 < list.length; j0++) if (list[j0].attributes.riE) { re = new Float32Array(nv * 4); break; }   // R18: the prop layer's face frame where boxes have it
+    for (var j = 0; j < list.length; j++) { var q = list[j]; var c = q.attributes.position.count; pos.set(q.attributes.position.array, vo * 3); if (q.attributes.uv) uv.set(q.attributes.uv.array, vo * 2); if (q.attributes.normal) nrm.set(q.attributes.normal.array, vo * 3); if (re && q.attributes.riE) re.set(q.attributes.riE.array, vo * 4);
       if (q.index) { var ia = q.index.array; for (var k = 0; k < ia.length; k++) idx[io + k] = ia[k] + vo; io += ia.length; } else { for (var k2 = 0; k2 < c; k2++) idx[io + k2] = vo + k2; io += c; } vo += c; }
-    var out = new THREE.BufferGeometry(); out.setAttribute("position", new THREE.BufferAttribute(pos, 3)); out.setAttribute("normal", new THREE.BufferAttribute(nrm, 3)); out.setAttribute("uv", new THREE.BufferAttribute(uv, 2)); out.setIndex(new THREE.BufferAttribute(idx, 1)); out.computeBoundingSphere(); out.computeBoundingBox(); return out;
+    var out = new THREE.BufferGeometry(); out.setAttribute("position", new THREE.BufferAttribute(pos, 3)); out.setAttribute("normal", new THREE.BufferAttribute(nrm, 3)); out.setAttribute("uv", new THREE.BufferAttribute(uv, 2)); out.setIndex(new THREE.BufferAttribute(idx, 1)); if (re) out.setAttribute("riE", new THREE.BufferAttribute(re, 4)); out.computeBoundingSphere(); out.computeBoundingBox(); return out;
   }
   var TILE = { tan: 0.8, ox: 0.8, walnut: 1.2, oakP: 1.4, burl: 1.0, turf: 2.0, oak: 1.6, trav: 1.2, plaster: 2.0, sand: 2.0, stone: 1.6, marble: 1.4, concrete: 3.0, epoxy: 6.0, terra: 1.2, leather: 0.8, carpet: 1.5, rugA: 0, rugB: 0 };
   function uvBox(g, w, h, d, t) { var uv = g.attributes.uv; var dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]]; for (var f = 0; f < 6; f++) for (var k = 0; k < 4; k++) { var i = f * 4 + k; uv.setXY(i, uv.getX(i) * dims[f][0] / t, uv.getY(i) * dims[f][1] / t); } }
   var _m4 = new THREE.Matrix4(), _eu = new THREE.Euler();
   function Kit() { this.m = {}; }
   Kit.prototype.put = function (key, g) { (this.m[key] || (this.m[key] = [])).push(g); return g; };
-  Kit.prototype.box = function (key, w, h, d, x, y, z, ry, t) { if (w <= 0 || h <= 0 || d <= 0) return null; var g = new THREE.BoxGeometry(w, h, d); var tt = t !== undefined ? t : TILE[key]; if (tt) uvBox(g, w, h, d, tt); _m4.makeRotationY(ry || 0); _m4.setPosition(x, y, z); g.applyMatrix4(_m4); return this.put(key, g); };
+  function riBox(g, w, h, d) { try { if (!(window.PLAN_RL && PLAN_RL.propOn && PLAN_RL.propOn())) return; } catch (e) { return; } var uv = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]], re = new Float32Array(uv.count * 4);
+    for (var f = 0; f < 6; f++) for (var k = 0; k < 4; k++) { var i = f * 4 + k; re[i * 4] = (uv.getX(i) - 0.5) * dims[f][0]; re[i * 4 + 1] = (uv.getY(i) - 0.5) * dims[f][1]; re[i * 4 + 2] = dims[f][0] / 2; re[i * 4 + 3] = dims[f][1] / 2 + 2; } g.setAttribute("riE", new THREE.BufferAttribute(re, 4)); }
+  Kit.prototype.box = function (key, w, h, d, x, y, z, ry, t) { if (w <= 0 || h <= 0 || d <= 0) return null; var g = new THREE.BoxGeometry(w, h, d); riBox(g, w, h, d); var tt = t !== undefined ? t : TILE[key]; if (tt) uvBox(g, w, h, d, tt); _m4.makeRotationY(ry || 0); _m4.setPosition(x, y, z); g.applyMatrix4(_m4); return this.put(key, g); };
   // a box given by its min/max corners (axis aligned in the room frame)
   Kit.prototype.bb = function (key, x0, y0, z0, x1, y1, z1, t) { return this.box(key, Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0), (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, 0, t); };
   Kit.prototype.cyl = function (key, r1, r2, h, x, y, z, seg, rx, rz, ry) { var g = new THREE.CylinderGeometry(r1, r2, h, seg || 16); _eu.set(rx || 0, ry || 0, rz || 0); _m4.makeRotationFromEuler(_eu); _m4.setPosition(x, y, z); g.applyMatrix4(_m4); return this.put(key, g); };
@@ -135,7 +138,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   // ───────────────────────── pictures and signs (canvas) ─────────────────────────
   // heritage photographs (sepia prints in a 3 x 2 atlas): the 1928 field, a biplane over the flats, the hangars, the first clubhouse, a putting green, the Chiricahua skyline
   function photoTex() { return panel("photos", 1536, 1024, function (x, W, H) { var R = rng(1928); var cw = W / 3, ch = H / 2;
-    var caps = ["THE FIELD · 1928", "BIPLANE OVER THE FLATS", "THE FIRST HANGARS", "THE LANDING · FOUNDERS", "THE FIRST GREEN", "CHIRICAHUA SKYLINE"];
+    var caps = ["THE FIELD · 1928", "BIPLANE OVER THE FLATS", "THE FIRST HANGARS", "THE LANDING · FOUNDERS", "THE FIRST GREEN", "THE FAR RIDGE"];
     for (var k = 0; k < 6; k++) { var ox = (k % 3) * cw, oy = Math.floor(k / 3) * ch; x.save(); x.translate(ox, oy); x.fillStyle = "#1c140d"; x.fillRect(0, 0, cw, ch); x.fillStyle = "#efe6d2"; x.fillRect(18, 18, cw - 36, ch - 36); var px = 44, py = 44, pw = cw - 88, ph = ch - 130;
       var sky = x.createLinearGradient(0, py, 0, py + ph); sky.addColorStop(0, "#d8c7a4"); sky.addColorStop(0.6, "#bba47c"); sky.addColorStop(1, "#8a7352"); x.fillStyle = sky; x.fillRect(px, py, pw, ph); var hz = py + ph * (0.55 + R() * 0.12);
       x.fillStyle = "#6e5a3e"; x.beginPath(); x.moveTo(px, hz); for (var s = 0; s <= 10; s++) x.lineTo(px + s * pw / 10, hz - (k === 5 ? 30 + R() * 70 : 6 + R() * 22)); x.lineTo(px + pw, py + ph); x.lineTo(px, py + ph); x.fill(); x.fillStyle = "#57462f"; x.fillRect(px, hz + 8, pw, py + ph - hz - 8);
@@ -180,7 +183,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
   function shopTex() { return panel("shop", 1024, 512, function (x, W, H) { var R = rng(12); x.fillStyle = "#e9e1d2"; x.fillRect(0, 0, W, H); var cols = ["#1d3b5a", "#f4f1ea", "#2f4a3a", "#c9a24d", "#6e1f24", "#9fb7c4", "#3a3a3c", "#e6c9a8"];
     for (var r = 0; r < 4; r++) for (var c = 0; c < 8; c++) { var px = 20 + c * 124, py = 20 + r * 122; x.fillStyle = "#d8ccb6"; x.fillRect(px - 6, py + 96, 118, 8); x.fillStyle = cols[(c + r * 3) % cols.length]; rrect(x, px, py + 22, 106, 74, 8); x.fill(); x.fillStyle = "rgba(0,0,0,0.12)"; x.fillRect(px + 40, py + 22, 26, 22); x.fillStyle = "rgba(255,255,255,0.18)"; x.fillRect(px + 6, py + 26, 94, 4); } }); }
   // "OPEN HOUSE" easel card for the hangar homes
-  function easelTex(t1, t2) { var key = "easel:" + t1 + "|" + t2; return panel(key, 512, 704, function (x, W, H) { x.fillStyle = "#0a1610"; x.fillRect(0, 0, W, H); x.strokeStyle = "#c9a24d"; x.lineWidth = 8; x.strokeRect(18, 18, W - 36, H - 36); txt(x, "GENESIS ONE", W / 2, 110, "700 44px " + FT.cond, "#4DDE6F", 10, "center", W - 80); txt(x, t1, W / 2, 300, "700 86px " + FT.cond, "#f5f1e6", 6, "center", W - 70); txt(x, t2, W / 2, 400, "italic 34px " + FT.serif, "#f4cd5a", 1, "center", W - 70); txt(x, "Walk in: the front door is open", W / 2, 560, "500 26px " + FT.ui, "#e9dcc0", 2, "center", W - 70); }); }
+  function easelTex(t1, t2) { var key = "easel:" + t1 + "|" + t2; return panel(key, 512, 704, function (x, W, H) { x.fillStyle = "#0a1610"; x.fillRect(0, 0, W, H); x.strokeStyle = "#c9a24d"; x.lineWidth = 8; x.strokeRect(18, 18, W - 36, H - 36); txt(x, "GENESIS", W / 2, 110, "700 44px " + FT.cond, "#4DDE6F", 10, "center", W - 80); txt(x, t1, W / 2, 300, "700 86px " + FT.cond, "#f5f1e6", 6, "center", W - 70); txt(x, t2, W / 2, 400, "italic 34px " + FT.serif, "#f4cd5a", 1, "center", W - 70); txt(x, "Walk in: the front door is open", W / 2, 560, "500 26px " + FT.ui, "#e9dcc0", 2, "center", W - 70); }); }
 
   // ───────────────────────── materials (made once, shared by every interior) ─────────────────────────
   var MT = null;
@@ -218,6 +221,8 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     var AO = aoTex(); for (var mk in MT) { var mm = MT[mk]; if (mm && mm.isMeshStandardMaterial && !mm.transparent && mk !== "lamp" && mk !== "lampC") { mm.aoMap = AO; mm.aoMapIntensity = 1; } }
     MT.glass.userData.noSolid = true; MT.glassB.userData.noSolid = true; MT.fire.userData.noSolid = true; MT.glow.userData.noSolid = true;
     [MT.lamp, MT.lampC, MT.strip, MT.ember].forEach(function (m) { m.userData.k0 = m.emissiveIntensity; });
+    // R18 (Agent I2): names for the surface pass and prop layer (plan_roomlight.js), applied before any of these compile (?rip=0 / ?ris=0 off)
+    try { if (window.PLAN_RL && PLAN_RL.surfMat && PLAN_RL.propOn && PLAN_RL.propOn()) for (var nk in MT) { var m3 = MT[nk]; if (!m3 || !m3.isMeshStandardMaterial || m3.transparent || m3.alphaTest > 0) continue; if (!m3.name) m3.name = "ri_" + nk; PLAN_RL.surfMat(m3); } } catch (e) { note("r18 surf", e); }
     return MT;
   }
   // indoor light: under a roof a room gets a fraction of the sky's light; three.js applies the ao map to indirect light only
@@ -559,7 +564,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     L.solid(S.x1 + 0.1, (S.zb + zt) / 2 - 0.3, 0.1, len - 0.6, F + 0.6, B.RF + 1.1);
     // heritage photographs rising with the stair on the partition (lobby face)
     for (var p = 0; p < 6; p++) { var zp = S.zb - 0.6 - p * 1.25, yp = F + (S.zb - zp) / len * (B.RF - F) + 1.6; if (yp > B.C - 0.45) break; var u = (p % 3) / 3, v = p < 3 ? 0.5 : 0; picture(L, "photos", B.PL + 0.14, yp, zp, 0.84, 0.56, PI / 2, [u, v, u + 1 / 3, v + 0.5]); }
-    L.hot(-2.2, F, 3.6, 2.4, "info", { t: "Heritage wall", k: "The field and the club", p: "Photographs from the field's early days: the 1928 airfield, the first hangars and the founders of The Landing. The stair beside them climbs to the glazed roof lounge.", prompt: "about the heritage wall" }); }
+    L.hot(-2.2, F, 3.6, 2.4, "info", { t: "Heritage wall", k: "The field and the club", p: "Photographs from the field's early days: the old airfield, the first hangars and the founders of The Landing. The stair beside them climbs to the glazed roof lounge.", prompt: "about the heritage wall" }); }
   function cup(L, x, y, z, s, key) { var pts = [[0, 0], [0.07, 0], [0.07, 0.02], [0.025, 0.05], [0.02, 0.14], [0.05, 0.16], [0.1, 0.22], [0.12, 0.33], [0.115, 0.34], [0.0, 0.2]].map(function (p) { return new THREE.Vector2(p[0] * s, p[1] * s); }); var g = new THREE.LatheGeometry(pts, 18); L.K.geo(key || "brass", g, x, y, z, 0); }
   function namePlate(L, id, t1, t2, x, y, z, w, ry, dark) { var M = mats(), key = "plate_" + id; if (!M[key]) M[key] = new THREE.MeshStandardMaterial({ map: plateTex(t1, t2, dark), transparent: true, roughness: 0.3, metalness: dark ? 0 : 0.6, emissive: dark ? 0x000000 : 0x5a4012, emissiveMap: plateTex(t1, t2, dark), emissiveIntensity: dark ? 0 : 0.35, depthWrite: false }); var hgt = w * 384 / 2048, fx = Math.sin(ry), fz = Math.cos(ry); if (!dark) L.K.box("ebony", w + 0.3, hgt + 0.2, 0.04, x - fx * 0.02, y, z - fz * 0.02, ry, 0); L.K.quad(key, w, hgt, x + fx * 0.005, y, z + fz * 0.005, ry); }
   function clubLobby(L, B, h) { var K = L.K, F = B.F, C = B.C;
@@ -648,7 +653,7 @@ window.PLAN_INTERIORS = window.PLAN_INTERIORS || {};
     if (L.model("jetbar", -2.0, RF, 3.05, PI)) L.solid(-2.0, 3.05, 1.6, 0.66, RF, RF + 1.3); rug(L, "rug2", 0.9, -0.8, 3.6, 3.0, RF);
     L.model("term_planter", 4.0, RF, -3.1, 0.3, 0.55); L.solid(4.0, -3.1, 1.1, 1.1, RF, RF + 1.0); L.model("term_planter", -3.8, RF, 3.0, 1.2, 0.5); L.solid(-3.8, 3.0, 1.0, 1.0, RF, RF + 1.0);
     L.light(0xffe0b8, 1.1, 11, 0.8, RC - 0.9, 0.2);
-    L.hot(1.0, RF, 1.9, 2.4, "info", { t: "The Roof Lounge", k: "Glass on four sides", p: "The glazed pavilion on the roof: a quiet room over the lobby with the whole course, the Flight Line and the Chiricahua skyline around it. Best at the last light of the day.", prompt: "about the roof lounge" }); }
+    L.hot(1.0, RF, 1.9, 2.4, "info", { t: "The Roof Lounge", k: "Glass on four sides", p: "The glazed pavilion on the roof: a quiet room over the lobby with the whole course, the Flight Line and the far ridge around it. Best at the last light of the day.", prompt: "about the roof lounge" }); }
   function clubPeople(L, B, h) { var F = B.F, RF = B.RF;
     var bart = person(L, { rig: "concierge", x: -9.5, z: -2.95, y: F, yaw: 0, id: "bart" }); var tid = "int3_bartender_" + h.id; var T = registerTalk(tid, L, bart, "clubhouse", "bartender", { club: h.name || "the clubhouse" });
     L.hot(-9.5, F, -1.35, 2.4, "talk", { id: tid, name: T.name, who: bart, prompt: "talk to " + T.name + ", the bartender" });

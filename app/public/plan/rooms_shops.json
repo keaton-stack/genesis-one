@@ -1,5 +1,4 @@
 {
-  "_about": "R14 store interiors (plan_rooms_shops.js). trades: the copy, keepers, talk cards, the client's shop card (venue: items the room sells, rename: the names the card shows) and the passport stamp of each trade. shops: per building name (plan.json), the trade, keeper names (one per building of that name, in PLACE order), the sign subtitle and any override. stalls: the goods of the Gantry Row stalls in order. No fee figures, no investment language, no real brands except GIVEBACK.",
   "version": 1,
   "streamline": true,
   "crawlStamp": "p_rs_crawl",
@@ -9,7 +8,7 @@
     "soda": { "label": "Soda fountain", "stamp": "p_rs_fountain", "role": "Soda jerk, {shop}", "keepers": ["Dolly Reyes", "Hank Ortiz", "June Calloway"],
       "greet": ["Pull up a stool!", "Float or a phosphate?", "The cherry is on the house today."],
       "talk": [
-        { "t": "Welcome to {shop}. I'm {name}. Pull up a stool: the marble counter has been here since the airfield opened in 1928, and the root beer float is still the house special.", "o": [["What's good today?", 1], ["Tell me about the place", 2], ["Thanks", null]] },
+        { "t": "Welcome to {shop}. I'm {name}. Pull up a stool: the marble counter has been here since the airfield opened, and the root beer float is still the house special.", "o": [["What's good today?", 1], ["Tell me about the place", 2], ["Thanks", null]] },
         { "t": "A chocolate malt mixed in the chrome cup, a cherry phosphate the old way, or a banana split with three sauces. Order at the register at the end of the counter.", "o": [["Sounds good", null]] },
         { "t": "Pilots waiting out the weather used to sit right where you're standing. The fountain head and the syrup pumps are the original kind; we polish them every morning.", "o": [["Nice", null]] } ],
       "venue": { "title": "Soda Fountain", "k": "Floats, malts and phosphates", "items": ["coffee", "meal"], "rename": { "coffee": ["Root beer float", "+40 energy"], "meal": ["Burger and a malt", "Energy back to 100"] } } },
@@ -23,7 +22,7 @@
       "greet": ["Fresh roast this morning.", "Espresso or pour-over?", "Morning! Or whatever time it is."],
       "talk": [
         { "t": "Hey, welcome to {shop}. I'm {name}. We roast every bag on that back wall right here in the drum roaster, a few batches a day.", "o": [["What do you recommend?", 1], ["How does the roaster work?", 2], ["Thanks", null]] },
-        { "t": "The Chiricahua roast as a pour-over if you have five minutes, a flat white if you don't. Order at the till.", "o": [["Thanks", null]] },
+        { "t": "The Ridge roast as a pour-over if you have five minutes, a flat white if you don't. Order at the till.", "o": [["Thanks", null]] },
         { "t": "Green beans go in the hopper, tumble in the hot drum for about twelve minutes until the second crack, then drop into the cooling tray. Smell that? That's this morning's batch.", "o": [["Great", null]] } ],
       "venue": { "title": "Coffee", "k": "Roasted here", "items": ["coffee", "meal"], "rename": { "meal": ["Pastry and a pour-over", "Energy back to 100"] } } },
     "bakery": { "label": "Bakery", "stamp": "p_rs_coffee", "role": "Baker, {shop}", "keepers": ["Lupe Aranda", "Walt Dempsey"],
@@ -61,7 +60,7 @@
       "greet": ["Welcome to the Giveback shop!", "The green hoodie is the favourite.", "Every tee on the wall is ours."],
       "talk": [
         { "t": "Welcome to the {shop}. I'm {name}. Everything on these walls carries the GIVEBACK logo: tees, hoodies, caps, packs and the crew lanyard.", "o": [["What's GIVEBACK?", 1], ["What should I get?", 2], ["Thanks", null]] },
-        { "t": "Giveback Ventures builds the giving rails under Genesis One: a share of every sale on the protocol goes to verified nonprofits, automatically, and it's all recorded on chain. The shop is the fun part.", "o": [["Nice", null]] },
+        { "t": "Giveback powers the giving here: a share of every sale on the protocol goes to verified nonprofits, automatically, and it's all recorded on chain. The shop is the fun part.", "o": [["Nice", null]] },
         { "t": "The green hoodie with the logo on the chest, and the trucker cap. You'll see them all over the Flight Line.", "o": [["Let me look", null]] } ],
       "venue": { "title": "Giveback Shop", "k": "GIVEBACK merch", "items": ["gear_tee_gb", "gear_tee_black", "gear_hoodie_gb", "gear_jersey_gb", "gear_backpack_gb", "gear_lanyard", "hat_cap", "hat_trucker"] } },
     "hats": { "label": "Hat shop", "stamp": "p_rs_outfit", "role": "Hatter, {shop}", "keepers": ["Clementine Roux", "Amos Reed"],
@@ -114,7 +113,7 @@
       "greet": ["Hold very still!", "Take a seat in the posing chair.", "Darkroom's occupied."],
       "talk": [
         { "t": "Welcome to {shop}. I'm {name}. Portraits the old way: a wooden camera, a painted backdrop and a long exposure. Sit in the chair and don't blink.", "o": [["How long do I hold still?", 1], ["Thanks", null]] },
-        { "t": "A few seconds in this light. In 1928 it was longer; you can see it in the faces on the wall, nobody's smiling.", "o": [["Ha", null]] } ] },
+        { "t": "A few seconds in this light. In the early days it was longer; you can see it in the faces on the wall, nobody's smiling.", "o": [["Ha", null]] } ] },
     "bikes": { "label": "Bike shop", "stamp": null, "role": "Mechanic, {shop}", "keepers": ["Danny Okoro", "Sage Whitman"],
       "greet": ["Tyre pressure check?", "Cruisers are tuned up.", "Bring it in, I'll look."],
       "talk": [
@@ -133,13 +132,13 @@
     "makers": { "label": "Makers", "stamp": "p_rs_makers", "role": "Maker, {shop}", "keepers": ["Ines Castillo", "Theo Barnes", "Hollis Gray"],
       "greet": ["Mind the wet pots.", "Everything here's handmade.", "Want to try the wheel?"],
       "talk": [
-        { "t": "Welcome to {shop}. I'm {name}. Pottery, weaving, leather and wood, all made by people who live in Douglas. The wheel is going most afternoons.", "o": [["Who makes what?", 1], ["Thanks", null]] },
+        { "t": "Welcome to {shop}. I'm {name}. Pottery, weaving, leather and wood, all made by people who live in town. The wheel is going most afternoons.", "o": [["Who makes what?", 1], ["Thanks", null]] },
         { "t": "Each shelf is a different maker; their names are under the pieces. We take turns behind the counter.", "o": [["Nice", null]] } ] },
     "books": { "label": "Books and maps", "stamp": null, "role": "Bookseller, {shop}", "keepers": ["Agnes Thornbury", "Milo Cardenas"],
       "greet": ["Mind the ladder.", "The reading chairs are free.", "Looking for anything in particular?"],
       "talk": [
-        { "t": "Welcome to {shop}. I'm {name}. New and used books, old survey maps of the border country, and two very comfortable chairs.", "o": [["Any maps of the airfield?", 1], ["Thanks", null]] },
-        { "t": "On the map table: the 1928 field plan, with the first runway drawn in pencil. Look, don't fold.", "o": [["I'll take a look", null]] } ] },
+        { "t": "Welcome to {shop}. I'm {name}. New and used books, old maps of the border country, and two very comfortable chairs.", "o": [["Any maps of the airfield?", 1], ["Thanks", null]] },
+        { "t": "On the map table: the old field plan, with the first runway drawn in pencil. Look, don't fold.", "o": [["I'll take a look", null]] } ] },
     "apothecary": { "label": "Apothecary", "stamp": null, "role": "Apothecary, {shop}", "keepers": ["Dr. Ada Bellweather", "Rufus Kline", "Mina Torres", "Otis Fairweather", "Leonor Vidal"],
       "greet": ["A tonic for the heat?", "Mind the glass.", "How can I help?"],
       "talk": [
@@ -150,7 +149,7 @@
       "greet": ["Next window, please.", "Sign the ledger, if you would.", "Mind the bench, it's old."],
       "talk": [
         { "t": "Welcome to the {shop}. I'm {name}. Stamps, claims, tickets, telegrams: whatever this window handles, it has handled it since the town was a few tents and a well.", "o": [["What's the history here?", 1], ["Thanks", null]] },
-        { "t": "Douglas grew up on the border, with the smelter and the railroad and then the airfield in 1928. Half the town's papers passed through windows like this one.", "o": [["Thanks", null]] } ] },
+        { "t": "This town grew up on the border, with the smelter and the railroad and then the airfield. Half the town's papers passed through windows like this one.", "o": [["Thanks", null]] } ] },
     "sheriff": { "label": "Sheriff's office", "stamp": "p_rs_heritage", "role": "Deputy, {shop}", "keepers": ["Deputy Wade Calloway"],
       "greet": ["Keep it peaceful.", "Cell's empty today.", "Read the posters."],
       "talk": [
@@ -160,7 +159,7 @@
       "greet": ["Welcome to the museum.", "Please stay behind the rope.", "Ask me about anything here."],
       "talk": [
         { "t": "Welcome to the {shop}. I'm {name}. The room behind the rope is set up as it would have been on Main Street a century ago. The cases have the tools and the photographs.", "o": [["How was this collected?", 1], ["Thanks", null]] },
-        { "t": "Families in Douglas lent most of it, and the photographs of the airfield came from a box in a hangar attic. Every placard has the story.", "o": [["Thank you", null]] } ] },
+        { "t": "Families in town lent most of it, and the photographs of the airfield came from a box in a hangar attic. Every placard has the story.", "o": [["Thank you", null]] } ] },
     "market": { "label": "Market hall", "stamp": null, "role": "Grocer, {shop}", "keepers": ["Benita Flores"],
       "greet": ["Peaches are sweet today.", "Try a chile.", "Fresh eggs this morning."],
       "talk": [
@@ -188,7 +187,8 @@
     "Bakery": { "trade": "bakery", "title": "Main Street Bakery", "sub": "Bread · Pies · Pan Dulce", "keepers": ["Lupe Aranda"] },
     "Cider House (Garden Row)": { "trade": "tavern", "title": "Cider House", "sub": "Garden Row · Pressed on Site", "keepers": ["Ruth Ayala"] },
     "Tie-Down Tavern": { "trade": "tavern", "sub": "Est. on the Old Flight Line", "keepers": ["Boone Whitaker", "Della Sparks"] },
-    "Route 80 Diner Shop": { "trade": "diner", "title": "Route 80 Diner", "sub": "Coast to Coast · Pie All Day", "keepers": ["Rita Calderon", "Gus Pappas"] },
+    "Route 80 Diner Shop": { "trade": "diner", "title": "Old Highway Diner", "sub": "Coast to Coast · Pie All Day", "keepers": ["Rita Calderon", "Gus Pappas"] },
+    "Old Highway Diner Shop": { "trade": "diner", "title": "Old Highway Diner", "sub": "Coast to Coast · Pie All Day", "keepers": ["Rita Calderon", "Gus Pappas"] },
     "Club Deli (streamline storefront)": { "trade": "diner", "title": "Club Deli", "sub": "Club Walk", "keepers": ["Mae Holloway"], "venue": { "title": "Club Deli", "k": "Sandwiches and soup", "items": ["coffee", "meal"], "rename": { "meal": ["Club sandwich and soup", "Energy back to 100"] } } },
     "Orbit Noodles (vendor village)": { "trade": "diner", "title": "Orbit Noodles", "sub": "Vendor Village", "keepers": ["Kenji Arai"], "venue": { "title": "Orbit Noodles", "k": "Noodles and broth", "items": ["coffee", "meal"], "rename": { "coffee": ["Jasmine iced tea", "+40 energy"], "meal": ["Bowl of noodles", "Energy back to 100"] } } },
     "Zero-G Tacos (vendor village)": { "trade": "diner", "title": "Zero-G Tacos", "sub": "Vendor Village", "keepers": ["Esteban Ruiz"], "venue": { "title": "Zero-G Tacos", "k": "Tacos off the plancha", "items": ["coffee", "meal"], "rename": { "coffee": ["Agua fresca", "+40 energy"], "meal": ["Three tacos", "Energy back to 100"] } } },
@@ -244,7 +244,8 @@
     "Hangar Records": { "trade": "records", "sub": "Vinyl · Tapes · Listening Booth", "keepers": ["Jules Okonkwo", "Rae Delacroix"] },
     "Aviator Barber": { "trade": "barber", "sub": "Cuts · Shaves · Hot Towels", "keepers": ["Sal Moretti", "Cass Delaney"] },
     "Barber and Bath": { "trade": "barber", "sub": "Shave · Haircut · Hot Bath", "keepers": ["Big Lou Varela"] },
-    "Douglas Makers": { "trade": "makers", "sub": "Handmade in Douglas", "keepers": ["Ines Castillo", "Theo Barnes"] },
+    "Douglas Makers": { "trade": "makers", "title": "Main Street Makers", "sub": "Handmade on Main Street", "keepers": ["Ines Castillo", "Theo Barnes"] },
+    "Main Street Makers": { "trade": "makers", "title": "Main Street Makers", "sub": "Handmade on Main Street", "keepers": ["Ines Castillo", "Theo Barnes"] },
     "Printing Office": { "trade": "makers", "title": "Printing Office", "sub": "Letterpress · Posters · Handbills", "keepers": ["Hollis Gray"] },
     "Border Books": { "trade": "books", "sub": "Books · Maps · Reading Chairs", "keepers": ["Agnes Thornbury"] },
     "Book and Map Room (streamline storefront)": { "trade": "books", "title": "Book and Map Room", "sub": "Club Walk", "keepers": ["Milo Cardenas"] },
@@ -276,7 +277,7 @@
     { "n": 284, "id": "p_rs_giveback", "name": "The Giveback shop", "sub": "The Giveback Desk on the Club Walk" },
     { "n": 285, "id": "p_rs_records", "name": "Crate digger", "sub": "Hangar Records" },
     { "n": 286, "id": "p_rs_barber", "name": "A fresh cut", "sub": "Sit in a barber's chair" },
-    { "n": 287, "id": "p_rs_makers", "name": "Made in Douglas", "sub": "The makers, the printing office or the farrier" },
+    { "n": 287, "id": "p_rs_makers", "name": "Made on Main Street", "sub": "The makers, the printing office or the farrier" },
     { "n": 288, "id": "p_rs_heritage", "name": "Heritage Main Street", "sub": "A frontier office, the sheriff or a museum" },
     { "n": 289, "id": "p_rs_crawl", "name": "Shop crawl", "sub": "Ten different kinds of shop" }
   ]

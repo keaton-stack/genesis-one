@@ -269,7 +269,10 @@ if (!window.PLAN_HOOKS.plan) window.PLAN_HOOKS.plan = [];
         if (pz && !jr && (pz.P.paved || R.fam !== "soft")) { const C = pz.P; const Rr = C.r - 0.3; const L = R.L; let s = 0, hit = null;
           for (let k = 0; k < 200 && s < L; k++) { const at = arcAt(R.pts, which ? L - s : s); if (Math.hypot(at[0] - C.x, at[1] - C.z) >= Rr) { hit = at; break; } s += 0.5; }
           const deep = Math.hypot(E.x - C.x, E.z - C.z) < Rr - 3;   // the walk runs on into the plaza rather than stopping at its edge
-          if (hit && !deep) { band({ kind: "end", x: hit[0], z: hit[1], ux: hit[2], uz: hit[3], len: R.w + 0.3, wid: 0.6, src: R.src, plaza: true, soft: SD(R.fam) }); treat(R, which, "joined"); cnt("plaza_threshold"); }
+          // R18 (plan_tidy): the walk now stops at the plaza's kerb line (PLAN_TIDY draws it outside the plaza only), so a walk that ran deep
+          // into the plaza gets the threshold course too
+          const cutP = TIDY() && window.PLAN_TIDY && PLAN_TIDY.inCut && PLAN_TIDY.inCut(C.x, C.z);
+          if (hit && (!deep || cutP)) { band({ kind: "end", x: hit[0], z: hit[1], ux: hit[2], uz: hit[3], len: R.w + 0.3, wid: 0.6, src: R.src, plaza: true, soft: SD(R.fam) }); treat(R, which, "joined"); cnt("plaza_threshold"); }
           if (R.mk === "stone" && s > 3) { band({ kind: "edge", R, s0: which ? L - s : 0, s1: which ? L : s, src: R.src, plaza: true }); treat(R, which, "joined"); cnt("plaza_inlay"); }
           else if (deep) { treat(R, which, "joined"); cnt("plaza_runs_in"); } }
       } }
@@ -341,16 +344,27 @@ if (!window.PLAN_HOOKS.plan) window.PLAN_HOOKS.plan = [];
   const CELL = 800, ACC = new Map();   // a few large cells: about 30 meshes for the whole site
   function accFor(mat, x, z) { const key = mat.uuid + ":" + Math.floor(x / CELL) + ":" + Math.floor(z / CELL); let a = ACC.get(key); if (!a) { a = newAcc(); a.mat = mat; ACC.set(key, a); } return a; }
   const gy = (x, z) => { try { return planGroundAt(x, z); } catch (e) { return getH(x, z); } };
+  // R18 (Agent W, plan_tidy): the walk grid is a 0.5 m raster, so a sample taken right at a surface's edge lands on the ground about half
+  // the time; the soldier courses, the cantera kerbs, the pad kerb rings and the rails sampled it at their corners and dropped to the ground
+  // in a sawtooth. TIDY() (?tidy=0 for the old sampling): gyR fills an edge sample from its neighbours, ownTop reads a ribbon's own top
+  // well inside its edge.
+  const TIDY = () => !(window.PLAN_TIDY && PLAN_TIDY.off);
+  function gyR(x, z) { let y = gy(x, z); if (!TIDY()) return y; for (const d of [[0.35, 0], [-0.35, 0], [0, 0.35], [0, -0.35]]) { const v = gy(x + d[0], z + d[1]); if (v > y && v - y < 0.5) y = v; } return y; }
+  function ownTop(R, r, hw, oo) { const ii = Math.max(0, hw - Math.min(0.6, hw * 0.5)); const x = r.x + r.nx * ii, z = r.z + r.nz * ii; let w = null; try { w = walkAt(x, z); } catch (e) {} const g = getH(x, z); return w !== null && w > g - 0.05 ? w : g + (R.lift || 0); }
+  PP.railRuns = [];
   // the soldier course (a row of dark setts with joints, flush with the surface)
   function settRow(a, x0, z0, ax, az, len, nx, nz, wid, y0, ow) { if (inArr(x0 + ax * len / 2, z0 + az * len / 2)) return; const n = Math.max(1, Math.round(len / (ow ? 0.26 : 0.34))); const sl = len / n; for (let i = 0; i < n; i++) { const s0 = i * sl + (ow ? 0.02 : 0.012), s1 = (i + 1) * sl - (ow ? 0.02 : 0.012); const c = ow ? ((i * 7 + Math.round(x0)) % 4 === 0 ? COLS.tie2 : COLS.oldtimber) : (i + Math.round(x0 * 7 + z0 * 3)) % 3 === 0 ? COLS.sett2 : COLS.sett;
-      const P = (s, o) => { const x = x0 + ax * s + nx * o, z = z0 + az * s + nz * o; return [x, (y0 === undefined ? gy(x, z) : y0) + 0.018, z]; };
-      quadA(a, P(s0, -wid / 2), P(s1, -wid / 2), P(s1, wid / 2), P(s0, wid / 2), [s0 / 0.9, 0, s1 / 0.9, 0, s1 / 0.9, wid / 0.9, s0 / 0.9, wid / 0.9], c); } }
+      const P = (s, o) => { const x = x0 + ax * s + nx * o, z = z0 + az * s + nz * o; return [x, (y0 === undefined ? gyR(x, z) : y0) + 0.018, z]; };
+      const c0 = P(s0, -wid / 2), c1 = P(s1, -wid / 2), c2 = P(s1, wid / 2), c3 = P(s0, wid / 2);
+      if (TIDY() && Math.max(c0[1], c1[1], c2[1], c3[1]) - Math.min(c0[1], c1[1], c2[1], c3[1]) > 0.04 + 0.08 * Math.max(sl, wid)) { cnt("settsOnAStep"); continue; }   // R18: a sett that straddles a step between two surfaces is left out (it tilted into a sawtooth)
+      quadA(a, c0, c1, c2, c3, [s0 / 0.9, 0, s1 / 0.9, 0, s1 / 0.9, wid / 0.9, s0 / 0.9, wid / 0.9], c); } }
   function buildBands() { const M2 = mats(); let n = 0;
     for (const b of PP.bands) { try {
+      if (b.kind === "end" && b.soft && TIDY() && window.PLAN_TIDY && PLAN_TIDY.inPlazaAny && PLAN_TIDY.inPlazaAny(b.x, b.z)) { cnt("softBandsInPlaza"); continue; }   // R18: the dirt lane it sat on now stops at the plaza
       if (b.kind === "end") { const ax = -b.uz, az = b.ux; const ow = !!b.soft && districtStyle(b.x, b.z) === "ow"; const a = accFor(ow ? M2.timber : M2.stone, b.x, b.z); settRow(a, b.x - ax * b.len / 2, b.z - az * b.len / 2, ax, az, b.len, b.ux, b.uz, b.wid, undefined, ow); n++; continue; }
-      if (b.kind === "edge") { const R = b.R; const pts = R.r.pts; const L = polyLen2(pts); const s0 = Math.max(0, b.s0), s1 = Math.min(L, b.s1); if (s1 - s0 < 0.6) continue; const wid = 0.45;
+      if (b.kind === "edge") { const R = b.R; const cutT = TIDY() && window.PLAN_TIDY && PLAN_TIDY.inCut; const pts = R.r.pts; const L = polyLen2(pts); const s0 = Math.max(0, b.s0), s1 = Math.min(L, b.s1); if (s1 - s0 < 0.6) continue; const wid = 0.45;
         for (const sd of [-1, 1]) { let s = s0; while (s < s1 - 0.05) { const e = Math.min(s1, s + 2.0); const A = arcAt(pts, (s + e) / 2); const ux = A[2], uz = A[3]; const nx = -uz * sd, nz = ux * sd; const o = R.w / 2 - wid / 2 - 0.05;
-            const sa = arcAt(pts, s); const ow = !!b.soft && districtStyle(sa[0], sa[1]) === "ow"; const a = accFor(ow ? M2.timber : M2.stone, sa[0], sa[1]); settRow(a, sa[0] + nx * o, sa[1] + nz * o, ux, uz, e - s, nx, nz, wid, undefined, ow); s = e; } } n++; } } catch (e) { note("band", e); } }
+            const sa = arcAt(pts, s); if (cutT && (PLAN_TIDY.inCut(sa[0] + nx * o, sa[1] + nz * o) || (b.soft && PLAN_TIDY.inPlazaAny(sa[0] + nx * o, sa[1] + nz * o)) || (PLAN_TIDY.cutAtArc && PLAN_TIDY.cutAtArc(R.r, (s + e) / 2)))) { cnt("bandSegsInPlaza"); s = e; continue; } const ow = !!b.soft && districtStyle(sa[0], sa[1]) === "ow"; const a = accFor(ow ? M2.timber : M2.stone, sa[0], sa[1]); settRow(a, sa[0] + nx * o, sa[1] + nz * o, ux, uz, e - s, nx, nz, wid, undefined, ow); s = e; } } n++; } } catch (e) { note("band", e); } }
     cnt("bandsBuilt", n); }
   // termini: the pads (the path's own material, merged per material and walked), a low cantera kerb round each pad but its mouth
   function buildTermini() { const M2 = mats(); const by = new Map(); const RG = segGrid(collect().filter((R) => !R.bed && !R.air));
@@ -359,7 +373,7 @@ if (!window.PLAN_HOOKS.plan) window.PLAN_HOOKS.plan = [];
         const mouth = Math.atan2(-T.uz, -T.ux); const half = T.court ? 0 : Math.asin(Math.min(1, ((T.mouthW || 3) / 2 + 0.6) / T.r)); const a = accFor(M2.stone, T.x, T.z); const N = 36; const rows = [];
         for (let i = 0; i <= N; i++) { const ang = mouth + half + (6.2832 - 2 * half) * i / N; const x = T.x + Math.cos(ang) * (T.r - 0.11), z = T.z + Math.sin(ang) * (T.r - 0.11); rows.push([x, z, Math.cos(ang), Math.sin(ang)]); }
         const y = gy(T.x, T.z);
-        for (let i = 0; i < rows.length - 1; i++) { const [x0, z0, c0, s0] = rows[i], [x1, z1, c1, s1] = rows[i + 1]; const h0 = gy(x0, z0), h1 = gy(x1, z1); const t = 0.11, H = 0.12;
+        for (let i = 0; i < rows.length - 1; i++) { const [x0, z0, c0, s0] = rows[i], [x1, z1, c1, s1] = rows[i + 1]; const h0 = TIDY() ? getH(x0, z0) + (T.lift || 0) : gy(x0, z0), h1 = TIDY() ? getH(x1, z1) + (T.lift || 0) : gy(x1, z1); const t = 0.11, H = 0.12;
           { const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2; let open = false; for (const [O, v] of nearRibbons(RG, mx, mz)) if (v[0] < O.w / 2 + 0.45) { open = true; break; } if (open) continue; }
           quadA(a, [x0 - c0 * t, h0 + H, z0 - s0 * t], [x1 - c1 * t, h1 + H, z1 - s1 * t], [x1 + c1 * t, h1 + H, z1 + s1 * t], [x0 + c0 * t, h0 + H, z0 + s0 * t], [0, 0, 1, 0, 1, 0.2, 0, 0.2], COLS.cantera);
           wallA(a, [x0 + c0 * t, getH(x0 + c0 * t, z0 + s0 * t) - 0.05, z0 + s0 * t], [x1 + c1 * t, getH(x1 + c1 * t, z1 + s1 * t) - 0.05, z1 + s1 * t], [x1 + c1 * t, h1 + H, z1 + s1 * t], [x0 + c0 * t, h0 + H, z0 + s0 * t], [0, 0, 1, 0, 1, 0.3, 0, 0.3], COLS.kerb, c0, s0);
@@ -400,7 +414,13 @@ if (!window.PLAN_HOOKS.plan) window.PLAN_HOOKS.plan = [];
         const a = accFor(M2.gravel, a0.x, a0.z);
         for (let k = 0; k < run.length - 1; k++) { const p = run[k], q = run[k + 1]; const ro = (r) => outer + (hash1(r.s * 0.71 + R.i * 3.1 + sd) - 0.5) * 0.36;
           const P = (r, o, dy) => { const x = r.x + r.nx * o, z = r.z + r.nz * o; return [x, getH(x, z) + dy, z]; };
-          quadA(a, P(p, inner, 0.07), P(q, inner, 0.07), P(q, ro(q), 0.035), P(p, ro(p), 0.035), [p.s / 2, 0, q.s / 2, 0, q.s / 2, 0.6, p.s / 2, 0.6], col); nS++; } }
+          // R18: the shoulder starts just under the ribbon's own edge (it was laid 7 cm over the ground, so on a cross-slope the raised ribbon edge
+          // showed a dark slit and a ragged sawtooth band under it); it now runs from under the edge down to the ground like a graded shoulder
+          // (a short fascia from under the edge to 7 cm over the ground just past it, then the old flat shoulder, so the lamps and posts on the
+          // lantern line keep their ground)
+          const PI = (r) => { const v = P(r, inner, 0.07); if (TIDY()) v[1] = Math.max(v[1], ownTop(R, r, hw, inner) - 0.04); return v; };
+          if (TIDY()) { const ej = hw + 0.12; quadA(a, PI(p), PI(q), P(q, ej, 0.07), P(p, ej, 0.07), [p.s / 2, 0, q.s / 2, 0, q.s / 2, 0.15, p.s / 2, 0.15], col); quadA(a, P(p, ej, 0.07), P(q, ej, 0.07), P(q, ro(q), 0.035), P(p, ro(p), 0.035), [p.s / 2, 0.15, q.s / 2, 0.15, q.s / 2, 0.6, p.s / 2, 0.6], col); }
+          else quadA(a, P(p, inner, 0.07), P(q, inner, 0.07), P(q, ro(q), 0.035), P(p, ro(p), 0.035), [p.s / 2, 0, q.s / 2, 0, q.s / 2, 0.6, p.s / 2, 0.6], col); nS++; } }
       if ((soft && R.w >= 2.5) || dg) { // the edge: corten steel, or timber in the Old West; at the shoulder's outer line for dirt, at the walk's edge for DG
         const ow = st === "ow"; const mat = ow ? M2.timber : M2.metal; const col = ow ? COLS.oldtimber : st === "out" ? COLS.steel : COLS.corten; const t = ow ? 0.07 : 0.022, H = ow ? 0.1 : 0.065; const o = soft ? hw + 0.95 : hw + 0.03;
         const a = accFor(mat, a0.x, a0.z);
@@ -411,15 +431,15 @@ if (!window.PLAN_HOOKS.plan) window.PLAN_HOOKS.plan = [];
           wallA(a, [po[0], po[2] - 0.05, po[1]], [qo[0], qo[2] - 0.05, qo[1]], [qo[0], qo[2] + H, qo[1]], [po[0], po[2] + H, po[1]], [p.s, 0, q.s, 0, q.s, 0.12, p.s, 0.12], col, p.nx, p.nz);
           wallA(a, [qi[0], qi[2] - 0.05, qi[1]], [pi[0], pi[2] - 0.05, pi[1]], [pi[0], pi[2] + H, pi[1]], [qi[0], qi[2] + H, qi[1]], [q.s, 0, p.s, 0, p.s, 0.12, q.s, 0.12], col, -p.nx, -p.nz); nE++; } }
       if (stone) { const a = accFor(M2.stone, a0.x, a0.z); const t = 0.11, H = 0.11;
-        for (let k = 0; k < run.length - 1; k++) { const p = run[k], q = run[k + 1]; const at = (r, oo) => { const x = r.x + r.nx * oo, z = r.z + r.nz * oo; return [x, z, gy(r.x + r.nx * (hw - 0.3), r.z + r.nz * (hw - 0.3))]; };
+        for (let k = 0; k < run.length - 1; k++) { const p = run[k], q = run[k + 1]; const at = (r, oo) => { const x = r.x + r.nx * oo, z = r.z + r.nz * oo; return [x, z, TIDY() ? ownTop(R, r, hw, oo) : gy(r.x + r.nx * (hw - 0.3), r.z + r.nz * (hw - 0.3))]; };
           const pi = at(p, hw - t), po = at(p, hw + t), qi = at(q, hw - t), qo = at(q, hw + t);
           quadA(a, [pi[0], pi[2] + H, pi[1]], [qi[0], qi[2] + H, qi[1]], [qo[0], qo[2] + H, qo[1]], [po[0], po[2] + H, po[1]], [p.s / 0.9, 0, q.s / 0.9, 0, q.s / 0.9, 0.25, p.s / 0.9, 0.25], COLS.kerb);
           wallA(a, [po[0], getH(po[0], po[1]) - 0.05, po[1]], [qo[0], getH(qo[0], qo[1]) - 0.05, qo[1]], [qo[0], qo[2] + H, qo[1]], [po[0], po[2] + H, po[1]], [p.s, 0, q.s, 0, q.s, 0.3, p.s, 0.3], COLS.kerb, p.nx, p.nz); nK++; } }
       if (deck || stone || (dg && R.w >= 3)) { // a railing where the walk's edge stands over a drop (the wash bridges, the banks)
         let rr = []; const out = () => { if (rr.length >= 3) rail(R, rr, deck); rr = []; };
-        for (const p of run) { const x = p.x + p.nx * (hw - 0.12), z = p.z + p.nz * (hw - 0.12); const top = gy(x, z); const down = top - Math.min(getH(p.x + p.nx * (hw + 0.8), p.z + p.nz * (hw + 0.8)), getH(p.x + p.nx * (hw + 2), p.z + p.nz * (hw + 2))); if (down > 0.62) rr.push({ x, z, y: top, s: p.s, nx: p.nx, nz: p.nz }); else out(); }
+        for (const p of run) { const x = p.x + p.nx * (hw - 0.12), z = p.z + p.nz * (hw - 0.12); const top = TIDY() ? ownTop(R, p, hw, hw - 0.12) : gy(x, z); const down = top - Math.min(getH(p.x + p.nx * (hw + 0.8), p.z + p.nz * (hw + 0.8)), getH(p.x + p.nx * (hw + 2), p.z + p.nz * (hw + 2))); if (down > 0.62) rr.push({ x, z, y: top, s: p.s, nx: p.nx, nz: p.nz }); else out(); }
         out(); } }
-    function rail(R, rr, deck) { const ow = districtStyle(rr[0].x, rr[0].z) === "ow" || deck; const mat = ow ? M2.timber : M2.metal; const col = ow ? COLS.oldtimber : COLS.steel; const a = accFor(mat, rr[0].x, rr[0].z);
+    function rail(R, rr, deck) { try { PP.railRuns.push({ pts: rr.map((q) => [q.x, q.z]), src: R.src }); } catch (e) {} const ow = districtStyle(rr[0].x, rr[0].z) === "ow" || deck; const mat = ow ? M2.timber : M2.metal; const col = ow ? COLS.oldtimber : COLS.steel; const a = accFor(mat, rr[0].x, rr[0].z);
       const post = (p) => { const w = ow ? 0.06 : 0.025; const h = 1.0; const ux = -p.nz, uz = p.nx; const c = [[-w, -w], [w, -w], [w, w], [-w, w]].map(([u, v]) => [p.x + ux * u + p.nx * v, p.z + uz * u + p.nz * v]);
         for (let k = 0; k < 4; k++) { const A = c[k], B = c[(k + 1) % 4]; const fx = (A[0] + B[0]) / 2 - p.x, fz = (A[1] + B[1]) / 2 - p.z; const fl = Math.hypot(fx, fz) || 1; wallA(a, [A[0], p.y - 0.02, A[1]], [B[0], p.y - 0.02, B[1]], [B[0], p.y + h, B[1]], [A[0], p.y + h, A[1]], [0, 0, 0.1, 0, 0.1, 1, 0, 1], col, fx / fl, fz / fl); } };
       for (let k = 0; k < rr.length; k++) if (k % 2 === 0 || k === rr.length - 1) post(rr[k]);

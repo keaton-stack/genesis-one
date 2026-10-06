@@ -43,9 +43,24 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       // client's haze coefficient), aerosol scale height (m), Mie g, the sun's in-scatter strength, ambient in-scatter tint
       atR: 0.62, atM: 0.42, atH: 1500, atG: 0.72, atSun: 1.1, atAmb: 1.0,
       // final: CAS sharpness (0..1), dither (in 1/255), LUT strength
-      cas: 0.55, dither: 1.0, lutK: 1.0
+      cas: 0.55, dither: 1.0, lutK: 1.0,
+      // R18 (L2) outdoor depth. Direct-share AO: the sky's irradiance from the scene environment per unit of its intensity, the AO
+      // strength on the indirect share (x aoK), the luminance guard at night (lamps are not in the light balance)
+      dpEnv: 1.6, dpAo: 1.2, dpNight: 0.75, dpPow: 1.25,
+      // the outdoor GTAO radius (m) and its widest (half-res px at 540 lines), growing with distance (x (1 + aoRG) at aoRG1 m)
+      aoR18: 2.4, aoPx18: 140, aoRG: 0.6, aoRG0: 8, aoRG1: 70,
+      // golden-hour rim: strength (x the sun's colour), width (m), widest (px), backlight exponent
+      rimK: 1.2, rimW: 0.06, rimMax: 3.5, rimPow: 3,
+      // the valley-floor dust band: extinction at the ground (1/m), scale height (m), starts at (m), counts at most (m)
+      // the fill against the key outdoors: less of it by day (fill0) and more less at golden hour (fillG)
+      fill0: 0.14, fillG: 0.12,
+      bandB: 1.6e-4, bandH: 260, band0: 35, band1: 1800
     }
   };
+  // R18 switches: ?dp=0 all of it off; ?dpao=0 (direct-share AO), ?aorg=0 (outdoor radius), ?rim=0, ?band=0, ?dpfill=0 (key to fill)
+  PP.sw18 = { all: qon("dp"), ao: qon("dpao"), rg: qon("aorg"), rim: qon("rim"), band: qon("band"), fill: qon("dpfill") };
+  PP.ab18 = function (on) { PP.sw18.all = !!on; ST.reset = true; return PP.sw18; };
+  PP.set18 = function (k, v) { if (!(k in PP.sw18)) return undefined; PP.sw18[k] = !!v; ST.reset = true; return PP.sw18; };
   if (PP.off) return;
   function note(w, e) { var m = w + ": " + (e && e.message ? e.message : e); if (PP.errs.length < 40) PP.errs.push(m); if (PP.errs.length <= 8) console.warn("[post] " + m); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -110,17 +125,28 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var GTAO_FS = [
     "varying vec2 vUv; uniform sampler2D tDepth; uniform sampler2D tHist; uniform vec2 uFullPx; uniform vec2 uHalfSize; uniform float uNear; uniform float uFar; uniform vec2 uTan;",
     "uniform mat3 uCamRot; uniform vec3 uCamPos; uniform mat4 uPrevVP; uniform float uReset; uniform vec4 uAoP; uniform vec4 uAoP2; uniform vec4 uCs;",
+    // R18 (L2): the sun's own shadow cascades (the first three) and the light balance, for the direct share a pixel receives
+    "uniform sampler2D tSh0; uniform sampler2D tSh1; uniform sampler2D tSh2; uniform mat4 uShM[3]; uniform vec4 uShP[3]; uniform vec4 uShK; uniform vec3 uSunWd; uniform vec4 uAoP3;",
+    "#include <packing>",
     COMMON,
+    "float shPcf(sampler2D t, mat4 M, vec4 sp, vec3 X, vec3 Nw){ vec4 c = M * vec4(X + Nw * sp.y, 1.0); vec3 s = c.xyz / c.w; if (s.x < 0.0 || s.y < 0.0 || s.x > 1.0 || s.y > 1.0 || s.z > 1.0) return 1.0; s.z -= sp.z;",
+    "  vec2 p = s.xy * sp.w - 0.5; vec2 f = fract(p); vec2 uv = (floor(p) + 0.5) / sp.w; float tx = 1.0 / sp.w;",
+    "  float a = step(s.z, unpackRGBAToDepth(textureLod(t, uv, 0.0))), b = step(s.z, unpackRGBAToDepth(textureLod(t, uv + vec2(tx, 0.0), 0.0))), d = step(s.z, unpackRGBAToDepth(textureLod(t, uv + vec2(0.0, tx), 0.0))), e = step(s.z, unpackRGBAToDepth(textureLod(t, uv + vec2(tx), 0.0)));",
+    "  return mix(mix(a, b, f.x), mix(d, e, f.x), f.y); }",
+    // the share of this pixel's light that comes straight from the key light (sun or moon): the AO darkens only the rest
+    "float dirShare(vec3 X, vec3 Nw, float lin){ if (uShK.w < 0.5) return -1.0; float nl = dot(Nw, uSunWd); if (nl <= 0.0) return 0.0; float v = 1.0;",
+    "  if (lin < uShP[0].x) v = shPcf(tSh0, uShM[0], uShP[0], X, Nw); else if (lin < uShP[1].x && uShK.w > 1.5) v = shPcf(tSh1, uShM[1], uShP[1], X, Nw); else if (lin < uShP[2].x && uShK.w > 2.5) v = shPcf(tSh2, uShM[2], uShP[2], X, Nw);",
+    "  float D = uShK.x * nl * v; float A = mix(uShK.z, uShK.y, 0.5 + 0.5 * Nw.y); return D / max(D + A, 1e-4); }",
     "vec3 vpL(vec2 uv, float l){ return vec3((uv * 2.0 - 1.0) * uTan * l, -l); }",
     "vec3 vp(vec2 uv){ return vpL(uv, p16Lin(textureLod(tDepth, uv, 0.0).x)); }",
     "float facos(float x){ float ax = abs(x); float r = (-0.156583 * ax + 1.5707963) * sqrt(max(0.0, 1.0 - ax)); return x >= 0.0 ? r : 3.14159265 - r; }",
     "void main(){",
     "  float z = textureLod(tDepth, vUv, 0.0).x; float lin = p16Lin(z);",
-    "  if (z >= 0.9999995 || lin > uAoP2.w) { gl_FragColor = vec4(1.0, 0.0, lin, 1.0); return; }",
+    "  if (z >= 0.9999995 || lin > uAoP2.w) { gl_FragColor = vec4(1.0, 0.0, lin, uShK.w < 0.5 ? -1.0 : 1.0); return; }",
     "  vec3 P = vpL(vUv, lin); vec3 V = normalize(-P);",
     "  vec3 pr = vp(vUv + vec2(uFullPx.x, 0.0)), pl = vp(vUv - vec2(uFullPx.x, 0.0)), pu = vp(vUv + vec2(0.0, uFullPx.y)), pd = vp(vUv - vec2(0.0, uFullPx.y));",
     "  vec3 dx = abs(pr.z - P.z) < abs(P.z - pl.z) ? pr - P : P - pl; vec3 dy = abs(pu.z - P.z) < abs(P.z - pd.z) ? pu - P : P - pd; vec3 N = normalize(cross(dx, dy)); if (dot(N, V) < 0.0) N = -N;",
-    "  float pxm = uHalfSize.y / (2.0 * uTan.y * lin); float rPx = min(uAoP.x * pxm, uAoP2.x); float rW = rPx / pxm; float fr = max(uAoP2.y * rW, 1e-3); float fMul = -1.0 / fr; float fAdd = (rW - fr) / fr + 1.0;",
+    "  float pxm = uHalfSize.y / (2.0 * uTan.y * lin); float rPx = min(uAoP.x * (1.0 + uAoP3.x * smoothstep(uAoP3.y, uAoP3.z, lin)) * pxm, uAoP2.x); float rW = rPx / pxm; float fr = max(uAoP2.y * rW, 1e-3); float fMul = -1.0 / fr; float fAdd = (rW - fr) / fr + 1.0;",
     "  float n0 = p16Ign(gl_FragCoord.xy + uAoP.w * vec2(5.588238, 3.927)); float n1 = p16Ign(gl_FragCoord.yx * vec2(1.13, 0.87) + uAoP.w * vec2(2.71, 7.03) + 17.0);",
     "  float vis = 0.0; float minS = min(1.4 / max(rPx, 1.0), 0.5);",
     "  for (int s = 0; s < 4; s++) { if (float(s) >= uAoP.y) break; float phi = (float(s) + n0) / uAoP.y * 3.14159265; vec2 om = vec2(cos(phi), sin(phi));",
@@ -140,7 +166,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     "    cs *= 1.0 - smoothstep(45.0, 70.0, lin); } }",
     "  vec3 X = uCamPos + uCamRot * P; vec4 pc = uPrevVP * vec4(X, 1.0); vec2 puv = pc.w > 1e-4 ? pc.xy / pc.w * 0.5 + 0.5 : vec2(-1.0); vec4 h = textureLod(tHist, puv, 0.0);",
     "  bool ok = uReset < 0.5 && puv.x > 0.0 && puv.y > 0.0 && puv.x < 1.0 && puv.y < 1.0 && abs(h.b - pc.w) < 0.035 * pc.w + 0.04;",
-    "  gl_FragColor = vec4(ok ? mix(h.r, ao, uAoP2.z) : ao, ok ? mix(h.g, cs, 0.22) : cs, lin, 1.0); }"
+    "  float ds = dirShare(X, normalize(uCamRot * N), lin); if (ds >= 0.0 && ok && h.a >= 0.0) ds = mix(h.a, ds, 0.4);",
+    "  gl_FragColor = vec4(ok ? mix(h.r, ao, uAoP2.z) : ao, ok ? mix(h.g, cs, 0.22) : cs, lin, ds); }"
   ].join("\n");
 
   // bloom: 13-tap downsample (Karis average on the first level), 3x3 tent upsample lerped into the level above (weights sum to 1)
@@ -171,6 +198,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function compFS(G) {
     return [CL_UNI, G.uni,
       "uniform sampler2D tAO2; uniform vec2 uAoSize; uniform vec4 uAoK4; uniform float uAoAlb; uniform vec2 uCsK; uniform vec3 uSunW; uniform vec3 uSunL; uniform vec4 uAtm; uniform vec4 uAtm2; uniform float uAtmOn;",
+      "uniform vec4 uDp; uniform vec4 uRim; uniform vec4 uBand; uniform float uAoPow18; uniform float uFill18; uniform vec3 uCamP18; uniform sampler2D tSh0; uniform sampler2D tSh1; uniform sampler2D tSh2; uniform mat4 uShM[3]; uniform vec4 uShP[3]; uniform float uShN;",   // R18 (L2): direct-share AO, silhouette rim, the dust band of the valley floor
+      "#include <packing>",
+      // is a point in the sun (one tap of the cascade that holds it); the rim asks this just beyond the edge, toward the Sun
+      "float sunTap(vec3 X, float lin){ vec4 c; float z;",
+      "  if (lin < uShP[0].x) { c = uShM[0] * vec4(X, 1.0); z = unpackRGBAToDepth(textureLod(tSh0, c.xy / c.w, 0.0)); } else if (lin < uShP[1].x && uShN > 1.5) { c = uShM[1] * vec4(X, 1.0); z = unpackRGBAToDepth(textureLod(tSh1, c.xy / c.w, 0.0)); }",
+      "  else if (lin < uShP[2].x && uShN > 2.5) { c = uShM[2] * vec4(X, 1.0); z = unpackRGBAToDepth(textureLod(tSh2, c.xy / c.w, 0.0)); } else return 1.0;",
+      "  return step(c.z / c.w - 0.0008, z); }",
       G.fn,
       "float p16Lin(float z){ return 2.0 * uNear * uFar / (uFar + uNear - (z * 2.0 - 1.0) * (uFar - uNear)); }",
       "vec4 aoUp(vec2 uv, float lin0){ vec2 p = uv * uAoSize - 0.5; vec2 b = floor(p + 0.5); vec4 acc = vec4(0.0); float tw = 0.0;",
@@ -183,6 +217,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       "  float dist = isSky > 0.5 ? 5000.0 : min(60000.0, lin / max(0.05, -ld.z)); float dy = vd.y * dist; float y0 = uCamY - uAtm.w;",
       "  vec3 tR = vec3(5.8e-6, 13.5e-6, 33.1e-6) * uAtm.x * odH(y0, dy, dist, 1.0 / 8000.0) * (1.0 - isSky);",
       "  float tM = uHazeK * uAtm.y * odH(y0, dy, dist, 1.0 / uAtm.z) * (1.0 - isSky);",
+      // the dust and heat layer over the valley floor (R18): nothing in the near field, a light veil through the middle distance,
+      // capped for the far ranges (which keep the clear-air model); it scatters like the aerosol (sun lobe at golden hour)
+      "  if (uBand.x > 0.0 && isSky < 0.5) { float dB = clamp(dist - uBand.z, 0.0, uBand.w); tM += uBand.x * odH(y0 + vd.y * uBand.z, vd.y * dB, dB, 1.0 / uBand.y); }",
       "  float dF = min(dist, 5000.0); float tF = min(uFog.x * odH(clamp(uCamY - uFog.z, -30.0, 400.0), vd.y * dF, dF, uFog.y), 1.609);",
       "  vec3 tau = tR + vec3(tM + tF); vec3 T = exp(-tau); float mu = dot(vd, uSunW); float g = uAtm2.x;",
       "  float hg = (1.0 - g * g) / (12.566371 * pow(max(1.0 + g * g - 2.0 * g * mu, 1e-4), 1.5)) * 12.566371;",
@@ -197,8 +234,22 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       "  if (uAoK4.x > 0.0 && isSky < 0.5) { vec4 a = aoUp(vUv, lin); float v = clamp(a.r, 0.0, 1.0);",
       "    float ka = 2.0404 * uAoAlb - 0.3324, kb = -4.7951 * uAoAlb + 0.6417, kc = 2.7552 * uAoAlb + 0.6903; v = max(v, ((v * ka + kb) * v + kc) * v);",
       "    float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) * uExposure; float lit = smoothstep(uAoK4.z, uAoK4.w, lum);",
+      "    if (uDp.x > 0.0 && a.a >= 0.0) {",   // R18: AO on the indirect share only, contact shadows on the direct share only (from the sun's own cascades); R16's by night
+      "      float sh = max(clamp(a.a, 0.0, 1.0), lit * uDp.y); float ve = mix(1.0, pow(v, uAoPow18), uAoK4.x * uDp.z);",
+      "      vec3 c16 = c * mix(1.0, v, uAoK4.x * mix(1.0, uAoK4.y, lit)) * (1.0 - uCsK.x * clamp(a.g, 0.0, 1.0) * uCsK.y * lit);",
+      "      c *= sh + (1.0 - sh) * ve * uFill18; c *= 1.0 - uCsK.x * clamp(a.g, 0.0, 1.0) * uCsK.y * sh; c = mix(c16, c, uDp.x);",
+      "      if (uDp.w > 0.5) { c = uDp.w < 1.5 ? vec3(sh) : uDp.w < 2.5 ? vec3(ve) : vec3(sh + (1.0 - sh) * ve) * (1.0 - uCsK.x * clamp(a.g, 0.0, 1.0) * uCsK.y * sh); c /= max(uExposure, 0.1); }",
+      "    } else {",
       "    c *= mix(1.0, v, uAoK4.x * mix(1.0, uAoK4.y, lit));",
       "    c *= 1.0 - uCsK.x * clamp(a.g, 0.0, 1.0) * uCsK.y * lit; }",
+      // R18: low sun behind a silhouette: a thin sunlit rim where the edge faces the Sun and the background falls away behind it
+      "    if (uRim.x > 0.0 && lin < 220.0) { vec2 sd = (uSun - vUv) / uPx; float sl = length(sd); if (sl > 2.0) { sd /= sl;",
+      "      float pxm = 0.5 / (uTan.y * lin * uPx.y); float w = clamp(uRim.y * pxm, 1.0, uRim.z); float lb = p16Lin(texture2D(tDepth, vUv + sd * w * uPx).x);",
+      "      float edge = smoothstep(0.12, 0.5, (lb - lin) / lin);",
+      "      vec3 vl = normalize(vec3((vUv.x - 0.5) * 2.0 * uTan.x, (vUv.y - 0.5) * 2.0 * uTan.y, -1.0)); vec3 vd = uCamRot * vl; float bl = pow(clamp(dot(vd, uSunW), 0.0, 1.0), uRim.w);",
+      "      float rk = uRim.x * edge * bl * (1.0 - smoothstep(120.0, 220.0, lin));",
+      "      if (rk > 0.002) { vec3 X = uCamP18 + vd * (lin / max(0.05, -vl.z)) + uSunW * (0.25 + 0.01 * lin); c += uSunL * rk * sunTap(X, lin); } } }",
+      "  }",
       "  c = uAtmOn > 0.5 ? atmo(c, vUv, lin, isSky) : p16Haze(c, vUv, lin, isSky);",
       "  gl_FragColor = vec4(max(c, vec3(0.0)), 1.0); }"
     ].join("\n");
@@ -329,10 +380,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       uCamRot: { value: new THREE.Matrix3() }, uCamPos: { value: new THREE.Vector3() }, uPrevVP: { value: new THREE.Matrix4() }, uReset: { value: 1 }, uTaaK: { value: new THREE.Vector4() }, uTaaK2: { value: new THREE.Vector4() }, uTaaK3: { value: new THREE.Vector2() },
       uObjN: { value: 0 }, uObjInv: { value: m4a() }, uObjPrev: { value: m4a() }, uObjMin: { value: v4a() }, uObjMax: { value: v4a() } }, "taa");
     M.ao = sm(GTAO_FS, { tDepth: { value: null }, tHist: { value: null }, uFullPx: { value: new THREE.Vector2() }, uHalfSize: { value: new THREE.Vector2() }, uNear: { value: near }, uFar: { value: far }, uTan: { value: new THREE.Vector2(1, 1) },
-      uCamRot: { value: new THREE.Matrix3() }, uCamPos: { value: new THREE.Vector3() }, uPrevVP: { value: new THREE.Matrix4() }, uReset: { value: 1 }, uAoP: { value: new THREE.Vector4() }, uAoP2: { value: new THREE.Vector4() }, uCs: { value: new THREE.Vector4() } }, "gtao");
+      uCamRot: { value: new THREE.Matrix3() }, uCamPos: { value: new THREE.Vector3() }, uPrevVP: { value: new THREE.Matrix4() }, uReset: { value: 1 }, uAoP: { value: new THREE.Vector4() }, uAoP2: { value: new THREE.Vector4() }, uCs: { value: new THREE.Vector4() },
+      tSh0: { value: null }, tSh1: { value: null }, tSh2: { value: null }, uShM: { value: [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()] }, uShP: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] }, uShK: { value: new THREE.Vector4() }, uSunWd: { value: new THREE.Vector3(0, 1, 0) }, uAoP3: { value: new THREE.Vector4() } }, "gtao");
     M.bd = sm(BDOWN_FS, { tSrc: { value: null }, uSrcPx: { value: new THREE.Vector2() }, uFirst: { value: 0 } }, "bdown");
     M.bu = sm(BUP_FS, { tLow: { value: null }, tCur: { value: null }, uLowPx: { value: new THREE.Vector2() }, uScatter: { value: 0.7 } }, "bup");
-    M.comp = sm(compFS(G), sharedUniforms({ tAO2: { value: null }, uAoSize: { value: new THREE.Vector2(1, 1) }, uAoK4: { value: new THREE.Vector4() }, uAoAlb: { value: 0.42 }, uCsK: { value: new THREE.Vector2() }, uSunW: { value: new THREE.Vector3(0, 1, 0) }, uSunL: { value: new THREE.Color(0, 0, 0) }, uAtm: { value: new THREE.Vector4() }, uAtm2: { value: new THREE.Vector4() }, uAtmOn: { value: 1 } }), "comp");
+    M.comp = sm(compFS(G), sharedUniforms({ tAO2: { value: null }, uAoSize: { value: new THREE.Vector2(1, 1) }, uAoK4: { value: new THREE.Vector4() }, uAoAlb: { value: 0.42 }, uCsK: { value: new THREE.Vector2() }, uSunW: { value: new THREE.Vector3(0, 1, 0) }, uSunL: { value: new THREE.Color(0, 0, 0) }, uAtm: { value: new THREE.Vector4() }, uAtm2: { value: new THREE.Vector4() }, uAtmOn: { value: 1 }, uDp: { value: new THREE.Vector4() }, uRim: { value: new THREE.Vector4() }, uBand: { value: new THREE.Vector4() }, uAoPow18: { value: 1 }, uFill18: { value: 1 }, uCamP18: { value: new THREE.Vector3() }, tSh0: { value: null }, tSh1: { value: null }, tSh2: { value: null }, uShM: { value: null }, uShP: { value: null }, uShN: { value: 0 } }), "comp");
+    M.comp.uniforms.uShM = M.ao.uniforms.uShM; M.comp.uniforms.uShP = M.ao.uniforms.uShP;   // R18: the rim's shadow tap reads the same cascades
     var id = lutFor("night");
     M.fin = sm(finFS(G), sharedUniforms({ tLutA: { value: id }, tLutB: { value: id }, uLutT: { value: 0 }, uLutK: { value: 0 }, uTM: { value: PP.tm }, uCasK: { value: 0 }, uBloomPB: { value: 0 }, uBloomAdd: { value: 0 }, uDither: { value: 1 } }), "final");
     ST.gfxGen = PLAN_GFX.post; ST.built = true; PP.n.built++;
@@ -437,6 +490,48 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     try { if (CSMX.on && CSMX.csm) { out.copy(CSMX.csm.lightDirection).negate().normalize(); return out; } } catch (e) {}
     try { out.copy(sun.position).sub(sun.target.position).normalize(); return out; } catch (e) {} return out.set(0, 1, 0);
   }
+  // ═════════════════════════ R18 (L2): outdoor depth ═════════════════════════
+  // The GTAO pass also reads the sun's first three shadow cascades (one bilinear PCF cell, at half res) and the light balance
+  // (the key light against the sky and ground fill), so it knows the share of each pixel's light that comes straight from the
+  // key: the composite then darkens only the rest with the AO (shade, under trees, porches and carts takes the AO in full; sunlit
+  // ground the part its sky light has) and puts the contact shadows only where the sun actually lands. Outdoors only (rooms keep
+  // the R16 balance: their lamps and room light are not in this model).
+  var D18 = PP.d18 = { dayW: 1, n: 0, share: 0, sunE: 0, ambU: 0, ambD: 0, rim: 0, band: 0 };
+  function lumC(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; }
+  function insideNow() { try { return !!inside; } catch (e) { return false; } }
+  function shadowShare(A, on) {
+    var n = 0, ins = insideNow();
+    try {
+      if (on && !ins && CSMX.on && CSMX.csm) {
+        var c = CSMX.csm, far = Math.min(camera.far, c.maxFar), l0 = c.lights[0], kI = l0.intensity * lumC(l0.color);
+        if (kI > 0.01) for (var i = 0; i < 3 && i < c.lights.length; i++) {
+          var l = c.lights[i], sm = l.shadow.map; if (!sm || !c.breaks[i]) break; var s = l.shadow.camera, tex = (s.right - s.left) / sm.width, range = s.far - s.near;
+          A["tSh" + i].value = sm.texture; A.uShM.value[i].copy(l.shadow.matrix); A.uShP.value[i].set(c.breaks[i] * far * (i === c.lights.length - 1 ? 1 : 0.96), 1.5 * tex, (2.0 * tex + 0.03) / range, sm.width); n = i + 1; }
+        if (n) {
+          A.uSunWd.value.copy(c.lightDirection).negate().normalize();
+          var h = hemi, hI = h.intensity, eI = scene.environment ? (scene.environmentIntensity === undefined ? 1 : scene.environmentIntensity) * PP.K.dpEnv : 0;
+          var au = hI * lumC(h.color) + eI, ad = hI * lumC(h.groundColor) + 0.5 * eI; A.uShK.value.set(kI, au, ad, n);
+          D18.sunE = +kI.toFixed(2); D18.ambU = +au.toFixed(2); D18.ambD = +ad.toFixed(2);
+        }
+      }
+    } catch (e) { note("share", e); n = 0; }
+    if (!n) { A.uShK.value.set(0, 1, 1, 0); for (var j = 0; j < 3; j++) if (!A["tSh" + j].value) A["tSh" + j].value = POST.white || null; }
+    else for (var k = n; k < 3; k++) A["tSh" + k].value = A.tSh0.value;
+    D18.n = n; return n;
+  }
+  function depth18(C, aoOn, gs) {
+    var K = PP.K, s = PP.sw18, on = s.all, nk = 0; try { nk = +night || 0; } catch (e) {}
+    C.uDp.value.set(on && s.ao && aoOn && D18.n ? D18.dayW : 0, K.dpNight * nk, K.dpAo, K.dpDbg || 0); C.uAoPow18.value = on && s.ao ? K.dpPow : 1;
+    // the sky and ground fill against the Sun outdoors by day (a deeper key-to-fill ratio, most at golden hour), from the same share
+    var fl = 1; if (on && s.fill) { var se0 = C.uSunW.value.y, dayK = sstep(-0.05, 0.1, gs.el), gk = sstep(0.5, 0.15, se0) * sstep(-0.02, 0.05, se0); fl = 1 - dayK * (K.fill0 + K.fillG * gk) * (1 - (PLAN_GFX.storm ? PLAN_GFX.storm.k : 0)); } C.uFill18.value = fl; D18.fill = +fl.toFixed(3);
+    var A = M.ao.uniforms; C.tSh0.value = A.tSh0.value; C.tSh1.value = A.tSh1.value; C.tSh2.value = A.tSh2.value; C.uShN.value = aoOn ? D18.n : 0; C.uCamP18.value.copy(V.pos);
+    // rim: the real light direction (golden hour by the Sun's true elevation), only with the Sun ahead of the camera
+    var rk = 0;
+    if (on && s.rim && aoOn && D18.n && QUAL.level === "ultra") { var sw = C.uSunW.value, se = sw.y; var gold = sstep(0.45, 0.12, se) * sstep(0.0, 0.06, se) * sstep(-0.02, 0.05, gs.el) * (1 - (PLAN_GFX.storm ? PLAN_GFX.storm.k : 0)); if (gold > 0) { camera.getWorldDirection(V.fwd2 || (V.fwd2 = new THREE.Vector3())); if (V.fwd2.dot(sw) > 0.05) rk = K.rimK * gold; } }
+    C.uRim.value.set(rk, K.rimW, K.rimMax, K.rimPow); D18.rim = +rk.toFixed(3);
+    // band: by day (B's night look keeps its own haze)
+    var bk = on && s.band ? K.bandB * sstep(-0.06, 0.12, gs.el) : 0; C.uBand.value.set(bk, K.bandH, K.band0, K.band1); D18.band = bk;
+  }
   function frameMine() {
     var R = renderer, w = R.domElement.width, h = R.domElement.height, K = PP.K, sw = PP.sw, ti = tierIdx(), now = performance.now();
     if (!V.vp) { V.vp = new THREE.Matrix4(); V.pvp = new THREE.Matrix4(); V.rot = new THREE.Matrix3(); V.pos = new THREE.Vector3(); V.ppos = new THREE.Vector3(); V.fwd = new THREE.Vector3(); V.pfwd = new THREE.Vector3(); V.sunV = new THREE.Vector3(); V.sunW = new THREE.Vector3(); V.m3 = new THREE.Matrix3(); }
@@ -461,7 +556,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var aoOn = sw.gtao && QUAL.q.ao;
     if (aoOn) { var A = M.ao.uniforms; A.tDepth.value = depth; A.tHist.value = T.ao[pong].texture; A.uFullPx.value.set(1 / w, 1 / h); A.uHalfSize.value.set(T.ao[ping].width, T.ao[ping].height); A.uNear.value = camera.near; A.uFar.value = camera.far; A.uTan.value.set(tanX, tv);
       A.uCamRot.value.copy(V.rot); A.uCamPos.value.copy(V.pos); A.uPrevVP.value.copy(V.pvp); A.uReset.value = ST.reset ? 1 : 0;
-      A.uAoP.value.set(K.aoR, K.aoS[ti], K.aoN[ti], ST.frame % 64); A.uAoP2.value.set(K.aoMaxPx * (T.ao[ping].height / 540), K.aoFall, K.aoT, K.aoFar);
+      // R18: the wider outdoor radius by day (rooms and the night keep R16's: B's night look, I's rooms), eased through dusk
+      var nk0 = 0; try { nk0 = +night || 0; } catch (e) {} D18.dayW = 1 - sstep(0.25, 0.75, nk0); var o18 = PP.sw18.all && PP.sw18.rg && !insideNow() ? D18.dayW : 0;
+      A.uAoP.value.set(mix(K.aoR, K.aoR18, o18), K.aoS[ti], K.aoN[ti], ST.frame % 64); A.uAoP2.value.set(mix(K.aoMaxPx, K.aoPx18, o18) * (T.ao[ping].height / 540), K.aoFall, K.aoT, K.aoFar);
+      var s18 = PP.sw18, on18 = s18.all; A.uAoP3.value.set(K.aoRG * o18, K.aoRG0, K.aoRG1, 0); shadowShare(A, on18 && s18.ao);
       var csOn = sw.cs && ti === 0 && GSUN().el > 0.02; if (csOn) { sunWorld(V.sunW); V.m3.setFromMatrix4(camera.matrixWorldInverse); V.sunV.copy(V.sunW).applyMatrix3(V.m3).normalize(); A.uCs.value.set(V.sunV.x, V.sunV.y, V.sunV.z, K.csLen); } else A.uCs.value.set(0, 1, 0, 0);
       pass(M.ao, T.ao[ping]); }
     // scene composite
@@ -470,6 +568,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     C.uAoK4.value.set(aoOn ? K.aoK : 0, K.aoLit, K.aoL0, K.aoL1); C.uAoAlb.value = K.aoAlb; C.uCsK.value.set(aoOn && sw.cs && ti === 0 ? K.csK : 0, sstep(0.02, 0.15, gs.el) * (1 - (PLAN_GFX.storm ? PLAN_GFX.storm.k : 0)));
     sunWorld(C.uSunW.value); var sunUp = sstep(-0.04, 0.12, gs.el); C.uSunL.value.copy(POST.sunCol).multiplyScalar(sunUp);
     var gy = C.uFog.value.z + 8; C.uAtm.value.set(K.atR, K.atM, K.atH, gy); C.uAtm2.value.set(K.atG, K.atSun, K.atAmb, 0); C.uAtmOn.value = sw.atmo ? 1 : 0;
+    depth18(C, aoOn, gs);
     pass(M.comp, T.comp);
     // TAA
     var col = T.comp.texture;

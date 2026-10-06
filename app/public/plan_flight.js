@@ -335,7 +335,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     return [
       // a low pass over Runway 03 abeam the Stellar FBO, then one sweeping right turn (about 240 m radius, 35 degrees of bank at
       // 125 KT) that arrives at Four Corners lined up with Main Street; Compass Plaza and The Outpost are straight on down the street
-      { name: "Solport · Stellar FBO", at: fromRW(150, 0), agl: 40, n: [RW.u[0], RW.u[1]] },
+      { name: "Sunfield · Terminal", at: fromRW(150, 0), agl: 40, n: [RW.u[0], RW.u[1]] },
       { name: "Main Street", at: fc, agl: 110, n: streetDir },
       { name: "Compass Plaza", at: comp, agl: 115 },
       { name: "The Outpost", at: mid(lp, ring), agl: 120 },
@@ -739,7 +739,7 @@ body.touch #fl-keys{display:none!important}
   function runHUD(s, now) {
     const st = RUN.state; let k = "", h = "", sub = "", show = true, target = null, tlabel = "";
     const [a, c] = toRW(s.P.x, s.P.z);
-    if (FL.tow || st === "tow") { k = "SOLPORT SCENIC FLIGHT"; h = "Towing to Runway 03"; sub = "The tug is lining you up"; }
+    if (FL.tow || st === "tow") { k = "SUNFIELD SCENIC FLIGHT"; h = "Towing to Runway 03"; sub = "The tug is lining you up"; }
     else if (st === "armed") { k = "READY · RUNWAY 03 · 9 GATES"; h = "Full power: hold W"; sub = "Rotate at 100 KT (hold Space) · then G for gear up"; const G = RUN.route[0]; target = { x: G.x, y: G.y, z: G.z }; tlabel = "GATE 1"; }
     else if (st === "roll") { k = "TAKEOFF ROLL · " + fmtT(RUN.t); h = `${Math.round(s.V * KT)} KT`; sub = s.V * KT < 90 ? "Stay on the centreline (A, D) · rotate at 100 KT" : "Rotate: hold Space"; }
     else if (st === "gates" || st === "final") {
@@ -748,7 +748,7 @@ body.touch #fl-keys{display:none!important}
       else { k = `RUNWAY 21 · ${fmtT(RUN.t)}`; h = "LAND IN THE GREEN ZONE"; sub = s.gear ? "Flaps 35 (3) · about 110 KT · PAPI two red, two white" : "Gear down (G) · flaps 35 (3) · about 110 KT"; target = RUN.aim; tlabel = `TOUCHDOWN · ${fmtD(Math.hypot(RUN.aim.x - s.P.x, RUN.aim.z - s.P.z))}`; }
     }
     else if (st === "landed") { const td = RUN.tds[RUN.tds.length - 1]; k = `TOUCHDOWN · ${num(Math.round(td.fpm / 10) * 10)} FPM · ${fmtT(RUN.t)}`; h = "BRAKE TO A STOP"; sub = "Throttle idle (S) · autobrake is on"; }
-    else if (st === "off" || st === "done" || st === "failed") { if (s.onGround && !FL.resOpen) { const L = lineupSpot(); const d = Math.hypot(L.x - s.P.x, L.z - s.P.z); k = "SOLPORT SCENIC FLIGHT"; h = "PRESS T TO LINE UP"; sub = d > 60 ? `or taxi to the Runway 03 threshold, ${fmtD(d).toLowerCase()} · add power when lined up` : "Line up on the centreline, then add power"; target = { x: L.x, y: ground(L.x, L.z) + 4, z: L.z }; tlabel = `RWY 03 · ${fmtD(d)}`; if (lined(s)) { h = "LINED UP"; sub = "Hold still a moment"; } } else show = false; }
+    else if (st === "off" || st === "done" || st === "failed") { if (s.onGround && !FL.resOpen) { const L = lineupSpot(); const d = Math.hypot(L.x - s.P.x, L.z - s.P.z); k = "SUNFIELD SCENIC FLIGHT"; h = "PRESS T TO LINE UP"; sub = d > 60 ? `or taxi to the Runway 03 threshold, ${fmtD(d).toLowerCase()} · add power when lined up` : "Line up on the centreline, then add power"; target = { x: L.x, y: ground(L.x, L.z) + 4, z: L.z }; tlabel = `RWY 03 · ${fmtD(d)}`; if (lined(s)) { h = "LINED UP"; sub = "Hold still a moment"; } } else show = false; }
     else show = false;
     if (FL.resOpen) show = false;
     E.run.classList.toggle("on", show); document.body.classList.toggle("fl-run", show);
@@ -769,11 +769,11 @@ body.touch #fl-keys{display:none!important}
   }
   function showResult() {
     const R = RUN, sc = R.res; let html;
-    if (!sc) { const n = (R.hits || []).filter((h) => h && h.ok).length; html = `<div class="k">SOLPORT SCENIC FLIGHT</div><div class="big">NO SCORE</div><div class="rate">${REASON[R.fail && R.fail.why] || "The flight ended."}</div><table><tr><td>Gates flown</td><td class="n">${n} of ${(R.route || []).length}</td></tr><tr><td>Time</td><td class="n">${fmtT(R.t || 0)}</td></tr></table><div class="btns"><button id="fl-again">FLY AGAIN (T)</button><button class="ghost" id="fl-close">CLOSE (ESC)</button></div>`; }
+    if (!sc) { const n = (R.hits || []).filter((h) => h && h.ok).length; html = `<div class="k">SUNFIELD SCENIC FLIGHT</div><div class="big">NO SCORE</div><div class="rate">${REASON[R.fail && R.fail.why] || "The flight ended."}</div><table><tr><td>Gates flown</td><td class="n">${n} of ${(R.route || []).length}</td></tr><tr><td>Time</td><td class="n">${fmtT(R.t || 0)}</td></tr></table><div class="btns"><button id="fl-again">FLY AGAIN (T)</button><button class="ghost" id="fl-close">CLOSE (ESC)</button></div>`; }
     else { const td = R.tds[R.tds.length - 1]; const side = td.c > 0.3 ? (td.rwy === 21 ? "left" : "right") : td.c < -0.3 ? (td.rwy === 21 ? "right" : "left") : ""; const zd = td.past - RW.aimPast;
       const bd = boardRows(); const rows = bd.rows.slice(0, 5).map((e, i) => `<div class="${e.score === sc.total ? "me" : ""}"><span>${i + 1}. ${String(e.by).replace(/[<>&]/g, "")}</span><span>${num(e.score)}</span></div>`).join("");
       const best = R.pb ? `<b>New personal best.</b>` : `Personal best ${num(R.prevBest.score)}`;
-      html = `<div class="k">SOLPORT SCENIC FLIGHT · RUNWAY ${td.rwy === 3 ? "03" : "21"}</div><div class="big">${num(sc.total)}</div><div class="rate">${rating(sc.total)}</div><table>
+      html = `<div class="k">SUNFIELD SCENIC FLIGHT · RUNWAY ${td.rwy === 3 ? "03" : "21"}</div><div class="big">${num(sc.total)}</div><div class="rate">${rating(sc.total)}</div><table>
 <tr><td>Gates<small>${sc.nOk} of ${R.route.length}</small></td><td class="n">${num(sc.gates)}</td></tr>
 <tr><td>Touchdown<small>${num(Math.round(td.fpm / 10) * 10)} FPM</small></td><td class="n">${num(sc.vs)}</td></tr>
 <tr><td>Centreline<small>${Math.abs(td.c).toFixed(1)} m${side ? " " + side : ""}</small></td><td class="n">${num(sc.cl)}</td></tr>
@@ -788,7 +788,7 @@ body.touch #fl-keys{display:none!important}
   function closeResult() { FL.resOpen = false; if (E.res) E.res.classList.remove("on"); }
   function injectBoard() {
     const b = document.getElementById("board"); if (!b || document.getElementById("b-flight")) return; const row = b.querySelector(".row");
-    const cols = document.createElement("div"); cols.className = "cols"; cols.style.cssText = "grid-template-columns:1fr;margin-top:10px"; cols.innerHTML = `<div><h3>Solport Scenic Flight</h3><div class="blist" id="b-flight"></div></div>`; if (row) b.insertBefore(cols, row); else b.appendChild(cols);
+    const cols = document.createElement("div"); cols.className = "cols"; cols.style.cssText = "grid-template-columns:1fr;margin-top:10px"; cols.innerHTML = `<div><h3>Sunfield Scenic Flight</h3><div class="blist" id="b-flight"></div></div>`; if (row) b.insertBefore(cols, row); else b.appendChild(cols);
   }
   function fillBoard() {
     const el = document.getElementById("b-flight"); if (!el) return; const bd = boardRows(); el.innerHTML = "";
@@ -849,7 +849,7 @@ body.touch #fl-keys{display:none!important}
     addEventListener("keydown", (e) => { try { I().onKey(e); } catch (x) { log("key", x); } }, true);
     addEventListener("keyup", (e) => { try { I().onKeyUp(e); } catch (x) {} }, true);
     addEventListener("mousemove", (e) => { try { I().onMouse(e); } catch (x) {} });
-    try { const R = buildRoute(); void R; hotspots.push({ x: -40, z: 70, r: 34, t: "Solport Scenic Flight", k: "Minigame · fly Giveback One", p: "Board Giveback One (F beside it), press T to line up on Runway 03 and fly nine gates over Solport and the Stellar FBO, Main Street, Compass Plaza, The Outpost, Desert Golf and Genesis Park, then land on Runway 21. W and S thrust, A and D bank, Space and Shift nose up and down (or the mouse), G gear, 1 2 3 flaps, C cockpit view. Scored on gates, touchdown, centreline, touchdown zone, smoothness and time; the best flights go on the board (L)." }); } catch (e) { log("hotspot", e); }
+    try { const R = buildRoute(); void R; hotspots.push({ x: -40, z: 70, r: 34, t: "Sunfield Scenic Flight", k: "Minigame · fly Giveback One", p: "Board Giveback One (F beside it), press T to line up on Runway 03 and fly nine gates over Sunfield and the Terminal, Main Street, Compass Plaza, The Outpost, Desert Golf and Genesis Park, then land on Runway 21. W and S thrust, A and D bank, Space and Shift nose up and down (or the mouse), G gear, 1 2 3 flaps, C cockpit view. Scored on gates, touchdown, centreline, touchdown zone, smoothness and time; the best flights go on the board (L)." }); } catch (e) { log("hotspot", e); }
     FL.ready = true;
   }
 

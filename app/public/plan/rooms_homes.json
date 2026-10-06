@@ -1,5 +1,4 @@
 {
-  "_about": "R14 homes (plan_rooms_homes.js): copy for the villa, ranch, lakehouse and glamp interiors. Every key is optional; the module carries the same defaults.",
   "styles": {
     "villa": { "title": "Desert-modern villa", "tag": "Open plan under a walnut slat ceiling, a sandstone fire wall and the desert through steel glass." },
     "ranch": { "title": "Ranch house", "tag": "Timber and stone, a leather sofa by a fieldstone fire, a cowhide rug and a long farmhouse table." },
@@ -7,11 +6,11 @@
     "glamp": { "title": "Canvas bell tent", "tag": "A ring of poles under a cone of canvas, a wood stove, string lights down the spokes and a bed piled with quilts." }
   },
   "card": {
-    "k": "A home in Genesis One",
-    "p": "Homes like this one will belong to residents of Genesis One. Details revealing soon.",
+    "k": "A home in Genesis",
+    "p": "Homes like this one are where the people of Genesis live. Make yourself at home.",
     "foot": "Walk around: E lights the fire, dims the lamps, brews coffee and pulls a book."
   },
-  "books": ["Field Notes from the Sky Islands", "The Long Trail North", "Adobe and Light", "A Year of Desert Gardens", "Night Skies over Cochise County", "The Cowhand's Cookbook", "Stories from the First Airfield", "Stone, Timber and Sun", "The Quiet Mesa", "Birds of the Chiricahuas", "Letters from the Mule Mountains", "A Field Guide to Desert Light"],
+  "books": ["Field Notes from the Sky Islands", "The Long Trail North", "Adobe and Light", "A Year of Desert Gardens", "Night Skies over the High Desert", "The Cowhand's Cookbook", "Stories from the First Airfield", "Stone, Timber and Sun", "The Quiet Mesa", "Birds of the Far Ridge", "Letters from the Western Range", "A Field Guide to Desert Light"],
   "bookLines": ["A well-thumbed copy, a pressed ocotillo flower marking a page.", "Someone has underlined half of chapter three.", "The spine is cracked at the good part.", "A note inside the cover: for long evenings by the fire.", "A boarding pass from the old airfield tucked inside as a bookmark."],
   "coffee": ["Fresh coffee. The whole house smells of it.", "A pour-over, slow and strong.", "Coffee in a heavy mug, the way it should be.", "Cowboy coffee, grounds and all."],
   "dogs": ["Biscuit", "Juniper", "Scout", "Mesa", "Rusty", "Pepper", "Sage", "Dusty"],

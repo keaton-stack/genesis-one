@@ -37,7 +37,7 @@
   "short": "Atardecer Spa",
   "sign": "ATARDECER",
   "signSub": "THE SPA AT SUNSET BLUFF",
-  "signLine": "GENESIS ONE  ·  SUNSET BLUFF",
+  "signLine": "GENESIS  ·  SUNSET BLUFF",
   "lounge": "HEARTH LOUNGE",
   "bath": "BATH HOUSE",
   "garden": "SOAKING GARDEN",
@@ -89,7 +89,7 @@
   "roof": {
    "t": "The roof",
    "k": "Sunset and stars",
-   "p": "Up the stair beside the chimney: loungers turned to the setting sun, two telescopes and a string of warm lights. Lie back after dark and look up; the sky over Douglas is very dark."
+   "p": "Up the stair beside the chimney: loungers turned to the setting sun, two telescopes and a string of warm lights. Lie back after dark and look up; the sky out here is very dark."
   },
   "reception": {
    "t": "Reception",

@@ -184,9 +184,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     forecourtPaths(S); trimAirside();
     try { clearLot(); } catch (e) { note("clear", e); }
     try { for (var u = -80; u <= 80; u += 16) for (var v = -56; v <= 56; v += 16) if (eK(u, v) < 1.02) { var w = l2w(u, v); KEEPOUT.push([w[0], w[1], 14]); } var f = S.fc; for (var x = f.x0; x <= f.x1; x += 12) for (var z = f.z0; z <= f.z1; z += 12) KEEPOUT.push([x, z, 9]); } catch (e) { note("keepouts", e); }
-    try { planAddHub(C("names.center", "Solport Convention Center"), S.hub[0], S.hub[1]); planNavCats(); } catch (e) { note("hub", e); }
+    try { planAddHub(C("names.center", "Sunfield Convention Center"), S.hub[0], S.hub[1]); planNavCats(); } catch (e) { note("hub", e); }
     try { var poly = []; for (var i = 0; i < 48; i++) { var a = i / 48 * TAU; var q = l2w(Math.cos(a) * S.a * 1.03, Math.sin(a) * S.b * 1.03); if (q[0] > S.fc.x0 - 4) q[0] = Math.max(q[0], S.fc.x0); poly.push(q); } poly.splice(0, 0, [S.fc.x1, S.fc.z1]); poly.push([S.fc.x1, S.fc.z0]);
-      var hp = hull(poly); S.outline = hp; zoneRings.push({ name: C("names.center", "Solport Convention Center"), label: C("names.short", "Solport Convention Center"), center: [S.cx + 30, S.cz], r: 90, k: C("info.forecourt.k", ""), poly: hp, col: "#d98a4e55", plan: "convention" }); } catch (e) { note("zone", e); }
+      var hp = hull(poly); S.outline = hp; zoneRings.push({ name: C("names.center", "Sunfield Convention Center"), label: C("names.short", "Sunfield Convention Center"), center: [S.cx + 30, S.cz], r: 90, k: C("info.forecourt.k", ""), poly: hp, col: "#d98a4e55", plan: "convention" }); } catch (e) { note("zone", e); }
     try { var hs = function (key, x, z, r, play) { var d = C("info." + key, null); if (!d) return null; var h = { x: x, z: z, r: r, t: d.t, k: d.k, p: d.p, cv: key }; if (play) h.cvPlay = play; hotspots.push(h); (CV.hsList = CV.hsList || []).push(h); return h; };
       hs("forecourt", -262, -76, 5); var lw = l2w(47, 6); hs("lobby", lw[0], lw[1], 4); var ww = l2w(44, -6); CV.hsWatch = [hs("watch", ww[0], ww[1], 3, "watch")];
       [-1, 1].forEach(function (sd) { var pw = l2w(-9, sd * 34.9); CV.hsWatch.push(hs("watch", pw[0], pw[1], 2.2, "watch")); var hw = l2w(-12.8, sd * 30); hs("hall", hw[0], hw[1], 3); });
@@ -312,12 +312,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function ledAttr(g, scr, w, h) { var n = g.attributes.position.count; g.setAttribute("aScr", new THREE.Float32BufferAttribute(new Float32Array(n).fill(scr), 1)); g.setAttribute("aTx", new THREE.Float32BufferAttribute(new Float32Array(n).fill(scr === 4 ? w / (16 * h) : w / (8 * h)), 1)); return g; }
   function textTex() { return panel("ledText", 2048, 2048, function (x, W) {
       x.clearRect(0, 0, W, 2048); var L = C("led", {});
-      ringWord(x, L.title || "SOLPORT", W / 2, TROW.title + 112, 150, 22); txt(x, L.subtitle || "CONVENTION CENTER", W / 2, TROW.title + 210, "500 54px " + FONT.wide, "#ffffff", 16);
-      ringWord(x, L.summit || "SOLPORT", W / 2, TROW.summit + 100, 140, 26); txt(x, L.summitSub || "SUMMIT", W / 2, TROW.summit + 200, "500 70px " + FONT.wide, "#ffffff", 22);
-      txt(x, L.nightLine || "TONIGHT UNDER THE DOUGLAS DARK SKY", W / 2, TROW.night + 120, "500 74px " + FONT.wide, "#ffffff", 8, "center", 1240); txt(x, "SOLPORT CONVENTION CENTER", W / 2, TROW.night + 205, "500 40px " + FONT.wide, "#ffffff", 14);
-      x.save(); x.font = "600 70px " + FONT.wide; try { x.letterSpacing = "8px"; } catch (e) {} var tk = L.ticker || "SOLPORT SUMMIT  ·  ", tw = x.measureText(tk).width || W; x.translate(0, TROW.ticker + 64); x.scale(W / tw, 1); x.fillStyle = "#ffffff"; x.textAlign = "left"; x.textBaseline = "middle"; x.fillText(tk, 0, 0); x.restore();
+      ringWord(x, L.title || "SUNFIELD", W / 2, TROW.title + 112, 150, 22); txt(x, L.subtitle || "CONVENTION CENTER", W / 2, TROW.title + 210, "500 54px " + FONT.wide, "#ffffff", 16);
+      ringWord(x, L.summit || "SUNFIELD", W / 2, TROW.summit + 100, 140, 26); txt(x, L.summitSub || "SUMMIT", W / 2, TROW.summit + 200, "500 70px " + FONT.wide, "#ffffff", 22);
+      txt(x, L.nightLine || "TONIGHT UNDER THE DESERT DARK SKY", W / 2, TROW.night + 120, "500 74px " + FONT.wide, "#ffffff", 8, "center", 1240); txt(x, "SUNFIELD CONVENTION CENTER", W / 2, TROW.night + 205, "500 40px " + FONT.wide, "#ffffff", 14);
+      x.save(); x.font = "600 70px " + FONT.wide; try { x.letterSpacing = "8px"; } catch (e) {} var tk = L.ticker || "SUNFIELD SUMMIT  ·  ", tw = x.measureText(tk).width || W; x.translate(0, TROW.ticker + 64); x.scale(W / tw, 1); x.fillStyle = "#ffffff"; x.textAlign = "left"; x.textBaseline = "middle"; x.fillText(tk, 0, 0); x.restore();
       [["breakA", TROW.slideA], ["breakB", TROW.slideB]].forEach(function (q) { var s = C("rooms." + q[0] + ".slide", ["SESSION", "", ""]); txt(x, s[0], W / 2, q[1] + 52, "600 44px " + FONT.mono, "#f4cd5a", 10, "center", 1000); txt(x, s[1], W / 2, q[1] + 132, "500 64px " + FONT.wide, "#ffffff", 0, "center", 1040); txt(x, s[2], W / 2, q[1] + 210, "500 36px " + FONT.wide, "#ffffff", 4, "center", 1000); });
-      ringWord(x, "SOLPORT SUMMIT", W / 2, TROW.lobby + 90, 104, 14); txt(x, "KEYNOTE HALL  ·  BREAKOUT ROOMS", W / 2, 1792 + 128, "600 104px " + FONT.wide, "#ffffff", 10, "center", 1960); txt(x, "WELCOME  ·  KEYNOTE HALL STRAIGHT AHEAD", W / 2, TROW.lobby + 195, "500 46px " + FONT.wide, "#ffffff", 10);
+      ringWord(x, "SUNFIELD SUMMIT", W / 2, TROW.lobby + 90, 104, 14); txt(x, "KEYNOTE HALL  ·  BREAKOUT ROOMS", W / 2, 1792 + 128, "600 104px " + FONT.wide, "#ffffff", 10, "center", 1960); txt(x, "WELCOME  ·  KEYNOTE HALL STRAIGHT AHEAD", W / 2, TROW.lobby + 195, "500 46px " + FONT.wide, "#ffffff", 10);
     }, false, true); }
   // the community impact counter: label, the number, a bar to the next milestone
   function meterTex() { return panel("ledMeter", 1024, 256, function () {}, false, true); }
@@ -376,7 +376,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (t - LED.at > 3) { LED.at = t; try { drawMeter(false); } catch (e) { note("meter", e); } } }
   // the banners: the desert art with the summit wording, three variants side by side in one canvas (512 x 768 each)
   function bannerTex() { if (TX.banner) return TX.banner; var c = cv(1536, 768), x = c.getContext("2d"); var t = mkTex(c, false); TX.banner = t; var im = new Image();
-    var draw = function (ok) { var B = C("banners", [["SOLPORT SUMMIT", "INNOVATION · PEOPLE · IMPACT"]]); for (var i = 0; i < 3; i++) { var X0 = i * 512; if (ok) x.drawImage(im, X0, 0, 512, 768); else { x.fillStyle = "#14203a"; x.fillRect(X0, 0, 512, 768); } var b = B[i % B.length];
+    var draw = function (ok) { var B = C("banners", [["SUNFIELD SUMMIT", "INNOVATION · PEOPLE · IMPACT"]]); for (var i = 0; i < 3; i++) { var X0 = i * 512; if (ok) x.drawImage(im, X0, 0, 512, 768); else { x.fillStyle = "#14203a"; x.fillRect(X0, 0, 512, 768); } var b = B[i % B.length];
         x.fillStyle = "rgba(10,18,40,0.25)"; x.fillRect(X0, 380, 512, 388); ringWord(x, b[0].split(" ")[0], X0 + 256, 470, 62, 6); if (b[0].split(" ")[1]) txt(x, b[0].split(" ").slice(1).join(" "), X0 + 256, 545, "500 44px " + FONT.wide, "#f4cd5a", 10);
         var w = b[1].split(" · "); w.forEach(function (s, k) { txt(x, s, X0 + 256, 618 + k * 44, "500 32px " + FONT.wide, "#f5f1e6", 6, "center", 460); }); } t.needsUpdate = true; };
     draw(false); im.onload = function () { draw(true); }; im.src = (window.AV || String)("/tex/conv_banner" + (lowTier() ? "_m" : "") + ".jpg"); return t; }
@@ -871,7 +871,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!IT.hall) { var L = newL("conv hall"), it = buildHallSteps(L), r; do { r = it.next(); } while (!r.done); IT.hall = finishL(L, "conv hall"); }
     var s = seatList().filter(function (q) { return q.watch; })[0]; if (!s) return false; var sd = seatSolid(s, true); if (!sd) return false; SP.list.push(sd);
     try { sitDown(sd); } catch (e) { note("sit", e); return false; } CV.sitting = { u: s.u, v: s.v, y: s.y, aisleV: 13.3, hall: true, t0: nowMs() }; CV.watch = true;
-    try { setStatus(C("names.summit", "Solport Summit") + " · the keynote · E to stand up"); } catch (e) {} return true; }
+    try { setStatus(C("names.summit", "Sunfield Summit") + " · the keynote · E to stand up"); } catch (e) {} return true; }
   function stamp(id) { try { var PP = window.PLAN_PROGRESS; if (PP && PP.award && id) PP.award("stamp", { id: id }); } catch (e) {} }
 
   // ───────────────────────── E and the prompt ─────────────────────────
@@ -923,7 +923,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── defer hook: the exterior, the forecourt, the walls, warm-up ─────────────────────────
   var EX = CV.ex = CV.ex || {};
-  function signTex() { return panel("monument", 1024, 288, function (x, W, H) { x.fillStyle = "#c9b59a"; x.fillRect(0, 0, W, H); noise(x, W, H, 4000, 0.04, 1, 2, 3); ringWord(x, "SOLPORT", W / 2, 118, 112, 18); txt(x, "CONVENTION CENTER", W / 2, 218, "500 46px " + FONT.wide, "#ffffff", 14); }, false); }
+  function signTex() { return panel("monument", 1024, 288, function (x, W, H) { x.fillStyle = "#c9b59a"; x.fillRect(0, 0, W, H); noise(x, W, H, 4000, 0.04, 1, 2, 3); ringWord(x, "SUNFIELD", W / 2, 118, 112, 18); txt(x, "CONVENTION CENTER", W / 2, 218, "500 46px " + FONT.wide, "#ffffff", 14); }, false); }
   function deferHook() {
     if (CV.off || !window.PLAN || !SITE) return; var S = SITE, t0 = nowMs(); var step = function (name, fn) { var t = nowMs(); try { fn(); } catch (e) { note(name, e); } CV.n["ms_" + name] = Math.round(nowMs() - t); };
     var M = mats(); var g = EX.g = new THREE.Group(); g.name = "conv_arena"; g.position.set(S.cx, S.G, S.cz); g.userData.noBatch = true;

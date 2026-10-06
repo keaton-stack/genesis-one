@@ -11,7 +11,7 @@
    "r": 7.5,
    "stage": "Convention Approach",
    "t": "Approach Garden",
-   "p": "A shaded fountain court on the walk between the Stellar FBO and the Solport Convention Center: palo verde shade, benches round the basin and a stone runnel carrying the water toward the drive."
+   "p": "A shaded fountain court on the walk between the Sunfield Terminal and the Sunfield Convention Center: palo verde shade, benches round the basin and a stone runnel carrying the water toward the drive."
   },
   {
    "id": "sculpture_1",
@@ -59,7 +59,7 @@
    "stage": "Convention Approach",
    "walk": "sculpture",
    "t": "Sculpture Walk: Horizon Stone",
-   "p": "A single dark stone standing against the Mule Mountains, a pause before the convention campus."
+   "p": "A single dark stone standing against the western range, a pause before the convention campus."
   },
   {
    "id": "flight_lookout",
@@ -70,7 +70,7 @@
    "r": 5.2,
    "stage": "The Flight Line",
    "t": "Runway Lookout",
-   "p": "A stone terrace with two viewfinders over Runway 03/21. Field DGL opened here in 1928 as one of the first international airports in the United States."
+   "p": "A stone terrace with two viewfinders over Runway 03/21. The old airfield has been flying since the biplane days."
   },
   {
    "id": "flight_chess",
@@ -158,7 +158,7 @@
    "r": 6.0,
    "stage": "Stage One",
    "t": "Sundial Court",
-   "p": "A horizontal sundial set for latitude 31.3 degrees north. The bronze gnomon points at the celestial pole."
+   "p": "A horizontal sundial set for this latitude. The bronze gnomon points at the celestial pole."
   },
   {
    "id": "row_stargaze",
@@ -199,13 +199,13 @@
    "sp": "paloverde",
    "t": "Palo Verde",
    "s": "Parkinsonia",
-   "p": "Arizona's state tree. Its green bark makes food from sunlight even after the leaves drop in drought."
+   "p": "A desert classic. Its green bark makes food from sunlight even after the leaves drop in drought."
   },
   {
    "sp": "saguaro_mid",
    "t": "Saguaro",
    "s": "Carnegiea gigantea",
-   "p": "Grows only in the Sonoran Desert. The first arm can take seventy years to appear."
+   "p": "Slow to grow and long to live. The first arm can take seventy years to appear."
   },
   {
    "sp": "ocotillo",
@@ -235,18 +235,18 @@
  "signs": {
   "lookout": [
    "RUNWAY 03/21",
-   "Field DGL, opened 1928",
-   "6,000 ft of runway. Face the field and watch the arrivals line up over the Mule Mountains."
+   "Field SNF, opened 1928",
+   "A long runway. Face the field and watch the arrivals line up over the western range."
   ],
   "stargaze": [
    "THE SOUTHERN SKY",
    "Look south after dark",
-   "The Milky Way core rises over the Mule Mountains in summer. Let your eyes adjust for twenty minutes."
+   "The Milky Way core rises over the mountains in summer. Let your eyes adjust for twenty minutes."
   ],
   "sundial": [
    "SUNDIAL COURT",
-   "Latitude 31.3 N",
-   "Read the shadow of the gnomon. Arizona keeps standard time all year; add about eighteen minutes for Douglas."
+   "Sun time",
+   "Read the shadow of the gnomon. Sun time and clock time drift apart through the year, so check it against your watch."
   ]
  }
 }

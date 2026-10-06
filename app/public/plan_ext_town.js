@@ -778,7 +778,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     A.q4([U0 - 1.0, H1 - 0.01, WF + 1.4], [U0 + hall[0] + 0.2, H1 - 0.01, WF + 1.4], [U0 + hall[0] + 0.2, H1 - 0.01, VB + 2], [U0 - 1.0, H1 - 0.01, VB + 2], [0, -1, 0], LY.wood, 0, shade(WHITE, 0.75), 0, false);
     A.q4([U0 + hall[1] - 0.2, H1 - 0.01, WF + 1.4], [U1 + 1.0, H1 - 0.01, WF + 1.4], [U1 + 1.0, H1 - 0.01, VB + 2], [U0 + hall[1] - 0.2, H1 - 0.01, VB + 2], [0, -1, 0], LY.wood, 0, shade(WHITE, 0.75), 0, false);
     // the name in steel letters on the concrete
-    signAt(K, [U0, 0, WF], [1, 0, 0], 1.0, hall[0] - 1.0, 5.0, 5.9, welcome ? "Welcome House" : shortName(K.name).replace(/Design District /i, ""), "modern", welcome ? "Genesis One" : "Design District", 0.04);
+    signAt(K, [U0, 0, WF], [1, 0, 0], 1.0, hall[0] - 1.0, 5.0, 5.9, welcome ? "Welcome House" : shortName(K.name).replace(/Design District /i, ""), "modern", welcome ? "Genesis" : "Design District", 0.04);
     // sides and back
     var len = WF - VB; [[U0, -1], [U1, 1]].forEach(function (sd) { var u = sd[0], o = sd[1] < 0 ? [u, 0, VB] : [u, 0, WF], t = sd[1] < 0 ? [0, 0, 1] : [0, 0, -1]; var L0 = sd[1] < 0 ? LY.concrete : LY.corr, c0 = sd[1] < 0 ? concrete : corten;
       var hs = [[len * 0.3, len * 0.3 + 5.0, 1.0, 2.6, 0.2], [len * 0.62, len * 0.62 + 5.0, 1.0, 2.6, 0.2]]; A.wall(o, t, len, y0, H1, hs, L0, 0, shade(c0, 0.96), { rev: 0.2, RL: LY.metal, RF: 1, rc: steel });

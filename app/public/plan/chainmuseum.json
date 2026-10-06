@@ -1,5 +1,4 @@
 {
-  "_about": "R17 (5 Oct 2026): The Genesis Block Museum in Expanse Works and Maker Row (plan_chainmuseum.js). Every name and line of copy shown in game. The copy rules are in genesis_data/masterplan/HANDOFF_R17_MUSEUM.md.",
   "version": 1,
   "names": {
     "museum": "The Genesis Block Museum",
@@ -331,9 +330,9 @@
           "p": "When the record is shared, the current holder and every past transfer can be checked by anyone permitted, without chasing paper across offices. Mistakes and disputes are easier to trace."
         },
         {
-          "t": "Genesis One",
+          "t": "Genesis",
           "k": "Records of a community, on chain",
-          "p": "Genesis One explores what it looks like when a community keeps its records on chain: memberships, access and the story of the land itself, from the first survey of the dirt to the last building."
+          "p": "In Genesis the community keeps its records on chain: memberships, access and the story of the town itself, from the first stamp in a passport to the last light on the runway."
         }
       ],
       "objects": {
@@ -372,7 +371,7 @@
         {
           "t": "$GBACK",
           "k": "A utility for access and experience",
-          "p": "$GBACK is an independent utility token on Solana, and Giveback Ventures is its largest holder, not its issuer. Across Genesis One it is a key to access and experiences. It is not an investment."
+          "p": "$GBACK is an independent utility token on Solana, and Giveback Ventures is its largest holder, not its issuer. Across Genesis it is a key to access and experiences. It is not an investment."
         }
       ],
       "objects": {
@@ -510,7 +509,7 @@
         ]
       },
       {
-        "t": "Every gift through the Giveback protocol is a transaction on Solana: recorded, timestamped and signed, so anyone can follow it from the giver to the people it helps. Gallery 8 lets you follow one. And $GBACK is a utility token for access and experiences across Genesis One, not an investment.",
+        "t": "Every gift through the Giveback protocol is a transaction on Solana: recorded, timestamped and signed, so anyone can follow it from the giver to the people it helps. Gallery 8 lets you follow one. And $GBACK is a utility token for access and experiences across Genesis, not an investment.",
         "o": [
           [
             "Who chooses the recipients?",

@@ -314,7 +314,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     { k: "flores", id: "flores", name: "Flores", sub: "de temporada", wall: "lila", bd: { bg: "#3f6b2a", fg: "#fff3d6" }, info: "flores" },
     { k: "hats", id: "sombreros", name: "Sombreros", sub: "texanas y de palma", wall: "cal", bd: { bg: "#5a3a1e", fg: "#f6e2b4" }, shop: "sombreros" },
     { k: "gate" },
-    { k: "ristras", id: "chiles", name: "Chiles y Especias", sub: "ristras de Sonora", wall: "ochre", bd: { bg: "#9a1c1c", fg: "#ffe9b8" }, info: "chiles" },
+    { k: "ristras", id: "chiles", name: "Chiles y Especias", sub: "ristras del desierto", wall: "ochre", bd: { bg: "#9a1c1c", fg: "#ffe9b8" }, info: "chiles" },
     { k: "candles", id: "velas", name: "Velas", sub: "de cera", wall: "azul", bd: { bg: "#2c2a4a", fg: "#f4e3b0" }, info: "velas" },
     { k: "panel", id: "barro", sheet: "goods2", panel: 3, name: "Barro", sub: "cántaros y ollas", wall: "terra", bd: { bg: "#6b3a1f", fg: "#f6e2b4" }, info: "barro", pots: true },
     { k: "closed", id: "cerrado", wall: "verde" },
@@ -554,7 +554,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     SO.push([uL + 0.9, -4.82, 0.6, 0.45, 0, AF + 1.2, 0, { noStep: true }]);
     // the name over the three doors, a pool light inside for the night
     K.box("cantera", COL.cant, 6.2, 0.62, 0.08, uc, AF + 4.25, -ARC.D + 0.08, 0, 1.0); var g2 = new THREE.PlaneGeometry(5.9, 0.5); var uv2 = sUV("casa"), UB = g2.attributes.uv; for (var j = 0; j < UB.count; j++) UB.setXY(j, uv2[0] + UB.getX(j) * (uv2[2] - uv2[0]), uv2[1] + UB.getY(j) * (uv2[3] - uv2[1])); K.place("signs", g2, COL.sal, uc, AF + 4.25, -ARC.D + 0.125, 0);
-    SIGN_DRAW.push(function (x) { plaque(x, SA.r.casa, C("names.casa", "Casa de la Cultura"), C("names.casaSub", "Douglas y Agua Prieta, dos pueblos, una plaza")); });
+    SIGN_DRAW.push(function (x) { plaque(x, SA.r.casa, C("names.casa", "Casa de la Cultura"), C("names.casaSub", "Dos pueblos, una plaza")); });
     SIGN_DRAW.push(function (x) { plaque(x, SA.r.plaque, C("names.mural", "El mural"), C("names.muralSub", "Two towns under one sky")); });
     out.casa = { mural: c2l3(f, uc, AF, -7.2), lectern: c2l3(f, uL + 0.9, AF, -5.3), light: c2l3(f, uc, AF + 3.6, -7.0) }; }
 
@@ -658,7 +658,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     archRing(K, "cantera", COL.cant, 0, AF + 3.0, 1.75, 2.12, 0.12, new THREE.Matrix4().makeRotationY(PI).premultiply(new THREE.Matrix4().makeTranslation(0, 0, wo)), 18);
     K.box("cantera", COL.cant, 0.42, 0.62, 0.2, 0, AF + 3.0 + 2.0, wo - 0.1, 0, 0.6);
     K.box("cantera", COL.cant, 6.0, 0.7, 0.3, 0, 5.75, wo - 0.15, 0, 1.0); var g = new THREE.PlaneGeometry(4.9, 0.62); var uv = sUV("gate"), UA = g.attributes.uv; for (var q = 0; q < UA.count; q++) UA.setXY(q, uv[0] + UA.getX(q) * (uv[2] - uv[0]), uv[1] + UA.getY(q) * (uv[3] - uv[1])); K.place("signs", g, COL.sal, 0, 5.75, wo - 0.31, PI);
-    SIGN_DRAW.push(function (x) { gateBoard(x, SA.r.gate, C("names.gate", "MERCADO PLAZA"), C("names.gateSub", "DOUGLAS · AGUA PRIETA")); });
+    SIGN_DRAW.push(function (x) { gateBoard(x, SA.r.gate, C("names.gate", "MERCADO PLAZA"), C("names.gateSub", "DOS PUEBLOS · UNA PLAZA")); });
     // the bell gable (espadana) over the parapet: a curved outline with an arched opening, the bell, a finial
     var pts = [[-2.7, 6.6], [2.7, 6.6], [2.7, 7.25], [2.2, 7.4], [1.75, 7.9], [1.25, 8.6], [0.75, 9.15], [0.3, 9.4], [0, 9.48], [-0.3, 9.4], [-0.75, 9.15], [-1.25, 8.6], [-1.75, 7.9], [-2.2, 7.4], [-2.7, 7.25]];
     var mG = new THREE.Matrix4().makeRotationY(PI); mG.premultiply(new THREE.Matrix4().makeTranslation(0, 0, w1 - 0.1)); wallAt(K, pts.map(function (q) { return [-q[0], q[1]]; }).reverse(), [archHole(-0.5, 0.5, 7.5, 8.35, 12)], 0.5, mG, "stucco", COL.terra, "stucco", COL.terra, "cantera", COL.cant, 2.5, null);
@@ -748,7 +748,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     out.kiosco = { c: [cx, cz], Hb: Hb, Hc: Hc, eave: Re, top: Hc + 3.9, bulbs: [] }; for (var bu = 0; bu < 32; bu++) { var ba = bu / 32 * TAU, br = Re * Math.cos(PI / 8) / Math.cos(((ba - a0) % (PI / 4) + PI / 4) % (PI / 4) - PI / 8); out.kiosco.bulbs.push([cx + Math.cos(ba) * (br + 0.06), Hc - 0.08, cz + Math.sin(ba) * (br + 0.06)]); }
     // a bronze plaque on the base beside the south stair
     { var pa = (90 + 22.5) * PI / 180, pr = ap + 0.01, pxp = cx + Math.cos(PI / 2) * pr + 1.85, pzp = cz + pr; var gp = new THREE.PlaneGeometry(0.9, 0.24); var uvp = sUV("kiosco"), UP = gp.attributes.uv; for (var ip = 0; ip < UP.count; ip++) UP.setXY(ip, uvp[0] + UP.getX(ip) * (uvp[2] - uvp[0]), uvp[1] + UP.getY(ip) * (uvp[3] - uvp[1])); K.place("signs", gp, COL.sal, pxp, 0.72, pzp, 0);
-      SIGN_DRAW.push(function (x) { plaque(x, SA.r.kiosco, C("names.kiosco", "El Kiosco"), C("names.kioscoSub", "Plaza del Mercado · Douglas, Arizona")); }); }
+      SIGN_DRAW.push(function (x) { plaque(x, SA.r.kiosco, C("names.kiosco", "El Kiosco"), C("names.kioscoSub", "Plaza del Mercado · the border market")); }); }
     // a little door into the base (the store under the bandstand), on the east face
     K.box("paint", mulCol(COL.verde, 0.8), 0.9, 0.78, 0.04, cx + ap + 0.005, 0.42, cz, HP, 1.0);
     out.kiosco.platform = oct; }
@@ -1067,7 +1067,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     [[-8, -14], [12, -14], [-6, 15.2], [9, 15.4], [-27, -3], [12, 5]].forEach(function (q, i) { add(q[0], q[1], "chat", i * 1.3, "plaza", [16, 40], "chat"); });
     [[-1.5, 7.6], [1, 8.2], [3.5, 7.6], [-0.2, 9.4], [2.4, 9.6]].forEach(function (q) { add(q[0], q[1], "dance", PI, "dance", [20, 60], "dance"); });
     var names = (C("roam.names", null) || ["Alma", "Ruben", "Itzel", "Joaquín", "Marisol", "Efraín", "Luz", "Gerardo"]).map(function (n) { return { name: n }; });
-    var lines = C("roam.lines", null) || { plaza: ["Qué bonita tarde.", "Let's walk the square once more.", "The trio is good tonight."], food: ["Two al pastor, please.", "The horchata here is the best."], crafts: ["Look at the blue on this one.", "My grandmother had a sarape like that."], mural: ["That's the kiosco in Agua Prieta.", "Look, the biplane."], dance: ["¡Ándale!", "One more song!"] };
+    var lines = C("roam.lines", null) || { plaza: ["Qué bonita tarde.", "Let's walk the square once more.", "The trio is good tonight."], food: ["Two al pastor, please.", "The horchata here is the best."], crafts: ["Look at the blue on this one.", "My grandmother had a sarape like that."], mural: ["That's the kiosco across the line.", "Look, the biplane."], dance: ["¡Ándale!", "One more song!"] };
     var def = { id: "mercado", max: 4, box: [x0, z0, x1, z1], people: names, lines: lines, ready: function () { return !!B.built; },
       levels: [{ base: function (x, z) { return planGroundAt(x, z); }, exact: true, block: function (x, z) { if (!inLot(x, z, -0.6)) return true; var q = w2l(x, z), k = (B.out && B.out.kiosco) || { c: [1, 0] }; return Math.hypot(q[0] - k.c[0], q[1] - k.c[1]) < 5.3; } }],
       entries: function () { return ents; }, seeds: function () { return [W(1, 12.5), W(-8, -8), W(12, -6), W(23, 6), W(4, -24.4), W(-27, 0)]; }, pois: function () { return pois; },

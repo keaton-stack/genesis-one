@@ -1,8 +1,6 @@
 {
-  "_about": "R13: Aaron (Giveback, streaming live on a hand-held gimbal) and his sidekick Everette, under the Sun Gate shell in Arrivals Court. plan_aaron.js reads this file at boot. EDIT FREELY: every line of dialogue is in 'aaron' and 'everette' below (talk = the talk card pages; each page is { t: text, o: [[button label, page index or null to close]] }; a page with \"act\": \"dance\" starts Everette's robot dance when it opens). Keep to the facts we know; no em dashes, no fee or charity-share percentages, $GBACK is never an investment, the Giving Back Fund is a partner only.",
   "version": "r13-1",
   "spot": {
-    "_note": "world x / z (x east, z south), yaw in radians (0 faces +z). Under the Sun Gate shell at its Arrivals Court end, on the east side of the Sun Gate Walk, 9 to 12 m from the FBO landside door. Move both here.",
     "aaron": [
       106.7,
       -112.6,
@@ -95,7 +93,7 @@
         ]
       },
       {
-        "t": "Every Saturday we roll up to The Zone in Phoenix in the green Giveback food truck and serve hot meals. Hot food, served with a smile, eye to eye. Everybody who walks up gets treated like family. And we stream the whole thing live on Kick and X.",
+        "t": "Every Saturday we roll up to the community lot downtown in the green Giveback food truck and serve hot meals. Hot food, served with a smile, eye to eye. Everybody who walks up gets treated like family. And we stream the whole thing live on Kick and X.",
         "o": [
           [
             "Why do you stream?",
@@ -170,7 +168,7 @@
       "Chat, look who just walked in!"
     ],
     "stream": [
-      "What's good, stream! We're live from Solport!",
+      "What's good, stream! We're live from Sunfield!",
       "Drop a heart if you can see me!",
       "Shout out to everybody tuning in!",
       "Saturdays mean The Zone. Y'all know the vibe!",
@@ -302,7 +300,6 @@
     ]
   },
   "screen": {
-    "_note": "the phone on Aaron's gimbal: a stream overlay drawn on a canvas (no real light). Chat lines are decorative.",
     "chat": [
       "hi from the stream!",
       "Everette dance!!",
@@ -316,7 +313,6 @@
     "label": "LIVE on Kick + X"
   },
   "glasses": {
-    "_note": "R13b: the lenses inside Aaron's glasses (thin tinted glass with a slight reflection), in the rig's rest frame (metres, +Z front); the frames are part of the body mesh",
     "lenses": [
       [
         0.0352,
