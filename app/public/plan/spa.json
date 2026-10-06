@@ -1,0 +1,469 @@
+{
+ "v": "r17y-1",
+ "site": {
+  "origin": [
+   431,
+   331
+  ],
+  "yaw": -0.7129,
+  "pad": 21.6,
+  "lot": [
+   -53.6,
+   34,
+   -35.5,
+   43
+  ],
+  "padRect": [
+   -50.5,
+   33.5,
+   -34.6,
+   42.4
+  ],
+  "blend": 10,
+  "hub": [
+   19,
+   -27
+  ]
+ },
+ "sun": {
+  "psi": -0.72
+ },
+ "carts": {
+  "rot": 0.857
+ },
+ "names": {
+  "hub": "Atardecer Spa",
+  "spa": "Atardecer, the spa at Sunset Bluff",
+  "short": "Atardecer Spa",
+  "sign": "ATARDECER",
+  "signSub": "THE SPA AT SUNSET BLUFF",
+  "signLine": "GENESIS ONE  ·  SUNSET BLUFF",
+  "lounge": "HEARTH LOUNGE",
+  "bath": "BATH HOUSE",
+  "garden": "SOAKING GARDEN",
+  "roof": "THE ROOF",
+  "roofSub": "SUNSET AND STARS",
+  "quiet": "Please speak softly"
+ },
+ "info": {
+  "arrival": {
+   "t": "Atardecer",
+   "k": "The spa at Sunset Bluff",
+   "p": "Atardecer means the hour the sun goes down. Leave the cart under the slats, walk in under the canopy and let the day slow down. Inside: the Olive Court, the bath house, four treatment rooms, the soaking garden, the Hearth Lounge and the roof for the sunset and the stars."
+  },
+  "court": {
+   "t": "The Olive Court",
+   "k": "Eight olives and a reflecting runnel",
+   "p": "A twenty eight metre runnel of still water runs from the basalt water wall to the lounge, and on through the glass to the setting sun. Sit on a stone bench, cross the slab bridge, listen to the wall."
+  },
+  "waterwall": {
+   "t": "The water wall",
+   "k": "Basalt, bronze and a thin sheet of water",
+   "p": "Water slips over a bronze lip and down the dark stone into the trough that feeds the runnel. The only sound in the court."
+  },
+  "lounge": {
+   "t": "The Hearth Lounge",
+   "k": "A fire, daybeds and the glass toward the sunset",
+   "p": "A long fire in a stacked stone hearth, deep sofas, daybeds turned toward the setting sun and a tea bar of desert herbs. Lie back on a daybed, or sit on the warm hearth bench."
+  },
+  "terrace": {
+   "t": "The Sunset Terrace",
+   "k": "Loungers and a fire bowl facing west south west",
+   "p": "The terrace wraps the lounge toward the sunset over the runway. Lie back on a lounger as the light goes amber, then pull a chair up to the fire bowl."
+  },
+  "bath": {
+   "t": "The bath house",
+   "k": "Steam room, cedar sauna, rain walk",
+   "p": "Warm tadelakt walls in the steam room, two tiers of cedar in the sauna, three bronze rain heads in the rain walk and robes in the changing room. Sit a while in the steam or the sauna."
+  },
+  "garden": {
+   "t": "The Soaking Garden",
+   "k": "Five small mineral tubs under palo verde",
+   "p": "Five round stone tubs of warm mineral water in a walled garden, two under slatted pergolas strung with lights. Sit in a tub to soak; the loungers along the walls catch the last sun."
+  },
+  "treatment": {
+   "t": "Treatment rooms",
+   "k": "Four quiet rooms off the cloister",
+   "p": "Each room opens to its own walled garden through a cedar screen: a warm table, a basin of basalt stones, candles. Walk in and press E at the table for a desert stone ritual."
+  },
+  "roof": {
+   "t": "The roof",
+   "k": "Sunset and stars",
+   "p": "Up the stair beside the chimney: loungers turned to the setting sun, two telescopes and a string of warm lights. Lie back after dark and look up; the sky over Douglas is very dark."
+  },
+  "reception": {
+   "t": "Reception",
+   "k": "Inés will take care of you",
+   "p": "Check in, borrow a robe and ask about the rooms. The bronze plaque behind the desk carries the name: Atardecer."
+  }
+ },
+ "staff": {
+  "ines": {
+   "name": "Inés Ochoa",
+   "role": "Host, Atardecer",
+   "at": [
+    11.0,
+    -2.6
+   ],
+   "face": 3.14159,
+   "look": {
+    "body": "f",
+    "skin": "b98262",
+    "shirt": "e8dcc8",
+    "pants": "6b5a48",
+    "hair": 6,
+    "hairc": "1e140e",
+    "shoes": "3a2f26"
+   },
+   "greet": [
+    "Welcome to Atardecer.",
+    "Take your time. Nothing here is in a hurry."
+   ],
+   "talk": [
+    {
+     "t": "Welcome to Atardecer. The name means the hour the sun goes down, and that is the mood of the whole place: slow, warm and quiet.",
+     "o": [
+      [
+       "What is here?",
+       1
+      ],
+      [
+       "How do I book a treatment?",
+       2
+      ],
+      [
+       "Where is the best sunset?",
+       3
+      ],
+      [
+       "Thank you",
+       -1
+      ]
+     ]
+    },
+    {
+     "t": "Through the court you will find the bath house with the steam room, the cedar sauna and the rain walk; the Soaking Garden with five mineral tubs behind it; four treatment rooms on the north cloister; and the Hearth Lounge at the far end, with the terrace and the roof above it.",
+     "o": [
+      [
+       "How do I book a treatment?",
+       2
+      ],
+      [
+       "Back",
+       0
+      ]
+     ]
+    },
+    {
+     "t": "No booking needed today. Walk into any treatment room off the north cloister and lie down on the table. Sol will look after you: warm basalt, sage and juniper oil, and an hour of quiet.",
+     "o": [
+      [
+       "Where is the best sunset?",
+       3
+      ],
+      [
+       "Back",
+       0
+      ]
+     ]
+    },
+    {
+     "t": "The roof. Take the stair beside the chimney and lie back on a lounger; the sun sets west south west over the runway. Stay on after dark for the stars. The terrace below is lovely too, with the fire bowl.",
+     "o": [
+      [
+       "Back",
+       0
+      ],
+      [
+       "Thank you",
+       -1
+      ]
+     ]
+    }
+   ]
+  },
+  "rafael": {
+   "name": "Rafael Duarte",
+   "role": "Bath attendant",
+   "at": [
+    -12.0,
+    10.7
+   ],
+   "face": 3.14159,
+   "look": {
+    "body": "m",
+    "skin": "a8714f",
+    "shirt": "efe7d8",
+    "pants": "efe7d8",
+    "hair": 2,
+    "hairc": "15100c",
+    "shoes": "d9cfbf"
+   },
+   "greet": [
+    "Steam is ready.",
+    "Robes are in the changing room."
+   ],
+   "talk": [
+    {
+     "t": "The bath house is yours. Steam first to open up, then the sauna, then the rain walk to cool off. Repeat as you like, and drink water between.",
+     "o": [
+      [
+       "Tell me about the tubs",
+       1
+      ],
+      [
+       "Is the sauna hot?",
+       2
+      ],
+      [
+       "Thanks",
+       -1
+      ]
+     ]
+    },
+    {
+     "t": "Five small tubs in the Soaking Garden, warm mineral water, about body temperature plus a little. They are small on purpose: two or three people, quiet voices. Sit down on the bench inside and soak.",
+     "o": [
+      [
+       "Back",
+       0
+      ],
+      [
+       "Thanks",
+       -1
+      ]
+     ]
+    },
+    {
+     "t": "Dry heat, cedar benches. The upper bench is the hottest, the lower one gentler. Ten minutes is plenty.",
+     "o": [
+      [
+       "Back",
+       0
+      ],
+      [
+       "Thanks",
+       -1
+      ]
+     ]
+    }
+   ]
+  },
+  "sol": {
+   "name": "Sol Navarrete",
+   "role": "Therapist",
+   "at": [
+    -17.6,
+    -10.7
+   ],
+   "face": 0,
+   "look": {
+    "body": "f",
+    "skin": "8a5a3c",
+    "shirt": "d9c6a8",
+    "pants": "5a4a3c",
+    "hair": 9,
+    "hairc": "2a1d14",
+    "shoes": "3a2f26"
+   },
+   "greet": [
+    "The rooms are warm.",
+    "Any room you like."
+   ],
+   "talk": [
+    {
+     "t": "Our ritual uses warm basalt stones, sage and juniper oil and very little talk. Walk into any of the four rooms, lie down on the table and I will take it from there.",
+     "o": [
+      [
+       "Why basalt?",
+       1
+      ],
+      [
+       "Thanks",
+       -1
+      ]
+     ]
+    },
+    {
+     "t": "Basalt holds heat a long time and stays smooth. We warm the stones in water, never too hot, and let the weight do most of the work.",
+     "o": [
+      [
+       "Back",
+       0
+      ],
+      [
+       "Thanks",
+       -1
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "roam": {
+  "people": [
+   {
+    "name": "Dalia",
+    "body": "f",
+    "shirt": "efe7d8",
+    "pants": "efe7d8"
+   },
+   {
+    "name": "Rowan",
+    "body": "m",
+    "shirt": "d9cfbf",
+    "pants": "5a4a3c"
+   },
+   {
+    "name": "Imani",
+    "body": "f",
+    "shirt": "c9a27e",
+    "pants": "3a3430"
+   },
+   {
+    "name": "Keiko",
+    "body": "f",
+    "shirt": "efe7d8",
+    "pants": "efe7d8"
+   },
+   {
+    "name": "Bastian",
+    "body": "m",
+    "shirt": "6b7a6a",
+    "pants": "d9cfbf"
+   },
+   {
+    "name": "Celeste",
+    "body": "f",
+    "shirt": "e6d2c0",
+    "pants": "8a6a50"
+   },
+   {
+    "name": "Joaquin",
+    "body": "m",
+    "shirt": "efe7d8",
+    "pants": "efe7d8"
+   }
+  ],
+  "lines": {
+   "water": [
+    "The water wall sounds like rain.",
+    "I could watch this all afternoon.",
+    "Listen to that. Nothing else."
+   ],
+   "view": [
+    "Here it comes, the good light.",
+    "The runway looks gold from here.",
+    "That sky. Every evening."
+   ],
+   "lounge": [
+    "The daybeds face the sunset. Smart.",
+    "Is that sage in the tea?",
+    "I might nap right here."
+   ],
+   "garden": [
+    "The tubs are just the right warm.",
+    "Palo verde shade, perfect.",
+    "Quiet voices, they said. Fair."
+   ],
+   "reception": [
+    "Robes are lovely here.",
+    "They said no booking needed."
+   ],
+   "court": [
+    "Have you tried the steam room?",
+    "The olives are older than they look.",
+    "Meet you at the lounge after."
+   ],
+   "arrival": [
+    "Leave the cart under the slats.",
+    "First time here?"
+   ],
+   "sit": [
+    "Mm.",
+    "This bench is warm from the sun.",
+    "Five more minutes."
+   ],
+   "fire": [
+    "The fire makes the whole room.",
+    "I am not moving until sunset."
+   ]
+  }
+ },
+ "treatment": {
+  "k": "ATARDECER",
+  "t1": "A desert stone ritual",
+  "p1": "Warm basalt stones, sage and juniper oil, and a long, unhurried hour of quiet.",
+  "t2": "Breathe out",
+  "p2": "The water wall runs on outside. Nothing else needs you right now.",
+  "status": "rested and warm · any move key to get up"
+ },
+ "status": {
+  "lie": "lying back · any move key to get up",
+  "sunset": "lying back on the roof, the sun going down west south west · any move key to get up",
+  "stars": "lying back under the stars · any move key to get up",
+  "tub": "soaking in warm mineral water · any move key to get out",
+  "steam": "warm steam, eucalyptus · any move key to stand",
+  "sauna": "dry cedar heat · any move key to stand",
+  "hearth": "warm stone at your back, the fire in front · any move key to stand",
+  "daybed": "lying back by the glass · any move key to get up"
+ },
+ "prompts": {
+  "treatment": "lie down for a treatment"
+ },
+ "stamps": {
+  "court": "p_sp_court",
+  "treatment": "p_sp_treatment",
+  "soak": "p_sp_soak",
+  "fire": "p_sp_fire",
+  "stars": "p_sp_stars"
+ },
+ "stamps_proposal": {
+  "id": "spa",
+  "name": "Atardecer Spa",
+  "sub": "The spa at Sunset Bluff: the court, the baths, the fire and the roof",
+  "ink": "#c98a5a",
+  "stamps": [
+   {
+    "n": 384,
+    "id": "p_sp_court",
+    "name": "Into the Olive Court",
+    "x": 421.9,
+    "z": 323.2,
+    "r": 0.3
+   },
+   {
+    "n": 385,
+    "id": "p_sp_treatment",
+    "name": "A desert stone ritual",
+    "x": 428.0,
+    "z": 307.8,
+    "r": 0.3
+   },
+   {
+    "n": 386,
+    "id": "p_sp_soak",
+    "name": "The bathing ritual",
+    "x": 399.8,
+    "z": 348.7,
+    "r": 0.3
+   },
+   {
+    "n": 387,
+    "id": "p_sp_fire",
+    "name": "By the fire",
+    "x": 411.6,
+    "z": 299.9,
+    "r": 0.3
+   },
+   {
+    "n": 388,
+    "id": "p_sp_stars",
+    "name": "Sunset and stars on the roof",
+    "x": 393.1,
+    "z": 309.6,
+    "r": 0.3
+   }
+  ]
+ }
+}

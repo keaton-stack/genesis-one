@@ -1,0 +1,822 @@
+{
+ "v": "r17",
+ "site": {
+  "ox": 576.8,
+  "oz": -76.3,
+  "yaw": 0.8587,
+  "pad": 21.6
+ },
+ "names": {
+  "lib": "The Expanse Library",
+  "short": "Expanse Library",
+  "archive": "The 1928 Archive",
+  "hub": "Expanse Library"
+ },
+ "zone": "The 1928 Strip · the town's library and the archive of the field",
+ "info": {
+  "front": {
+   "t": "The Expanse Library",
+   "k": "Expanse Gate and the 1928 Strip · Stage Three",
+   "p": "A Mission Revival library in the way Douglas built its civic buildings: lime stucco on a cantera stone plinth, red barrel tile, a front arcade of eight arches and the doorway, a curvilinear parapet over the door and a clock tower with a tiled dome. Inside are the reading room and, behind a vault door, the 1928 Archive."
+  },
+  "tower": {
+   "t": "The clock tower",
+   "k": "The Expanse Library",
+   "p": "A square tower with a bell in the belfry, a tiled dome and a weathervane in the shape of a biplane. The clock keeps Arizona time, which never changes for summer."
+  },
+  "fountain": {
+   "t": "The forecourt fountain",
+   "k": "The Expanse Library",
+   "p": "Talavera tile in cobalt, ochre and terracotta round a small stone bowl. A quiet trickle and a cool rim to sit on before you go in."
+  },
+  "patio": {
+   "t": "The archive patio",
+   "k": "The Expanse Library",
+   "p": "A wall fountain of talavera tile on the archive wing, benches in its shade and a desert willow. A good place to read outside in the morning."
+  },
+  "arcade": {
+   "t": "The arcade",
+   "k": "The Expanse Library",
+   "p": "Eight round arches on square piers, a saltillo floor and a timber ceiling: the shady walk along the front, lit by iron lanterns after dark."
+  },
+  "tables": {
+   "t": "The reading tables",
+   "k": "The reading room",
+   "p": "Long oak tables with green-shaded banker's lamps. Borrow a book from the librarian at the desk, then sit at any table to read it."
+  },
+  "stacks": {
+   "t": "The stacks",
+   "k": "The reading room",
+   "p": "Oak bookcases on two levels: the ground floor holds the lending shelves, the gallery above holds reference, atlases and the Arizona collection. Rolling ladders run on brass rails."
+  },
+  "gallery": {
+   "t": "The gallery",
+   "k": "The reading room",
+   "p": "Up the tiled stair: the gallery runs the length of the room under the clerestory windows, with the reference shelves and the rolling ladders."
+  },
+  "ladder": {
+   "t": "A rolling ladder",
+   "k": "The reading room",
+   "p": "Oak and brass on a rail, so the top shelves are never out of reach. Press E again to roll it along."
+  },
+  "fire": {
+   "t": "The fireplace",
+   "k": "The reading room",
+   "p": "A cantera stone fireplace with a carved mantel and two leather armchairs facing the fire. Sit and stay a while."
+  },
+  "catalog": {
+   "t": "The card catalog",
+   "k": "The reading room",
+   "p": "Sixty oak drawers of cards: a title, an author and a shelf mark on each, filed by hand. The librarian finds anything in it faster than you can ask."
+  },
+  "beams": {
+   "t": "The painted beams",
+   "k": "The reading room",
+   "p": "King-post trusses of dark timber, the tie beams painted in the Spanish Colonial way: oxide red, ochre, indigo and cream."
+  },
+  "vault": {
+   "t": "The vault door",
+   "k": "The 1928 Archive",
+   "p": "The archive sits behind a round steel vault door, kept open in reading hours. Inside: the story of the field, the town on the line and the smelter that built it."
+  },
+  "mural": {
+   "t": "Wheels down, 1928",
+   "k": "The 1928 Archive · opening day",
+   "p": "Douglas opened its airfield in 1928, one of the first international airports in the United States, on the border with Agua Prieta, Sonora. A packed-earth field, a hangar and a windsock: where Runway 03/21 began. The painting is an artist's impression of opening day, and the case below holds a model of a field of that time."
+  },
+  "propeller": {
+   "t": "A wooden propeller",
+   "k": "The 1928 Archive · the open-cockpit years",
+   "p": "Laminated hardwood, shaped by hand and sheathed in brass at the tips. Propellers like this one pulled the biplanes and trainers of the 1920s: open cockpits, wood, wire and fabric, an engine up front."
+  },
+  "map": {
+   "t": "Douglas and Agua Prieta",
+   "k": "The 1928 Archive · the survey table",
+   "p": "Two towns on one valley floor with the line between them: Douglas, laid out in 1901 on the open flats of the Sulphur Springs Valley, and Agua Prieta, Sonora, across the border. The smelter, the railroad and the field beyond the town. A hand-drawn survey of the valley, redrawn for the archive."
+  },
+  "photos": {
+   "t": "Scenes of the era",
+   "k": "The 1928 Archive · the photo wall",
+   "p": "A biplane at its hangar on a packed-earth field, the smelter stacks over the town, a main street on the line with the depot at its end, and a crowd round a biplane on an opening day. Prints made in the style of the period."
+  },
+  "smelter": {
+   "t": "The smelter years",
+   "k": "The 1928 Archive · copper and the border town",
+   "p": "From 1904 copper from the Bisbee mines was smelted here, and the young town grew fast round the stacks. The green malachite and blue azurite in the case are copper ores; the miner's lamp and the assay balance come from the same working world."
+  },
+  "model": {
+   "t": "A model trainer",
+   "k": "The 1928 Archive · in the glass case",
+   "p": "A scale model of a 1928-style open-cockpit trainer, like the biplane over the Solport terminal and the one in the 1928 Airfield Museum beside the Tower."
+  },
+  "timeline": {
+   "t": "A timeline of the valley",
+   "k": "The 1928 Archive",
+   "p": "1901: Douglas is laid out beside the border. 1904: the smelter years. Rails and ranches tie the valley to the country. The 1920s: barnstormers land on the valley floor. 1928: the airfield opens, one of the first international airports in the United States. Today the same field flies on as Solport."
+  },
+  "flatfiles": {
+   "t": "The map drawers",
+   "k": "The 1928 Archive",
+   "p": "Flat files of survey sheets, field plans and rolled maps, each drawer labelled by hand. Ask at the desk and the librarian will bring one out."
+  }
+ },
+ "librarian": {
+  "id": "lb_graciela",
+  "name": "Graciela Ortiz",
+  "role": "Head librarian, The Expanse Library",
+  "look": {
+   "body": "f",
+   "skin": "b98260",
+   "shirt": "6a2f2a",
+   "pants": "2c2a33",
+   "hair": 7,
+   "hairc": "2b1c14",
+   "shoes": "2a2220"
+  },
+  "greet": [
+   "Welcome to the Expanse Library.",
+   "The archive is through the vault door, at the far end."
+  ],
+  "talk": [
+   {
+    "t": "Welcome to the Expanse Library. The reading room is open to everyone, and the 1928 Archive is through the vault door at the far end. Would you like to borrow a book?",
+    "o": [
+     [
+      "Borrow a book",
+      1
+     ],
+     [
+      "Tell me about the archive",
+      2
+     ],
+     [
+      "How does borrowing work?",
+      3
+     ],
+     [
+      "Thanks",
+      -1
+     ]
+    ]
+   },
+   {
+    "t": "Today's picks from the returns cart. Take one, then find a seat at any reading table.",
+    "o": []
+   },
+   {
+    "t": "The archive keeps the story of the field: opening day in 1928, a wooden propeller, the survey map of Douglas and Agua Prieta, photographs of the era and the smelter years. Read every case and you will know this valley better than most.",
+    "o": [
+     [
+      "Back",
+      0
+     ],
+     [
+      "Thanks",
+      -1
+     ]
+    ]
+   },
+   {
+    "t": "Pick a book here, carry it to any reading table and sit down to read. Bring it back whenever you are done, and take another.",
+    "o": [
+     [
+      "Borrow a book",
+      1
+     ],
+     [
+      "Thanks",
+      -1
+     ]
+    ]
+   }
+  ],
+  "borrowed": "{t} is yours to read. Find a seat at any reading table and sit down to open it.",
+  "returned": "Thank you. {t} goes back on the cart. Another?",
+  "out": "You already have {t}. Read it at a table, or return it and take another."
+ },
+ "books": [
+  {
+   "t": "Wings over the Valley",
+   "a": "R. Delgado",
+   "p": [
+    "Chapter One",
+    "The first flyers came down on the valley floor when it was still open range, and the cattle stood and watched them. By 1928 there was a field: packed earth, a hangar and a windsock, and a town that came out in its Sunday clothes to see the wheels touch down.",
+    "On a clear morning you could see the whole valley from a thousand feet: the grid of Douglas, the stacks of the smelter, the line, and Agua Prieta beyond it."
+   ]
+  },
+  {
+   "t": "The Smelter Years",
+   "a": "M. Whitcomb",
+   "p": [
+    "Chapter Three",
+    "Before dawn the stacks were already smoking. The shift whistle carried across both towns, and the ore trains came down from the mountains night and day.",
+    "People came from everywhere for the work, and stayed for the town that grew up round it."
+   ]
+  },
+  {
+   "t": "Stars over the Chiricahuas",
+   "a": "E. Vance",
+   "p": [
+    "October",
+    "On a clear October night the Milky Way rises over the Chiricahua Mountains like smoke from a long fire. Find the Summer Triangle low in the west, then follow the river of stars south to Sagittarius.",
+    "Dry air at four thousand feet is a gift to anyone with a pair of eyes and a little patience."
+   ]
+  },
+  {
+   "t": "A Field Guide to the High Desert",
+   "a": "L. Marquez",
+   "p": [
+    "Plants of the valley",
+    "Creosote, mesquite and the tall flowering stalks of agave: the high desert keeps its water close. After a summer storm the creosote smells like rain for days.",
+    "Look for the palo verde by its green bark. It makes its food in the trunk when the leaves are gone."
+   ]
+  },
+  {
+   "t": "Letters from the Line",
+   "a": "collected",
+   "p": [
+    "Letter Twelve",
+    "Dear Elena, the new field opened today and half of Agua Prieta crossed over to see it. Your brother swears he will fly before he is twenty. I told him to finish his homework first.",
+    "Write soon. The swallows are back under the depot roof."
+   ]
+  },
+  {
+   "t": "The Little Biplane",
+   "a": "for young readers",
+   "p": [
+    "Once upon a time",
+    "A little biplane lived in a wooden hangar at the edge of a very big desert. Every morning the windsock told her which way the wind blew, and every morning she said: today I will fly over the mountains.",
+    "And one bright morning, she did."
+   ]
+  }
+ ],
+ "roam": {
+  "people": [
+   {
+    "name": "Ines",
+    "body": "f",
+    "shirt": "3d5a80",
+    "pants": "2a2a2e"
+   },
+   {
+    "name": "Tomas",
+    "body": "m",
+    "shirt": "8a6a3a",
+    "pants": "33302c",
+    "hat": "hat_cap"
+   },
+   {
+    "name": "Ruth",
+    "body": "f",
+    "shirt": "7a3b4a",
+    "pants": "3a3a40"
+   },
+   {
+    "name": "Ike",
+    "body": "m",
+    "shirt": "4a5a3a",
+    "pants": "2c2c30"
+   },
+   {
+    "name": "Mei",
+    "body": "f",
+    "shirt": "d6c3a0",
+    "pants": "40383a"
+   },
+   {
+    "name": "Samuel",
+    "body": "m",
+    "shirt": "2f4f5f",
+    "pants": "26262a"
+   }
+  ],
+  "lines": {
+   "read": [
+    "One more chapter.",
+    "It is just getting good.",
+    "I have read this one three times.",
+    "Shh, the good part."
+   ],
+   "stacks": [
+    "Third shelf from the top, I am sure of it.",
+    "The atlases are up in the gallery.",
+    "Someone always borrows the one I want."
+   ],
+   "archive": [
+    "That propeller is taller than I am.",
+    "You can find the field on the map.",
+    "Opening day in 1928. Imagine the noise.",
+    "Look at the stacks in that photograph."
+   ],
+   "fire": [
+    "Best chair in the house.",
+    "Nothing like a fire and a book."
+   ],
+   "fore": [
+    "The tower clock is right, for once.",
+    "I always sit by the fountain before I go in.",
+    "Listen, you can hear the bell."
+   ]
+  }
+ },
+ "stamps_proposal": {
+  "id": "library",
+  "name": "The Expanse Library",
+  "sub": "The reading room and the 1928 Archive at the Expanse Gate",
+  "ink": "#9a4a2a",
+  "stamps": [
+   {
+    "n": 355,
+    "id": "p_lb_library",
+    "name": "The reading room",
+    "x": 576.8,
+    "z": -76.3,
+    "r": 0.3
+   },
+   {
+    "n": 356,
+    "id": "p_lb_archive",
+    "name": "Through the vault door",
+    "x": 592.9,
+    "z": -95.7,
+    "r": 0.3
+   },
+   {
+    "n": 357,
+    "id": "p_lb_borrow",
+    "name": "A book borrowed",
+    "x": 578.1,
+    "z": -75.2,
+    "r": 0.3
+   },
+   {
+    "n": 358,
+    "id": "p_lb_read",
+    "name": "A quiet read",
+    "x": 570.7,
+    "z": -70.7,
+    "r": 0.3
+   },
+   {
+    "n": 359,
+    "id": "p_lb_exhibits",
+    "name": "Every case in the archive",
+    "x": 592.9,
+    "z": -95.7,
+    "r": 0.3
+   }
+  ]
+ },
+ "bookAtlas": {
+  "spines": [
+   [
+    0.0088,
+    0.7383,
+    0.0488,
+    0.9883,
+    0.2562
+   ],
+   [
+    0.0649,
+    0.7383,
+    0.1084,
+    0.9883,
+    0.2781
+   ],
+   [
+    0.1255,
+    0.7391,
+    0.1685,
+    0.9891,
+    0.275
+   ],
+   [
+    0.1851,
+    0.7383,
+    0.2314,
+    0.9891,
+    0.296
+   ],
+   [
+    0.2476,
+    0.7383,
+    0.2837,
+    0.9883,
+    0.2313
+   ],
+   [
+    0.3081,
+    0.7383,
+    0.3511,
+    0.9891,
+    0.2741
+   ],
+   [
+    0.3682,
+    0.7391,
+    0.4102,
+    0.9891,
+    0.2687
+   ],
+   [
+    0.4282,
+    0.7391,
+    0.478,
+    0.9891,
+    0.3187
+   ],
+   [
+    0.499,
+    0.7391,
+    0.5425,
+    0.9891,
+    0.2781
+   ],
+   [
+    0.5605,
+    0.7383,
+    0.6055,
+    0.9891,
+    0.2866
+   ],
+   [
+    0.6226,
+    0.7383,
+    0.6704,
+    0.9891,
+    0.3053
+   ],
+   [
+    0.6885,
+    0.7383,
+    0.7354,
+    0.9891,
+    0.2991
+   ],
+   [
+    0.7529,
+    0.7383,
+    0.8013,
+    0.9891,
+    0.3084
+   ],
+   [
+    0.8208,
+    0.7391,
+    0.8706,
+    0.9891,
+    0.3187
+   ],
+   [
+    0.8887,
+    0.7383,
+    0.9321,
+    0.9891,
+    0.2773
+   ],
+   [
+    0.9482,
+    0.7383,
+    0.9912,
+    0.9891,
+    0.2741
+   ],
+   [
+    0.0088,
+    0.507,
+    0.0503,
+    0.7203,
+    0.3114
+   ],
+   [
+    0.0684,
+    0.507,
+    0.1172,
+    0.7195,
+    0.3676
+   ],
+   [
+    0.1353,
+    0.507,
+    0.1841,
+    0.7203,
+    0.3663
+   ],
+   [
+    0.2017,
+    0.507,
+    0.249,
+    0.7203,
+    0.3553
+   ],
+   [
+    0.2666,
+    0.5062,
+    0.3066,
+    0.7203,
+    0.2993
+   ],
+   [
+    0.3242,
+    0.507,
+    0.3633,
+    0.7188,
+    0.2952
+   ],
+   [
+    0.3867,
+    0.5062,
+    0.4341,
+    0.7195,
+    0.3553
+   ],
+   [
+    0.4507,
+    0.5062,
+    0.499,
+    0.7195,
+    0.3626
+   ],
+   [
+    0.5166,
+    0.5062,
+    0.562,
+    0.7195,
+    0.3407
+   ],
+   [
+    0.5796,
+    0.507,
+    0.624,
+    0.7195,
+    0.3346
+   ],
+   [
+    0.6416,
+    0.5062,
+    0.6885,
+    0.7203,
+    0.3504
+   ],
+   [
+    0.7056,
+    0.5062,
+    0.752,
+    0.7203,
+    0.3467
+   ],
+   [
+    0.7695,
+    0.5062,
+    0.8198,
+    0.7203,
+    0.3759
+   ],
+   [
+    0.8374,
+    0.5062,
+    0.8711,
+    0.7188,
+    0.2537
+   ],
+   [
+    0.8872,
+    0.5062,
+    0.9321,
+    0.7195,
+    0.337
+   ],
+   [
+    0.9482,
+    0.5062,
+    0.9912,
+    0.7203,
+    0.3212
+   ],
+   [
+    0.0088,
+    0.3016,
+    0.0518,
+    0.4898,
+    0.3651
+   ],
+   [
+    0.0693,
+    0.3016,
+    0.1309,
+    0.4898,
+    0.5228
+   ],
+   [
+    0.1489,
+    0.3016,
+    0.1987,
+    0.4906,
+    0.4215
+   ],
+   [
+    0.2158,
+    0.3016,
+    0.2617,
+    0.4891,
+    0.3917
+   ],
+   [
+    0.2788,
+    0.3016,
+    0.3271,
+    0.4906,
+    0.4091
+   ],
+   [
+    0.3447,
+    0.3023,
+    0.3843,
+    0.4891,
+    0.3389
+   ],
+   [
+    0.4106,
+    0.3016,
+    0.46,
+    0.4906,
+    0.4174
+   ],
+   [
+    0.479,
+    0.3023,
+    0.5264,
+    0.4898,
+    0.4042
+   ],
+   [
+    0.5444,
+    0.3016,
+    0.5898,
+    0.4898,
+    0.3859
+   ],
+   [
+    0.606,
+    0.3016,
+    0.6538,
+    0.4906,
+    0.405
+   ],
+   [
+    0.6699,
+    0.3023,
+    0.7197,
+    0.4906,
+    0.4232
+   ],
+   [
+    0.7358,
+    0.3031,
+    0.7729,
+    0.4906,
+    0.3167
+   ],
+   [
+    0.7964,
+    0.3016,
+    0.8462,
+    0.4906,
+    0.4215
+   ],
+   [
+    0.8677,
+    0.3016,
+    0.9204,
+    0.4906,
+    0.4463
+   ],
+   [
+    0.9414,
+    0.3016,
+    0.9897,
+    0.4898,
+    0.4108
+   ],
+   [
+    0.0088,
+    0.1086,
+    0.0537,
+    0.2859,
+    0.4053
+   ],
+   [
+    0.0742,
+    0.1086,
+    0.1128,
+    0.2844,
+    0.3511
+   ],
+   [
+    0.1367,
+    0.107,
+    0.1846,
+    0.2859,
+    0.4279
+   ],
+   [
+    0.2021,
+    0.1078,
+    0.2476,
+    0.2859,
+    0.4079
+   ],
+   [
+    0.2661,
+    0.1078,
+    0.3101,
+    0.2859,
+    0.3947
+   ],
+   [
+    0.3271,
+    0.1078,
+    0.3726,
+    0.2859,
+    0.4079
+   ],
+   [
+    0.3887,
+    0.1078,
+    0.4331,
+    0.2859,
+    0.3991
+   ],
+   [
+    0.4492,
+    0.1078,
+    0.4932,
+    0.2859,
+    0.3947
+   ],
+   [
+    0.5112,
+    0.1078,
+    0.5596,
+    0.2859,
+    0.4342
+   ],
+   [
+    0.5786,
+    0.1078,
+    0.623,
+    0.2859,
+    0.3991
+   ],
+   [
+    0.6416,
+    0.1078,
+    0.687,
+    0.2859,
+    0.4079
+   ],
+   [
+    0.7061,
+    0.1078,
+    0.7524,
+    0.2859,
+    0.4167
+   ],
+   [
+    0.772,
+    0.1078,
+    0.8086,
+    0.2859,
+    0.3289
+   ],
+   [
+    0.8315,
+    0.107,
+    0.874,
+    0.2859,
+    0.3799
+   ],
+   [
+    0.8906,
+    0.107,
+    0.9336,
+    0.2859,
+    0.3843
+   ],
+   [
+    0.9492,
+    0.107,
+    0.9902,
+    0.2859,
+    0.3668
+   ]
+  ],
+  "page": [
+   0.0,
+   0.0,
+   1.0,
+   0.0859
+  ]
+ },
+ "readHint": "Borrow a book from the librarian at the desk, then sit here to read it."
+}

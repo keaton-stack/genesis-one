@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "note": "R17 sports club (Agent Q): every name and line of copy for plan_sportsclub.js. No em dashes, no prices or percentages, no brands except GIVEBACK.",
+  "names": {
+    "club": "Crosswind Racquet Club",
+    "short": "Crosswind Racquet Club",
+    "word": "CROSSWIND",
+    "sub": "RACQUET CLUB",
+    "zoneK": "Tennis, pickleball and padel under the sails",
+    "pro": "PRO SHOP",
+    "lockers": "LOCKERS",
+    "cafeShort": "CAFÉ",
+    "hoursT": "COURTS OPEN DAWN TO MIDNIGHT",
+    "hoursK": "Lights on at dusk · ask at the pro shop",
+    "machineT": "BALL MACHINE CHALLENGE",
+    "machineK": "Ten balls · time your swing · press E"
+  },
+  "venues": {
+    "cafe": { "title": "The Baseline Café", "k": "Coffee, aguas frescas and lunch on the terrace" },
+    "pro": { "title": "Crosswind Pro Shop", "k": "Court gear and club wear", "items": ["hat_band", "hat_cap", "gear_tee_gb", "gear_shades", "gear_watch", "gear_backpack_gb", "gear_hoodie_gb"] }
+  },
+  "menu": ["Espresso and cold brew", "Agua fresca, prickly pear", "Citrus and mint smoothie", "Green chile breakfast wrap", "Market salad with grilled corn"],
+  "info": {
+    "arrival": { "t": "Crosswind Racquet Club", "k": "Tennis · pickleball · padel · fitness", "p": "The club on the old knoll between The Commons and the Design District: two tennis courts, four pickleball courts and a padel cage under tensile sails, a clubhouse with a café, a pro shop and lockers, and a terrace to watch from. Park your cart in the court by Gallery Lane." },
+    "tennis": { "t": "Tennis courts 1 and 2", "k": "Acrylic hard courts · north to south", "p": "Two hard courts laid north to south, so the low sun is never in a player's eyes: east in the morning, west and low by evening. Court 1 is the show court beside the stand; the club's coach runs her drills on court 2." },
+    "pickleball": { "t": "Pickleball courts 3 to 6", "k": "Four courts under two sails", "p": "Four pickleball courts in a row, with low dividers, a kitchen line on each side of the net and the ball machine on court 6. The sails are raked low to the west to hold off the afternoon sun." },
+    "padel": { "t": "The padel cage", "k": "Glass and steel · ten by twenty metres", "p": "Padel is played inside the walls: the glass ends and the side panels are part of the court, so the ball comes back off them. Doors at the net line on both sides." },
+    "stand": { "t": "The viewing stand", "k": "Three tiers on the show court", "p": "Timber seats on three stone tiers, close enough to hear the ball. Sit down for a rally on court 1; the sail above keeps the stand in shade most of the afternoon." },
+    "lawn": { "t": "The fitness lawn", "k": "Rig, boxes, kettlebells and a yoga corner", "p": "A turf lawn for warm-ups and training: a pull-up rig with rings, plyo boxes, a kettlebell rack, a short sprint lane and yoga mats under the terracotta sail." },
+    "lockers": { "t": "Locker room", "k": "Lockers, benches and a vanity", "p": "Two walls of lockers, benches down the middle, a stone vanity with mirrors and fresh towels by the door." },
+    "wall": { "t": "The club wall", "k": "Rammed earth on the parkway", "p": "The club's name in bronze on a rammed earth wall, laid in lifts like the clubhouse itself, behind a stand of saguaro." },
+    "carts": { "t": "Cart court", "k": "Golf carts first", "p": "Ten bays with chargers off Gallery Lane. The club is a cart and walking place: there is no car park." },
+    "sails": { "t": "The sails", "k": "Tensile fabric on raked masts", "p": "Each sail is pulled into a saddle between four masts, low on its west edge against the afternoon sun and high on the east. The floodlights hang under them, so at night the fabric glows from below." },
+    "cafe": { "t": "The Baseline Café", "k": "Press E to order", "p": "Coffee, aguas frescas and lunch at the counter or out on the terrace." },
+    "pro": { "t": "Crosswind Pro Shop", "k": "Press E to shop", "p": "Racquets and paddles to try, club wear, grips and balls, and the stringing machine behind the counter." },
+    "machine": { "t": "Ball machine challenge", "k": "Press E to start", "p": "Ten balls from the machine. Press Space, E or click as each ball reaches you: on time is a return, perfect timing scores double. Return seven of ten for the club stamp." }
+  },
+  "staff": {
+    "coach": { "name": "Coach Sana Calderón", "role": "Head coach, Crosswind Racquet Club", "look": { "body": "f", "skin": "b07650", "shirt": "1d3a2c", "pants": "1c1f24", "hair": 1 }, "hat": "hat_cap",
+      "greet": ["Turn your shoulders early.", "Racket back, eyes on the ball."],
+      "talk": [
+        { "t": "Welcome to Crosswind. I run the clinics on court 2: mornings for juniors, evenings under the lights for everyone else. Want a tip?", "o": [["A tip, please", 1], ["Who plays here?", 2], ["Thanks, coach", null]] },
+        { "t": "Split step as your opponent hits, then turn your shoulders before the ball bounces. Most club players are late because they start the swing too late, not because they swing too slow.", "o": [["The ball machine?", 3], ["Thanks", null]] },
+        { "t": "Residents, guests from the lodges, the flight crews on their days off. Pickleball is busiest at dawn, tennis at sunset. The padel cage fills up after dinner.", "o": [["Thanks", null]] },
+        { "t": "Court 6. Ten balls, and you only have to time the swing. Seven returns and the club stamps your passport.", "o": [["I'll try it", null]] } ] },
+    "barista": { "name": "Luca", "role": "The Baseline Café", "look": { "body": "m", "skin": "c98f63", "shirt": "f3f1ea", "pants": "2b2f33", "hair": 2 },
+      "greet": ["Cold brew is on.", "Grab a table on the terrace."],
+      "talk": [
+        { "t": "Morning players get the first espresso, the evening crowd gets the aguas frescas. Order at the counter and I'll bring it out to the terrace.", "o": [["What's good?", 1], ["Thanks", null]] },
+        { "t": "The prickly pear agua fresca, every time. And the green chile wrap if you've just played two sets.", "o": [["Thanks", null]] } ] },
+    "pro": { "name": "Tess Harlan", "role": "Pro shop, Crosswind Racquet Club", "look": { "body": "f", "skin": "e8c19a", "shirt": "2f6f4a", "pants": "1c1f24", "hair": 4 },
+      "greet": ["Demo racquets are on the wall.", "Need a regrip?"],
+      "talk": [
+        { "t": "Demo racquets and paddles are on the wall: take one out to a court and bring it back. Grips, balls and club wear are at the counter, and I string racquets while you wait.", "o": [["How do I book a court?", 1], ["Thanks", null]] },
+        { "t": "Walk on if it's free, or ask me and I'll hold one. The lights come on at dusk and the courts stay open late.", "o": [["Thanks", null]] } ] }
+  },
+  "players": {
+    "ana": { "name": "Mila", "look": { "body": "f", "skin": "c98f63", "shirt": "f3f1ea", "pants": "f3f1ea", "hair": 2 }, "hat": "hat_band" },
+    "jonah": { "name": "Arturo", "look": { "body": "m", "skin": "8d5a3b", "shirt": "2f6f4a", "pants": "f3f1ea", "hair": 1 }, "hat": "hat_cap" },
+    "ruth": { "name": "Quinn", "look": { "body": "f", "skin": "e8c19a", "shirt": "4d7fa8", "pants": "1c1f24", "hair": 4 }, "hat": "hat_band" },
+    "eli": { "name": "Ellis", "look": { "body": "m", "skin": "e8c19a", "shirt": "d0a24a", "pants": "2b2f33", "hair": 3 } },
+    "student": { "name": "Nico", "look": { "body": "m", "skin": "c98f63", "shirt": "e9e2d3", "pants": "2b2f33", "hair": 2 } }
+  },
+  "lines": {
+    "rally": ["Good rally!", "Nice ball.", "That was close.", "Keep it going."],
+    "net": ["Net.", "Ugh, the tape.", "Into the net, my bad."],
+    "point": ["Out.", "Long, sorry.", "Too good!", "Your point.", "Wide by a hair."],
+    "coach": ["Turn early!", "Good, follow through.", "Split step, then go.", "Watch it onto the strings.", "Racket back sooner."]
+  },
+  "roam": {
+    "people": ["Gwen", "Omari", "Beatrix", "Cyrus", "Soren"],
+    "lines": {
+      "stand": ["Great point.", "Court 1 is on fire tonight.", "She's got a lovely backhand."],
+      "terrace": ["Best seat in the club.", "One more agua fresca?", "The sails look amazing at night."],
+      "pickle": ["We're up after this game.", "Dink it, don't drive it."],
+      "tennis": ["Nice rally.", "I need lessons."],
+      "lawn": ["Ten more minutes on the rig.", "Stretch first."],
+      "padel": ["Off the glass!", "Padel after dinner?"],
+      "cafe": ["Cold brew, please.", "Two wraps to the terrace."],
+      "pro": ["I should try a lighter racquet.", "New grip, new me."],
+      "carts": ["Charging up."],
+      "club": ["The clubhouse is beautiful.", "Rammed earth, like the old ranch walls."]
+    }
+  },
+  "game": {
+    "k": "Space, E or click as the ball reaches you · Esc to stop",
+    "doneK": "E to play again · Esc to leave",
+    "go": "Ready",
+    "perfect": "PERFECT",
+    "good": "GOOD",
+    "early": "TOO EARLY",
+    "late": "TOO LATE",
+    "miss": "MISS",
+    "win": "ACE!",
+    "result": "Ball machine"
+  },
+  "stamps_proposal": { "id": "sportsclub", "name": "Crosswind Racquet Club", "sub": "Tennis, pickleball and padel under the sails between The Commons and the Design District", "ink": "#2f6f4a", "stamps": [
+    { "n": 379, "id": "p_sc_club", "name": "Crosswind Racquet Club", "x": 446.0, "z": 566.0, "r": 0.3 },
+    { "n": 380, "id": "p_sc_rally", "name": "Ball machine ace", "x": 438.0, "z": 622.1, "r": 0.3 },
+    { "n": 381, "id": "p_sc_courtside", "name": "Courtside seat", "x": 461.0, "z": 595.0, "r": 0.3 },
+    { "n": 382, "id": "p_sc_cafe", "name": "Post-match coffee", "x": 441.2, "z": 585.2, "r": 0.3 },
+    { "n": 383, "id": "p_sc_coach", "name": "A tip from the coach", "x": 485.9, "z": 588.1, "r": 0.3 } ] }
+}

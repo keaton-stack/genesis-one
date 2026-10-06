@@ -630,8 +630,8 @@
           "n": 335,
           "id": "p_fb_bosque",
           "name": "Mesquite Bosque",
-          "x": 606,
-          "z": 330,
+          "x": 595.6,
+          "z": 339.6,
           "r": 16
         },
         {
@@ -1911,6 +1911,324 @@
           "x": 787,
           "z": 78,
           "r": 25
+        }
+      ]
+    },
+    {
+      "id": "library",
+      "n": 19,
+      "name": "The Expanse Library",
+      "sub": "The reading room and the 1928 Archive at the Expanse Gate",
+      "ink": "#9a4a2a",
+      "stamps": [
+        {
+          "n": 355,
+          "id": "p_lb_library",
+          "name": "The reading room",
+          "x": 576.8,
+          "z": -76.3,
+          "r": 0.3
+        },
+        {
+          "n": 356,
+          "id": "p_lb_archive",
+          "name": "Through the vault door",
+          "x": 592.9,
+          "z": -95.7,
+          "r": 0.3
+        },
+        {
+          "n": 357,
+          "id": "p_lb_borrow",
+          "name": "A book borrowed",
+          "x": 578.1,
+          "z": -75.2,
+          "r": 0.3
+        },
+        {
+          "n": 358,
+          "id": "p_lb_read",
+          "name": "A quiet read",
+          "x": 570.7,
+          "z": -70.7,
+          "r": 0.3
+        },
+        {
+          "n": 359,
+          "id": "p_lb_exhibits",
+          "name": "Every case in the archive",
+          "x": 592.9,
+          "z": -95.7,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "mercado",
+      "n": 20,
+      "name": "Mercado Plaza",
+      "sub": "The border market square by Main Street: the portales, the food stalls and the kiosco",
+      "ink": "#c2553a",
+      "stamps": [
+        {
+          "n": 367,
+          "id": "p_mc_plaza",
+          "name": "Mercado Plaza",
+          "x": 620.0,
+          "z": 328.0,
+          "r": 0.3
+        },
+        {
+          "n": 368,
+          "id": "p_mc_antojitos",
+          "name": "Antojitos",
+          "x": 616.2,
+          "z": 349.6,
+          "r": 0.3
+        },
+        {
+          "n": 369,
+          "id": "p_mc_kiosco",
+          "name": "Serenata en el kiosco",
+          "x": 620.9,
+          "z": 327.6,
+          "r": 0.3
+        },
+        {
+          "n": 370,
+          "id": "p_mc_artesanias",
+          "name": "Hecho a mano",
+          "x": 609.7,
+          "z": 305.9,
+          "r": 0.3
+        },
+        {
+          "n": 371,
+          "id": "p_mc_noche",
+          "name": "Noche de plaza",
+          "x": 620.0,
+          "z": 328.0,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "rodeo",
+      "n": 21,
+      "name": "The Copper Chute",
+      "sub": "The saloon, steakhouse and rodeo arena in the North Yard",
+      "ink": "#b5532a",
+      "stamps": [
+        {
+          "n": 372,
+          "id": "p_ro_saloon",
+          "name": "Through the bat-wing doors",
+          "x": 929.7,
+          "z": -361.9,
+          "r": 0.3
+        },
+        {
+          "n": 373,
+          "id": "p_ro_stands",
+          "name": "Rodeo night from the stands",
+          "x": 898.9,
+          "z": -400.4,
+          "r": 0.3
+        },
+        {
+          "n": 374,
+          "id": "p_ro_ride",
+          "name": "Eight seconds on the iron bull",
+          "x": 929.8,
+          "z": -366.8,
+          "r": 0.3
+        },
+        {
+          "n": 375,
+          "id": "p_ro_bbq",
+          "name": "Brisket off the smoker",
+          "x": 915.8,
+          "z": -338.0,
+          "r": 0.3
+        },
+        {
+          "n": 376,
+          "id": "p_ro_dance",
+          "name": "Two-step at the Copper Chute",
+          "x": 936.9,
+          "z": -370.2,
+          "r": 0.3
+        },
+        {
+          "n": 377,
+          "id": "p_ro_remuda",
+          "name": "The remuda",
+          "x": 948.5,
+          "z": -381.3,
+          "r": 0.3
+        },
+        {
+          "n": 378,
+          "id": "p_ro_chutes",
+          "name": "Behind the chutes",
+          "x": 936.1,
+          "z": -391.5,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "sportsclub",
+      "n": 22,
+      "name": "Crosswind Racquet Club",
+      "sub": "Tennis, pickleball and padel under the sails between The Commons and the Design District",
+      "ink": "#2f6f4a",
+      "stamps": [
+        {
+          "n": 379,
+          "id": "p_sc_club",
+          "name": "Crosswind Racquet Club",
+          "x": 446.0,
+          "z": 566.0,
+          "r": 0.3
+        },
+        {
+          "n": 380,
+          "id": "p_sc_rally",
+          "name": "Ball machine ace",
+          "x": 438.0,
+          "z": 622.1,
+          "r": 0.3
+        },
+        {
+          "n": 381,
+          "id": "p_sc_courtside",
+          "name": "Courtside seat",
+          "x": 461.0,
+          "z": 595.0,
+          "r": 0.3
+        },
+        {
+          "n": 382,
+          "id": "p_sc_cafe",
+          "name": "Post-match coffee",
+          "x": 441.2,
+          "z": 585.2,
+          "r": 0.3
+        },
+        {
+          "n": 383,
+          "id": "p_sc_coach",
+          "name": "A tip from the coach",
+          "x": 485.9,
+          "z": 588.1,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "spa",
+      "n": 23,
+      "name": "Atardecer Spa",
+      "sub": "The spa at Sunset Bluff: the court, the baths, the fire and the roof",
+      "ink": "#c98a5a",
+      "stamps": [
+        {
+          "n": 384,
+          "id": "p_sp_court",
+          "name": "Into the Olive Court",
+          "x": 421.9,
+          "z": 323.2,
+          "r": 0.3
+        },
+        {
+          "n": 385,
+          "id": "p_sp_treatment",
+          "name": "A desert stone ritual",
+          "x": 428.0,
+          "z": 307.8,
+          "r": 0.3
+        },
+        {
+          "n": 386,
+          "id": "p_sp_soak",
+          "name": "The bathing ritual",
+          "x": 399.8,
+          "z": 348.7,
+          "r": 0.3
+        },
+        {
+          "n": 387,
+          "id": "p_sp_fire",
+          "name": "By the fire",
+          "x": 411.6,
+          "z": 299.9,
+          "r": 0.3
+        },
+        {
+          "n": 388,
+          "id": "p_sp_stars",
+          "name": "Sunset and stars on the roof",
+          "x": 393.1,
+          "z": 309.6,
+          "r": 0.3
+        }
+      ]
+    },
+    {
+      "id": "academy",
+      "n": 24,
+      "name": "Genesis One Flight Academy",
+      "sub": "Ground school, sim pods and the academy apron on the Flight Line",
+      "ink": "#6fb7e8",
+      "stamps": [
+        {
+          "n": 389,
+          "id": "p_fa_academy",
+          "name": "Genesis One Flight Academy",
+          "x": -268.1,
+          "z": 446.6,
+          "r": 0.3
+        },
+        {
+          "n": 390,
+          "id": "t_fa_torres",
+          "talk": "fa_torres",
+          "kind": "local",
+          "name": "Maya Torres",
+          "org": "Chief Flight Instructor, Flight Academy"
+        },
+        {
+          "n": 391,
+          "id": "p_fa_preflight",
+          "name": "Preflight walkaround",
+          "x": -265.3,
+          "z": 500.6,
+          "r": 0.3
+        },
+        {
+          "n": 392,
+          "id": "p_fa_groundschool",
+          "name": "Ground school",
+          "x": -276.1,
+          "z": 455.6,
+          "r": 0.3
+        },
+        {
+          "n": 393,
+          "id": "p_fa_lesson",
+          "name": "Lesson landed",
+          "x": -253.0,
+          "z": 430.6,
+          "r": 0.3
+        },
+        {
+          "n": 394,
+          "id": "p_fa_1928",
+          "name": "An airfield since 1928",
+          "x": -272.1,
+          "z": 448.9,
+          "r": 0.3
         }
       ]
     }

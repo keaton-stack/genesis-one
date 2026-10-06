@@ -777,6 +777,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   if (/[?&]roam=0\b/.test(location.search)) { RO.off = true; RO.area = function () { return null; }; RO.stats = function () { return { off: true }; }; RO.near = function () { return false; }; return; }
   var PI = Math.PI, TAU = PI * 2, CELL = 0.5, STEPUP = 0.45, HEAD = 1.85, RAD = 0.32, SQ2 = Math.SQRT2;
   var DRAW = 110, LABEL = 22, ACT_IN = 420, ACT_OUT = 520;
+  var ROAM_LOD = !/[?&]roamlod=0\b/.test(location.search);
   function note(tag, e) { try { if (RO.errs.length < 50) RO.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); if (RO.errs.length <= 6) console.warn("plan_roam " + tag, e); } catch (x) {} }
   function now() { return performance.now(); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -942,7 +943,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var tq = now(); pathJobs(A, until); tq = now() - tq; if (tq > (RO.n.tPath || 0)) RO.n.tPath = +tq.toFixed(2);
     var pb = d.box, pp = player.position; A.pin = pp.x > pb[0] && pp.x < pb[2] && pp.z > pb[1] && pp.z < pb[3] ? [pp.x, pp.z] : null;
     // the low tier keeps two fewer (never under six), except while an event needs its people (the keynote's seats)
-    var target = d.count ? d.count(h) : 8, inEv = d.events && d.events().some(function (E) { return h >= E.from && h < E.end; }); if (lowTier() && !inEv) target = Math.max(6, target - 2); A.target = target;
+    var target = d.count ? d.count(h) : 8, inEv = d.events && d.events().some(function (E) { return h >= E.from && h < E.end; }); if (lowTier() && !inEv) target = Math.max(6, target - 2); if (ROAM_LOD && !inEv && !A.pin) { if (dist > DRAW + 70) target = Math.min(target, Math.max(1, Math.round(target * 0.25))); else if (dist > DRAW) target = Math.min(target, Math.max(2, Math.round(target * 0.6))); }   /* R17 integration: areas past the draw range keep a few people only, so the shared pool (RO.maxBuilt) reaches the venue the player is at */ A.target = target;
     var live = A.npcs.filter(function (c) { return c.st !== "off" && !c.leaving; }).length;
     // arrivals: fill up quietly (in place while nobody sees the spot, else from an entry out of view), one person at a time
     if (live < target && now() > A.spawnAt && typeof avatar === "function" && typeof CHAR !== "undefined" && CHAR.m && CHAR.f && CHAR.m.clips && CHAR.m.clips.sit) {
