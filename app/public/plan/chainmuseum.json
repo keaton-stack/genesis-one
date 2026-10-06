@@ -1,0 +1,734 @@
+{
+  "_about": "R17 (5 Oct 2026): The Genesis Block Museum in Expanse Works and Maker Row (plan_chainmuseum.js). Every name and line of copy shown in game. The copy rules are in genesis_data/masterplan/HANDOFF_R17_MUSEUM.md.",
+  "version": 1,
+  "names": {
+    "museum": "The Genesis Block Museum",
+    "short": "Genesis Block Museum",
+    "tag": "From clay to chain",
+    "zone": "The Genesis Block Museum",
+    "hub": "Genesis Block Museum"
+  },
+  "site": {
+    "cx": 237,
+    "cz": 329,
+    "rot": 0.8582,
+    "chainZ": 4
+  },
+  "lobby": {
+    "fascia": "THE GENESIS BLOCK MUSEUM",
+    "sub": "FROM CLAY TO CHAIN",
+    "panels": [
+      {
+        "t": "The Genesis Block Museum",
+        "k": "From clay to chain",
+        "p": "A ledger is a list of who holds what and who owes whom. For five thousand years it lived in one place, kept by one keeper. This museum follows the long road to a ledger that thousands of computers keep together, where every entry links to the one before it."
+      },
+      {
+        "t": "How to visit",
+        "k": "Eight galleries, in order of time",
+        "p": "Walk the rooms in order: each room is a block, and each block points back to the last. Press E at a panel to read more and sit on any bench. Hash a block in Gallery 4, watch proof of history tick in Gallery 6 and follow a donation in Gallery 8."
+      },
+      {
+        "t": "A timeline",
+        "k": "3200 BCE to today",
+        "p": "c. 3200 BCE clay tablets. 1494 double entry in print. 1976 public keys. 1979 Merkle trees. 1991 timestamping. 1997 Hashcash. 1998 b-money. 2005 bit gold. 2008 the Bitcoin whitepaper. 2009 the genesis block. 2015 Ethereum. 2020 Solana. Today: real-world assets and on-chain giving."
+      }
+    ],
+    "info": {
+      "t": "The Genesis Block Museum",
+      "k": "Lobby · start here",
+      "p": "Eight galleries in a chain of blocks, from the first clay ledgers to the on-chain giving ledger Giveback Ventures runs on Solana. Lena Ortiz, the head docent, is at the welcome desk. Walk south-west through the glass links in order; the exit leads to the Timeline Walk and back to Genesis Plaza."
+    }
+  },
+  "galleries": [
+    {
+      "id": "g1",
+      "n": 1,
+      "year": "3200 BCE",
+      "name": "LEDGERS",
+      "title": "Ledgers through history",
+      "accent": "#c9a26a",
+      "panels": [
+        {
+          "t": "Clay tablets",
+          "k": "Mesopotamia, c. 3200 BCE",
+          "p": "More than five thousand years ago, scribes in Mesopotamian cities such as Uruk pressed tallies of grain, livestock and labour into wet clay. Many of the oldest written tablets are accounts: writing began, in part, as record keeping."
+        },
+        {
+          "t": "Knotted cords",
+          "k": "The Andes, 1400s to 1500s",
+          "p": "Inca administrators kept census and tribute records on khipu, cords of knotted string. The kind of knot, its place on the cord and the colour of the cord all carried meaning."
+        },
+        {
+          "t": "Double entry, 1494",
+          "k": "Luca Pacioli, Venice",
+          "p": "In 1494 the friar and mathematician Luca Pacioli published Summa de arithmetica in Venice, with the first printed description of double-entry bookkeeping. Every amount is written twice, once as a debit and once as a credit, so the books must balance."
+        },
+        {
+          "t": "One keeper",
+          "k": "The problem this museum is about",
+          "p": "For most of history a ledger had a single keeper: a temple, a merchant house, a bank, a registry. Trusting the record meant trusting its keeper. The rooms ahead tell how a ledger came to be kept in common."
+        }
+      ],
+      "objects": {
+        "case": "Clay tablets (replicas)",
+        "book": "A merchant's ledger (replica)",
+        "khipu": "A khipu (replica)"
+      },
+      "info": {
+        "t": "Gallery 1 · Ledgers through history",
+        "k": "c. 3200 BCE to 1494",
+        "p": "From clay tallies in Uruk to Inca khipu to Luca Pacioli's 1494 description of double entry, people have always needed a record of who holds what. Every one of these ledgers had a keeper you had to trust. The tablets, the khipu and the merchant's book here are replicas."
+      }
+    },
+    {
+      "id": "g2",
+      "n": 2,
+      "year": "1976",
+      "name": "CRYPTOGRAPHY",
+      "title": "Cryptography",
+      "accent": "#7fb2c9",
+      "panels": [
+        {
+          "t": "Public keys, 1976",
+          "k": "Whitfield Diffie and Martin Hellman",
+          "p": "In November 1976 Diffie and Hellman published New Directions in Cryptography: a pair of keys, one public and one private. Anyone can check a signature with the public key, but only the private key can make it. In 1977 Ron Rivest, Adi Shamir and Leonard Adleman described RSA."
+        },
+        {
+          "t": "Merkle trees, 1979",
+          "k": "Ralph Merkle",
+          "p": "In 1979 Ralph Merkle described a tree of hashes: pair up fingerprints, hash each pair and repeat until one root remains. The root seals everything below it, and any single item can be proved with only a few hashes. Every Bitcoin block carries a Merkle root."
+        },
+        {
+          "t": "Timestamping, 1991",
+          "k": "Stuart Haber and W. Scott Stornetta",
+          "p": "Their 1991 paper How to Time-Stamp a Digital Document chained records together: each new entry includes the hash of the one before, so nothing can be backdated without breaking the chain. Their work appears three times in the Bitcoin whitepaper's references."
+        },
+        {
+          "t": "Hashes and curves",
+          "k": "SHA-256 and elliptic curves",
+          "p": "A hash turns any input into a short fingerprint of fixed size; SHA-256 was first published in 2001. In 1985 Neal Koblitz and Victor Miller proposed elliptic curve cryptography. Bitcoin signs with an elliptic curve, and Solana signs with Ed25519."
+        }
+      ],
+      "objects": {
+        "tree": "A Merkle tree",
+        "lock": "Public key, private key",
+        "stamps": "A chain of timestamps"
+      },
+      "info": {
+        "t": "Gallery 2 · Cryptography",
+        "k": "1976 to 2001",
+        "p": "Public-key signatures (1976), Merkle trees (1979) and chained timestamps (1991) are the three tools every blockchain is built from: proving who signed, proving what was included and proving what came first. SHA-256, first published in 2001, is the hash function Bitcoin uses."
+      }
+    },
+    {
+      "id": "g3",
+      "n": 3,
+      "year": "1997",
+      "name": "PROOF OF WORK",
+      "title": "Digital cash and proof of work",
+      "accent": "#d18b4f",
+      "panels": [
+        {
+          "t": "Blind signatures and ecash",
+          "k": "David Chaum, 1982 to 1998",
+          "p": "In 1982 David Chaum proposed blind signatures, a way for a bank to sign digital coins without seeing them. His ecash was tried in the 1990s, but it still needed a central issuer, and it did not last."
+        },
+        {
+          "t": "Proof of work",
+          "k": "1992 and 1997",
+          "p": "In 1992 Cynthia Dwork and Moni Naor proposed making a computer solve a small puzzle before sending email, so junk mail would cost effort. In 1997 Adam Back released Hashcash: find a number that makes a hash begin with zeros. Hard to find, instant to check."
+        },
+        {
+          "t": "b-money, 1998",
+          "k": "Wei Dai",
+          "p": "In 1998 Wei Dai described b-money, an electronic cash system in which the participants keep the ledger together and new money is created by solving computational problems. It is the first reference in the Bitcoin whitepaper."
+        },
+        {
+          "t": "bit gold, 2005",
+          "k": "Nick Szabo",
+          "p": "Nick Szabo designed bit gold in 1998 and described it publicly in 2005: proof-of-work strings chained together and recorded in a distributed registry. In 2004 Hal Finney built reusable proofs of work. Neither was a working currency, but the shape of what came next was set."
+        }
+      ],
+      "objects": {
+        "terminal": "A 1990s workstation",
+        "stamp": "A Hashcash stamp",
+        "list": "The mailing lists"
+      },
+      "info": {
+        "t": "Gallery 3 · Digital cash and proof of work",
+        "k": "1982 to 2005",
+        "p": "Ecash showed digital money could work but needed a central issuer. Hashcash (1997) made work provable. b-money (1998) and bit gold (2005) imagined a ledger kept by its users. The pieces were nearly all here; what was missing was a way for strangers to agree on one history."
+      }
+    },
+    {
+      "id": "g4",
+      "n": 4,
+      "year": "2009",
+      "name": "THE GENESIS BLOCK",
+      "title": "Block Zero",
+      "accent": "#f2a33a",
+      "panels": [
+        {
+          "t": "31 October 2008",
+          "k": "The whitepaper",
+          "p": "A nine-page paper, Bitcoin: A Peer-to-Peer Electronic Cash System, signed Satoshi Nakamoto, was sent to a cryptography mailing list. It joined proof of work, a chain of timestamped blocks and a peer-to-peer network to stop double spending without a trusted third party."
+        },
+        {
+          "t": "3 January 2009",
+          "k": "18:15:05 UTC, block 0",
+          "p": "The first block was created with a newspaper headline of that day in its coinbase: The Times 03/Jan/2009 Chancellor on brink of second bailout for banks. Its previous-block field is all zeros. The software followed on 9 January 2009."
+        },
+        {
+          "t": "Inside a block header",
+          "k": "Six fields, 80 bytes",
+          "p": "Version. The hash of the previous block. The Merkle root of its transactions. The time. The difficulty target. The nonce, the number miners change until the block's hash falls below the target. Hash the header twice with SHA-256 and you get the block's own hash."
+        },
+        {
+          "t": "A chain anyone can check",
+          "k": "About every ten minutes",
+          "p": "Each block carries the hash of the one before. Change an old entry and its hash changes, which breaks every link after it. On 12 January 2009, in block 170, Satoshi Nakamoto sent bitcoin to Hal Finney: the first transaction between two people."
+        }
+      ],
+      "objects": {
+        "cube": "Block 0",
+        "kiosk": "Hash a block"
+      },
+      "show": [
+        [
+          "31 OCTOBER 2008",
+          "Bitcoin: A Peer-to-Peer Electronic Cash System"
+        ],
+        [
+          "3 JANUARY 2009 · 18:15:05 UTC",
+          "Block 0 is created"
+        ],
+        [
+          "PREVIOUS BLOCK",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        [
+          "COINBASE",
+          "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+        ],
+        [
+          "NONCE",
+          "2083236893"
+        ],
+        [
+          "BLOCK HASH",
+          "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+        ],
+        [
+          "EVERY BLOCK SINCE",
+          "points back to this one"
+        ]
+      ],
+      "info": {
+        "t": "Gallery 4 · Block Zero",
+        "k": "31 Oct 2008 and 3 Jan 2009",
+        "p": "The whitepaper of 31 October 2008 and the genesis block of 3 January 2009. Sit on a bench to watch the room tell the story, and use the kiosk to hash a block yourself: the museum computes SHA-256 live, mines a nonce and re-hashes the real 80-byte header of block 0."
+      }
+    },
+    {
+      "id": "g5",
+      "n": 5,
+      "year": "2015",
+      "name": "SMART CONTRACTS",
+      "title": "Ethereum and smart contracts",
+      "accent": "#8f8ff0",
+      "panels": [
+        {
+          "t": "Smart contracts, 1994",
+          "k": "Nick Szabo",
+          "p": "Nick Szabo coined the term smart contract in 1994: terms written as code that carries itself out. His example was the vending machine. Put in the right coins and it delivers, with no clerk in between."
+        },
+        {
+          "t": "Ethereum, 2015",
+          "k": "Vitalik Buterin",
+          "p": "In late 2013 Vitalik Buterin described Ethereum, a blockchain with a built-in programming language. The network went live on 30 July 2015. Its programs run on every node, so anyone can check exactly what they do."
+        },
+        {
+          "t": "A shared computer",
+          "k": "The Ethereum Virtual Machine",
+          "p": "Thousands of computers run the same code and agree on the result. Developers write contracts in languages such as Solidity, and tokens, registries, games and votes can all be built this way."
+        },
+        {
+          "t": "Proof of stake, 2022",
+          "k": "The Merge",
+          "p": "On 15 September 2022 Ethereum switched from proof of work to proof of stake. Validators lock up stake instead of burning electricity, and the network now uses a tiny fraction of the energy it did before."
+        }
+      ],
+      "objects": {
+        "vend": "The vending machine idea",
+        "code": "A contract in plain words"
+      },
+      "info": {
+        "t": "Gallery 5 · Ethereum and smart contracts",
+        "k": "1994 to 2022",
+        "p": "A smart contract is a program on a shared ledger: everyone runs it, everyone agrees on the result, and no one can quietly change it. Ethereum (30 July 2015) made that general purpose. On 15 September 2022 it moved to proof of stake."
+      }
+    },
+    {
+      "id": "g6",
+      "n": 6,
+      "year": "2020",
+      "name": "PROOF OF HISTORY",
+      "title": "Solana and proof of history",
+      "accent": "#4dde6f",
+      "panels": [
+        {
+          "t": "A clock for the chain",
+          "k": "Anatoly Yakovenko, 2017",
+          "p": "The Solana whitepaper of November 2017 described proof of history: one running chain of SHA-256 hashes, each taking the previous hash as its input. It can only be computed one step at a time, so the sequence itself proves that time has passed."
+        },
+        {
+          "t": "Mainnet beta, March 2020",
+          "k": "Proof of stake, ordered by a clock",
+          "p": "Solana's mainnet beta began in March 2020. Validators stake to take part, and proof of history lets them agree on the order of events without first waiting to hear from one another."
+        },
+        {
+          "t": "Slots of about 400 ms",
+          "k": "Fast and parallel",
+          "p": "Blocks are produced in slots of about 400 milliseconds, and transactions that touch different accounts can run at the same time. That is why everyday actions, a single gift among them, can go on chain as they happen."
+        },
+        {
+          "t": "Accounts and signatures",
+          "k": "How Solana keeps records",
+          "p": "Programs are kept apart from the accounts that hold data, and tokens are accounts managed by standard token programs. Every transaction is signed with Ed25519 keys and gets a unique signature that anyone can look up."
+        }
+      ],
+      "objects": {
+        "ring": "The proof of history clock"
+      },
+      "info": {
+        "t": "Gallery 6 · Solana and proof of history",
+        "k": "2017 to 2020",
+        "p": "The ring in front of you ticks the way proof of history does: every segment is a SHA-256 hash of the one before, computed here in the museum, so the order can never be shuffled. Solana's mainnet beta began in March 2020, with slots of about 400 milliseconds."
+      }
+    },
+    {
+      "id": "g7",
+      "n": 7,
+      "year": "TODAY",
+      "name": "REAL-WORLD ASSETS",
+      "title": "Tokenization and real-world assets",
+      "accent": "#e3c26b",
+      "panels": [
+        {
+          "t": "What a token is",
+          "k": "An entry that says who holds what",
+          "p": "A token is a record on a ledger. It can stand for a ticket, a membership, a certificate or a title to land. The rules for moving it are written into the program that manages it, so everyone sees the same history."
+        },
+        {
+          "t": "Real-world assets",
+          "k": "Physical things, digital records",
+          "p": "Tokenizing a real-world asset means recording rights to something physical, such as land, a building, a work of art or a carbon credit, on a blockchain, with the legal paperwork kept alongside. The law decides what a token means; the ledger keeps the record."
+        },
+        {
+          "t": "Why a shared record helps",
+          "k": "One history, open to check",
+          "p": "When the record is shared, the current holder and every past transfer can be checked by anyone permitted, without chasing paper across offices. Mistakes and disputes are easier to trace."
+        },
+        {
+          "t": "Genesis One",
+          "k": "Records of a community, on chain",
+          "p": "Genesis One explores what it looks like when a community keeps its records on chain: memberships, access and the story of the land itself, from the first survey of the dirt to the last building."
+        }
+      ],
+      "objects": {
+        "model": "Parcels as records",
+        "deed": "A deed and its token"
+      },
+      "info": {
+        "t": "Gallery 7 · Tokenization and real-world assets",
+        "k": "Today",
+        "p": "A token is a record of who holds what, and a real-world asset token records rights to something physical. The model shows land parcels as entries in a ledger: each glowing tile is a record with a history anyone permitted can read."
+      }
+    },
+    {
+      "id": "g8",
+      "n": 8,
+      "year": "GIVEBACK",
+      "name": "GIVING ON CHAIN",
+      "title": "How Giveback Ventures uses the chain",
+      "accent": "#4dde6f",
+      "panels": [
+        {
+          "t": "A micro-economy of giving",
+          "k": "Giveback Ventures",
+          "p": "Giveback Ventures INC builds the software behind a micro-economy of giving, where business activity, purchases and community participation automatically become giving, in any form, verified on chain."
+        },
+        {
+          "t": "A verifiable giving ledger",
+          "k": "Every gift is a transaction",
+          "p": "Every gift through the Giveback protocol is a transaction on Solana: recorded, timestamped and signed. Anyone can look one up by its signature and see when it happened and where it went."
+        },
+        {
+          "t": "Transparent routes",
+          "k": "From giver to recipient",
+          "p": "A gift can travel from a single giver or a company treasury, through a multisig treasury and the protocol's smart contracts, to a nonprofit, a school, a church or a community program. Each hop is on the ledger. Vetting, selection and compliance are done in-house by Giveback Ventures' compliance team."
+        },
+        {
+          "t": "$GBACK",
+          "k": "A utility for access and experience",
+          "p": "$GBACK is an independent utility token on Solana, and Giveback Ventures is its largest holder, not its issuer. Across Genesis One it is a key to access and experiences. It is not an investment."
+        }
+      ],
+      "objects": {
+        "wall": "The ledger wall",
+        "map": "Follow a donation"
+      },
+      "info": {
+        "t": "Gallery 8 · Giving on chain",
+        "k": "How Giveback Ventures uses it",
+        "p": "The ledger wall shows blocks linking as they arrive (an illustration, with any block you mined in Gallery 4 added to it). At the map table, press E to follow a donation hop by hop from the giver to the people it helps, the way anyone can follow a real one by its signature."
+      }
+    }
+  ],
+  "fascia": {
+    "museum": "THE GENESIS BLOCK MUSEUM",
+    "plaza": "GENESIS PLAZA",
+    "walk": "THE TIMELINE WALK"
+  },
+  "plaza": {
+    "stone": {
+      "t": "The Genesis Stone",
+      "k": "Genesis Plaza",
+      "p": "Block 0 of the Bitcoin blockchain was created on 3 January 2009. Its hash, carved round this stone, begins with ten zeros: proof that its maker searched for a nonce until the hash fell below the target. Every block since points back, link by link, to this one."
+    },
+    "inscription": "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+    "totem": {
+      "t": "The Genesis Block Museum",
+      "k": "Open daily",
+      "p": "A museum of the ledger, from clay to chain. Eight galleries, a docent, a hash kiosk, a proof of history clock and a map where you can follow a donation across the ledger."
+    },
+    "walk": {
+      "t": "The Timeline Walk",
+      "k": "Bronze years in the paving",
+      "p": "Twelve bronze years are set in the paving: 3200 BCE, 1494, 1976, 1979, 1991, 1997, 1998, 2005, 2008, 2009, 2015 and 2020. Walk from Genesis Plaza toward the exit and they run with the galleries beside you."
+    }
+  },
+  "walkYears": [
+    "3200 BCE",
+    "1494",
+    "1976",
+    "1979",
+    "1991",
+    "1997",
+    "1998",
+    "2005",
+    "2008",
+    "2009",
+    "2015",
+    "2020"
+  ],
+  "docent": {
+    "id": "cm_docent",
+    "name": "Lena Ortiz",
+    "role": "Head docent, The Genesis Block Museum",
+    "greet": [
+      "Welcome to the Genesis Block Museum.",
+      "Every room is a block. Start with the clay."
+    ],
+    "talk": [
+      {
+        "t": "Welcome to the Genesis Block Museum. I'm Lena, the head docent. Every room here is a block, and every block points back to the one before it. Where would you like to start?",
+        "o": [
+          [
+            "How did ledgers begin?",
+            1
+          ],
+          [
+            "What is a hash?",
+            2
+          ],
+          [
+            "What happened on 3 January 2009?",
+            3
+          ],
+          [
+            "What does proof of history do?",
+            4
+          ],
+          [
+            "How does Giveback use the chain?",
+            5
+          ],
+          [
+            "Thanks, I'll look around",
+            null
+          ]
+        ]
+      },
+      {
+        "t": "With clay. More than five thousand years ago scribes in Mesopotamia pressed records of grain and livestock into tablets. In 1494 Luca Pacioli printed the rules of double entry in Venice. For all that time a ledger had one keeper. Gallery 1 starts there.",
+        "o": [
+          [
+            "And then?",
+            6
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "A hash is a fingerprint for data. SHA-256 turns any input into 64 hexadecimal characters. Change a single letter and the whole fingerprint changes, and there is no practical way to run it backwards. Try it at the kiosk in Gallery 4.",
+        "o": [
+          [
+            "Why does that matter?",
+            7
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Block 0 of Bitcoin, the genesis block, was created at 18:15:05 UTC. Its coinbase quotes that day's front page: The Times 03/Jan/2009 Chancellor on brink of second bailout for banks. Its previous-block field is all zeros, because nothing came before it.",
+        "o": [
+          [
+            "Who made it?",
+            8
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Proof of history is Solana's clock. One chain of SHA-256 hashes runs nonstop, each hash taking the last as its input, so the sequence itself proves time passed. Validators can agree on the order of events without first waiting to hear from each other.",
+        "o": [
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Every gift through the Giveback protocol is a transaction on Solana: recorded, timestamped and signed, so anyone can follow it from the giver to the people it helps. Gallery 8 lets you follow one. And $GBACK is a utility token for access and experiences across Genesis One, not an investment.",
+        "o": [
+          [
+            "Who chooses the recipients?",
+            9
+          ],
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Then came public keys in 1976, Merkle trees in 1979 and chained timestamps in 1991. Put a timestamp chain together with proof of work and a network of peers, and you have the idea in the 2008 whitepaper.",
+        "o": [
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Because each block stores the hash of the block before it. Change any old entry and its hash changes, which breaks every link after it. That is what makes the record tamper evident.",
+        "o": [
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "The whitepaper and the software were published under the name Satoshi Nakamoto. Who that is has never been confirmed. Satoshi's last public messages came in 2010 and 2011.",
+        "o": [
+          [
+            "Back",
+            0
+          ]
+        ]
+      },
+      {
+        "t": "Nonprofit vetting, selection and compliance are done in-house by Giveback Ventures' own compliance team. And giving is not only for nonprofits: schools, churches, food programs and local causes are part of the same ledger.",
+        "o": [
+          [
+            "Back",
+            0
+          ]
+        ]
+      }
+    ]
+  },
+  "roam": {
+    "people": [
+      {
+        "name": "Theo",
+        "body": "m",
+        "shirt": "2f5d8a",
+        "pants": "2a2d33"
+      },
+      {
+        "name": "Priya",
+        "body": "f",
+        "shirt": "c0462d",
+        "pants": "1c1f24"
+      },
+      {
+        "name": "Marcus",
+        "body": "m",
+        "shirt": "3c6e47",
+        "pants": "4a3a2a"
+      },
+      {
+        "name": "Hana",
+        "body": "f",
+        "shirt": "e0c060",
+        "pants": "2a2d33",
+        "hat": "hat_cap"
+      },
+      {
+        "name": "Jonah",
+        "body": "m",
+        "shirt": "f2efe8",
+        "pants": "3b4a5a"
+      },
+      {
+        "name": "Sofia",
+        "body": "f",
+        "shirt": "7a4a8a",
+        "pants": "2a2d33"
+      },
+      {
+        "name": "Leo",
+        "body": "m",
+        "shirt": "b8643a",
+        "pants": "1c1f24"
+      },
+      {
+        "name": "Mina",
+        "body": "f",
+        "shirt": "4dde6f",
+        "pants": "23262b"
+      }
+    ],
+    "lines": {
+      "lobby": [
+        "So every room is a block?",
+        "Start with the clay tablets.",
+        "Lena knows everything about 2009.",
+        "Eight galleries, in order."
+      ],
+      "look": [
+        "Five thousand years of bookkeeping.",
+        "Debits on one side, credits on the other.",
+        "A Merkle root seals the whole tree.",
+        "Hashcash was built to stop spam.",
+        "One letter changes the whole hash.",
+        "Block 0 has no parent.",
+        "Ten zeros at the front of that hash.",
+        "A program that runs on every node.",
+        "Each hash proves the last one came first.",
+        "So a title can live on a ledger.",
+        "You can follow a gift all the way."
+      ],
+      "sit": [
+        "Give me a minute with this room.",
+        "I could watch the ledger wall all day.",
+        "The room is telling the story again."
+      ],
+      "chat": [
+        "Did you try the hash kiosk?",
+        "I mined a block with my dog's name.",
+        "The genesis room gave me chills.",
+        "Ask Lena about Satoshi.",
+        "Proof of history is a clock, basically."
+      ],
+      "plaza": [
+        "That stone has the genesis hash on it.",
+        "Let's do the Timeline Walk after.",
+        "The blocks glow at night."
+      ]
+    }
+  },
+  "hash": {
+    "title": "Hash a block",
+    "sub": "SHA-256, computed live on this kiosk",
+    "type": "Type anything",
+    "placeholder": "your word",
+    "bits": "bits changed since your last word",
+    "mine": "Mine it",
+    "mining": "Mining",
+    "mined": "Mined",
+    "target": "Target: the hash must start with 000",
+    "chain": "Change block 1 and watch the links break",
+    "genesis": "Re-hash the real genesis block",
+    "genesisNote": "The 80-byte header of block 0 (version, previous hash, Merkle root, time, target, nonce), hashed twice with SHA-256 on this kiosk:",
+    "zeros": "ten leading zeros",
+    "close": "Close",
+    "added": "Your block was added to the ledger wall in Gallery 8."
+  },
+  "donation": {
+    "title": "Follow a donation",
+    "start": "Send a demo gift",
+    "steps": [
+      {
+        "n": "The giver",
+        "p": "A gift starts in a wallet or a company treasury. It is signed with a private key, so only its owner can send it."
+      },
+      {
+        "n": "A signed transaction",
+        "p": "The gift becomes a transaction on Solana, confirmed in seconds, timestamped and given a unique signature."
+      },
+      {
+        "n": "The treasury",
+        "p": "Gifts from organisations can pass through a multisig treasury, where several keys must approve each release."
+      },
+      {
+        "n": "The protocol",
+        "p": "The Giveback protocol's smart contracts route the gift by rules written in code, so every gift on a route follows the same rules."
+      },
+      {
+        "n": "The recipient",
+        "p": "The gift arrives at a verified recipient: a nonprofit, a school, a church or a community program, vetted in-house by Giveback Ventures' compliance team."
+      },
+      {
+        "n": "Anyone can verify",
+        "p": "Look up the signature and every hop is there: when it happened, where it went and that it arrived. That is the whole point of a shared ledger."
+      }
+    ],
+    "nodes": [
+      "GIVER",
+      "SIGNED",
+      "TREASURY",
+      "PROTOCOL",
+      "RECIPIENT"
+    ],
+    "done": "The gift arrived. Every hop is on the ledger."
+  },
+  "prompts": {
+    "hash": "hash a block",
+    "map": "follow a donation",
+    "read": "read this panel",
+    "show": "watch the genesis show"
+  },
+  "status": {
+    "showOn": "the room tells the story of block 0 · any move key to stand",
+    "mapDone": "donation followed end to end"
+  },
+  "progress": {
+    "museum": "p_cm_museum",
+    "hash": "p_cm_hash",
+    "mine": "p_cm_mine",
+    "blockzero": "p_cm_blockzero",
+    "donation": "p_cm_donation",
+    "docent": "p_cm_docent",
+    "chain": "p_cm_chain"
+  },
+  "chapter": {
+    "id": "chainmuseum",
+    "name": "The Genesis Block Museum",
+    "sub": "From clay to chain in Expanse Works",
+    "ink": "#4dde6f"
+  }
+}

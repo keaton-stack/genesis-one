@@ -2231,6 +2231,71 @@
           "r": 0.3
         }
       ]
+    },
+    {
+      "id": "chainmuseum",
+      "n": 25,
+      "name": "The Genesis Block Museum",
+      "sub": "From clay to chain, in Expanse Works and Maker Row",
+      "ink": "#4dde6f",
+      "stamps": [
+        {
+          "n": 360,
+          "id": "p_cm_museum",
+          "name": "The Genesis Block Museum",
+          "x": 276.6,
+          "z": 289.2,
+          "r": 0.3
+        },
+        {
+          "n": 361,
+          "id": "p_cm_hash",
+          "name": "Hash a block",
+          "x": 243.1,
+          "z": 332.6,
+          "r": 0.3
+        },
+        {
+          "n": 362,
+          "id": "p_cm_mine",
+          "name": "Mine a block",
+          "x": 243.1,
+          "z": 332.6,
+          "r": 0.3
+        },
+        {
+          "n": 363,
+          "id": "p_cm_blockzero",
+          "name": "Block Zero",
+          "x": 243.3,
+          "z": 328.0,
+          "r": 0.3
+        },
+        {
+          "n": 364,
+          "id": "p_cm_donation",
+          "name": "Follow a donation",
+          "x": 212.0,
+          "z": 365.8,
+          "r": 0.3
+        },
+        {
+          "n": 365,
+          "id": "p_cm_docent",
+          "name": "Lena Ortiz, head docent",
+          "x": 277.8,
+          "z": 285.9,
+          "r": 0.3
+        },
+        {
+          "n": 366,
+          "id": "p_cm_chain",
+          "name": "Walk the whole chain",
+          "x": 205.7,
+          "z": 371.3,
+          "r": 0.3
+        }
+      ]
     }
   ],
   "titles": [
