@@ -176,19 +176,19 @@
   }
   // the post pass's tone map and grade (client.js mFinal's AgX curve with plan_gfx's time-of-day grade: gfxGrade outside the sky), as
   // three's custom tone mapping. The grade comes in through shared uniforms added to each material's uniforms at its first XR draw.
-  var U10 = { r10Sat: { value: 1.18 }, r10SatLo: { value: 1.18 }, r10Con: { value: 1.1 }, r10Lift: { value: 0 }, r10Sh: { value: new THREE.Vector3(0.9, 0.96, 1.12) }, r10Hi: { value: new THREE.Vector3(1.08, 1.0, 0.9) }, r10WB: { value: new THREE.Vector3(1, 1, 1) } };
+  var U10 = { r10Sat: { value: 1.18 }, r10SatLo: { value: 1.18 }, r10Con: { value: 1.1 }, r10Lift: { value: 0 }, r10Sh: { value: new THREE.Vector3(0.9, 0.96, 1.12) }, r10Hi: { value: new THREE.Vector3(1.08, 1.0, 0.9) }, r10WB: { value: new THREE.Vector3(1, 1, 1) }, r10Piv: { value: 0.5 } };
   var U10K = Object.keys(U10), UOBJ = new Set();
-  function gradeNow() { var g = null; try { g = window.PLAN_GFX && PLAN_GFX.grade; } catch (e) {} if (!g || !g[2]) return; U10.r10Sat.value = g[0]; U10.r10SatLo.value = g[6] === undefined ? g[0] : g[6]; U10.r10Con.value = g[1]; U10.r10Sh.value.fromArray(g[2]); U10.r10Hi.value.fromArray(g[3]); U10.r10WB.value.fromArray(g[4]); U10.r10Lift.value = g[5] || 0; }
+  function gradeNow() { var g = null; try { g = window.PLAN_GFX && PLAN_GFX.grade; } catch (e) {} if (!g || !g[2]) return; U10.r10Sat.value = g[0]; U10.r10SatLo.value = g[6] === undefined ? g[0] : g[6]; U10.r10Con.value = g[1]; U10.r10Sh.value.fromArray(g[2]); U10.r10Hi.value.fromArray(g[3]); U10.r10WB.value.fromArray(g[4]); U10.r10Lift.value = g[5] || 0; U10.r10Piv.value = g[7] === undefined ? 0.5 : g[7]; }
   function inject(mp) { var u = mp.uniforms; if (!u || u.r10Sat === U10.r10Sat) return; for (var i = 0; i < U10K.length; i++) u[U10K[i]] = U10[U10K[i]]; UOBJ.add(u); mp.uniformsList = null; }
   function uninject() { UOBJ.forEach(function (u) { for (var i = 0; i < U10K.length; i++) if (u[U10K[i]] === U10[U10K[i]]) delete u[U10K[i]]; }); UOBJ.clear(); }
   var TONEMAP = [
-    "uniform float r10Sat; uniform float r10SatLo; uniform float r10Con; uniform float r10Lift; uniform vec3 r10Sh; uniform vec3 r10Hi; uniform vec3 r10WB;",
+    "uniform float r10Sat; uniform float r10SatLo; uniform float r10Con; uniform float r10Lift; uniform vec3 r10Sh; uniform vec3 r10Hi; uniform vec3 r10WB; uniform float r10Piv;",
     "vec3 CustomToneMapping( vec3 color ) {",
     "  const mat3 inset = mat3(0.842479062253094, 0.0423282422610123, 0.0423756549057051, 0.0784335999999992, 0.878468636469772, 0.0784336, 0.0792237451477643, 0.0791661274605434, 0.879142973793104);",
     "  const mat3 outset = mat3(1.19687900512017, -0.0528968517574562, -0.0529716355144438, -0.0980208811401368, 1.15190312990417, -0.0980434501171241, -0.0990297440797205, -0.0989611768448433, 1.15107367264116);",
     "  vec3 v = inset * max(min(color, vec3(6.0e4)) * toneMappingExposure * 1.05, 0.0); v = clamp(log2(max(v, 1e-10)), -12.47393, 4.026069); v = (v + 12.47393) / (4.026069 + 12.47393);",
     "  vec3 x2 = v * v, x4 = x2 * x2; v = 15.5 * x4 * x2 - 40.14 * x4 * v + 31.96 * x4 - 6.868 * x2 * v + 0.4298 * x2 + 0.1191 * v - 0.00232; v = outset * v; vec3 c = pow(max(v, 0.0), vec3(2.2));",
-    "  c *= r10WB; float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, mix(r10SatLo, r10Sat, smoothstep(0.06, 0.4, l))); c = (c - 0.5) * r10Con + 0.5; l = clamp(dot(c, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);",
+    "  c *= r10WB; float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, mix(r10SatLo, r10Sat, smoothstep(0.06, 0.4, l))); c = (c - r10Piv) * r10Con + r10Piv; l = clamp(dot(c, vec3(0.299, 0.587, 0.114)), 0.0, 1.0);",
     "  c = mix(c * r10Sh, c * r10Hi, smoothstep(0.12, 0.82, l)); c += r10Lift * (1.0 - c); return max(c, 0.0);",
     "}"].join("\n");
 

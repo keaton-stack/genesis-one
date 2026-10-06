@@ -21,7 +21,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   for (var li = 0; li < TSET.length; li++) if (LZ.indexOf(TSET[li]) < 0) LZ.push(TSET[li]);
 
   var PT = window.PLAN_TERMINAL = window.PLAN_TERMINAL || {};
-  PT.v = "r2t-1"; PT.errs = PT.errs || []; PT.n = PT.n || {}; PT.tx = PT.tx || {};
+  PT.v = "r15f-1"; PT.errs = PT.errs || []; PT.n = PT.n || {}; PT.tx = PT.tx || {};
   var TAU = Math.PI * 2, F = 0.05, HALF = 27, DROP = 0.1;
   function note(where, e) { if (PT.errs.length < 30) PT.errs.push(where + ": " + (e && e.message ? e.message : e)); PT.nWarn = (PT.nWarn || 0) + 1; if (PT.nWarn <= 40) try { console.warn("plan_terminal " + where, e); } catch (x) {} }   // R5: at most 40 console lines a session
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -636,7 +636,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function buildSun(g, M) { var list = []; var sp = panel("spill", 64, 256, function (x, W, H) { var gg = x.createLinearGradient(0, 0, 0, H); gg.addColorStop(0, "rgba(255,255,255,0)"); gg.addColorStop(0.65, "rgba(255,255,255,0.35)"); gg.addColorStop(1, "rgba(255,255,255,0.9)"); x.fillStyle = gg; x.fillRect(0, 0, W, H); }, true); M.spill = new THREE.MeshBasicMaterial({ map: sp, color: 0xe6eefc, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -9 }); var sm = new THREE.Mesh(new THREE.PlaneGeometry(2 * HALF, 10), M.spill); sm.rotation.x = -Math.PI / 2; sm.position.set(0, F + 0.011, HALF - 5); sm.userData.noSolid = true; sm.renderOrder = 3; g.add(sm); [-13, 0, 13].forEach(function (sz) { var p = new THREE.Mesh(new THREE.PlaneGeometry(52, 3), M.sunPatch); p.rotation.x = -Math.PI / 2; p.position.set(0, F + 0.012, sz); p.userData.noSolid = true; p.renderOrder = 3; g.add(p); var sh = new THREE.Mesh(new THREE.PlaneGeometry(52, 1), M.shaft); sh.userData.noSolid = true; sh.renderOrder = 4; g.add(sh); list.push({ p: p, sh: sh, z: sz }); }); return list; }
   function keyDir() { var v = new THREE.Vector3(); try { if (typeof CSMX !== "undefined" && CSMX.on && CSMX.csm) { v.copy(CSMX.csm.lightDirection).multiplyScalar(-1); } else { v.copy(sun.position).sub(sun.target.position); } } catch (e) { v.set(0.3, 1, 0.2); } return v.normalize(); }
   var _bX = null, _bY = null, _bZ = null, _bM = null;
-  function updateSun(R, e, M) { if (!R.sun) return; var d = keyDir(), nk = nightK(); var c = Math.cos(e[3]), s = Math.sin(e[3]); var lx = d.x * c - d.z * s, lz = d.x * s + d.z * c; var up = d.y; var k = (1 - nk) * clamp((up - 0.12) * 3, 0, 1); M.sunPatch.opacity = 0.34 * k; M.shaft.opacity = 0.028 * k; if (M.spill) M.spill.opacity = 0.16 * (1 - nk); var hgt = 9.9 - F, ox = up > 0.12 ? -lx / up * hgt : 0, oz = up > 0.12 ? -lz / up * hgt : 0; ox = clamp(ox, -30, 30); oz = clamp(oz, -12, 12);
+  function updateSun(R, e, M) { if (!R.sun) return; var d = keyDir(), nk = nightK(); var c = Math.cos(e[3]), s = Math.sin(e[3]); var lx = d.x * c - d.z * s, lz = d.x * s + d.z * c; var up = d.y; var k = (1 - nk) * clamp((up - 0.12) * 3, 0, 1); M.sunPatch.opacity = 0.34 * k; M.shaft.opacity = (R15.sh && R15.sh.length ? 0 : 0.028) * k; if (M.spill) M.spill.opacity = 0.16 * (1 - nk); var hgt = 9.9 - F, ox = up > 0.12 ? -lx / up * hgt : 0, oz = up > 0.12 ? -lz / up * hgt : 0; ox = clamp(ox, -30, 30); oz = clamp(oz, -12, 12);
     if (!_bX) { _bX = new THREE.Vector3(); _bY = new THREE.Vector3(); _bZ = new THREE.Vector3(); _bM = new THREE.Matrix4(); }
     var L = Math.hypot(ox, hgt, oz); _bY.set(-ox, hgt, -oz).normalize(); _bX.set(1, 0, 0); _bZ.crossVectors(_bX, _bY).normalize(); _bX.crossVectors(_bY, _bZ).normalize(); _bM.makeBasis(_bX, _bY, _bZ);
     R.sun.forEach(function (S) { var zc = S.z + oz; var vis = k > 0.01 && Math.abs(zc) < HALF - 1.4; S.p.visible = vis; S.sh.visible = vis && M.shaft.opacity > 0.004; if (!vis) return; S.p.position.set(ox, F + 0.012, zc); S.sh.position.set(ox / 2, (9.9 + F) / 2, S.z + oz / 2); S.sh.quaternion.setFromRotationMatrix(_bM); S.sh.scale.set(1, L, 1); }); }
@@ -649,7 +649,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var K = new Kit(g, e), t0 = performance.now();
     var steps = [["room", buildRoom], ["checkin", buildCheckin], ["baggage", buildBaggage], ["info", buildInfo], ["cafe", buildCafe], ["lounge", buildLounge], ["gate", buildGate], ["apron", buildApron], ["plants", buildPlants], ["heritage", buildHeritage], ["history", buildHistoryWall], ["plantable", buildPlanTable], ["partners", buildPartners], ["signs", buildSigns]];
     steps.forEach(function (st) { try { st[1](K, M, g, st[0] === "heritage" ? e : half, hgt); } catch (err) { note("build " + st[0], err); } });
+    try { r15Kit(K, M); } catch (err) { note("r15 kit", err); }
     K.done();
+    try { r15Room(g, K.sol, M); } catch (err) { note("r15 room", err); }
     var R = { lights: buildLights(g), sun: buildSun(g, M), built: performance.now() - t0 };
     g.userData.pt = R; g.userData.ptOK = true; PT.n.build = Math.round(R.built); PT.last = { g: g }; g.userData.ptMissing = tsetMissing().length; R.at = performance.now();
   }
@@ -838,6 +840,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (inT) { for (var rk in RIGS) if (STAFF[rk] && !STAFF[rk].rigState) staffRig(rk); if (!PT.joe) joeRig(); }
     if (PT.joe && PT.joe.state === 2) { var J = PT.joe; if (J.g.visible !== inT) J.g.visible = inT; if (inT) { J.mixer.update(dt); for (var mj = 0; mj < J.ms.length; mj++) if (!J.ms[mj].visible) J.ms[mj].visible = true; } for (var hj = 0; hj < J.hid.length; hj++) if (J.hid[hj].visible) J.hid[hj].visible = false; }
     contactCard();
+    try { r15Shafts(inT); R15.fc = (R15.fc || 0) + 1; if (R15.fc % 120 === 7 && !R15.xFail && r15("x")) { var TG = null; try { TG = TSHELL.g; } catch (e2) {} if (TG && R15.xG !== TG) r15Ext(); } } catch (err) { if (!R15.frameErr) { R15.frameErr = 1; note("r15 frame", err); } }
     if (!inT) { if (PT.wasIn) { PT.wasIn = false; try { if (!window.WALK_DROP_FIXED && player && player.userData.walk && !player.userData.sitOff) player.userData.walk.position.y = 0; } catch (err) {} disposeRoom(); } return; }
     PT.wasIn = true; var R = inside.g.userData.pt; if (!R) return; var M = PT.M;
     if (!R.tidy) { R.tidy = true; try { tidyClient(inside.g, inside.half, M); } catch (err) { note("tidy", err); } }
@@ -852,7 +855,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (PT.fc % 30 === 0 && PT.screens) PT.screens.forEach(function (s, i) { var ix = Math.floor((now / 1000 + i * 2.3) / 8) % s.slides.length; if (ix !== s.i) { s.i = ix; s.m.map = s.slides[ix]; s.m.needsUpdate = true; } });
     if (PT.fc % 6 === 0) { try { updateSun(R, e, M); } catch (err) { note("sun", err); } lightsByHour(R, M); }
   }
-  function lightsByHour(R, M) { var nk = nightK(), day = 1 - nk; R.lights.pts.forEach(function (l) { l.intensity = 0.55 + 0.45 * nk; }); R.lights.spots.forEach(function (s) { s.intensity = 0.9 + 0.6 * nk; }); if (R.lights.hemi) R.lights.hemi.intensity = 0.28 + 0.22 * day; M.sky.color.setRGB(0.02 + 0.9 * day, 0.03 + 0.9 * day, 0.06 + 0.9 * day); M.walnut.emissive.setHex(0x2e2419); M.walnut.emissiveIntensity = 0.1 * nk; M.walnutD.emissive.setHex(0x2e2419); M.walnutD.emissiveIntensity = 0.08 * nk; M.pool.opacity = 0.07 + 0.12 * nk; M.scallop.opacity = 0.1 + 0.16 * nk; M.onyx.emissiveIntensity = 0.7 + 0.5 * nk; M.fire.opacity = 0.9; if (Math.abs((PT.envNight || 0) - nk) > 0.3) { var tex = envMap(); if (tex) for (var k in M) { var mt = M[k]; if (mt && mt.isMeshStandardMaterial && mt.envMap !== tex) { mt.envMap = tex; } } } }
+  function lightsByHour(R, M) { var nk = nightK(), day = 1 - nk; R.lights.pts.forEach(function (l) { l.intensity = 0.55 + 0.45 * nk; }); R.lights.spots.forEach(function (s) { s.intensity = 0.9 + 0.6 * nk; }); if (R.lights.hemi) R.lights.hemi.intensity = 0.28 + 0.22 * day; M.sky.color.setRGB(0.02 + 0.9 * day, 0.03 + 0.9 * day, 0.06 + 0.9 * day); M.walnut.emissive.setHex(0x2e2419); M.walnut.emissiveIntensity = 0.1 * nk; M.walnutD.emissive.setHex(0x2e2419); M.walnutD.emissiveIntensity = 0.08 * nk; M.pool.opacity = 0.07 + 0.12 * nk; M.scallop.opacity = 0.1 + 0.16 * nk; M.onyx.emissiveIntensity = 0.7 + 0.5 * nk; M.fire.opacity = 0.9; if (Math.abs((PT.envNight || 0) - nk) > 0.3) { var tex = envMap(); if (tex) for (var k in M) { var mt = M[k]; if (mt && mt.isMeshStandardMaterial && mt.envMap !== tex) { mt.envMap = tex; } } } try { r15Hour(R, M, nk); } catch (e) {} }
   // the merged geometry of a room that was left (the room is rebuilt on every entry; textures and materials are shared and kept)
   function disposeRoom() { var L = PT.last && PT.last.g; if (!L || L.parent) return; disposeG(L); PT.last = null; }
   // the client's landside door pieces (planTerminalLandside) join the house finishes; its 1928 board and green exit board give way to the photograph wall and a house-style sign
@@ -867,7 +870,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function podium(inT) {
     var T = null; try { T = TSHELL; } catch (e) { return; } if (!T || !T.g) return;
     if (!PT.pod) { var pod = null; T.g.children.forEach(function (o) { var gp = o.geometry && o.geometry.parameters; if (o.isMesh && gp && gp.height === 0.45 && gp.width > 80) pod = o; }); if (!pod) { PT.pod = { none: true }; return; } var fr = new THREE.Group(); var W0 = pod.geometry.parameters.width, D0 = pod.geometry.parameters.depth, cz = pod.position.z, x0 = -W0 / 2, x1 = W0 / 2, z0 = cz - D0 / 2, z1 = cz + D0 / 2, r = HALF + 0.1;
-      [[x0, -r, z0, z1], [r, x1, z0, z1], [-r, r, z0, -r], [-r, r, r, z1]].forEach(function (b) { var w = b[1] - b[0], d = b[3] - b[2]; if (w <= 0 || d <= 0) return; var geo = new THREE.BoxGeometry(w, 0.45, d); var uv = geo.attributes.uv; for (var i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / W0, uv.getY(i) * d / D0); var m = new THREE.Mesh(geo, pod.material); m.position.set((b[0] + b[1]) / 2, 0.225, (b[2] + b[3]) / 2); m.receiveShadow = true; m.castShadow = true; fr.add(m); }); fr.visible = false; T.g.add(fr); PT.pod = { pod: pod, frame: fr }; }
+      [[x0, -r, z0, z1], [r, x1, z0, z1], [-r, r, z0, -r], [-r, r, r, z1]].forEach(function (b) { var w = b[1] - b[0], d = b[3] - b[2]; if (w <= 0 || d <= 0) return; var geo = new THREE.BoxGeometry(w, 0.45, d); var uv = geo.attributes.uv; if (R15.xG && R15.xG === T.g) r15wuv(geo, (b[0] + b[1]) / 2, 0.225, (b[2] + b[3]) / 2, 2.0, 2.4); else for (var i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / W0, uv.getY(i) * d / D0); var m = new THREE.Mesh(geo, pod.material); m.position.set((b[0] + b[1]) / 2, 0.225, (b[2] + b[3]) / 2); m.receiveShadow = true; m.castShadow = true; fr.add(m); }); fr.visible = false; T.g.add(fr); PT.pod = { pod: pod, frame: fr }; }
     if (PT.pod.none) return; if (PT.pod.pod.visible === inT) { PT.pod.pod.visible = !inT; PT.pod.frame.visible = inT; }
   }
 
@@ -976,6 +979,277 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   PT.buildBrand = buildBrand; PT.removeBrand = removeBrand; PT.brandRedraw = brandRedraw;
 
+  // ───────────────────────── R15 (5 Oct 2026): a crisp FBO exterior and a layered interior light ─────────────────────────
+  // Exterior: a PLAN_HOOKS.defer pass after the client's shell and the R3 branding restyles TSHELL.g in place (every collider, door, mat,
+  // canopy and sign stays where it is): stack-bond travertine cladding (1.0 x 0.6 m panels with open joints, each a random cut of an
+  // 8-panel sheet, tex/ar_fbo_trav*) over both end walls, their returns and the rear attic band; a honed stone plinth, steps with bronze
+  // nosings and column plinths; a light TPO roof (tex/ar_fbo_roof*) with a parapet and coping, three skylight monitors over the hall's
+  // skylights, screened packaged rooftop units (tex/ar_fbo_louver*), walkway pads, a hatch and drains; cedar soffit boards
+  // (tex/ar_fbo_slat*) under the canopy and the overhangs, the slats re-mapped at world scale; the landside door's and the
+  // porte-cochere's burl walnut becomes cedar and bronze.
+  // Interior (built with each room, its geometry disposed with it): a floor light layer, one mesh: contact shading under everything
+  // that stands on the floor and along the walls (alpha) and warm pools under the downlights, pendants, the halo, the check-in header,
+  // the onyx wall, the booths and the fire (rgb), drawn as dst * (rgb + a) so the light takes the stone's own colour; a wall wash
+  // (scallops from the reveal, a cove grazing up the walnut slats, base shading; tex/ar_fbo_wallwash.png, the same blend); sun shafts
+  // through the three skylights (plan_gfx's shaft volumes, one per bay between the glulam beams: no new shader); LED coves along the
+  // skylight wells; a polished terrazzo; the pooled lights and the hemisphere retuned. No new lights.
+  // ?r15fbo=0 turns all of it off; one part: ?r15fbox=0 the exterior, r15fboa=0 the floor layer, r15fbow=0 the wall wash,
+  // r15fbos=0 the shafts, r15fbol=0 the gloss, coves and light retune.
+  var R15 = PT.r15 = PT.r15 || { n: {} };
+  var R15Q = (function () { try { return String(location.search || ""); } catch (e) { return ""; } })();
+  function r15(p) { if (/[?&]r15fbo=0(&|$)/.test(R15Q)) return false; if (p && new RegExp("[?&]r15fbo" + p + "=0(&|$)").test(R15Q)) return false; return true; }
+  function r15low() { try { return ASSET.tier === "m"; } catch (e) { return false; } }
+  function r15au(u) { try { if (window.AV) return window.AV(u); } catch (e) {} return u; }
+  var R15T = R15.tex = R15.tex || {};
+  // one texture per file (the low tier loads the _m copy); a failed load is retried twice (counted in PT.r15.n, not an error)
+  function r15tex(name, srgb, ext) {
+    if (R15T[name]) return R15T[name];
+    var url = r15au("/tex/" + name + (r15low() ? "_m" : "") + "." + (ext || "jpg")), tries = 0, L = new THREE.TextureLoader(), t = null;
+    var fail = function () { R15.n.texFail = (R15.n.texFail || 0) + 1; if (++tries < 3) setTimeout(function () { L.load(url, function (t2) { t.image = t2.image; t.needsUpdate = true; R15.n.tex = (R15.n.tex || 0) + 1; }, undefined, fail); }, 3000 * tries); };
+    t = L.load(url, function () { R15.n.tex = (R15.n.tex || 0) + 1; }, undefined, fail);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; var an = 8; try { an = Math.min(16, MAX_ANISO); } catch (e) {} t.anisotropy = an; t.name = name;
+    return (R15T[name] = t);
+  }
+  function r15std(o) { var m = new THREE.MeshStandardMaterial(o); m.userData.r15 = 1; return m; }
+  function r15xMats() {
+    if (R15.XM) return R15.XM; var m = {};
+    var tv = r15tex("ar_fbo_trav", true), tvN = r15tex("ar_fbo_trav_n"), tvR = r15tex("ar_fbo_trav_r");
+    m.trav = r15std({ map: tv, normalMap: tvN, roughnessMap: tvR, color: 0xf8f1e6, roughness: 1, metalness: 0 });
+    m.plinth = r15std({ map: tv, normalMap: tvN, roughnessMap: tvR, color: 0xd2c5b1, roughness: 1, metalness: 0 });
+    var rf = r15tex("ar_fbo_roof", true), rfN = r15tex("ar_fbo_roof_n"), rfR = r15tex("ar_fbo_roof_r");
+    m.roof = r15std({ map: rf, normalMap: rfN, roughnessMap: rfR, color: 0xe4e4df, roughness: 1, metalness: 0 });
+    var lv = r15tex("ar_fbo_louver", true), lvN = r15tex("ar_fbo_louver_n"), lvR = r15tex("ar_fbo_louver_r");
+    m.unit = r15std({ map: lv, normalMap: lvN, roughnessMap: lvR, color: 0xb4b9bd, roughness: 1, metalness: 0.5 });
+    m.screen = r15std({ map: lv, normalMap: lvN, roughnessMap: lvR, color: 0xefede7, roughness: 1, metalness: 0.3 });
+    var sl = r15tex("ar_fbo_slat", true), slN = r15tex("ar_fbo_slat_n"), slR = r15tex("ar_fbo_slat_r");
+    m.soffit = r15std({ map: sl, normalMap: slN, roughnessMap: slR, color: 0xc9cbf2, roughness: 1, metalness: 0 });
+    m.slat = r15std({ map: sl, normalMap: slN, color: 0x9c93b8, roughness: 0.55, metalness: 0 });
+    m.coping = r15std({ color: 0xe8e5de, roughness: 0.3, metalness: 0.6 });
+    m.white = r15std({ color: 0xf2f2ef, roughness: 0.35, metalness: 0.55 });
+    m.bronze = r15std({ color: 0x2b2622, roughness: 0.38, metalness: 0.75 });
+    m.dark = r15std({ color: 0x2c2e31, roughness: 0.55, metalness: 0.45 });
+    m.pad = r15std({ color: 0x77797a, roughness: 0.95, metalness: 0 });
+    m.glazing = r15std({ color: 0x262b30, roughness: 0.05, metalness: 0.6 });
+    return (R15.XM = m);
+  }
+  // world-scale UVs on an axis-aligned box (or any geometry whose faces are axis aligned) in its parent's frame: u, v = coordinate / tile
+  function r15wuv(geo, ox, oy, oz, tu, tv) {
+    var P = geo.attributes.position, N = geo.attributes.normal, U = geo.attributes.uv; if (!P || !N || !U || !U.array || !U.array.length) return false;
+    for (var i = 0; i < P.count; i++) { var x = P.getX(i) + ox, y = P.getY(i) + oy, z = P.getZ(i) + oz, ax = Math.abs(N.getX(i)), ay = Math.abs(N.getY(i)), az = Math.abs(N.getZ(i));
+      if (ax >= ay && ax >= az) U.setXY(i, z / tu, y / tv); else if (ay >= az) U.setXY(i, x / tu, z / tv); else U.setXY(i, x / tu, y / tv); }
+    U.needsUpdate = true; return true;
+  }
+  function r15Q() { return { p: [], n: [], u: [], i: [] }; }
+  function r15quad(Q, a, b, c, d, nx, ny, nz, ua, ub, uc, ud) { var o = Q.p.length / 3; Q.p.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]); for (var k = 0; k < 4; k++) Q.n.push(nx, ny, nz); Q.u.push(ua[0], ua[1], ub[0], ub[1], uc[0], uc[1], ud[0], ud[1]); Q.i.push(o, o + 1, o + 2, o, o + 2, o + 3); }
+  function r15geo(Q) { var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(Q.p, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(Q.n, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(Q.u, 2)); g.setIndex(Q.p.length / 3 > 65000 ? new THREE.Uint32BufferAttribute(Q.i, 1) : new THREE.Uint16BufferAttribute(Q.i, 1)); return g; }
+  function r15rows(y0, y1, h) { var n = Math.max(1, Math.round((y1 - y0) / h)), d = (y1 - y0) / n, out = []; for (var i = 0; i < n; i++) out.push([y0 + i * d, y0 + (i + 1) * d]); return out; }
+  // stack-bond cladding on a vertical face of the shell (n "x" or "z", s the outward sign, c the face plane), panels about 1 m wide
+  // along a0..a1 over the rows; each panel takes one of the sheet's 8 cuts at random, flipped at random (its joints sit on the cut's border)
+  function r15panels(Q, R, n, s, c, a0, a1, rows, skip) {
+    var na = Math.max(1, Math.round(a1 - a0)), aw = (a1 - a0) / na, off = 0.012 * s, nx = n === "x" ? s : 0, nz = n === "z" ? s : 0;
+    var P = function (al, y) { return n === "x" ? [c + off, y, al] : [al, y, c + off]; };
+    var rgt = n === "x" ? (s > 0 ? -1 : 1) : (s > 0 ? 1 : -1);   // which way "right" runs along the face, seen from outside
+    for (var r = 0; r < rows.length; r++) { var y0 = rows[r][0], y1 = rows[r][1], ym = (y0 + y1) / 2;
+      for (var i = 0; i < na; i++) { var p0 = a0 + i * aw, p1 = p0 + aw, pm = (p0 + p1) / 2, sk = false;
+        if (skip) for (var k = 0; k < skip.length; k++) { var q = skip[k]; if (pm > q[0] && pm < q[1] && ym > q[2] && ym < q[3]) { sk = true; break; } }
+        if (sk) continue;
+        var ci = (R() * 2) | 0, cj = (R() * 4) | 0, u0 = ci * 0.5, u1 = u0 + 0.5, v0 = cj * 0.25, v1 = v0 + 0.25, t;
+        if (R() < 0.5) { t = u0; u0 = u1; u1 = t; } if (R() < 0.5) { t = v0; v0 = v1; v1 = t; }
+        var aS = rgt > 0 ? p0 : p1, aE = rgt > 0 ? p1 : p0;
+        r15quad(Q, P(aS, y0), P(aE, y0), P(aE, y1), P(aS, y1), nx, 0, nz, [u0, v0], [u1, v0], [u1, v1], [u0, v1]); } }
+  }
+  function r15Ext() {
+    if (!r15("x") || R15.xFail) return false; var T = null; try { T = TSHELL; } catch (e) { return false; } if (!T || !T.g) return false; if (R15.xG === T.g) return true;
+    var g = T.g, M = r15xMats(), t0 = performance.now(), R = rng(4615), W = 46, Z0 = -32, Z1 = 33, H = 12.4, RW = W + 1.8, RZ0 = Z0 - 2.5, RZ1 = Z1 + 7.5, Ym = 13.48;
+    var objs = [], rest = [], LS = {};
+    var prm = function (o) { return (o.geometry && o.geometry.parameters) || {}; }, eq = function (a, b) { return Math.abs(a - b) < 0.011; };
+    var boxes = function (par, w, h, d) { return par.children.filter(function (o) { var p = prm(o); return o.isMesh && !o.isInstancedMesh && o.geometry.type === "BoxGeometry" && eq(p.width, w) && eq(p.height, h) && eq(p.depth, d); }); };
+    var swap = function (o, mat) { var old = o.material; o.material = mat; rest.push(function () { o.material = old; }); };
+    var hide = function (o) { if (!o.visible) return; o.visible = false; rest.push(function () { o.visible = true; }); };
+    var uvs = function (o, tu, tv) { var geo = o.geometry, U = geo.attributes.uv; if (!U || !U.array) return; var keep = U.array.slice(); if (r15wuv(geo, o.position.x, o.position.y, o.position.z, tu, tv)) rest.push(function () { U.array.set(keep); U.needsUpdate = true; }); };
+    var put = function (mat, geo) { (LS[mat.uuid] || (LS[mat.uuid] = { m: mat, g: [] })).g.push(geo); return geo; };
+    var bxw = function (x0, y0, z0, x1, y1, z1, mat, tu, tv) { var geo = new THREE.BoxGeometry(Math.max(0.001, x1 - x0), Math.max(0.001, y1 - y0), Math.max(0.001, z1 - z0)); geo.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); if (tu) r15wuv(geo, 0, 0, 0, tu, tv || tu); return put(mat, geo); };
+    var cyl = function (r0, r1, h, seg, mat, x, y0, z) { var geo = new THREE.CylinderGeometry(r0, r1, h, seg || 16); geo.translate(x, y0 + h / 2, z); return put(mat, geo); };
+    try {
+      // ── 1. the travertine: panels over the end walls, their returns and the rear attic band (the old boxes stay behind them, they cast the shadows) ──
+      var Qt = r15Q(), wallRows = r15rows(0.45, 8.3, 0.6).concat(r15rows(8.3, 10.5, 0.55), r15rows(10.5, 12.4, 0.63)), cler = [[-27, 28, 8.3, 10.5]];
+      [1, -1].forEach(function (sx) { r15panels(Qt, R, "x", sx, sx * W, Z0 - 0.012, Z1 + 0.012, wallRows, cler);
+        r15panels(Qt, R, "z", 1, Z1, sx > 0 ? W - 8 : -W - 0.012, sx > 0 ? W + 0.012 : -W + 8, wallRows, null);
+        r15panels(Qt, R, "z", -1, Z0, sx > 0 ? W - 8 : -W - 0.012, sx > 0 ? W + 0.012 : -W + 8, wallRows, null); });
+      r15panels(Qt, R, "z", -1, Z0, -W + 8, W - 8, r15rows(7.6, 8.3, 0.6).concat(r15rows(8.3, 10.5, 0.55), r15rows(10.5, 12.4, 0.63)), null);
+      put(M.trav, r15geo(Qt));
+      boxes(g, 2 * W - 16, 5.2, 0.6).forEach(function (o) { swap(o, M.trav); uvs(o, 2.0, 2.4); });   // the attic band's soffit and ends
+      // ── 2. the plinth, the steps (bronze nosings) and plinths under the canopy's tree columns ──
+      boxes(g, 2 * W + 2, 0.45, Z1 - Z0 + 2).forEach(function (o) { swap(o, M.plinth); uvs(o, 2.0, 2.4); });
+      boxes(g, 26, 0.15, 3).concat(boxes(g, 26, 0.3, 1.6)).forEach(function (o) { swap(o, M.plinth); uvs(o, 2.0, 2.4); });
+      [[Z1 + 4.0, 0.15], [Z1 + 2.6, 0.3], [Z1 + 1.0, 0.45]].forEach(function (s) { bxw(-13, s[1] - 0.004, s[0] - 0.07, 13, s[1] + 0.008, s[0] - 0.01, M.bronze); });
+      [-36, -24, -12, 12, 24, 36].forEach(function (x) { bxw(x - 0.48, -0.3, Z1 + 5.32, x + 0.48, 0.45, Z1 + 6.28, M.plinth, 2.0, 2.4); bxw(x - 0.52, 0.45, Z1 + 5.28, x + 0.52, 0.49, Z1 + 6.32, M.bronze); });
+      // ── 3. the roof: the membrane, a parapet with its coping, the skylight monitors, screened rooftop units, pads, a hatch, drains ──
+      var Qr = r15Q();
+      for (var cx = -RW + 0.375; cx < RW - 0.375 - 0.01; cx += 8) for (var cz = RZ0 + 0.375; cz < RZ1 - 0.375 - 0.01; cz += 8) {
+        var x1 = Math.min(cx + 8, RW - 0.375), z1 = Math.min(cz + 8, RZ1 - 0.375), ou = ((R() * 4) | 0) * 0.25, ov = R();
+        var U = function (x, z) { return [z / 8 + ou, x / 8 + ov]; };
+        r15quad(Qr, [cx, Ym, z1], [x1, Ym, z1], [x1, Ym, cz], [cx, Ym, cz], 0, 1, 0, U(cx, z1), U(x1, z1), U(x1, cz), U(cx, cz)); }
+      put(M.roof, r15geo(Qr));
+      boxes(g, 2 * RW, 0.7, 0.2).forEach(hide);   // the old front parapet (the ring below replaces it)
+      [[-RW - 0.125, RW + 0.125, RZ1 - 0.375, RZ1 - 0.125, RZ1 - 0.125, RZ1 + 0.125], [-RW - 0.125, RW + 0.125, RZ0 + 0.125, RZ0 + 0.375, RZ0 - 0.125, RZ0 + 0.125]].forEach(function (b) { bxw(b[0], 13.3, b[2], b[1], 14.0, b[3], M.white); bxw(b[0], 13.5, b[4], b[1], 14.0, b[5], M.white); });
+      [1, -1].forEach(function (sx) { var xi0 = sx > 0 ? RW - 0.375 : -RW + 0.125, xi1 = sx > 0 ? RW - 0.125 : -RW + 0.375, xo0 = sx > 0 ? RW - 0.125 : -RW - 0.125, xo1 = sx > 0 ? RW + 0.125 : -RW + 0.125;
+        bxw(xi0, 13.3, RZ0 + 0.375, xi1, 14.0, RZ1 - 0.375, M.white); bxw(xo0, 13.5, RZ0 + 0.375, xo1, 14.0, RZ1 - 0.375, M.white);
+        bxw(sx > 0 ? RW - 0.43 : -RW - 0.18, 14.0, RZ0 + 0.43, sx > 0 ? RW + 0.18 : -RW + 0.43, 14.06, RZ1 - 0.43, M.coping); });
+      bxw(-RW - 0.18, 14.0, RZ1 - 0.43, RW + 0.18, 14.06, RZ1 + 0.18, M.coping); bxw(-RW - 0.18, 14.0, RZ0 - 0.18, RW + 0.18, 14.06, RZ0 + 0.43, M.coping);
+      // the membrane turned up the parapet's inner faces
+      var Qf = r15Q(), fy1 = 13.95, fu = function (a, y) { return [a / 8, y / 8]; };
+      r15quad(Qf, [RW - 0.38, Ym, RZ0 + 0.38], [RW - 0.38, Ym, RZ1 - 0.38], [RW - 0.38, fy1, RZ1 - 0.38], [RW - 0.38, fy1, RZ0 + 0.38], -1, 0, 0, fu(RZ0, Ym), fu(RZ1, Ym), fu(RZ1, fy1), fu(RZ0, fy1));
+      r15quad(Qf, [-RW + 0.38, Ym, RZ1 - 0.38], [-RW + 0.38, Ym, RZ0 + 0.38], [-RW + 0.38, fy1, RZ0 + 0.38], [-RW + 0.38, fy1, RZ1 - 0.38], 1, 0, 0, fu(RZ1, Ym), fu(RZ0, Ym), fu(RZ0, fy1), fu(RZ1, fy1));
+      r15quad(Qf, [RW - 0.38, Ym, RZ1 - 0.38], [-RW + 0.38, Ym, RZ1 - 0.38], [-RW + 0.38, fy1, RZ1 - 0.38], [RW - 0.38, fy1, RZ1 - 0.38], 0, 0, -1, fu(RW, Ym), fu(-RW, Ym), fu(-RW, fy1), fu(RW, fy1));
+      r15quad(Qf, [-RW + 0.38, Ym, RZ0 + 0.38], [RW - 0.38, Ym, RZ0 + 0.38], [RW - 0.38, fy1, RZ0 + 0.38], [-RW + 0.38, fy1, RZ0 + 0.38], 0, 0, 1, fu(-RW, Ym), fu(RW, Ym), fu(RW, fy1), fu(-RW, fy1));
+      put(M.roof, r15geo(Qf));
+      // skylight monitors over the hall's three skylights: a flashed curb, dark glazing, bronze glazing bars every 2.9 m
+      [-13, 0, 13].forEach(function (sz) { bxw(-26.4, Ym - 0.02, sz - 1.8, 26.4, 13.9, sz + 1.8, M.roof, 8, 8); bxw(-26.2, 13.9, sz - 1.6, 26.2, 13.95, sz + 1.6, M.glazing);
+        for (var bx0 = -26.2; bx0 <= 26.21; bx0 += 52.4 / 18) bxw(bx0 - 0.035, 13.95, sz - 1.62, bx0 + 0.035, 13.99, sz + 1.62, M.bronze);
+        [-1.6, 1.6].forEach(function (dz) { bxw(-26.25, 13.95, sz + dz - 0.04, 26.25, 13.99, sz + dz + 0.04, M.bronze); }); });
+      // packaged rooftop units in louvered screens (clear of the monitors); the old plain boxes and one-sided screens go
+      [[10, 2.4, 7], [12, 2.4, 8], [8, 2.4, 6]].forEach(function (d) { boxes(g, d[0], d[1], d[2]).forEach(hide); boxes(g, d[0] + 1.2, 2.8, 0.15).forEach(hide); });
+      [[-33, -6.5, 3, 2], [31, -21.5, 3, 2], [0, 6.4, 2, 1]].forEach(function (u) { var cxu = u[0], czu = u[1], n = u[2], L2 = 3.2, wd = 1.9, gap = 0.9, tot = n * L2 + (n - 1) * gap, x0 = cxu - tot / 2;
+        var ex0 = x0 - 1.0, ex1 = x0 + tot + 1.0, ez0 = czu - wd / 2 - 1.1, ez1 = czu + wd / 2 + 1.1, sh = 2.25;
+        bxw(ex0, Ym, ez0, ex1, Ym + sh, ez0 + 0.08, M.screen, 2, 1); bxw(ex0, Ym, ez1 - 0.08, ex1, Ym + sh, ez1, M.screen, 2, 1);
+        bxw(ex0, Ym, ez0 + 0.08, ex0 + 0.08, Ym + sh, ez1 - 0.08, M.screen, 2, 1); bxw(ex1 - 0.08, Ym, ez0 + 0.08, ex1, Ym + sh, czu - 0.6, M.screen, 2, 1); bxw(ex1 - 0.08, Ym, czu + 0.6, ex1, Ym + sh, ez1 - 0.08, M.screen, 2, 1);
+        [[ex0, ez0], [ex1, ez0], [ex0, ez1], [ex1, ez1]].forEach(function (p) { bxw(p[0] - 0.07, Ym, p[1] - 0.07, p[0] + 0.07, Ym + sh + 0.08, p[1] + 0.07, M.dark); });
+        bxw(ex0 - 0.04, Ym + sh, ez0 - 0.04, ex1 + 0.04, Ym + sh + 0.05, ez0 + 0.12, M.coping); bxw(ex0 - 0.04, Ym + sh, ez1 - 0.12, ex1 + 0.04, Ym + sh + 0.05, ez1 + 0.04, M.coping);
+        for (var k = 0; k < n; k++) { var ux = x0 + k * (L2 + gap), uz0 = czu - wd / 2;
+          bxw(ux - 0.05, Ym, uz0 - 0.05, ux + L2 + 0.05, Ym + 0.3, uz0 + wd + 0.05, M.dark);
+          bxw(ux, Ym + 0.3, uz0, ux + L2, Ym + 1.75, uz0 + wd, M.unit, 2, 1); bxw(ux - 0.03, Ym + 1.75, uz0 - 0.03, ux + L2 + 0.03, Ym + 1.8, uz0 + wd + 0.03, M.coping);
+          [0.28, 0.72].forEach(function (f) { var fx = ux + L2 * f; cyl(0.5, 0.5, 0.2, 24, M.unit, fx, Ym + 1.8, czu); cyl(0.44, 0.44, 0.03, 24, M.dark, fx, Ym + 2.0, czu); cyl(0.07, 0.07, 0.05, 10, M.coping, fx, Ym + 2.01, czu); });
+          bxw(ux + L2 - 0.02, Ym + 0.55, czu - 0.3, ux + L2 + 0.18, Ym + 0.85, czu + 0.3, M.dark); }
+        bxw(ex1 + 0.02, Ym, czu - 0.45, ex1 + 6.0, Ym + 0.025, czu + 0.45, M.pad); });
+      bxw(40.5, Ym, -29.5, 41.6, Ym + 0.55, -28.4, M.dark); bxw(40.4, Ym + 0.55, -29.6, 41.7, Ym + 0.6, -28.3, M.coping);
+      bxw(38.0, Ym, -29.4, 40.4, Ym + 0.025, -28.5, M.pad); bxw(38.0, Ym, -28.5, 38.9, Ym + 0.025, -21.95, M.pad);
+      [[-20, -24], [20, -24], [-20, 24], [20, 24], [-40, 0], [40, 6]].forEach(function (p) { cyl(0.2, 0.2, 0.025, 16, M.dark, p[0], Ym, p[1]); cyl(0.12, 0.12, 0.03, 12, M.coping, p[0], Ym + 0.01, p[1]); });
+      boxes(g, 2 * RW, 0.9, RZ1 - RZ0).forEach(function (o) { swap(o, M.white); });   // the slab is covered now; no stretched texture shows at its edges
+      // ── 4. the soffits: cedar boards under the canopy (the slats re-mapped) and under the side and rear overhangs ──
+      g.children.forEach(function (o) { var p = prm(o);
+        if (o.isMesh && !o.isInstancedMesh && o.geometry.type === "PlaneGeometry" && eq(p.width, 2 * RW - 0.3) && eq(p.height, RZ1 - Z1)) { swap(o, M.soffit); var Uu = o.geometry.attributes.uv, Pp = o.geometry.attributes.position, keep = Uu.array.slice(); for (var i = 0; i < Uu.count; i++) Uu.setXY(i, Pp.getX(i) / 1.2, (Pp.getY(i) + o.position.z) / 1.2); Uu.needsUpdate = true; rest.push(function () { Uu.array.set(keep); Uu.needsUpdate = true; }); }
+        if (o.isInstancedMesh && o.geometry.type === "BoxGeometry" && eq(p.height, 0.08) && eq(p.depth, 0.06)) { swap(o, M.slat); var Us = o.geometry.attributes.uv, ks = Us.array.slice(); if (r15wuv(o.geometry, 0, 0, 0, 1.2, 1.2)) rest.push(function () { Us.array.set(ks); Us.needsUpdate = true; }); } });
+      var Qs = r15Q(), sy = H - 0.03, su = function (x, z) { return [x / 1.2, z / 1.2]; };
+      var down = function (x0, z0, x1, z1) { r15quad(Qs, [x0, sy, z0], [x1, sy, z0], [x1, sy, z1], [x0, sy, z1], 0, -1, 0, su(x0, z0), su(x1, z0), su(x1, z1), su(x0, z1)); };
+      down(-RW + 0.125, RZ0 + 0.125, RW - 0.125, Z0); down(W, Z0, RW - 0.125, Z1); down(-RW + 0.125, Z0, -W, Z1);
+      put(M.soffit, r15geo(Qs));
+      // ── 5. the doors' burl walnut: cedar canopies and headers, bronze posts (nothing moves) ──
+      var cedarDoor = function (grp, slab) { grp.children.forEach(function (o) { var p = prm(o); if (!o.isMesh || o.geometry.type !== "BoxGeometry" || !o.material || !o.material.map || o.material.metalness > 0.5) return; var mp = o.material.map; if (!mp.repeat || mp.repeat.x < 1.9) return;
+          if (p.height > 2.5 && p.width < 0.6) swap(o, M.bronze); else if (p.width > 4.5 || slab) { swap(o, M.soffit); uvs(o, 1.2, 1.2); } }); };
+      var land = null; try { land = TERM.land; } catch (e) {}
+      scene.children.forEach(function (grp) { if (!grp.isGroup || grp === g) return;
+        if (land && Math.hypot(grp.position.x - land[0], grp.position.z - land[1]) < 3 && boxes(grp, 7.2, 0.28, 4.2).length) cedarDoor(grp, false);
+        if (grp.userData.solBand && boxes(grp, 19.6, 0.35, 11).length) boxes(grp, 19.6, 0.35, 11).forEach(function (o) { swap(o, M.soffit); uvs(o, 1.2, 1.2); }); });
+      // the merged pieces: one mesh per material
+      for (var k2 in LS) { var L = LS[k2]; var mesh = new THREE.Mesh(mergeGeos(L.g), L.m); var big = L.m === M.trav || L.m === M.roof || L.m === M.soffit || L.m === M.plinth;
+        mesh.castShadow = !big; mesh.receiveShadow = true; mesh.userData.r15 = 1; mesh.userData.noSolid = true; mesh.matrixAutoUpdate = false; mesh.updateMatrix(); g.add(mesh); objs.push(mesh); }
+      g.updateMatrixWorld(true);
+      R15.xG = g; R15.xObjs = objs; R15.xRest = rest; R15.n.x = objs.length; R15.n.xMs = Math.round(performance.now() - t0);
+      return true;
+    } catch (err) { R15.xFail = 1; note("r15 exterior", err); objs.forEach(function (o) { if (o.parent) o.parent.remove(o); }); rest.forEach(function (f) { try { f(); } catch (e) {} }); return false; }
+  }
+  PT.r15Ext = r15Ext;
+  PT.r15ExtOff = function () { (R15.xObjs || []).forEach(function (o) { if (o.parent) o.parent.remove(o); if (o.geometry) o.geometry.dispose(); }); (R15.xRest || []).forEach(function (f) { try { f(); } catch (e) {} }); R15.xObjs = []; R15.xRest = []; R15.xG = null; R15.xFail = 1; };
+
+  // ── interior: the light layers (dst * (rgb + a)), the skylight coves, the shafts ──
+  function r15blend(m) { m.blending = THREE.CustomBlending; m.blendEquation = THREE.AddEquation; m.blendSrc = THREE.DstColorFactor; m.blendDst = THREE.SrcAlphaFactor; m.blendEquationAlpha = THREE.AddEquation; m.blendSrcAlpha = THREE.ZeroFactor; m.blendDstAlpha = THREE.OneFactor; return m; }
+  function r15layerMat(map) { var m = new THREE.MeshBasicMaterial({ map: map, color: 0xffffff, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 }); r15blend(m); m.userData.pt = 1; m.userData.r15 = 1; return m; }
+  function r15blank() { if (R15.blank) return R15.blank; var t = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1, THREE.RGBAFormat); t.needsUpdate = true; return (R15.blank = t); }
+  // before K.done(): LED coves under the walnut fascias of the three skylight wells
+  function r15Kit(K, M) { if (!r15("l")) return; [-13, 0, 13].forEach(function (sz) { [-1.49, 1.49].forEach(function (d) { K.box(2 * HALF - 0.5, 0.025, 0.025, M.led, 0, 9.36, sz + d); }); }); }
+  // after K.done(): the floor layer and the wall wash for this room (the textures are shared; the geometry goes with the room)
+  function r15Room(g, sol, M) {
+    var hid = function (mat) { g.children.forEach(function (o) { if (o.isMesh && o.material === mat) o.visible = false; }); };
+    if (r15("a")) {
+      var geo = new THREE.PlaneGeometry(2 * HALF, 2 * HALF); geo.rotateX(-Math.PI / 2); var P = geo.attributes.position, U = geo.attributes.uv; for (var i = 0; i < P.count; i++) U.setXY(i, (P.getX(i) + HALF) / (2 * HALF), (P.getZ(i) + HALF) / (2 * HALF));
+      if (!R15.floorMat) R15.floorMat = r15layerMat(R15.floorTex || r15blank());
+      var fm = new THREE.Mesh(geo, R15.floorMat); fm.position.y = F + 0.008; fm.renderOrder = -1; fm.userData.noSolid = true; fm.userData.ptStatic = true; fm.castShadow = false; fm.receiveShadow = false; fm.matrixAutoUpdate = false; fm.updateMatrix(); g.add(fm);
+      hid(M.pool); r15floorGen(sol);
+    }
+    if (r15("w")) {
+      if (!R15.wallMat) { var wt = r15tex("ar_fbo_wallwash", false, "png"); wt.wrapT = THREE.ClampToEdgeWrapping; R15.wallMat = r15layerMat(wt); }
+      var Q = r15Q(), Hh = HALF, y0 = F, y1 = 9.45, o = 0.156, v0 = y0 / 9.45, v1 = 1;
+      var run = function (n, s, c, a0, a1) {   // a wall face looking into the room (outward normal = -s along n), u = along / 4 + 0.5 (scallops at every 4 m)
+        var nx = n === "x" ? -s : 0, nz = n === "z" ? -s : 0, P2 = function (al, y) { return n === "x" ? [c - s * o, y, al] : [al, y, c - s * o]; }, rgt = n === "x" ? (-s > 0 ? -1 : 1) : (-s > 0 ? 1 : -1), aS = rgt > 0 ? a0 : a1, aE = rgt > 0 ? a1 : a0;
+        r15quad(Q, P2(aS, y0), P2(aE, y0), P2(aE, y1), P2(aS, y1), nx, 0, nz, [aS / 4 + 0.5, v0], [aE / 4 + 0.5, v0], [aE / 4 + 0.5, v1], [aS / 4 + 0.5, v1]); };
+      run("z", -1, -Hh, -Hh, Hh); run("x", -1, -Hh, -Hh, Hh); run("x", 1, Hh, -Hh, -2.4); run("x", 1, Hh, 1.4, Hh);
+      var wm = new THREE.Mesh(r15geo(Q), R15.wallMat); wm.renderOrder = -1; wm.userData.noSolid = true; wm.userData.ptStatic = true; wm.matrixAutoUpdate = false; wm.updateMatrix(); g.add(wm);
+      hid(M.scallop);
+    }
+    if (r15("l")) { M.terr.roughness = 0.085; M.terrG.roughness = 0.11; M.terr.envMapIntensity = 0.8; M.terrG.envMapIntensity = 0.75; M.oak.roughness = 0.32; }
+    R15.n.rooms = (R15.n.rooms || 0) + 1;
+  }
+  // the floor layer's texture: drawn once per layout (a signature of the room's solids), a step per idle callback; the room shows the
+  // previous one (or none) until it lands
+  function r15sig(sol) { var h = sol.length; for (var i = 0; i < sol.length; i++) { var s = sol[i]; h = (h * 31 + Math.round(s[0] * 10) * 7 + Math.round(s[1] * 10) * 13 + Math.round(s[2] * 10) + Math.round(s[3] * 10) * 3 + Math.round(s[5] * 10)) % 2147483647; } return h; }
+  function r15floorGen(sol) {
+    var key = r15sig(sol); if (R15.floorKey === key || R15.genKey === key) return; R15.genKey = key;
+    var N = 512, S = N / (2 * HALF), X = function (v) { return (v + HALF) * S; }, st = {}, list = sol.slice(), downs = (PT.downs || []).slice(), t0 = performance.now();
+    var layer = function (bg) { var c = cv(N, N), x = c.getContext("2d", { willReadFrequently: true }); x.fillStyle = bg; x.fillRect(0, 0, N, N); return { c: c, x: x }; };   /* R15b: CPU-backed canvases: no GPU readback stall at the pack step */
+    var steps = [
+      function () { st.A = layer("#fff"); st.B = layer("#fff"); st.A.x.globalCompositeOperation = "darken"; st.B.x.globalCompositeOperation = "darken"; st.k = 0; },
+      function () {   // the occluders: a sharp contact print and a broad soft one per solid that stands on the floor (union, not sum), 80 a step
+        var part = list.slice(st.k, st.k + 80); st.k += 80; if (st.k < list.length) i--;
+        part.forEach(function (s) { var y0 = s[4], y1 = s[5], h = y1 - Math.max(y0, F), lift = y0 - F; if (h <= 0.02 || lift > 1.4 || s[2] > 30 || s[3] > 30) return;
+          var seat = !!(s[7] && s[7].seat), k = lift > 0.3 ? 0.35 : 1, cg = seat ? 0.6 : h < 0.25 ? 0.58 : 0.46, bg = seat ? 0.84 : h < 0.25 ? 0.9 : 0.76, ex = Math.min(0.7, 0.12 + 0.34 * Math.min(h, 1.6));
+          cg = 1 - (1 - cg) * k; bg = 1 - (1 - bg) * k;
+          [[st.A, cg, 0.02], [st.B, bg, ex]].forEach(function (Lr) { var x = Lr[0].x, v = Math.round(Lr[1] * 255); x.save(); x.translate(X(s[0]), X(s[1])); x.rotate(-s[6]); x.fillStyle = "rgb(" + v + "," + v + "," + v + ")"; var w = (s[2] + 2 * Lr[2]) * S, d = (s[3] + 2 * Lr[2]) * S; x.fillRect(-w / 2, -d / 2, w, d); x.restore(); }); });
+        if (st.k < list.length) return;
+        // the walls: the floor darkens into the corners (the airside glass less)
+        var b = st.B.x, gw = 1.1 * S, grad = function (x0, y0, x1, y1, v) { var gr = b.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, "rgb(" + v + "," + v + "," + v + ")"); gr.addColorStop(1, "#fff"); return gr; };
+        b.fillStyle = grad(0, 0, 0, gw, 160); b.fillRect(0, 0, N, gw); b.fillStyle = grad(0, 0, gw, 0, 160); b.fillRect(0, 0, gw, N); b.fillStyle = grad(N, 0, N - gw, 0, 160); b.fillRect(N - gw, 0, gw, N); b.fillStyle = grad(0, N, 0, N - gw, 222); b.fillRect(0, N - gw, N, gw);
+      },
+      function () {   // blur each print and multiply them
+        var C = layer("#fff"); C.x.drawImage(st.A.c, 0, 0);
+        var D = layer("#fff"); var sm = cv(N / 4, N / 4), sx = sm.getContext("2d", { willReadFrequently: true }); sx.imageSmoothingEnabled = true; sx.drawImage(st.B.c, 0, 0, N / 4, N / 4); D.x.imageSmoothingEnabled = true; D.x.drawImage(sm, 0, 0, N, N);   /* R15b: a 4x down and up sample instead of a canvas blur filter (the filter cost seconds under load) */
+        C.x.globalCompositeOperation = "multiply"; C.x.drawImage(D.c, 0, 0); C.x.globalCompositeOperation = "source-over"; st.AO = C; st.A = st.B = null;
+      },
+      function () {   // the light: warm pools in rgb (additive among themselves)
+        var Lc = layer("#000"), x = Lc.x; x.globalCompositeOperation = "lighter";
+        var pool = function (px, pz, r, k, col, ring) { var gr = x.createRadialGradient(X(px), X(pz), ring ? ring * S : 0, X(px), X(pz), r * S), c = col || [1, 0.84, 0.64], f = function (a) { return "rgba(" + Math.round(255 * c[0] * k * a) + "," + Math.round(255 * c[1] * k * a) + "," + Math.round(255 * c[2] * k * a) + ",1)"; };
+          if (ring) { gr.addColorStop(0, f(0)); gr.addColorStop(0.45, f(1)); gr.addColorStop(1, f(0)); } else { gr.addColorStop(0, f(1)); gr.addColorStop(0.22, f(0.86)); gr.addColorStop(0.5, f(0.42)); gr.addColorStop(0.78, f(0.12)); gr.addColorStop(1, f(0)); }
+          x.fillStyle = gr; x.fillRect(X(px - r), X(pz - r), 2 * r * S, 2 * r * S); };
+        var rq = cv(N / 8, N / 8), rx = rq.getContext("2d", { willReadFrequently: true }); rx.fillStyle = "#000"; rx.fillRect(0, 0, N / 8, N / 8); rx.globalCompositeOperation = "lighter"; var rect = function (x0, z0, x1, z1, k, col) { var c = col || [1, 0.84, 0.64], v = "rgba(" + Math.round(255 * c[0] * k) + "," + Math.round(255 * c[1] * k) + "," + Math.round(255 * c[2] * k) + ",1)"; rx.fillStyle = v; rx.fillRect(X(x0) / 8, X(z0) / 8, (x1 - x0) * S / 8, (z1 - z0) * S / 8); };
+        downs.forEach(function (d) { pool(d[0], d[1], 2.7, 0.5); });
+        for (var i = 0; i < 7; i++) pool(-24.5 + (i % 4) * 2.2 + (i > 3 ? 1.1 : 0), 22 - 1.2 + (i > 3 ? 2.4 : 0), 1.7, 0.42);   // the lounge's globe pendants
+        pool(0, -10.5, 4.9, 0.5, [1, 0.86, 0.66], 1.4);                                                                      // the information desk's halo
+        rect(-7.8, -23.6, 7.8, -19.8, 0.42, [1, 0.88, 0.7], 0.8);                                                             // the check-in header's LED
+        rect(-8.8, -27, 8.8, -23.2, 0.55, [1, 0.74, 0.42], 1.6);                                                              // the onyx wall
+        pool(-25.6, 22, 3.4, 0.5, [1, 0.56, 0.26]);                                                                          // the fire
+        [[9.0], [11.4], [13.8]].forEach(function (z) { pool(-21.4, z[0], 1.5, 0.3); });                                       // the cafe's drums, spilling past the counter
+        x.imageSmoothingEnabled = true; x.drawImage(rq, 0, 0, N, N);   // the soft rectangles, upsampled 8x (soft edges without a filter)
+        try { ["stellar", "financeadvisors", "jetfinders", "freedomair"].forEach(function (id) { var sl = SLOTS[id]; if (!sl) return; var p = slotPt(sl, 0, 3.4); pool(p[0], p[1], 3.2, id === "stellar" ? 0.34 : 0.28, id === "stellar" ? [0.92, 0.95, 1] : [1, 0.86, 0.68]); }); } catch (e) {}
+        st.L = Lc;
+      },
+      function () {   // pack: rgb = light, a = occlusion; mipmapped, linear
+        var a = st.AO.x.getImageData(0, 0, N, N).data, l = st.L.x.getImageData(0, 0, N, N).data, d = new Uint8Array(N * N * 4);
+        for (var i = 0, n = N * N * 4; i < n; i += 4) { d[i] = l[i]; d[i + 1] = l[i + 1]; d[i + 2] = l[i + 2]; d[i + 3] = a[i]; }
+        var t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.colorSpace = THREE.NoColorSpace; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; var an = 8; try { an = Math.min(8, MAX_ANISO); } catch (e) {} t.anisotropy = an; t.needsUpdate = true; t.name = "r15 floor light";
+        var old = R15.floorTex; R15.floorTex = t; R15.floorKey = key; R15.genKey = null; if (R15.floorMat) R15.floorMat.map = t; if (old && old !== t) setTimeout(function () { old.dispose(); }, 1000);
+        st.AO = st.L = null; R15.n.floorGenMs = Math.round(performance.now() - t0); R15.n.floorGen = (R15.n.floorGen || 0) + 1;
+      }];
+    var i = 0, next = function () { if (R15.genKey !== key) return; var t1 = performance.now(); try { steps[i++](); } catch (err) { R15.genKey = null; note("r15 floor light", err); return; } R15.n.floorStepMax = Math.max(R15.n.floorStepMax || 0, Math.round(performance.now() - t1)); if (i < steps.length) { if (window.requestIdleCallback) requestIdleCallback(next, { timeout: 1500 }); else setTimeout(next, 30); } };
+    if (window.requestIdleCallback) requestIdleCallback(next, { timeout: 1500 }); else setTimeout(next, 30);
+  }
+  // sun shafts through the skylights: plan_gfx's shaft volumes (tier 1 and 2), one quad per bay between the glulam beams, with the room
+  function r15Shafts(inT) {
+    var g = inT && inside ? inside.g : null; if (R15.shG === g) return; (R15.sh || []).forEach(function (h) { try { h.remove(); } catch (e) {} }); R15.sh = []; R15.shG = g;
+    var GXm = window.PLAN_GFX; if (!g || !r15("s") || !GXm || typeof GXm.addSunShaft !== "function" || !(GXm.tier >= 1)) return;
+    try { var e = inside.door.e, cs = Math.cos(e[3]), sn = Math.sin(e[3]), Wp = function (lx, ly, lz) { return [e[0] + lx * cs + lz * sn, e[1] + ly, e[2] - lx * sn + lz * cs]; };
+      var bays = [[-26, -22.75], [-22.25, -13.75], [-13.25, -4.75], [-4.25, 4.25], [4.75, 13.25], [13.75, 22.25], [22.75, 26]];
+      [-13, 0, 13].forEach(function (sz) { var quads = bays.map(function (b) { return [Wp(b[0], 9.9, sz - 1.45), Wp(b[1], 9.9, sz - 1.45), Wp(b[1], 9.9, sz + 1.45), Wp(b[0], 9.9, sz + 1.45)]; });
+        R15.sh.push(GXm.addSunShaft({ quads: quads, floorY: e[1] + F, inward: [0, -1, 0], maxLen: 24, k: 0.5, obj: g })); });
+      R15.n.shafts = R15.sh.length; } catch (err) { note("r15 shafts", err); }
+  }
+  // by the hour: the layers' gain (the artificial light reads at night, quietly by day), the LED coves, the pooled lights and the sky fill
+  var _r15c = null;
+  function r15Hour(R, M, nk) {
+    var day = 1 - nk; if (R15.floorMat) R15.floorMat.color.setScalar(0.4 + 1.9 * nk); if (R15.wallMat) R15.wallMat.color.setScalar(0.55 + 1.75 * nk);
+    if (!r15("l")) return; if (!_r15c) _r15c = new THREE.Color(0xffe6c0); M.led.color.copy(_r15c).multiplyScalar(1.1 + 0.9 * nk);
+    R.lights.pts.forEach(function (l) { l.intensity = 0.6 + 0.55 * nk; }); if (R.lights.hemi) R.lights.hemi.intensity = 0.24 + 0.2 * day;
+  }
+
   // ───────────────────────── install ─────────────────────────
   PT.install = function () {
     var O = PT.orig = PT.orig || {};
@@ -988,6 +1262,6 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   PT.frame = frame; PT.debug = { route: route, NODES: NODES, EDGES: EDGES, DEST: DEST, floorAt: floorAt, l2w: l2w, w2l: w2l, mats: mats, SLOTS: SLOTS, staffSpot: staffSpot, visitorSpot: visitorSpot };
   if (!PT.hooked) { PT.hooked = true; var H = window.PLAN_HOOKS;
     H.world.push({ name: "planTerminal", fn: function () { window.PLAN_TERMINAL.install(); } });
-    (H.defer = H.defer || []).push({ name: "planTerminalBrand", fn: function () { try { window.PLAN_TERMINAL.buildBrand(); } catch (err) { note("brand", err); } } });
+    (H.defer = H.defer || []).push({ name: "planTerminalBrand", fn: function () { try { window.PLAN_TERMINAL.buildBrand(); } catch (err) { note("brand", err); } try { window.PLAN_TERMINAL.r15Ext(); } catch (err) { note("r15 exterior", err); } } });
     H.frame.push({ name: "planTerminalFrame", fn: function (dt, now) { try { window.PLAN_TERMINAL.frame(dt, now); } catch (err) { if (!PT.frameErr) { PT.frameErr = 1; note("frame", err); } } } }); }
 })();

@@ -1168,4 +1168,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     set("frame", "bsFrame", function (dt, now) { frameHook(dt, now); });
     set("interior", "bsCam", function (dt) { return camHook(dt); });
   })();
+  // R15 (plan_roomlight.js, HANDOFF_R15_ROOMLIGHT.md): inside the workshop the interior light kit takes over: its own pooled work lights
+  // only, the look; the customizer keeps its studio light
+  (window.PLAN_RLQ = window.PLAN_RLQ || []).push({ walk: true, id: "bodyshop", find: function (RL) {
+    if (BS.off || !SITE || !BS.ready || !IN.L || !IN.L.g || typeof player === "undefined" || !player) return null; var p = player.position; if (!CU.on && !inShop(p.x, p.y, p.z)) return null;
+    var R = IN.L.rlRoom; if (R) return R; var S = SITE;
+    R = IN.L.rlRoom = new RL.Room({ id: "bodyshop", type: "bodyshop", mod: "walk", M: new THREE.Matrix4().makeTranslation(S.cx, S.G, S.cz), box: [-S.hw, S.hw, 0, S.crown || 8, -S.hd, S.hd], capRoot: IN.L.g, own: true, env: false }); R.noShaft = true; R.noDoorShaft = true; return R; } });
 })();

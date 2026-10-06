@@ -456,7 +456,8 @@ var PLAN_MODE = false;   // true when /plan/plan.json loaded: the master-plan la
 for (const [k, t, k2, rmap] of [["dirt", "dirtN", 0.9, "dirtR"], ["track", "dirtN", 0.8, "dirtR"], ["walk", "apronN", 0.45, "apronR"], ["apron", "apronN", 0.55, "apronR"], ["asphalt", "apronN", 0.5, "apronR"], ["taxi", "apronN", 0.5, "apronR"], ["deck", "woodN", 0.7, "woodR"], ["turf", "turfN", 0.6, "turfR"]]) if (M[k] && TEX[t]) { M[k].normalMap = TEX[t]; M[k].normalScale = new THREE.Vector2(k2, k2); if (TEX[rmap]) { M[k].roughnessMap = TEX[rmap]; M[k].roughness = 1; } }
 /* extra walkable surface materials (the plan's decomposed granite, chip seal, pavers...): mat -> true when it is a dirt surface (wheel ruts) */
 const ROAD_MATS = new Map();
-function ribbon(points, width, mat, lift, dashed) { if (mat === M.dirt || mat === M.track || mat === M.walk || mat === M.asphalt || mat === M.taxi || mat === M.deck || ROAD_MATS.has(mat)) ROADS.push({ pts: points, w: width, lift: lift || 0, dirt: mat === M.dirt || mat === M.track || ROAD_MATS.get(mat) === true }); const g = new THREE.Group(); DEFER.push(() => g.add(ribbonNow(points, width, mat, lift, dashed))); return g; }
+const ROAD_MAT = new WeakMap();   // R15 (PLAN_PATHS): ROADS record -> the material it is drawn in
+function ribbon(points, width, mat, lift, dashed) { if (mat === M.dirt || mat === M.track || mat === M.walk || mat === M.asphalt || mat === M.taxi || mat === M.deck || ROAD_MATS.has(mat)) { ROADS.push({ pts: points, w: width, lift: lift || 0, dirt: mat === M.dirt || mat === M.track || ROAD_MATS.get(mat) === true }); ROAD_MAT.set(ROADS[ROADS.length - 1], mat); } const g = new THREE.Group(); DEFER.push(() => g.add(ribbonNow(points, width, mat, lift, dashed))); return g; }
 function polygon(points, mat, lift) { const g = new THREE.Group(); DEFER.push(() => g.add(polygonNow(points, mat, lift))); return g; }
 const EDGE_MATS = new Map();
 function edgeMat(mat) { if (!(mat === M.dirt || mat === M.track)) return mat; if (EDGE_MATS.has(mat)) return EDGE_MATS.get(mat); const m = mat.clone(); m.defines = Object.assign(m.defines || {}, { USE_UV: "" }); m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n{ float ex = min(vMapUv.x, 1.0 - vMapUv.x); float nse = texture2D(map, vec2(vMapUv.x * 2.7, vMapUv.y * 0.19)).g; float edge = ex + (nse - 0.5) * 0.24; if (edge < 0.045) discard; diffuseColor.rgb *= mix(0.86, 1.0, smoothstep(0.045, 0.22, edge)); }"); }; EDGE_MATS.set(mat, m); return m; }
@@ -465,16 +466,22 @@ function buildRuts() { if (QUAL.level === "low" || !ROADS.length) return; const 
   for (const r of ROADS) { if (!r.dirt || !r.pts || r.pts.length < 2 || r.w < 3 || r.w > 14) continue; if (r.plan && (PLAN_IDX.prom.has(r.plan) || /^b4_/.test(r.plan))) continue;   /* people-first red gravel walks carry no wheel ruts */ const p = r.pts; const off = r.w * 0.19; for (const side of [-1, 1]) { const pts = []; for (let i = 0; i < p.length; i++) { const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)]; let nx = -(b[1] - a[1]), nz = b[0] - a[0]; const L = Math.hypot(nx, nz); if (L < 1e-6) { if (pts.length) continue; nx = 1; nz = 0; } else { nx /= L; nz /= L; } if (!isFinite(nx) || !isFinite(nz)) continue; pts.push([p[i][0] + nx * off * side, p[i][1] + nz * off * side]); } if (pts.length < 2) continue; try { const m = ribbonNow(pts, Math.max(0.42, r.w * 0.11), mat, (r.lift || 0) + 0.035, false); if (m) { m.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; o.userData.noShadow = true; o.renderOrder = 1; } }); g.add(m); n++; } } catch (e) {} } }
   if (n) { /* INT: every rut shares one material: one mesh instead of one draw per rut */ const list = []; g.traverse((o) => { if (o.isMesh) list.push(o); }); if (list.length > 1) { const mm = mergeMeshes(list.map((o) => { o.updateMatrixWorld(true); const ge = o.geometry.clone(); ge.applyMatrix4(o.matrixWorld); return { geometry: ge }; }), mat); for (const o of list) { if (o.parent) o.parent.remove(o); o.geometry.dispose(); } mm.castShadow = false; mm.receiveShadow = true; mm.userData.noShadow = true; mm.renderOrder = 1; mm.frustumCulled = true; mm.geometry.computeBoundingSphere(); g.add(mm); } scene.add(g); } }
 function ribbonNow(points, width, mat, lift, dashed) { mat = edgeMat(mat);
-  const pts = [];
+  let pts = [];
   for (let i = 0; i < points.length - 1; i++) { const [ax, az] = points[i], [bx, bz] = points[i + 1]; const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 3.5)); for (let k = 0; k < n; k++) pts.push([ax + (bx - ax) * k / n, az + (bz - az) * k / n]); }
   pts.push(points[points.length - 1]);
+  // R15 (PLAN_PATHS): points.taper = [start, end] metres of feathered end (an open end fades into the ground instead of a hard cut)
+  const tp = points.taper && (points.taper[0] > 0 || points.taper[1] > 0) ? points.taper : null; let total = 0;
+  if (tp) { for (let i = 0; i < pts.length - 1; i++) total += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); const inZ = (s) => (tp[0] > 0 && s < tp[0] + 0.6) || (tp[1] > 0 && s > total - tp[1] - 0.6); const fine = []; let d = 0;
+    for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const n = inZ(d) || inZ(d + L) ? Math.max(1, Math.ceil(L / 0.7)) : 1; for (let k = 0; k < n; k++) fine.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); d += L; }
+    fine.push(pts[pts.length - 1]); pts = fine; }
   const pos = [], idx = [], uv = []; let dist = 0;
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i], q = pts[Math.min(i + 1, pts.length - 1)], o = pts[Math.max(i - 1, 0)];
     if (i) dist += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
     let dx = q[0] - o[0], dz = q[1] - o[1]; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
-    const nx = -dz, nz = dx, w = width / 2; const l = [p[0] + nx * w, p[1] + nz * w], r = [p[0] - nx * w, p[1] - nz * w];
-    { const hc = getH(p[0], p[1]); const hl = Math.max(getH(l[0], l[1]), hc - 0.35), hr = Math.max(getH(r[0], r[1]), hc - 0.35); pos.push(l[0], hl + lift, l[1], r[0], hr + lift, r[1]); } uv.push(0, dist / width, 1, dist / width);
+    let w = width / 2, lf = lift; if (tp) { const e = Math.min(1, tp[0] > 0 ? dist / tp[0] : 9, tp[1] > 0 ? (total - dist) / tp[1] : 9); if (e < 1) { const s = Math.sqrt(Math.max(0, 1 - (1 - e) * (1 - e))); w *= Math.max(0.05, s); lf = lift * (0.45 + 0.55 * s); } }
+    const nx = -dz, nz = dx; const l = [p[0] + nx * w, p[1] + nz * w], r = [p[0] - nx * w, p[1] - nz * w];
+    { const hc = getH(p[0], p[1]); const hl = Math.max(getH(l[0], l[1]), hc - 0.35), hr = Math.max(getH(r[0], r[1]), hc - 0.35); pos.push(l[0], hl + lf, l[1], r[0], hr + lf, r[1]); } uv.push(0, dist / width, 1, dist / width);
     if (i < pts.length - 1 && (!dashed || i % 2 === 0)) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
   }
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); if (!dashed) walkAdd(g); return new THREE.Mesh(g, mat);
@@ -1079,7 +1086,7 @@ function planSurface(o, prom) {
   if (/boardwalk/i.test(o.name || "") || id === "wash_walk" || id === "corral_walk") return { mat: M.deck, lift: 0.42, tile: 2.5 };
   if (["hl5_launch_walk", "orbit_walk", "observatory_spur", "crater_walk"].includes(id)) return { mat: P.redg, lift: 0.3, tile: 3 };
   if (id === "sun_tunnels_spur") return { mat: M.track, lift: 0.26, tile: 0 };
-  if (/^gp_p_/.test(id)) return { mat: P.dg, lift: 0.3, tile: 3 };
+  if (/^gp_p_/.test(id)) return { mat: P.dg, lift: 0.3 + (o.ppLift || 0), tile: 3 };   // R15: plan_paths parts the touching Genesis Park walks by 5 mm per walk (ppLift)
   return { mat: P.stone, lift: 0.34, tile: 4.5 };
 }
 // paint and decals: every vertex of the group's meshes onto the drawn walk surface (walk grid, else the ground) plus eps (run in DEFER)
@@ -1094,7 +1101,7 @@ function planPolyLen(pts) { let L = 0; for (let i = 0; i < pts.length - 1; i++) 
 // walk a polyline every step metres from start: cb(x, z, ux, uz, dist)
 function planAlong(pts, step, start, cb) { let acc = 0, next = start || 0; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1]; const L = Math.hypot(bx - ax, bz - az); if (L < 1e-3) continue; const ux = (bx - ax) / L, uz = (bz - az) / L; while (next <= acc + L) { const t = next - acc; cb(ax + ux * t, az + uz * t, ux, uz, next); next += step; } acc += L; } }
 // register a walkable ribbon now (ROADS: nearRoad, roadLiftAt, scatter exclusion) and build its mesh in DEFER, merged by material
-function planRibbon(pts, w, sf, id) { if (!sf || !pts || pts.length < 2 || !(w > 0)) return null; const rec = { pts, w, lift: sf.lift, dirt: sf.mat === M.dirt || sf.mat === M.track || ROAD_MATS.get(sf.mat) === true, plan: id }; ROADS.push(rec); PLAN_PIECES.push({ pts, w, mat: sf.mat, lift: sf.lift, tile: sf.tile, id }); return rec; }
+function planRibbon(pts, w, sf, id) { if (!sf || !pts || pts.length < 2 || !(w > 0)) return null; const rec = { pts, w, lift: sf.lift, dirt: sf.mat === M.dirt || sf.mat === M.track || ROAD_MATS.get(sf.mat) === true, plan: id }; ROADS.push(rec); ROAD_MAT.set(rec, sf.mat); PLAN_PIECES.push({ pts, w, mat: sf.mat, lift: sf.lift, tile: sf.tile, id }); return rec; }
 // INT: the earth shoulder of a ribbon's downhill edge where the cross-slope clamp holds it over the terrain (see planFlushRibbons)
 const SHOULDERS = [];
 function planShoulder(geo, p, out) { const pos = geo.attributes.position.array; const ns = pos.length / 6; if (ns < 2) return; const lift = p.lift || 0; const own = new Set(ROADS.filter((r) => r.pts === p.pts));
@@ -1944,7 +1951,7 @@ async function buildWorld() {
   setLoad(0.03, "Reading the survey");
   const [site, hbuf, region, rbuf, plan] = await Promise.all([fetch("/site.json").then((r) => r.json()), fetch("/height.bin").then((r) => r.arrayBuffer()), fetch("/region.json").then((r) => r.json()).catch(() => null), fetch("/region_height.bin").then((r) => r.arrayBuffer()).catch(() => null), fetch((window.AV || String)("/plan/plan.json?v=" + (window.BUILD || 0))).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
   // the master plan: when plan.json loads the plan layout replaces the legacy one (PLAN mode); without it the legacy world builds as before
-  window.PLAN = plan && plan.runway && Array.isArray(plan.buildings) && Array.isArray(plan.places) ? plan : null; PLAN_MODE = !!window.PLAN; if (PLAN_MODE) planIndex(); console.log(PLAN_MODE ? "plan mode: " + window.PLAN.buildings.length + " buildings, " + window.PLAN.roads.length + " roads, " + window.PLAN.promenades.length + " promenades" : "legacy layout (no plan.json)");
+  window.PLAN = plan && plan.runway && Array.isArray(plan.buildings) && Array.isArray(plan.places) ? plan : null; PLAN_MODE = !!window.PLAN; if (PLAN_MODE) { planHooks("plan", window.PLAN); planIndex(); }   // R15: PLAN_HOOKS.plan patches the plan data before it is indexed (plan_paths.js) console.log(PLAN_MODE ? "plan mode: " + window.PLAN.buildings.length + " buildings, " + window.PLAN.roads.length + " roads, " + window.PLAN.promenades.length + " promenades" : "legacy layout (no plan.json)");
   SITE = site; T = site.terrain; H = new Float32Array(hbuf);
   if (region && rbuf) { TR = region; HR = new Float32Array(rbuf);
     // lift the far mountains so they read from ground level like they do to the eye

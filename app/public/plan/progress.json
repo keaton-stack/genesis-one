@@ -277,6 +277,86 @@
           "x": 108.25,
           "z": -112.15,
           "r": 0.3
+        },
+        {
+          "n": 345,
+          "id": "p_ar_directory",
+          "name": "You are here",
+          "x": 110.4,
+          "z": -132.8,
+          "r": 0.3
+        },
+        {
+          "n": 346,
+          "id": "p_ar_model",
+          "name": "The site model",
+          "x": 122.7,
+          "z": -121.3,
+          "r": 0.3
+        },
+        {
+          "n": 347,
+          "id": "p_ar_grandloop",
+          "name": "Waiting for the Grand Loop",
+          "x": 110.3,
+          "z": -166.2,
+          "r": 0.3
+        },
+        {
+          "n": 348,
+          "id": "p_ar_carpet",
+          "name": "The red carpet",
+          "x": 106.4,
+          "z": -28.0,
+          "r": 0.3
+        },
+        {
+          "n": 349,
+          "id": "p_ar_lounge",
+          "name": "The airside lounge",
+          "x": 70.5,
+          "z": -18.7,
+          "r": 0.3
+        },
+        {
+          "n": 350,
+          "id": "p_ar_signpost",
+          "name": "Every hub from here",
+          "x": 124.6,
+          "z": -156.4,
+          "r": 0.3
+        },
+        {
+          "n": 351,
+          "id": "p_ar_gateway",
+          "name": "Through the Club Walk gateway",
+          "x": 156.8,
+          "z": -164.6,
+          "r": 0.3
+        },
+        {
+          "n": 352,
+          "id": "p_ar_boulevard",
+          "name": "The Terminal Drive palms",
+          "x": -64.0,
+          "z": -177.4,
+          "r": 0.3
+        },
+        {
+          "n": 353,
+          "id": "p_ar_linecrew",
+          "name": "Meet the line crew",
+          "x": 102.4,
+          "z": 18.3,
+          "r": 0.3
+        },
+        {
+          "n": 354,
+          "id": "p_ar_planeside",
+          "name": "Planeside on the ramp",
+          "x": 94.9,
+          "z": 9.7,
+          "r": 0.3
         }
       ]
     },
@@ -350,6 +430,46 @@
           "n": 21,
           "id": "p_grand_pavilion",
           "place": "grand_pavilion"
+        },
+        {
+          "n": 310,
+          "id": "p_pa_founders_court",
+          "name": "Founders Fountain Court",
+          "x": 440,
+          "z": -420,
+          "r": 12
+        },
+        {
+          "n": 330,
+          "id": "p_fa_putting",
+          "name": "Club Putting Green",
+          "x": 320,
+          "z": -468,
+          "r": 0.3
+        },
+        {
+          "n": 331,
+          "id": "p_fa_firecircle",
+          "name": "Lodge Fire Circle",
+          "x": 34,
+          "z": -402,
+          "r": 0.3
+        },
+        {
+          "n": 332,
+          "id": "p_fa_labyrinth",
+          "name": "Desert Labyrinth",
+          "x": 162,
+          "z": -535,
+          "r": 0.3
+        },
+        {
+          "n": 333,
+          "id": "p_fa_loungers",
+          "name": "Stargazing Loungers",
+          "x": 430,
+          "z": -600,
+          "r": 0.3
         }
       ]
     },
@@ -424,6 +544,30 @@
           "n": 41,
           "id": "p_threshold_overlook",
           "place": "threshold_overlook"
+        },
+        {
+          "n": 327,
+          "id": "p_fa_lookout",
+          "name": "Runway Lookout",
+          "x": -97,
+          "z": 245,
+          "r": 0.3
+        },
+        {
+          "n": 328,
+          "id": "p_fa_chess",
+          "name": "Flight Line Chess",
+          "x": -181,
+          "z": 220,
+          "r": 0.3
+        },
+        {
+          "n": 329,
+          "id": "p_fa_horseshoe",
+          "name": "Horseshoe Pits",
+          "x": -413,
+          "z": 262,
+          "r": 0.3
         }
       ]
     },
@@ -481,6 +625,30 @@
           "id": "p_works",
           "place": "works",
           "name": "Maker Row"
+        },
+        {
+          "n": 335,
+          "id": "p_fb_bosque",
+          "name": "Mesquite Bosque",
+          "x": 606,
+          "z": 330,
+          "r": 16
+        },
+        {
+          "n": 336,
+          "id": "p_fb_fountain",
+          "name": "Bosque Fountain",
+          "x": 604,
+          "z": 398,
+          "r": 12
+        },
+        {
+          "n": 337,
+          "id": "p_fb_windmill",
+          "name": "Range Windmill",
+          "x": 896,
+          "z": 388,
+          "r": 12
         }
       ]
     },
@@ -547,6 +715,30 @@
           "n": 79,
           "id": "p_genesis_lodge",
           "place": "genesis_lodge"
+        },
+        {
+          "n": 339,
+          "id": "p_fb_sculpture",
+          "name": "Design District Sculpture Walk",
+          "x": 744,
+          "z": 652,
+          "r": 22
+        },
+        {
+          "n": 340,
+          "id": "p_fb_labyrinth",
+          "name": "Design District Labyrinth",
+          "x": 894,
+          "z": 531,
+          "r": 10
+        },
+        {
+          "n": 341,
+          "id": "p_fb_waterwall",
+          "name": "Water Wall",
+          "x": 511,
+          "z": 586,
+          "r": 10
         }
       ]
     },
@@ -658,6 +850,14 @@
           "n": 117,
           "id": "p_frontier_ranches",
           "place": "frontier_ranches"
+        },
+        {
+          "n": 344,
+          "id": "p_fb_stand",
+          "name": "Corral Viewing Stand",
+          "x": 1024,
+          "z": 352,
+          "r": 12
         }
       ]
     },
@@ -728,6 +928,30 @@
           "n": 140,
           "id": "p_sunset_bluff",
           "place": "sunset_bluff"
+        },
+        {
+          "n": 338,
+          "id": "p_fb_hammock",
+          "name": "Commons Hammock Grove",
+          "x": 404,
+          "z": 694,
+          "r": 14
+        },
+        {
+          "n": 342,
+          "id": "p_fb_plants",
+          "name": "Native Plant Trail",
+          "x": 507,
+          "z": 852,
+          "r": 18
+        },
+        {
+          "n": 343,
+          "id": "p_fb_lookout",
+          "name": "Sunset Lookout",
+          "x": 277,
+          "z": 470,
+          "r": 10
         }
       ]
     },
@@ -800,6 +1024,14 @@
           "n": 161,
           "id": "p_gp_pump",
           "place": "gp_pump"
+        },
+        {
+          "n": 334,
+          "id": "p_fa_hammock",
+          "name": "Genesis Park Hammock Grove",
+          "x": -144,
+          "z": -332,
+          "r": 0.3
         }
       ]
     },
@@ -1314,6 +1546,22 @@
           "kind": "local",
           "name": "Marisol",
           "org": "Farmer, Market Garden"
+        },
+        {
+          "n": 325,
+          "id": "p_fa_approach",
+          "name": "Approach Garden",
+          "x": -99,
+          "z": -146,
+          "r": 0.3
+        },
+        {
+          "n": 326,
+          "id": "p_fa_sculpture",
+          "name": "Approach Sculpture Walk",
+          "x": -200,
+          "z": -206,
+          "r": 0.3
         }
       ]
     },
@@ -1639,6 +1887,30 @@
           "x": 600.0,
           "z": 300.0,
           "r": 0.3
+        },
+        {
+          "n": 320,
+          "id": "p_xh_casitas",
+          "name": "Casita lane",
+          "x": 684,
+          "z": 424,
+          "r": 30
+        },
+        {
+          "n": 322,
+          "id": "p_xh_ranches",
+          "name": "Ranch row",
+          "x": 874,
+          "z": 304,
+          "r": 40
+        },
+        {
+          "n": 323,
+          "id": "p_xh_barn",
+          "name": "The red barn",
+          "x": 787,
+          "z": 78,
+          "r": 25
         }
       ]
     }

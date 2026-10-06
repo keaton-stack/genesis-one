@@ -55,7 +55,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   var RM = window.PLAN_ROOMS = window.PLAN_ROOMS || { specs: [], errs: [], cur: null, n: { built: 0, generic: 0 } };
-  RM.v = "r14-2"; RM.room = null; RM.n.solids = RM.n.solids || 0; RM.n.seats = RM.n.seats || 0; RM.n.spots = RM.n.spots || 0; RM.n.ms = RM.n.ms || 0;
+  RM.v = "r15-1"; RM.room = null; RM.n.solids = RM.n.solids || 0; RM.n.seats = RM.n.seats || 0; RM.n.spots = RM.n.spots || 0; RM.n.ms = RM.n.ms || 0;
   RM.off = /[?&]rooms=0\b/.test(location.search);
   function note(w, e) { if (RM.errs.length < 40) RM.errs.push(w + ": " + ((e && e.message) || e)); }
   RM.register = function (id, test, spec) {
@@ -134,12 +134,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   RM.nearSpot = function () { return nearSpot(RM.room, false); };
   function seatOf(ctx) { if (!ctx || !player) return null; var best = null, bd = 1e9; for (var i = 0; i < ctx.seats.length; i++) { var sd = ctx.seats[i]; var d = Math.hypot(sd.x - player.position.x, sd.z - player.position.z); if (d < Math.max(sd.hw, sd.hd) + 0.35 && d < bd && Math.abs(sd.y1 - player.position.y) < 0.3) { bd = d; best = sd; } } return best; }
   function inRoom() { var c = RM.room; try { return c && typeof inside !== "undefined" && inside && inside.g === c.g ? c : null; } catch (e) { return null; } }
-  var SKY = { on: false, base: 0, set: 0 };
+  var SKY = RM.sky = { on: false, base: 0, set: 0 };
   function frame(dt, now) {
     var c = inRoom();
     if (!c) { SHW.on = false; if (SKY.on) { try { if (Math.abs(scene.environmentIntensity - SKY.set) < 1e-6) scene.environmentIntensity = SKY.base; } catch (e) {} SKY.on = false; } if (RM.room && !RM.room.left) endRoom(RM.room); return; }
     if (!SHW.wrapped) shadowWrap(); SHW.on = true;
-    try { var f = c.sky; if (typeof f === "number" && f < 1) { var ei = scene.environmentIntensity; if (!SKY.on || Math.abs(ei - SKY.set) > 1e-6) SKY.base = ei; SKY.set = SKY.base * f; scene.environmentIntensity = SKY.set; SKY.on = true; if (typeof hemi !== "undefined" && hemi) hemi.intensity *= f; } } catch (e) { note("sky", e); }
+    try { var f = c.sky; if (window.PLAN_RL && PLAN_RL.envOwns && PLAN_RL.envOwns()) { if (SKY.on) { if (Math.abs(scene.environmentIntensity - SKY.set) < 1e-6) scene.environmentIntensity = SKY.base; SKY.on = false; } if (typeof f === "number" && f < 1 && typeof hemi !== "undefined" && hemi) hemi._intensity *= f; }   // R15: the room's own environment (plan_roomlight.js) replaces the sky's share
+      else if (typeof f === "number" && f < 1) { var ei = scene.environmentIntensity; if (!SKY.on || Math.abs(ei - SKY.set) > 1e-6) SKY.base = ei; SKY.set = SKY.base * f; scene.environmentIntensity = SKY.set; SKY.on = true; if (typeof hemi !== "undefined" && hemi) { if (window.PLAN_RL && PLAN_RL.on && hemi._intensity !== undefined) hemi._intensity *= f; else hemi.intensity *= f; } } } catch (e) { note("sky", e); }   // R15: the client reports a hemisphere light's intensity x PI, so "*= f" multiplied it by PI f (about 1); the kit scales the stored value
     for (var i = 0; i < c.frames.length; i++) { try { c.frames[i](dt, now, c); } catch (e) { note("frame", e); c.frames.splice(i, 1); i--; } }
     try { // the HUD line: a faced spot, then a seat, then the nearest spot, then the door
       var el = document.getElementById("prompt-t"); if (!el || (typeof SIT !== "undefined" && SIT.on)) return; var sp = nearSpot(c, true) || ((typeof nearestSeat === "function" && nearestSeat()) ? null : nearSpot(c, false));
@@ -167,6 +168,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         RM.room = ctx; if (ctx.portals.length) ctx.g.perfRoom = perfRoomFor(ctx);
         if (ctx.door0) { var dz = ctx.door0; inside.atDoor = function () { var q = w2l(ctx.e, player.position.x, player.position.z); return q[1] > dz[0] && Math.abs(q[0]) < dz[1]; }; }
         for (var i = 0; i < ctx.afters.length; i++) { try { ctx.afters[i](ctx); } catch (e) { note("after", e); } }
+        try { if (window.PLAN_RL && PLAN_RL.ctxRoom) PLAN_RL.ctxRoom(ctx); } catch (e) { note("roomlight", e); }   // R15: the room's fixtures, environment and look (plan_roomlight.js)
       }
       return r;
     };

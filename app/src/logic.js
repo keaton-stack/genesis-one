@@ -54,7 +54,7 @@ const RANKS = [[0, "Passenger"], [400, "Pilot"], [1500, "Captain"], [4000, "Towe
 // bit sets as hex, repeatable xp, the day cap, the visit streak) merged monotonically (bits OR, counters max) so reloads, tabs and
 // devices never lose progress, plus the public rank shown on nameplates and the shared impact counters. Clients only send "prog"
 // once they see view.progv, so an older room never receives it.
-const PROG_V = 1, PROG_HEX_RE = /^[0-9a-f]{0,64}$/, PROG_TITLE_RE = /^[a-z0-9_]{0,24}$/, PROG_NUM_MAX = 1e7;
+const PROG_V = 1, PROG_HEX_RE = /^[0-9a-f]{0,128}$/, PROG_TITLE_RE = /^[a-z0-9_]{0,24}$/, PROG_NUM_MAX = 1e7;
 const IMPACT_KEYS = ["stamps", "talks", "flights", "landings", "acts", "rides", "visits"], IMPACT_STEP = 20;
 function progInt(v, max) { return Number.isInteger(v) && v >= 0 && v <= max; }
 function hexOr(a, b) { a = a || ""; b = b || ""; let out = ""; for (let i = 0; i < Math.max(a.length, b.length); i++) out += (parseInt(a[i] || "0", 16) | parseInt(b[i] || "0", 16)).toString(16); return out.replace(/0+$/, ""); }

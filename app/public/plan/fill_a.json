@@ -1,0 +1,252 @@
+{
+ "version": 1,
+ "note": "R15 Fill A: the designed landscape between the places of Stage One, the Flight Line, Genesis Park and the airfield. Copy shown in game (hotspots, signs). No em dashes, no percentages.",
+ "features": [
+  {
+   "id": "approach_garden",
+   "type": "fountain",
+   "x": -93,
+   "z": -146,
+   "sr": 26,
+   "r": 7.5,
+   "stage": "Convention Approach",
+   "t": "Approach Garden",
+   "p": "A shaded fountain court on the walk between the Stellar FBO and the Solport Convention Center: palo verde shade, benches round the basin and a stone runnel carrying the water toward the drive."
+  },
+  {
+   "id": "sculpture_1",
+   "type": "sun_ring",
+   "x": -238,
+   "z": -216,
+   "sr": 18,
+   "r": 3.4,
+   "stage": "Convention Approach",
+   "walk": "sculpture",
+   "t": "Sculpture Walk: Sun Ring",
+   "p": "A weathered steel ring set square to the morning sun. On the equinox the sunrise sits in the middle of it."
+  },
+  {
+   "id": "sculpture_2",
+   "type": "cairn",
+   "x": -212,
+   "z": -216,
+   "sr": 16,
+   "r": 3.2,
+   "stage": "Convention Approach",
+   "walk": "sculpture",
+   "t": "Sculpture Walk: Wayfinder Cairn",
+   "p": "Stacked river stone, the oldest trail marker in the desert. Travellers added a stone as they passed."
+  },
+  {
+   "id": "sculpture_3",
+   "type": "fins",
+   "x": -186,
+   "z": -216,
+   "sr": 16,
+   "r": 3.6,
+   "stage": "Convention Approach",
+   "walk": "sculpture",
+   "t": "Sculpture Walk: Wind Fins",
+   "p": "Seven steel fins tuned to the prevailing southwest wind. They hum softly on a breezy afternoon."
+  },
+  {
+   "id": "sculpture_4",
+   "type": "monolith",
+   "x": -160,
+   "z": -216,
+   "sr": 16,
+   "r": 3.4,
+   "stage": "Convention Approach",
+   "walk": "sculpture",
+   "t": "Sculpture Walk: Horizon Stone",
+   "p": "A single dark stone standing against the Mule Mountains, a pause before the convention campus."
+  },
+  {
+   "id": "flight_lookout",
+   "type": "lookout",
+   "x": -75,
+   "z": 245,
+   "sr": 46,
+   "r": 5.2,
+   "stage": "The Flight Line",
+   "t": "Runway Lookout",
+   "p": "A stone terrace with two viewfinders over Runway 03/21. Field DGL opened here in 1928 as one of the first international airports in the United States."
+  },
+  {
+   "id": "flight_chess",
+   "type": "chess",
+   "x": -205,
+   "z": 228,
+   "sr": 26,
+   "r": 5.6,
+   "stage": "The Flight Line",
+   "t": "Flight Line Chess",
+   "p": "A giant chess board in the shade by the market. A game is always halfway through; pick a side."
+  },
+  {
+   "id": "flight_waterwall",
+   "type": "waterwall",
+   "x": -150,
+   "z": 236,
+   "sr": 22,
+   "r": 4.4,
+   "stage": "The Flight Line",
+   "t": "Water Wall",
+   "p": "A weathered steel wall with a thin sheet of water running down it into a stone trough. Recirculated, it cools the air by the plaza."
+  },
+  {
+   "id": "motor_horseshoes",
+   "type": "horseshoe",
+   "x": -395,
+   "z": 262,
+   "sr": 60,
+   "r": 7.6,
+   "stage": "The Flight Line",
+   "t": "Horseshoe Pits",
+   "p": "Two regulation pits forty feet apart, a scoreboard and a bench. Ringers count three."
+  },
+  {
+   "id": "club_putting",
+   "type": "putting",
+   "x": 288,
+   "z": -468,
+   "sr": 34,
+   "r": 8.2,
+   "stage": "Stage One",
+   "t": "Club Putting Green",
+   "p": "Three holes on a practice green beside The Landing Club. Bring your own putter or borrow one from the rack."
+  },
+  {
+   "id": "lodge_firepit",
+   "type": "firepit",
+   "x": 84,
+   "z": -402,
+   "sr": 52,
+   "r": 6.6,
+   "stage": "Stage One",
+   "t": "Lodge Fire Circle",
+   "p": "A stone fire pit with chairs all the way round it, lit every evening for the lodge guests and anyone walking by."
+  },
+  {
+   "id": "lodge_library",
+   "type": "library",
+   "x": 62,
+   "z": -455,
+   "sr": 26,
+   "r": 3.2,
+   "stage": "Stage One",
+   "t": "Little Free Library",
+   "p": "Take a book, leave a book. Stocked by the Club Lodges with desert field guides and paperbacks."
+  },
+  {
+   "id": "green_labyrinth",
+   "type": "labyrinth",
+   "x": 160,
+   "z": -535,
+   "sr": 40,
+   "r": 9.0,
+   "stage": "Stage One",
+   "t": "Desert Labyrinth",
+   "p": "One path in and the same path out, laid in fieldstone on decomposed granite. Walk it slowly."
+  },
+  {
+   "id": "green_sundial",
+   "type": "sundial",
+   "x": 60,
+   "z": -520,
+   "sr": 34,
+   "r": 6.0,
+   "stage": "Stage One",
+   "t": "Sundial Court",
+   "p": "A horizontal sundial set for latitude 31.3 degrees north. The bronze gnomon points at the celestial pole."
+  },
+  {
+   "id": "row_stargaze",
+   "type": "stargaze",
+   "x": 430,
+   "z": -600,
+   "sr": 50,
+   "r": 5.6,
+   "stage": "Stage One",
+   "t": "Stargazing Loungers",
+   "p": "Reclined stone loungers facing the southern sky, with only amber footlights. Far from city light, the sky here is dark enough for the Milky Way."
+  },
+  {
+   "id": "gp_hammocks",
+   "type": "hammocks",
+   "x": -118,
+   "z": -332,
+   "sr": 40,
+   "r": 7.0,
+   "stage": "Genesis Park",
+   "t": "Hammock Grove",
+   "p": "Three hammocks strung between timber frames under mesquite shade, a short walk from Genesis Creek."
+  },
+  {
+   "id": "gp_trail",
+   "type": "trail",
+   "x": -150,
+   "z": -236,
+   "sr": 0,
+   "r": 0,
+   "stage": "Genesis Park",
+   "t": "Native Plant Trail",
+   "p": "Six desert natives with their stories, along the walk from the creek gate. Read the signs as you go."
+  }
+ ],
+ "trail": [
+  {
+   "sp": "paloverde",
+   "t": "Palo Verde",
+   "s": "Parkinsonia",
+   "p": "Arizona's state tree. Its green bark makes food from sunlight even after the leaves drop in drought."
+  },
+  {
+   "sp": "saguaro_mid",
+   "t": "Saguaro",
+   "s": "Carnegiea gigantea",
+   "p": "Grows only in the Sonoran Desert. The first arm can take seventy years to appear."
+  },
+  {
+   "sp": "ocotillo",
+   "t": "Ocotillo",
+   "s": "Fouquieria splendens",
+   "p": "Bare canes most of the year. After rain it leafs out in days and tips each cane with red flowers."
+  },
+  {
+   "sp": "agave_cluster",
+   "t": "Agave",
+   "s": "Agave parryi",
+   "p": "Stores water in thick leaves for years, then flowers once on a tall stalk before the rosette dies."
+  },
+  {
+   "sp": "mesquite",
+   "t": "Mesquite",
+   "s": "Prosopis velutina",
+   "p": "Its roots can reach groundwater fifty metres down. Its sweet pods fed people here for thousands of years."
+  },
+  {
+   "sp": "yucca_cluster",
+   "t": "Yucca",
+   "s": "Yucca elata",
+   "p": "Pollinated by a single kind of moth. Fibres from its leaves were woven into sandals and rope."
+  }
+ ],
+ "signs": {
+  "lookout": [
+   "RUNWAY 03/21",
+   "Field DGL, opened 1928",
+   "6,000 ft of runway. Face the field and watch the arrivals line up over the Mule Mountains."
+  ],
+  "stargaze": [
+   "THE SOUTHERN SKY",
+   "Look south after dark",
+   "The Milky Way core rises over the Mule Mountains in summer. Let your eyes adjust for twenty minutes."
+  ],
+  "sundial": [
+   "SUNDIAL COURT",
+   "Latitude 31.3 N",
+   "Read the shadow of the gnomon. Arizona keeps standard time all year; add about eighteen minutes for Douglas."
+  ]
+ }
+}

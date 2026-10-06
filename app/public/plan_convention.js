@@ -1009,4 +1009,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     set("frame", "convFrame", function (dt, now) { CV.impl.frame(dt, now); });
     set("interior", "convCam", function (dt) { return CV.impl.cam(dt); });
   })();
+  // R15 (plan_roomlight.js, HANDOFF_R15_ROOMLIGHT.md): the keynote hall takes the interior light kit while the camera is in it: its own
+  // pooled lights only, the look
+  (window.PLAN_RLQ = window.PLAN_RLQ || []).push({ walk: true, id: "keynote", find: function (RL) {
+    if (CV.off || !SITE || !CV.ready || CV.zone !== "hall" || !IT.hall || !IT.hall.g) return null; var R = IT.hall.rlRoom; if (R) return R; var H = SITE.hall;
+    R = IT.hall.rlRoom = new RL.Room({ id: "keynote", type: "keynote", mod: "walk", M: new THREE.Matrix4().makeTranslation(SITE.cx, SITE.G, SITE.cz), box: [H.u0 - 1, H.u1 + 1, -1, (H.top || H.ceil) + 2, -H.v - 1, H.v + 1], capRoot: IT.hall.g, own: true, env: false }); R.noShaft = true; R.noDoorShaft = true; return R; } });
 })();

@@ -59,7 +59,7 @@ gfx_sand, gfx_sand_n: dense_sand (Dimitrios Savva)
 gfx_gravel, gfx_gravel_n: rocky_trail_02 (Amal Kumar)
 
 Night sky (plan_gfx.js, round 4 sky pass), files in tex/sky/:
-sky_l_8k.jpg, sky_l_4k.jpg, sky_l_2k.jpg (the faint resolved star field and its density): NASA/Goddard Space Flight Center Scientific
+(Removed in R15, 5 Oct 2026: the sky no longer loads these maps.) sky_l_8k.jpg, sky_l_4k.jpg, sky_l_2k.jpg (the faint resolved star field and its density): NASA/Goddard Space Flight Center Scientific
   Visualization Studio, "Deep Star Maps 2020" (Ernie Wright), https://svs.gsfc.nasa.gov/4851 . Public domain (NASA media usage guidelines).
   Built from the Hipparcos-2, Tycho-2 and Gaia DR2 catalogs (with the Yale Bright Star Catalog, UCAC3 and XHIP). Re-encoded: the stars
   brighter than magnitude 8 removed (they are drawn from stars.bin), an asinh-stretched luminance plus a low-resolution chroma layer.

@@ -1602,4 +1602,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     set("frame", "domesFrame", function (dt, now) { DM.impl.frame(dt, now); });
     set("interior", "domesCam", function (dt) { return DM.impl.cam(dt); });
   })();
+  // R15 (plan_roomlight.js, HANDOFF_R15_ROOMLIGHT.md): the Dome Suite or Grand Vault the player is in takes the interior light kit:
+  // its own pooled lights only (the deck and path lamps outside drop out of the pool), the look (no capture: these are walked into without a fade)
+  (window.PLAN_RLQ = window.PLAN_RLQ || []).push({ walk: true, id: "domes", find: function (RL) {
+    if (DM.off || !SITE || !DM.ready || typeof player === "undefined" || !player) return null; var p = player.position, P = suiteAt(p.x, p.z, p.y) || vaultAt(p.x, p.z, p.y); if (!P || !P.L || !P.L.g) return null;
+    var R = P.L.rlRoom; if (R) return R; var M = new THREE.Matrix4().makeRotationY(P.rot || 0).setPosition(P.x, P.D || 0, P.z), a = P.vault ? (P.w || 13) / 2 : (P.R || 5), b = P.vault ? a * 1.18 : a, h = P.vault ? (P.w || 13) * 0.39 + 0.5 : (P.R || 5);
+    R = P.L.rlRoom = new RL.Room({ id: (P.vault ? "vault:" : "dome:") + (P.id || ""), type: P.vault ? "vault" : "dome", mod: "walk", M: M, box: [-a, a, 0, h, -b, b], capRoot: P.L.g, own: true, env: false }); R.noShaft = true; R.noDoorShaft = true; return R; } });
 })();
