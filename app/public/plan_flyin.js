@@ -73,8 +73,13 @@ window.FLYIN = window.FLYIN || {};
   }
   function cab(m) { if (!m || (m.userData && m.userData.cabZ)) return m; m.userData.cabZ = true; return setObc(m, cabObc, null); }
   // a material that is not ours (a model's, a character's): a cabin copy that keeps its own shader hook
-  function cabClone(m) { if (!m) return m; if (Array.isArray(m)) return m.map(cabClone); if (m.userData && m.userData.cabZ) return m; if (m.isSpriteMaterial || m.isShaderMaterial) return m; const prev = userObc(m); const c = m.clone(); c.userData = Object.assign({}, m.userData, { cabZ: true }); return setObc(c, cabObc, prev); }
-  function cabTree(root) { root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && o.material) { o.material = cabClone(o.material); o.frustumCulled = false; } }); }
+  function cabClone(m) { if (!m) return m; if (Array.isArray(m)) return m.map(cabClone); if (m.userData && m.userData.cabZ) return m; if (m.isSpriteMaterial || m.isShaderMaterial) return m; const prev = userObc(m); const c = m.clone(); c.userData = Object.assign({}, m.userData, { cabZ: true });
+    // R20 FY: MeshStandard / MeshPhysical .copy() resets `defines` to STANDARD (/ PHYSICAL), so a character material lost the
+    // R16 CH_DET / CH_RIG defines its own shader hook reads: the program failed to compile and Ava's body, skin and eyes never drew.
+    // Keep the source's defines and the R16 / R19 patch flags (so no module patches the copy a second time).
+    if (m.defines) c.defines = Object.assign({}, m.defines); for (const f of ["__chfx", "__chs", "__chsPrev", "__chsKey0"]) if (m[f] !== undefined) c[f] = m[f];
+    return setObc(c, cabObc, prev); }
+  function cabTree(root) { root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && o.material) { const c = cabClone(o.material); if (!(Array.isArray(c) && Array.isArray(o.material) && c.every((m, i) => m === o.material[i]))) o.material = c; o.frustumCulled = false; } }); }
   F.cabTree = cabTree;
 
   // ───────────────────────────── textures ─────────────────────────────
@@ -640,7 +645,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     const seats = FLY.g.userData.seats; const q0 = seats[0]; FLY.seat = q0; FLY.local.set(q0.x, 0, q0.z); pitch = 0.1;
     // the cabin crew: Ava, in her galley
     for (const c of [...FLY.g.children]) if (c.userData && c.userData.id === "fa_ava") FLY.g.remove(c);
-    try { const fa = avatar("fa_ava", "Ava · Flight attendant", { body: "f", skin: "c98f63", shirt: "1c1f24", pants: "1c1f24", hair: 1, hairc: "2a1a10" }, null, "outfit_flight"); fa.userData.label.scale.set(1.6, 0.4, 1); fa.userData.label.visible = false; fa.position.set(-0.12, 0, 7.0); fa.rotation.y = -Math.PI / 2; FLY.g.add(fa); cabTree(fa);
+    try { const fa = avatar("fa_ava", "Ava · Flight attendant", { body: "f", skin: "c98f63", shirt: "f2ecdf", pants: "16261c", shoes: "141414", hair: 10, hairc: "2a1a10" }, null, null);   /* R20 FY: a cream blouse under the uniform shells (crewUniform), the neat bun */ fa.userData.label.scale.set(1.6, 0.4, 1); fa.userData.label.visible = false; fa.position.set(-0.12, 0, 7.0); fa.rotation.y = -Math.PI / 2; FLY.g.add(fa); cabTree(fa);
       FLY.fa = { g: fa, name: "Ava", id: "fa_ava", mode: "galley", pause: 6, tz: 7.0, lines: ["Good evening, and welcome aboard Giveback One. We are joining the circuit for Runway 21 at Solport.", "Champagne, a Desert Sunrise or an espresso? I can bring it to your seat.", "Look out the left side: that is The Expanse, with the Genesis Ring in the far corner.", "Main Street runs straight at the Ring. Four Corners is the crossroads halfway down.", "We turn base over the open desert, then final over the North Section Road.", "Sky, your guide, meets you at Arrivals Court, just out of the landside door of the Stellar Aviation FBO."], li: 0 }; } catch (e) { log("crew", e); FLY.fa = null; }
     FLY.spots = [{ lx: -0.15, lz: 6.95, r: 0.9, t: "ask Ava for a drink", fn: orderDrinkR2 }, { lx: 0, lz: 8.05, r: 0.8, t: "flight deck door", fn: () => { lower("CAPTAIN", "Cleared to land, Runway 21", "Left-hand circuit over The Expanse. Enjoy the view.", 5); sfx("ui"); } },
       { lx: -0.45, lz: 5.35, r: 0.75, t: "the moving map", fn: () => { lower("MOVING MAP", "Giveback One on the circuit", "The map draws the layout of Genesis and our path to Gate A2.", 6); sfx("ui"); } },
@@ -648,6 +653,8 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
       { lx: -0.35, lz: -5.2, r: 0.8, t: "champagne on ice", fn: () => { lower("THE DRINKS CABINET", "Champagne on ice", "Ava will pour you a glass. Welcome to Genesis.", 5); sfx("buy"); } },
       { lx: 0.25, lz: 0.78, r: 0.7, t: "the dining table", fn: () => { lower("DINING", "The table is laid", "Champagne, espresso and fresh fruit on the walnut table.", 5); sfx("ui"); } }];
     for (const w of FLY.g.userData.windows) { w.want = 0; setShade(w, 0); }
+    // R20 FY: comms, the seatbelt sign, the engines, Ava's uniform and her shaders (compiled off the frame during the exterior shots)
+    try { paStop(); F.comms = null; F.paDone = {}; F.eng = null; F.crewSay = null; beltSigns(); paPreload(); beltSet(0, true); if (FLY.fa) { dressCrew(FLY.fa); } } catch (e) { log("comms init", e); }
     // name labels and speech bubbles are drawn without a depth test: from the air they would show through the fuselage and speckle
     // every exterior shot, so they go to an unrendered layer for the flight (Ava's own bubbles are created later and stay visible)
     F.labels = []; hideLabels();
@@ -686,6 +693,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     // keep the passenger's view fixed to the cabin through the turns
     if (F.lastH !== null) { const dh = wrapA(pth.heading - F.lastH); if (cabin) yaw += dh; } F.lastH = pth.heading;
     try { events(prev, t, P); } catch (e) { log("events", e); }
+    try { comms(prev, t, P, cabin); engFrame(t, P, cabin, S); beltFrame(dt || 0.016); } catch (e) { log("comms", e); }
     passenger(dt, pth, cabin);
     try { crew(dt, cabin); } catch (e) { log("crew", e); }
     try { if (cabin) { for (const w of g.userData.windows) if (Math.abs(w.k - w.want) > 0.002) setShade(w, w.k + (w.want - w.k) * Math.min(1, dt * 1.6)); updateBeams(g, now / 1000); } else if (F.beams) { F.beams[1].m.visible = F.beams[-1].m.visible = false; } } catch (e) { log("shades", e); }
@@ -701,20 +709,19 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     const bars = S.kind === "ext"; U2.r.classList.toggle("bars", bars);
     if (S.kind === "cab") { if (!was || was.kind !== "cab") { yaw = F.heading + (F.yawL !== undefined ? F.yawL : Math.PI); } }
     else { if (was && was.kind === "cab") F.yawL = wrapA(yaw - F.heading); }
-    if (S.id === "cabin" && !F.fired.welcome) { F.fired.welcome = 1; cabinChime(); if (soundOn) { try { const a = new Audio("/audio/ava_welcome.m4a"); a.volume = Math.min(1, 0.9 * VOL.master); a.play().catch(() => {}); FLY.voice = a; } catch (e) {} } }
+    // (R20 FY: the welcome is now a PA announcement on the comms timeline)
   }
   // the dips between shots, as a function of flight time: [cut time, fade-in before, fade-out after, colour]
   function dips(P) { return [[0, 0, 1.8, "#000"], [F.shots[4].t0, 0.7, 0.9, "#fff3e0"], [F.shots[5].t0, 0.45, 0.7, "#000"], [F.shots[6].t0, 0.45, 0.9, "#000"], [F.shots[7].t0, 0.45, 0.8, "#000"]]; }
   function dipAt(t) { let best = 0, col = "#000"; for (const [T, a, b, c] of F.dipL || []) { let o = 0; if (t < T) o = a > 0 ? sm(T - a, T, t) : 0; else o = 1 - sm(T, T + b, t); if (T === 0 && t < 0.02) o = 1; if (o > best) { best = o; col = c; } } return [best, col]; }
   function events(prev, t, P) {
     const cross = (x) => prev < x && t >= x; const tTD = P.tTD;
-    if (cross(24.5)) { cabinChime(); lower("CAPTAIN", "Joining the left-hand downwind, Runway 21", "The Expanse is off our left side. The Outpost and the Genesis Ring are furthest out.", 7); }
-    if (cross(P.tBase + 1)) { cabinChime(); lower("CAPTAIN", "Turning base over the open desert", "Stage One, The Landing, passes below us on final.", 6); }
-    if (cross(P.tFinal + 1.5)) { cabinChime(); lower("CAPTAIN", "Established on final, Runway 21", "Crossing the North Section Road. Cabin crew, please take your seats for landing.", 6); }
+    if (cross(24.5)) { lower("CAPTAIN", "Joining the left-hand downwind, Runway 21", "The Expanse is off our left side. The Outpost and the Genesis Ring are furthest out.", 7); }
+    if (cross(P.tBase + 1)) { lower("CAPTAIN", "Turning base over the open desert", "Stage One, The Landing, passes below us on final.", 6); }
+    if (cross(P.tFinal + 1.5)) { lower("CAPTAIN", "Established on final, Runway 21", "Crossing the North Section Road. Cabin crew, please take your seats for landing.", 6); }
     if (cross(tTD)) { sfx("land"); F.shake = 1; tyreSmoke(1.4); } if (cross(tTD + 0.12)) tyreSmoke(1); if (t > tTD && t < tTD + 0.9 && Math.random() < 0.6) tyreSmoke(0.25);
     if (t > tTD && t < FLY_T.roll && FX && FX.dust && Math.random() < 0.3 && F.jetP) emitDust(F.jetP.x, getH(F.jetP.x, F.jetP.z), F.jetP.z, 1, 3, 0.6);
-    if (cross(tTD + 8)) { cabinChime(); lower("CAPTAIN", "Welcome to Solport", "Almost a century of flying from this field. We are taxiing to Gate A2 at the Stellar Aviation FBO. Please stay seated.", 7); }
-    if (cross(P.tEnd - 1.2)) { cabinChime(); }
+    if (cross(tTD + 19.5)) { lower("CAPTAIN", "Welcome to Solport", "Almost a century of flying from this field. We are taxiing to Gate A2 at the Stellar Aviation FBO. Please stay seated.", 7); }
   }
   function overlay(t, S, cabin) {
     const U2 = ui(); const P = planFlyPath(); const now = performance.now();
@@ -799,15 +806,316 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     let best = null; for (const d of [30, 38, 24, 46]) for (const s0 of [8, 14, 3, 20]) for (const s of [s0 * away, -s0 * away]) { const cx = st[0] - dx * d + (-dz) * s, cz = st[1] - dz * d + dx * s; if (distToRunway(cx, cz) < 60) continue; const c = Math.min(score(cx, cz), own(cx, cz) - 3); if (!best || c > best.c + 0.5) best = { cx, cz, c }; if (c > 5) return { cx, cz, c }; }
     return best || { cx: st[0] - dx * 50, cz: st[1] - dz * 50, c: 0 }; }
 
+  // ───────────────────────────── R20 FY: Ava's cabin crew uniform ─────────────────────────────
+  // Built on her own body with the avatar kit's skinning, one rig, no new bones:
+  //   - the blazer body and the trousers are shells copied from the body's bind-pose surface (the tee and jeans submesh plus the
+  //     bare skin submesh), pushed out along the welded normals and carrying the body's own skin weights, so they move exactly
+  //     with the idle, the walk and the gestures; the V neck shows a cream blouse, the lapels stand proud with a gold piping;
+  //   - the sleeves are tubes fitted round each arm (slices along the arm's own axis, the widest point of each slice plus ease),
+  //     weighted like the nearest body vertex, ending at the wrist with two gold cuff braids (no step at the tee's sleeve hem);
+  //   - polished black shoes, a silk neck scarf with its knot, a gold wings pin, two gold buttons and a gold name badge.
+  // The cloth goes through the client's tintMaterial (a white base, the colour in the vertex colours), so charfx (R16) and
+  // charshade (R19) shade it as character cloth; the metal and the badge are two small standard materials.
+  const lin = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+  // a deep GIVEBACK green suit, gold accents, a cream blouse (tuned in the lit cabin: the AgX grade opens dark cloth up)
+  const UNI = F.UNI = { jacket: "#16472b", lapel: "#113a23", trouser: "#123a23", gold: "#c9a043", cream: "#ece4d2", shoe: "#0b0b0d", silk: "#d4ad4a", silkD: "#16472b" };
+  const UC = {}; for (const k in UNI) UC[k] = lin(UNI[k]);
+  // per vertex: position, welded normal, skin indices and weights, weight per body group (arm / hand / torso / leg / foot / head)
+  function bodySamples(meshes, names) {
+    const S = []; const grp = (nm) => /Hand/.test(nm) ? "hand" : /ForeArm|Arm$/.test(nm) ? "arm" : /Shoulder|Spine|Hips/.test(nm) ? "torso" : /UpLeg|Leg$/.test(nm) ? "leg" : /Foot|Toe/.test(nm) ? "foot" : "head";
+    const gi = names.map(grp); const side = names.map((n) => /^Left/.test(n) ? 1 : /^Right/.test(n) ? -1 : 0); const weld = new Map(); const key = (x, y, z) => (Math.round(x * 2500) + 4096) * 67108864 + (Math.round(y * 2500) + 1024) * 8192 + (Math.round(z * 2500) + 4096);
+    meshes.forEach((me, mi) => { const G = me.userData.fullGeo || me.geometry, P = G.attributes.position, N = G.attributes.normal, SI = G.attributes.skinIndex, SW = G.attributes.skinWeight; me.userData.fyBase = S.length; me.userData.fyTri = G.index ? G.index.array : null;
+      for (let i = 0; i < P.count; i++) { const s = { x: P.getX(i), y: P.getY(i), z: P.getZ(i), si: [SI.getX(i), SI.getY(i), SI.getZ(i), SI.getW(i)], sw: [SW.getX(i), SW.getY(i), SW.getZ(i), SW.getW(i)], g: { hand: 0, arm: 0, torso: 0, leg: 0, foot: 0, head: 0 }, side: 0, src: mi };
+        for (let k = 0; k < 4; k++) { s.g[gi[s.si[k]] || "head"] += s.sw[k]; s.side += (side[s.si[k]] || 0) * s.sw[k]; } const kk = key(s.x, s.y, s.z); let w = weld.get(kk); if (!w) { w = [0, 0, 0]; weld.set(kk, w); } w[0] += N.getX(i); w[1] += N.getY(i); w[2] += N.getZ(i); s.w = w; S.push(s); } });
+    for (const s of S) { const l = Math.hypot(s.w[0], s.w[1], s.w[2]) || 1; s.sx = s.w[0] / l; s.sy = s.w[1] / l; s.sz = s.w[2] / l; }
+    return S;
+  }
+  // a shell: keep(s) returns null (drop) or { off, col, p? (a replacement position) }; a triangle is kept when its three corners are
+  function shell(meshes, S, keep) {
+    const P = [], N = [], C = [], SI = [], SW = [], I = []; const map = new Map(); const kept = new Array(S.length);
+    for (let i = 0; i < S.length; i++) kept[i] = keep(S[i]);
+    const vid = (q) => { let v = map.get(q); if (v !== undefined) return v; const s = S[q], k = kept[q]; v = P.length / 3; map.set(q, v); const bx = k.p ? k.p[0] : s.x; P.push(bx + s.sx * k.off, s.y + s.sy * k.off, s.z + s.sz * k.off); N.push(s.sx, s.sy, s.sz); const c = UC[k.col] || UC.jacket; C.push(c[0], c[1], c[2]); SI.push(s.si[0], s.si[1], s.si[2], s.si[3]); SW.push(s.sw[0], s.sw[1], s.sw[2], s.sw[3]); return v; };
+    for (const me of meshes) { const T = me.userData.fyTri, b = me.userData.fyBase; if (!T) continue; for (let t = 0; t < T.length; t += 3) { const a = b + T[t], c = b + T[t + 1], d = b + T[t + 2]; if (!kept[a] || !kept[c] || !kept[d]) continue; I.push(vid(a), vid(c), vid(d)); } }
+    if (!I.length) return null;
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(C, 3));
+    geo.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(SI, 4)); geo.setAttribute("skinWeight", new THREE.Float32BufferAttribute(SW, 4)); geo.setIndex(I); geo.computeBoundingSphere(); return geo;
+  }
+  // skin weights from the nearest body sample, per vertex (tubes) or one set for a whole piece (rigid pieces)
+  function skinFrom(geo, pts, rigid) {
+    const P = geo.attributes.position, n = P.count; const ji = new Uint16Array(n * 4), wt = new Float32Array(n * 4);
+    const near = (x, y, z) => { let best = null, bd = 1e9; for (const s of pts) { const dx = s.x - x, dy = s.y - y, dz = s.z - z, d = dx * dx + dy * dy + dz * dz; if (d < bd) { bd = d; best = s; } } return best; };
+    let one = null; if (rigid) { let cx = 0, cy = 0, cz = 0; for (let v = 0; v < n; v++) { cx += P.getX(v); cy += P.getY(v); cz += P.getZ(v); } one = near(cx / n, cy / n, cz / n); }
+    for (let v = 0; v < n; v++) { const s = one || near(P.getX(v), P.getY(v), P.getZ(v)); for (let k = 0; k < 4; k++) { ji[v * 4 + k] = s.si[k]; wt[v * 4 + k] = s.sw[k]; } }
+    geo.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(ji, 4)); geo.setAttribute("skinWeight", new THREE.Float32BufferAttribute(wt, 4)); return geo;
+  }
+  // a fitted tube round a set of body samples: slices along an axis (principal component, or the given one), each ring the widest
+  // extent per sector (filled, capped near the slice median, smoothed) plus ease; colour(f, a) per vertex; skinned per vertex
+  function tube(pts, o) {
+    if (pts.length < 40) return null; let mx = 0, my = 0, mz = 0; for (const s of pts) { mx += s.x; my += s.y; mz += s.z; } mx /= pts.length; my /= pts.length; mz /= pts.length;
+    let ax = o.axis ? o.axis.clone().normalize() : null;
+    if (!ax) { const Cm = [0, 0, 0, 0, 0, 0]; for (const s of pts) { const x = s.x - mx, y = s.y - my, z = s.z - mz; Cm[0] += x * x; Cm[1] += x * y; Cm[2] += x * z; Cm[3] += y * y; Cm[4] += y * z; Cm[5] += z * z; }
+      ax = o.hint.clone().normalize(); for (let it = 0; it < 24; it++) { const x = Cm[0] * ax.x + Cm[1] * ax.y + Cm[2] * ax.z, y = Cm[1] * ax.x + Cm[3] * ax.y + Cm[4] * ax.z, z = Cm[2] * ax.x + Cm[4] * ax.y + Cm[5] * ax.z; ax.set(x, y, z).normalize(); } if (ax.dot(o.hint) < 0) ax.negate(); }
+    const up = Math.abs(ax.y) > 0.9 ? V3(0, 0, 1) : V3(0, 1, 0); const u = up.clone().sub(ax.clone().multiplyScalar(up.dot(ax))).normalize(), w = ax.clone().cross(u);
+    const T = pts.map((s) => (s.x - mx) * ax.x + (s.y - my) * ax.y + (s.z - mz) * ax.z); let t0 = 1e9, t1 = -1e9; for (let i = 0; i < pts.length; i++) { if (o.from(pts[i]) && T[i] < t0) t0 = T[i]; if (T[i] > t1) t1 = T[i]; }
+    if (o.t0 !== undefined) t0 = o.t0(t0, t1); if (o.t1 !== undefined) t1 = o.t1(t0, t1); if (!(t1 > t0)) return null;
+    const NS = o.ns || 30, NA = o.na || 28; const R = new Float32Array((NS + 1) * NA);
+    for (let i = 0; i < pts.length; i++) { const t = T[i]; if (t < t0 - 0.02 || t > t1 + 0.02) continue; const s = pts[i]; const x = s.x - mx - ax.x * t, y = s.y - my - ax.y * t, z = s.z - mz - ax.z * t; const a = Math.atan2(x * w.x + y * w.y + z * w.z, x * u.x + y * u.y + z * u.z); const r = Math.hypot(x, y, z);
+      const j = Math.round((t - t0) / (t1 - t0) * NS), k = ((Math.round((a + Math.PI) / (Math.PI * 2) * NA) % NA) + NA) % NA; for (const jj of [j - 1, j, j + 1]) if (jj >= 0 && jj <= NS) { const q = jj * NA + k; if (r > R[q]) R[q] = r; } }
+    for (let j = 0; j <= NS; j++) { const row = Array.from(R.subarray(j * NA, j * NA + NA)).filter((v) => v > 0).sort((a, b) => a - b); const med = row.length ? row[Math.floor(row.length / 2)] : 0.03; for (let k = 0; k < NA; k++) { const q = j * NA + k; if (R[q] < med * 0.6) R[q] = med * 0.85; if (R[q] > med * (o.cap || 1.3)) R[q] = med * (o.cap || 1.3); } }
+    for (let it = 0; it < (o.smooth || 3); it++) { const B2 = R.slice(); for (let j = 0; j <= NS; j++) for (let k = 0; k < NA; k++) { const q = (jj, kk) => B2[Math.max(0, Math.min(NS, jj)) * NA + ((kk + NA) % NA)]; R[j * NA + k] = (q(j, k) * 4 + q(j, k - 1) + q(j, k + 1) + q(j - 1, k) + q(j + 1, k)) / 8; } }
+    const P = [], C = [], I = []; for (let j = 0; j <= NS; j++) { const f = j / NS, t = t0 + (t1 - t0) * f;
+      for (let k = 0; k <= NA; k++) { const a = -Math.PI + Math.PI * 2 * k / NA; const r = R[j * NA + (k % NA)] + o.ease(f, a); const ca = Math.cos(a), sa = Math.sin(a);
+        P.push(mx + ax.x * t + (u.x * ca + w.x * sa) * r, my + ax.y * t + (u.y * ca + w.y * sa) * r, mz + ax.z * t + (u.z * ca + w.z * sa) * r); const c = UC[o.col(f, a, u.x * ca + w.x * sa, u.z * ca + w.z * sa)] || UC.jacket; C.push(c[0], c[1], c[2]); } }
+    for (let j = 0; j < NS; j++) for (let k = 0; k < NA; k++) { const a = j * (NA + 1) + k, b = a + 1, c = a + NA + 1, d = c + 1; I.push(a, c, b, b, c, d); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); geo.setIndex(I); geo.computeVertexNormals();
+    { const p = geo.attributes.position, nn = geo.attributes.normal; const i = (Math.floor(NS / 2)) * (NA + 1) + 3; const tm = t0 + (t1 - t0) * Math.floor(NS / 2) / NS; const ox = p.getX(i) - (mx + ax.x * tm), oy = p.getY(i) - (my + ax.y * tm), oz = p.getZ(i) - (mz + ax.z * tm); if (ox * nn.getX(i) + oy * nn.getY(i) + oz * nn.getZ(i) < 0) { const ix = geo.index.array; for (let q = 0; q < ix.length; q += 3) { const tmp = ix[q + 1]; ix[q + 1] = ix[q + 2]; ix[q + 2] = tmp; } geo.computeVertexNormals(); } }
+    return skinFrom(geo, o.skinPts || pts, false);
+  }
+  // a sleeve: from where the arm leaves the shoulder to the wrist, two gold braids at the cuff
+  function sleeve(S, sd, ease) {
+    const pts = S.filter((s) => s.g.arm + s.g.hand > 0.55 && s.g.hand < 0.5 && s.side * sd > 0.4);
+    return tube(pts, { hint: V3(sd, -1, 0), from: (s) => s.g.arm > 0.8, t0: (a) => a - 0.015, cap: 1.22, ease: (f) => ease + (f > 0.93 ? 0.0025 : 0), col: (f) => ((f > 0.945 && f < 0.958) || (f > 0.972 && f < 0.985) ? "gold" : "jacket") });
+  }
+  // the scarf: a soft silk ring round the neck above the collar, bias stripes in green and cream
+  function scarfRing(S, K, neckY) {
+    const pts = S.filter((s) => s.y > neckY - 0.03 && s.y < neckY + 0.07 && s.g.arm < 0.2 && Math.hypot(s.x - K.c.x, s.z - K.c.z) < 0.1); const sk = S.filter((s) => s.y > neckY - 0.03 && s.y < neckY + 0.06 && s.g.arm < 0.2);
+    return tube(pts, { axis: V3(0, 1, 0), from: () => true, t0: (a, b) => a + (b - a) * 0.04, t1: (a, b) => a + (b - a) * 0.6, ns: 8, na: 40, cap: 1.15, smooth: 4, skinPts: sk,
+      ease: (f, a) => 0.009 + 0.004 * Math.sin(f * Math.PI) + 0.0015 * Math.sin(a * 7), col: (f, a) => { const st = (((a / (Math.PI * 2) * 9 + f * 1.4) % 1) + 1) % 1; return st < 0.18 ? "silkD" : st < 0.25 ? "cream" : "silk"; } });
+  }
+  // the lapels: two ribbons laid on the blazer along the V, with the gold piping on their inner edge
+  function lapels(JS, S, cx, vBot, vTop, vHalf) {
+    const P = [], C = [], I = []; const NY = 22, NW = 5, W = 0.036;
+    for (const sd of [1, -1]) { const base = P.length / 3;
+      for (let j = 0; j <= NY; j++) { const y = vBot + (vTop - 0.004 - vBot) * j / NY; const x0 = cx + sd * vHalf(y); for (let k = 0; k <= NW; k++) { const e = k === 0 ? 0 : k === 1 ? 0.0035 : 0.0035 + (W - 0.0035) * (k - 1) / (NW - 1); const wW = W * (0.55 + 0.45 * Math.sin(Math.PI * Math.min(1, j / NY * 1.15)));   // narrows at the bottom and the collar
+          const q = surfAt(JS, x0 + sd * Math.min(e, wW), y, true); if (!q) continue; const lift = 0.0032 + (k === 0 ? 0.0006 : 0); P.push(x0 + sd * Math.min(e, wW) + q.sx * lift * 0.2, y + q.sy * lift, q.z + q.sz * lift); const c = k <= 1 ? UC.gold : UC.lapel; C.push(c[0], c[1], c[2]); } }
+      for (let j = 0; j < NY; j++) for (let k = 0; k < NW; k++) { const a = base + j * (NW + 1) + k, b = a + 1, c = a + NW + 1, d = c + 1; if (sd > 0) I.push(a, b, c, b, d, c); else I.push(a, c, b, b, c, d); } }
+    if (P.length !== 2 * (NY + 1) * (NW + 1) * 3) return null;
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); geo.setIndex(I); geo.computeVertexNormals();
+    return skinFrom(geo, S.filter((s) => s.g.torso > 0.6 && s.y > vBot - 0.06 && s.y < vTop + 0.03 && s.sz > 0.2), false);
+  }
+  function merge(list) { const P = [], N = [], C = [], UV = [], I = []; for (const [g, col] of list) { const b = P.length / 3; const p = g.attributes.position, nn = g.attributes.normal, uv = g.attributes.uv; const c = col ? (Array.isArray(col) ? col : UC[col]) : [1, 1, 1]; for (let i = 0; i < p.count; i++) { P.push(p.getX(i), p.getY(i), p.getZ(i)); N.push(nn.getX(i), nn.getY(i), nn.getZ(i)); C.push(c[0], c[1], c[2]); UV.push(uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0); } if (g.index) for (const k of g.index.array) I.push(b + k); else for (let i = 0; i < p.count; i++) I.push(b + i); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3)); geo.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(UV, 2)); geo.setIndex(I); return geo; }
+  // place a piece on a surface point: its local +z out of the surface, +y up
+  function onSurface(geo, p, n) { const z = V3(n[0], n[1], n[2]).normalize(), x = V3(0, 1, 0).cross(z).normalize(), y = z.clone().cross(x); return geo.applyMatrix4(new THREE.Matrix4().makeBasis(x, y, z).setPosition(p[0], p[1], p[2])); }
+  function surfAt(S, x, y, front) { let best = null, bd = 1e9; for (const s of S) { if (front && s.sz < 0.4) continue; const d = (s.x - x) * (s.x - x) + (s.y - y) * (s.y - y); if (d < bd) { bd = d; best = s; } } return best; }
+  function badgeTex() { if (F.badgeTex) return F.badgeTex; const c = document.createElement("canvas"); c.width = 256; c.height = 80; const x = c.getContext("2d"); const gr = x.createLinearGradient(0, 0, 0, 80); gr.addColorStop(0, "#f6dc8a"); gr.addColorStop(0.5, "#d4af37"); gr.addColorStop(1, "#a8862c"); x.fillStyle = gr; x.fillRect(0, 0, 256, 80);
+    x.strokeStyle = "#7a5f1c"; x.lineWidth = 5; x.strokeRect(4, 4, 248, 72); x.fillStyle = "#14301f"; x.textAlign = "center"; x.textBaseline = "middle"; x.font = "700 36px 'Space Grotesk', Arial, sans-serif"; x.fillText("AVA", 128, 33); x.font = "600 15px 'JetBrains Mono', monospace"; x.fillText("G I V E B A C K", 128, 62);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; F.badgeTex = t; return t; }
+  // the badge plate: a thin box whose front face carries the whole texture
+  function badgeGeo() { const g = new THREE.BoxGeometry(0.056, 0.0175, 0.0018).toNonIndexed(); const N = g.attributes.normal, UV = g.attributes.uv; for (let i = 0; i < N.count; i++) if (N.getZ(i) < 0.5) UV.setXY(i, 0.02, 0.5); return g; }
+  function wingsGeo() { const s = new THREE.Shape(); const W = 0.026; s.moveTo(0, 0.004); s.bezierCurveTo(0.008, 0.009, 0.018, 0.008, W, 0.0045); s.lineTo(0.021, 0.0015); s.lineTo(0.024, 0.001); s.lineTo(0.017, -0.0015); s.lineTo(0.02, -0.002); s.lineTo(0.012, -0.004); s.lineTo(0.005, -0.0045);
+    s.lineTo(-0.005, -0.0045); s.lineTo(-0.012, -0.004); s.lineTo(-0.02, -0.002); s.lineTo(-0.017, -0.0015); s.lineTo(-0.024, 0.001); s.lineTo(-0.021, 0.0015); s.lineTo(-W, 0.0045); s.bezierCurveTo(-0.018, 0.008, -0.008, 0.009, 0, 0.004);
+    const g = new THREE.ExtrudeGeometry(s, { depth: 0.0016, bevelEnabled: true, bevelThickness: 0.0006, bevelSize: 0.0005, bevelSegments: 1, curveSegments: 6 }); const disc = new THREE.CylinderGeometry(0.0055, 0.0055, 0.0026, 16).rotateX(Math.PI / 2).translate(0, 0, 0.0012); return merge([[g, null], [disc, null]]); }
+  // built in steps (one per frame) so no step is a long task
+  function* crewUniformGen(fa) {
+    const g = fa.g; if (g.userData.fyUni) return true; if (typeof tintMaterial !== "function") return false;
+    // the avatar kit's head field when it is loaded (high, ultra); otherwise proportions of the body (the low tier)
+    const AV = window.PLAN_AVATAR || {}; let K = AV.KIT && AV.KIT.f && AV.KIT.f.neck ? AV.KIT.f : null;
+    const skinned = AV.skinned || ((geo, mat, bm) => { const m = new THREE.SkinnedMesh(geo, mat); m.position.copy(bm.position); m.quaternion.copy(bm.quaternion); m.scale.copy(bm.scale); m.bind(bm.skeleton, bm.bindMatrix); m.frustumCulled = false; return m; });
+    let body = null, skin = null; g.traverse((o) => { if (!o.isSkinnedMesh || !o.material || o.userData.fyU || (!o.visible && !o.userData.fullGeo)) return; const n = (o.material.name || "").toLowerCase(); if (n === "body" && !body) body = o; else if (n === "skin" && !skin) skin = o; });
+    if (!body) return false; const bg = body.userData.fullGeo || body.geometry; if (!bg.index || !bg.attributes.skinIndex) return false; const sg = skin && (skin.userData.fullGeo || skin.geometry); if (sg && (!sg.index || !sg.attributes.skinIndex)) skin = null; const t0 = performance.now();
+    const names = body.skeleton.bones.map((b) => b.name); const meshes = skin ? [body, skin] : [body]; const S = bodySamples(meshes, names);
+    yield 1; let T0 = performance.now();
+    // heights from the body itself: hip joint, natural waist, ankle
+    let H = 0; for (const s of S) if (s.y > H) H = s.y; if (!(H > 1)) H = 1.67;
+    if (!K) { let sx = 0, sz = 0, n = 0; for (const s of S) if (s.y > 0.9 * H) { sx += s.x; sz += s.z; n++; } K = { c: { x: n ? sx / n : 0, y: 0.94 * H, z: n ? sz / n : 0 }, neck: { y: 0.828 * H } }; }
+    const cx = K.c.x, neckY = K.neck.y, hipJ = 0.525 * H, waistY = 0.615 * H, hemY = hipJ - 0.035, ankleY = 0.082 * H;
+    const vBot = neckY - 0.215, vTop = neckY + 0.005, vW = 0.078; const vHalf = (y) => Math.max(0, (y - vBot) / (vTop - vBot) * vW);
+    const front = (s) => s.sz > 0.25 && s.z > K.c.z - 0.03;
+    // the blazer body (the sleeves are tubes): the V shows the blouse, the piping runs on a straight line (vertices snapped to it)
+    const jk = (s) => { const G = s.g; if (G.hand > 0.3 || G.head > 0.35 || G.foot > 0.1) return null; if (G.arm + G.hand > 0.86) return null; if (s.y < hemY || (G.leg > 0.6 && s.y < hemY + 0.04)) return null;
+      if (s.y > (s.sz < -0.2 ? neckY + 0.024 : neckY + 0.008)) return null;
+      let off = 0.0105 + (G.arm > 0.3 ? 0.002 : 0); if (s.y < waistY) off += Math.min(0.012, (waistY - s.y) * 0.07); let col = "jacket", p = null;
+      if (front(s) && s.y > vBot && Math.abs(s.x - cx) < vHalf(s.y) + 0.002) { off = 0.0062; col = "cream"; }   // the blouse in the V (the lapel ribbons cover the edge)
+      return { off, col, p }; };
+    const jacket = shell(meshes, S, jk);
+    yield 2;
+    const sleeves = [sleeve(S, 1, 0.009)]; yield 3; sleeves.push(sleeve(S, -1, 0.009)); yield 4; for (let i = sleeves.length - 1; i >= 0; i--) if (!sleeves[i]) sleeves.splice(i, 1);
+    // the trousers and the shoes
+    const trousers = shell(meshes, S, (s) => { const G = s.g; if (G.foot > 0.45 || s.y < ankleY || s.y > hemY + 0.09 || G.leg + G.torso < 0.6 || G.arm + G.hand > 0.2) return null; return { off: s.src ? 0.0085 : 0.006, col: "trouser" }; });
+    const shoes = shell(meshes, S, (s) => (s.src === 0 && (s.g.foot > 0.45 || s.y < ankleY + 0.004) && s.y < ankleY + 0.03 ? { off: 0.0028, col: "shoe" } : null));
+    yield 5;
+    // the neck scarf
+    const scarf = scarfRing(S, K, neckY);
+    yield 6;
+    if (!jacket || !trousers) return false;
+    // the knot and its two tails, at the front left of the neck
+    const pieces = [];
+    { const p0 = surfAt(S, cx + 0.028, neckY + 0.0, true); if (p0) { const base = [p0.x + p0.sx * 0.019, p0.y + p0.sy * 0.019 - 0.012, p0.z + p0.sz * 0.019];
+      const loop = (dx, dy, rot) => new THREE.SphereGeometry(1, 12, 8).scale(0.016, 0.009, 0.006).rotateZ(rot).translate(dx, dy, 0);
+      const tail = (dx, rot, len) => { const pg = new THREE.PlaneGeometry(0.022, len, 1, 4).translate(0, -len / 2, 0); const P = pg.attributes.position; for (let i = 0; i < P.count; i++) { const v = -P.getY(i) / len; P.setX(i, P.getX(i) * (0.75 + 0.5 * v)); P.setZ(i, 0.004 * Math.sin(v * 3)); } pg.computeVertexNormals(); return pg.rotateZ(rot).translate(dx, -0.004, 0); };
+      pieces.push(onSurface(merge([[loop(-0.013, 0.003, 0.35), "silk"], [loop(0.013, 0.003, -0.35), "silk"], [new THREE.SphereGeometry(0.0075, 10, 8), "silkD"], [tail(-0.004, -0.32, 0.07), "silkD"], [tail(0.005, 0.22, 0.058), "silk"]]), base, [p0.sx, p0.sy, p0.sz])); } }
+    // the wings pin (her left chest), two gold buttons below the V and the name badge (her right chest)
+    const JS = []; { const P = jacket.attributes.position, Nn = jacket.attributes.normal; for (let i = 0; i < P.count; i++) JS.push({ x: P.getX(i), y: P.getY(i), z: P.getZ(i), sx: Nn.getX(i), sy: Nn.getY(i), sz: Nn.getZ(i) }); }
+    const put = (geo, x, y, lift) => { const q = surfAt(JS, x, y, true); if (!q) return null; return onSurface(geo, [q.x + q.sx * lift, q.y + q.sy * lift, q.z + q.sz * lift], [q.sx, q.sy * 0.6, q.sz]); };
+    const metal = []; { const w = put(wingsGeo(), cx + 0.075, neckY - 0.105, 0.0015); if (w) metal.push(w); for (const by of [vBot - 0.03, vBot - 0.115]) { const b = put(merge([[new THREE.CylinderGeometry(0.0072, 0.0068, 0.003, 18).rotateX(Math.PI / 2), null]]), cx, by, 0.0016); if (b) metal.push(b); } }
+    const badge = put(badgeGeo(), cx - 0.078, neckY - 0.118, 0.0012);
+    const lapel = lapels(JS, S, cx, vBot, vTop, vHalf);
+    yield 7;
+    // materials: the cloth through the client's tint (white base: the tint maps white texels to the shirt colour; the vertex colour is
+    // the albedo). Named "body" for the tint's cloth slot, then renamed (the client's NPC LOD swaps the geometry of a "body" mesh).
+    const look = { body: "f", shirt: "ededed", pants: "ededed", shoes: "e2e2e2", skin: "c98f63" };
+    const mk = (r) => { const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: r, metalness: 0, vertexColors: true }); m.name = "body"; const t = tintMaterial(m, look); t.name = "fyCloth"; return t; };
+    const cloth = mk(0.74), silk = mk(0.4), shoeM = mk(0.24);
+    const goldM = new THREE.MeshStandardMaterial({ color: 0xd9b45a, metalness: 1, roughness: 0.3 }); goldM.name = "fyGold";
+    const badgeM = new THREE.MeshStandardMaterial({ map: badgeTex(), metalness: 0.6, roughness: 0.34 }); badgeM.name = "fyBadge";
+    const out = []; const add = (geo, mat) => { if (!geo) return; const m = skinned(geo, mat, body); m.userData.fyU = true; m.layers.mask = body.layers.mask; m.castShadow = true; m.receiveShadow = true; body.parent.add(m); out.push(m); };
+    add(jacket, cloth); add(lapel, cloth); add(trousers, cloth); for (const sl of sleeves) add(sl, cloth); add(shoes, shoeM); add(scarf, silk);
+    for (const p of pieces) { skinFrom(p, S.filter((s) => Math.abs(s.y - neckY) < 0.06), true); add(p, silk); }
+    if (metal.length) { const mg = merge(metal.map((m) => [m, null])); mg.deleteAttribute("color"); skinFrom(mg, JS.length ? S.filter((s) => s.g.torso > 0.7 && s.y > vBot - 0.15 && s.y < neckY) : S, true); add(mg, goldM); }
+    if (badge) { if (badge.attributes.color) badge.deleteAttribute("color"); skinFrom(badge, S.filter((s) => s.g.torso > 0.7 && s.y > vBot - 0.15 && s.y < neckY), true); add(badge, badgeM); }
+    // the tee's rib collar (the avatar kit's knit band) would show over the blazer's collar
+    try { const R = g.userData.avd && g.userData.avd.root; if (R) R.traverse((o) => { if (o.isMesh && o.material && o.material.name === "avHat" && !o.userData.fyU) { const gg = AV.collarGeo && AV.collarGeo("f"); if (!gg || o.geometry === gg.geo || (o.userData.fullGeo === gg.geo)) o.visible = false; } }); } catch (e) {}
+    g.userData.fyUni = out; F.n.uniParts = { jacket: jacket.index.count / 3, sleeves: sleeves.length, trousers: trousers.index.count / 3, shoes: shoes ? shoes.index.count / 3 : 0, scarf: scarf ? scarf.index.count / 3 : 0 }; F.n.uniMs = Math.round(performance.now() - t0); F.n.uniLast = Math.round(performance.now() - T0); F.n.uniTris = out.reduce((s, m) => s + (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3, 0);
+    return true;
+  }
+  function crewUniform(fa) { if (fa.g.userData.fyUni) return true; if (!fa.uniGen) fa.uniGen = crewUniformGen(fa); let r; const t0 = performance.now(); try { r = fa.uniGen.next(); } catch (e) { fa.uniGen = null; throw e; } F.n.uniStep = Math.max(F.n.uniStep || 0, Math.round(performance.now() - t0)); if (r.done) { fa.uniGen = null; return r.value; } return "pending"; }
+  F.crewUniform = crewUniform;
+  F.uniKit = { bodySamples, shell, sleeve, tube };
+
+  // ───────────────────────────── R20 FY: cabin comms (PA chime, announcements with subtitles, the seatbelt sign) ─────────────────────────────
+  // Voices: Higgsfield Seed Audio (attendant: preset Helena, captain: preset Arthur), band-limited like a cabin speaker, in
+  // audio/fy_pa_*.m4a. The cue times come from each recording's own pauses. Subtitles always show (with sound off too); when a
+  // recording cannot play, the browser's speechSynthesis reads the same text.
+  const PA = F.PA = {
+    welcome: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_welcome.m4a", dur: 14.24, crew: true, cues: [[0.4, "Good evening, and welcome aboard Giveback One."], [3.85, "My name is Ava, and I'll be looking after you on our short flight into Solport."], [8.9, "Please make yourself comfortable, and enjoy the view of Genesis from the left side windows."]], gest: [[0.5, "talk"], [5.5, "talk"], [9.2, "point"]] },
+    captain: { who: "CAPTAIN · FLIGHT DECK", src: "/audio/fy_pa_captain.m4a", dur: 14.47, cues: [[0, "Ladies and gentlemen, this is your captain speaking from the flight deck."], [4.6, "We are starting our descent into Solport."], [7.4, "It's a clear evening on the ground, with light winds, and we'll have you at the gate in just a few minutes."], [13.75, "Thank you."]] },
+    descent: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_descent.m4a", dur: 14.03, crew: true, cues: [[0, "Ladies and gentlemen, we have begun our descent."], [4.3, "Please return to your seats, fasten your seatbelts,"], [8.45, "and make sure your tray tables are stowed."], [11.55, "Cabin crew, prepare for landing."]], gest: [[0.3, "talk"], [4.4, "point"], [8.6, "talk"]] },
+    arrival: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_arrival.m4a", dur: 10.06, crew: true, cues: [[0.25, "Ladies and gentlemen, welcome to Solport."], [2.95, "Please stay seated with your seatbelt fastened until the seatbelt sign is switched off."], [7.4, "Thank you for flying with us on Giveback One."]], gest: [[0.4, "talk"]] }
+  };
+  const PA_LEAD = 1.5;   // the ding-dong, then the voice
+  function commsPlan(P) { return [{ at: 19.8, pa: "welcome" }, { at: 36.0, pa: "captain" }, { at: 46.9, flaps: 3.6 }, { at: 52.6, belt: 1 }, { at: 53.8, pa: "descent" }, { at: 59.5, gear: 1 }, { at: P.tFinal - 3, flaps: 4.2 }, { at: P.tTD + 11.0, pa: "arrival" }, { at: P.tEnd - 1.4, belt: 0 }]; }
+  F.commsPlan = commsPlan;
+  function subUI() {
+    if (F.sub && F.sub.el.isConnected) return F.sub; const U2 = ui();
+    if (!document.getElementById("g1sub-css")) { const st = document.createElement("style"); st.id = "g1sub-css"; st.textContent = `#g1cine .sub{position:absolute;left:50%;bottom:12.6vh;transform:translate(-50%,8px);max-width:min(62vw,860px);width:max-content;text-align:center;opacity:0;transition:opacity .35s ease,transform .35s ease;pointer-events:none}
+#g1cine .sub.on{opacity:1;transform:translate(-50%,0)}#g1cine .sub .w{display:inline-block;font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.3em;color:#4DDE6F;margin-bottom:6px;text-shadow:0 1px 8px rgba(0,0,0,.8)}
+#g1cine .sub .x{font-family:"Space Grotesk",system-ui,sans-serif;font-size:clamp(15px,1.25vw,21px);line-height:1.38;color:#f5f1e6;background:rgba(8,13,8,.62);padding:.42em .9em .48em;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.25);backdrop-filter:blur(3px)}
+#g1cine.pa .low{bottom:27vh}#g1cine .low{transition:opacity .9s ease,transform .9s ease,bottom .6s ease}
+@media (max-width:700px){#g1cine .sub{max-width:88vw;bottom:15vh}#g1cine .sub .x{font-size:15px}}`; document.head.appendChild(st); }
+    const el = document.createElement("div"); el.className = "sub"; el.innerHTML = `<div class="w"></div><div class="x"></div>`; U2.r.appendChild(el); F.sub = { el, w: el.querySelector(".w"), x: el.querySelector(".x"), txt: "" }; return F.sub;
+  }
+  function subShow(who, text) { const S2 = subUI(); if (S2.txt !== text) { S2.txt = text; S2.w.textContent = who || ""; S2.x.textContent = text; } S2.el.classList.add("on"); ui().r.classList.add("pa"); }
+  function subHide() { if (!F.sub) return; F.sub.el.classList.remove("on"); F.sub.txt = ""; try { ui().r.classList.remove("pa"); } catch (e) {} }
+  F.subShow = subShow; F.subHide = subHide;
+  function chime(kind) { try { if (window.PLAN_JETAUDIO && PLAN_JETAUDIO.chime && PLAN_JETAUDIO.chime(kind)) return; } catch (e) {} try { if (kind === "belt") tone(659, 0.9, "sine", 0.06); else { cabinChime(); } } catch (e) {} }
+  // a voice line: the recording (or speechSynthesis), its subtitles on the flight clock
+  function paStart(id) {
+    const L = PA[id]; if (!L) return; paStop(); const C2 = F.pa = { id, L, t0: FLY.t + PA_LEAD, el: null, synth: false, failed: false };
+    chime("pa");
+    if (soundOn) { try { const a = paEl(id); if (a) { C2.el = a; FLY.voice = a; } else C2.failed = true; } catch (e) { C2.failed = true; } }
+  }
+  // the recordings are fetched when the flight starts (about 440 KB in all), so each one is buffered before its cue
+  function paEl(id) { const L = PA[id]; if (!L) return null; const E = F.paEls || (F.paEls = {}); let a = E[id]; if (!a) { a = new Audio(L.src); a.preload = "auto"; a.volume = 0; a.addEventListener("error", () => { a.fyErr = true; if (F.pa && F.pa.el === a) F.pa.failed = true; }); E[id] = a; }
+    try { const JA = window.PLAN_JETAUDIO; if (JA && JA.tapEl) JA.tapEl(a); } catch (e) {} if (a.fyErr) return null; return a; }
+  function paPreload() { if (!soundOn) return; for (const id in PA) { try { const a = paEl(id); if (a && a.readyState < 2) a.load(); } catch (e) {} } }
+  F.paPreload = paPreload;
+  function paStop() { const C2 = F.pa; if (!C2) return; try { if (C2.el) { C2.el.pause(); try { C2.el.currentTime = 0; } catch (e) {} } } catch (e) {} try { if (C2.synth && window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} F.pa = null; subHide(); }
+  F.paStop = paStop;
+  function speak(L) { try { if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return false; const u = new SpeechSynthesisUtterance(L.cues.map((c) => c[1]).join(" ")); u.rate = 0.98; u.pitch = /CAPTAIN/.test(L.who) ? 0.9 : 1.05; u.volume = Math.min(1, VOL.master); const vs = speechSynthesis.getVoices() || []; const want = /CAPTAIN/.test(L.who) ? /male|david|guy|daniel|george/i : /female|zira|aria|jenny|samantha|hazel|susan/i; const v = vs.find((q) => /^en/i.test(q.lang) && want.test(q.name)) || vs.find((q) => /^en/i.test(q.lang)); if (v) u.voice = v; speechSynthesis.speak(u); return true; } catch (e) { return false; } }
+  function paFrame(t) {
+    const C2 = F.pa; if (!C2) return; const L = C2.L; const lt = t - C2.t0; const debugHeld = F.debugT !== null && F.debugT !== undefined;
+    if (lt > L.dur + 0.6) { paStop(); return; }
+    // the recording follows the flight clock (a skip, a slow frame or a debug jump re-syncs it)
+    if (C2.el && !C2.failed) { const a = C2.el; if (!soundOn) { if (!a.paused) a.pause(); } else if (lt >= 0 && lt < L.dur) { a.volume = Math.min(1, 0.92 * VOL.master); if (a.paused && !debugHeld && !C2.pending) { if (Math.abs(a.currentTime - lt) > 0.4) { try { a.currentTime = Math.max(0, lt); } catch (e) {} } const pr = a.play(); C2.pending = true; if (pr && pr.then) pr.then(() => { C2.pending = false; }, () => { C2.pending = false; C2.tries = (C2.tries || 0) + 1; if (C2.tries > 6) C2.failed = true; }); else C2.pending = false; } else if (!a.paused && Math.abs(a.currentTime - lt) > 1.5) { try { a.currentTime = lt; } catch (e) {} } } }
+    if (C2.failed && soundOn && !C2.synth && lt >= 0 && lt < 2) { C2.synth = speak(L); }
+    if (lt < 0) return; let txt = null; for (const c of L.cues) if (lt >= c[0]) txt = c[1]; if (txt) subShow(L.who, txt);
+    F.paOn = true;
+  }
+  // the seatbelt signs: the galley bulkhead over the doorway and three in the PSU raceway, lit with the bong
+  function beltTex(on) { const c = document.createElement("canvas"); c.width = 256; c.height = 96; const x = c.getContext("2d"); x.fillStyle = "#14171a"; x.beginPath(); x.roundRect ? x.roundRect(2, 2, 252, 92, 16) : x.rect(2, 2, 252, 92); x.fill(); x.strokeStyle = "#3a3f44"; x.lineWidth = 3; x.stroke();
+    const ink = "#fff1d6"; x.strokeStyle = ink; x.fillStyle = ink; x.lineCap = "round"; x.lineJoin = "round";
+    // the no-smoking pictogram
+    x.lineWidth = 5; x.beginPath(); x.arc(66, 48, 28, 0, Math.PI * 2); x.stroke(); x.fillRect(44, 44, 34, 9); x.fillRect(80, 44, 6, 9); x.beginPath(); x.moveTo(46, 28); x.lineTo(86, 68); x.stroke();
+    // the seatbelt pictogram: a seated figure with the lap belt and buckle
+    x.lineWidth = 6; x.beginPath(); x.arc(176, 22, 7, 0, Math.PI * 2); x.fill(); x.beginPath(); x.moveTo(172, 32); x.lineTo(166, 56); x.lineTo(194, 58); x.lineTo(198, 80); x.stroke(); x.beginPath(); x.moveTo(170, 40); x.lineTo(188, 50); x.stroke();
+    x.lineWidth = 4; x.beginPath(); x.moveTo(150, 60); x.lineTo(212, 60); x.stroke(); x.fillRect(176, 54, 14, 12); x.fillStyle = "#14171a"; x.fillRect(180, 57, 6, 6);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+  function beltSigns() {
+    if (F.belt && F.belt.mesh && FLY.g && F.belt.mesh.parent === FLY.g) return F.belt; const g = FLY.g; if (!g) return null;
+    if (F.belt && F.belt.mesh && F.belt.mesh.parent) F.belt.mesh.parent.remove(F.belt.mesh);
+    const mat = cab(new THREE.MeshBasicMaterial({ map: (F.belt && F.belt.tex) || beltTex(), color: 0x2c2c2c, toneMapped: true })); mat.name = "fyBelt";
+    const parts = []; const P = (w, h, x, y, z, rx) => { const pg = new THREE.PlaneGeometry(w, h).rotateY(Math.PI).rotateX(rx || 0).translate(x, y, z); parts.push(pg); };
+    P(0.2, 0.075, 0, 1.872, Z.gb - 0.006); for (const z of [3.65, 0.35, -3.0]) P(0.16, 0.06, 0, 1.892, z, -0.5);
+    const geo = merge(parts.map((q) => [q, [1, 1, 1]])); geo.deleteAttribute("color"); const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; mesh.renderOrder = 2; mesh.name = "fyBeltSigns"; g.add(mesh);
+    F.belt = { mesh, mat, tex: mat.map, on: 0, k: 0 }; return F.belt;
+  }
+  function beltSet(on, quiet) { const B2 = beltSigns(); if (!B2) return; B2.on = on ? 1 : 0; if (!quiet) chime("belt"); }
+  function beltFrame(dt) { if (FLY.g && (!F.belt || !F.belt.mesh || F.belt.mesh.parent !== FLY.g)) { const on = F.belt ? F.belt.on : 0; beltSigns(); if (F.belt) F.belt.on = on; } const B2 = F.belt; if (!B2 || !B2.mat) return; const want = B2.on ? 1 : 0; B2.k += (want - B2.k) * Math.min(1, dt * 14); const v = 0.17 + B2.k * 2.3; B2.mat.color.setRGB(v, v * 0.97, v * 0.9); }
+  F.beltSet = beltSet;
+  // the timeline: PA lines, the sign, the gear and the flaps (sounds from plan_jetaudio.js)
+  function comms(prev, t, P, cabin) {
+    const plan = F.comms || (F.comms = commsPlan(P)); const JA = window.PLAN_JETAUDIO; const fx = JA && JA.fx; if (!F.paDone) F.paDone = {};
+    for (const c of plan) { if (!(prev < c.at && t >= c.at)) continue;
+      if (t - c.at > 3) continue;   // a skip far past a cue drops it
+      if (c.pa) paStart(c.pa); else if (c.belt !== undefined) beltSet(c.belt, !cabin);
+      else if (c.gear && fx && cabin) fx.gearDown(true); else if (c.flaps && fx && cabin) fx.flaps(c.flaps); }
+    // a jump into the middle of a line (debug, skip) picks the line up
+    if (!F.pa) for (const c of plan) if (c.pa && t > c.at + PA_LEAD && t < c.at + PA_LEAD + PA[c.pa].dur - 0.5 && !F.paDone[c.pa]) { F.pa = { id: c.pa, L: PA[c.pa], t0: c.at + PA_LEAD, el: null, failed: true, synth: true }; break; }
+    if (F.pa) F.paDone[F.pa.id] = true;
+    { let want = 0; for (const c of plan) if (c.belt !== undefined && t >= c.at) want = c.belt; if (F.belt && F.belt.on !== want) F.belt.on = want; }
+    F.paOn = false; paFrame(t);
+    if (!F.paOn) { const cs = F.crewSay; if (cs && performance.now() < cs.until) subShow(cs.who, cs.text); else { F.crewSay = null; if (F.sub && F.sub.el.classList.contains("on")) subHide(); } }
+  }
+  // the engines through the flight: what plan_jetaudio.js plays for the cabin and the hero jet
+  function engFrame(t, P, cabin, S) {
+    const E = F.eng || (F.eng = { n1: 0.55, rev: 0 }); const tTD = P.tTD;
+    let n1 = 0.56; if (t > 52) n1 = lerp(0.56, 0.3, sm(52, 56, t)); if (t > 59.5) n1 = lerp(n1, 0.43, sm(59.5, 63, t)); if (t > tTD - 4) n1 = lerp(n1, 0.2, sm(tTD - 4, tTD - 1.5, t));
+    let rev = 0; if (t > tTD + 1.0) { rev = sm(tTD + 1.0, tTD + 2.4, t) * (1 - sm(tTD + 7.5, tTD + 10.5, t)); n1 = lerp(0.2, 0.86, rev); }
+    if (t > tTD + 10.5) n1 = 0.24; if (t > P.tEnd - 3) n1 = lerp(0.24, 0.1, sm(P.tEnd - 3, P.tEnd, t));
+    E.n1 = n1; E.rev = rev;
+    const a = flyPath(t), b = flyPath(t + 0.25); const v = Math.hypot(b.x - a.x, b.z - a.z) * 4; const air = t < tTD;
+    const aft = cl((1.5 - FLY.local.z) / 7.5, 0, 1);
+    E.cab = cabin ? { k: F.pa && t > F.pa.t0 - 0.5 ? 0.78 : 1, n1, air: v, roll: air ? 0 : v, rev, gear: air && t > 61 ? 1 : 0, aft } : null;
+    E.ext = !cabin; const id = S && S.id; E.extK = id === "touch" || id === "arrive" ? 1 : id === "window" ? 0.8 : 0.9; E.windK = id === "touch" || id === "arrive" ? 0 : 1;
+    if (!air && !E.td) { E.td = true; try { const JA = window.PLAN_JETAUDIO; if (JA && JA.fx) { if (cabin) JA.fx.touchdown(1); else JA.fx.chirp(F.jetP, 1); } } catch (e) {} }
+    if (air) E.td = false;
+  }
+  F.engFrame = engFrame;
+
+  // ───────────────────────────── R20 FY: the crew's cues ─────────────────────────────
+  const GALLEY = [-0.12, 7.0], PA_SPOT = [0.05, 5.32], JUMP = [-0.12, 7.25];
+  function crewCue(t, P) {
+    const plan = F.comms || commsPlan(P); for (const c of plan) if (c.pa && PA[c.pa].crew && t >= c.at - 1.5 && t < c.at + PA_LEAD + PA[c.pa].dur + 0.3) return { k: c.pa === "arrival" ? "pa-seat" : "pa", c, lt: t - c.at - PA_LEAD };
+    const dsc = plan.find((c) => c.pa === "descent"); const bc0 = dsc ? dsc.at + PA_LEAD + PA.descent.dur + 0.2 : 69.5;
+    if (t >= bc0 && t < bc0 + 4.6) return { k: "belts", lt: t - bc0 }; if (t >= bc0 + 4.6 && t < FLY_T.roll + 30) return { k: "seat" };
+    return null;
+  }
+  function gesture(a, kind, loops) { try { if (window.PLAN_ANIM && PLAN_ANIM.gesture) PLAN_ANIM.gesture(a, kind, { loops: loops || 1 }); } catch (e) {} }
+  function dressCrew(fa) {
+    const a = fa.g; const now = performance.now(); if (!fa.uniGen && now - (fa.dAt || 0) < 400) return; fa.dAt = now;
+    if (!a.userData.fyUni && (fa.uniGen || (fa.tries = (fa.tries || 0) + 1) < 40)) { try { if (crewUniform(fa) === "pending") return; } catch (e) { log("uniform", e); a.userData.fyUni = []; } }
+    // any material not yet in the cabin depth slice (the bun from the avatar kit, the uniform) joins it, compiled off the frame
+    let fresh = false; const inSlice = (m) => !m || (Array.isArray(m) ? m.every(inSlice) : !!(m.userData && m.userData.cabZ) || m.isSpriteMaterial || m.isShaderMaterial); a.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && !inSlice(o.material)) fresh = true; });
+    if (fresh) { cabTree(a); crewEnv(a); try { if (renderer.compileAsync) renderer.compileAsync(a, camera, scene).catch(() => {}); } catch (e) {} }
+  }
+  // the crew answer the cabin's own image-based light (the cabin materials' PMREM), not the open sky outside the fuselage
+  function crewEnv(a) { let env = null; try { env = cabinEnv(); } catch (e) {} if (!env) return; a.traverse((o) => { if (!o.isMesh || !o.material) return; for (const m of [].concat(o.material)) if (m && m.isMeshStandardMaterial && m.envMap !== env) { m.envMap = env; m.envMapIntensity = F.crewEnvK; m.needsUpdate = true; } }); }
+  F.crewEnvK = 0.9;
+  F.dressCrew = dressCrew;
+
   // ───────────────────────────── the cabin crew ─────────────────────────────
   const DRINKS_AM = ["a glass of champagne", "a Desert Sunrise", "an espresso", "sparkling water with lime", "a prickly pear margarita"];
   function orderDrinkR2() { if (!FLY.on || !FLY.fa) return; if (FLY.order) { lower("AVA", "On her way", "", 3); return; } const drink = DRINKS_AM[(FLY.orderN = ((FLY.orderN || 0) + 1)) % DRINKS_AM.length]; FLY.order = { drink, stage: 0, t: 0 }; npcSay(FLY.fa, `${drink.charAt(0).toUpperCase() + drink.slice(1)}, coming right up.`); FLY.fa.pause = 0; sfx("ui"); }
   function walkTo(a, tx, tz, near, dt, sp) { const dx = tx - a.position.x, dz = tz - a.position.z; const d = Math.hypot(dx, dz); if (d < near) return true; const s = Math.min(d, (sp || 0.9) * dt); a.position.x += dx / d * s; a.position.z += dz / d * s; const want = Math.atan2(dx, dz); a.rotation.y += wrapA(want - a.rotation.y) * Math.min(1, dt * 8); animateWalk(a, sp || 0.9, dt); return false; }
   function crew(dt, cabin) {
-    const fa = FLY.fa; if (!fa) return; const a = fa.g; const P = planFlyPath(); const seated = FLY.t > P.tTD - 14 && FLY.t < FLY_T.roll + 4;
+    const fa = FLY.fa; if (!fa) return; const a = fa.g; const P = planFlyPath(); const t = FLY.t;
+    dressCrew(fa);
     if (a.userData.bubble && performance.now() - a.userData.bubbleAt > 6500) { a.remove(a.userData.bubble); a.userData.bubble = null; }
+    // R20 FY: the cabin crew's cues (announcements from the forward aisle, the seatbelt check, the jump seat for landing)
+    if (F.crewHold) { animateWalk(a, 0, dt); return; }   // tests: hold her where she was put
+    const cue = crewCue(t, P); const turnTo = (ry, k) => { a.rotation.y += wrapA(ry - a.rotation.y) * Math.min(1, dt * (k || 4)); };
+    if (cue && (cue.k === "pa" || cue.k === "pa-seat")) {
+      const spot = cue.k === "pa-seat" ? JUMP : PA_SPOT; if (walkTo(a, spot[0], spot[1], 0.07, dt, 1.05)) { turnTo(Math.PI); animateWalk(a, 0, dt); }
+      const G = PA[cue.c.pa].gest || []; fa.gi = fa.gi || {}; for (const [gt, kind] of G) { const id = cue.c.pa + ":" + gt; if (cue.lt >= gt && cue.lt < gt + 1.5 && !fa.gi[id]) { fa.gi[id] = 1; gesture(a, kind, kind === "talk" ? 2 : 1); } }
+      return; }
+    if (cue && cue.k === "belts") {
+      const q = FLY.seat; const tx = q ? (q.zone === "divan" ? -0.05 : Math.sign(q.x || 1) * 0.06) : FLY.local.x - 0.25 * Math.sign(FLY.local.x || 1), tz = q ? cl(q.z + (q.zone === "divan" ? 0 : 0.32), Z.ab + 0.5, Z.gb - 0.35) : FLY.local.z + 0.6;
+      if (walkTo(a, tx, tz, 0.08, dt, 1.15)) { const lx = q ? q.x : FLY.local.x, lz = q ? q.z : FLY.local.z; turnTo(Math.atan2(lx - a.position.x, lz - a.position.z), 6); animateWalk(a, 0, dt);
+        if (!fa.beltSaid) { fa.beltSaid = true; gesture(a, "point", 1); const line = q ? "Seatbelt fastened? Lovely, thank you." : "Please take your seat now, we are about to land."; npcSay(fa, line); F.crewSay = { who: "AVA · CABIN CREW", text: line, until: performance.now() + 3200 }; } }
+      return; }
+    if (cue && cue.k === "seat") { if (walkTo(a, JUMP[0], JUMP[1], 0.08, dt, 1.1)) { turnTo(Math.PI); animateWalk(a, 0, dt); } return; }
     if (FLY.order) { serveDrinkR2(fa, dt); return; }
-    if (seated) { if (walkTo(a, -0.12, 7.25, 0.08, dt, 1.0)) { a.rotation.y += wrapA(Math.PI - a.rotation.y) * Math.min(1, dt * 4); animateWalk(a, 0, dt); } return; }
     if (fa.mode === "galley") { if (!walkTo(a, -0.12, 7.0, 0.06, dt, 0.8)) return; a.rotation.y += wrapA(-Math.PI / 2 - a.rotation.y) * Math.min(1, dt * 4); animateWalk(a, 0, dt); fa.pause -= dt; if (fa.pause <= 0 && cabin) { fa.mode = "aisle"; fa.tz = FLY.local.z + (FLY.local.z > 1 ? -0.9 : 0.9); fa.tz = cl(fa.tz, Z.ab + 0.6, Z.gb - 0.4); } return; }
     if (fa.mode === "aisle") { if (walkTo(a, 0, fa.tz, 0.06, dt, 0.8)) { fa.mode = "pause"; fa.pause = 5 + Math.random() * 4; } return; }
     if (fa.mode === "pause") { animateWalk(a, 0, dt); const dx = FLY.local.x - a.position.x, dz = FLY.local.z - a.position.z; if (Math.hypot(dx, dz) < 2.6) a.rotation.y += wrapA(Math.atan2(dx, dz) - a.rotation.y) * Math.min(1, dt * 4); if (cabin && Math.hypot(dx, dz) < 2.2 && !a.userData.bubble && performance.now() - (fa.lastSay || 0) > 11000) { fa.lastSay = performance.now(); npcSay(fa, fa.lines[fa.li++ % fa.lines.length]); } fa.pause -= dt; if (fa.pause <= 0) { fa.mode = "galley"; fa.pause = 8 + Math.random() * 8; } }
@@ -832,6 +1140,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     try { if (F.smoke) { F.smoke.age.fill(99); F.smoke.pts.visible = false; } if (F.drinkM && F.drinkM.parent) F.drinkM.parent.remove(F.drinkM); F.drinkM = null; } catch (e) {}
     try { for (const o of F.labels || []) o.layers.set(0); F.labels = null; F.fresh = null; scene.traverse((o) => { if (o.isSprite && o.layers.mask === (1 << 29)) o.layers.set(0); }); } catch (e) {}
     try { for (const l of (CSMX.csm && CSMX.csm.lights) || []) if (l.userData.nb0 !== undefined) { l.shadow.normalBias = l.userData.nb0; delete l.userData.nb0; } if (sun.userData.nb0 !== undefined) { sun.shadow.normalBias = sun.userData.nb0; delete sun.userData.nb0; } } catch (e) {}
+    try { paStop(); F.eng = null; F.crewSay = null; F.comms = null; if (F.belt) F.belt.on = 0; } catch (e) {}
     F.arrCam = null; F.shot = null; F.debugT = null; F.cam = null; FLY.fa = null;
     try { updateSky(0); updateEnvironment(performance.now(), true); } catch (e) {}
   }
@@ -845,8 +1154,11 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     try { if (cabin && !CSMX.on && sun.castShadow) { const half = FLY.t < FLY_T.approach ? 10 : 34; const sc = sun.shadow.camera; if (sc.right !== half) { sc.left = sc.bottom = -half; sc.right = sc.top = half; sc.updateProjectionMatrix(); } if (sun.userData.nb0 === undefined) sun.userData.nb0 = sun.shadow.normalBias; sun.shadow.normalBias = 0.02; } else if (sun.userData.nb0 !== undefined) { sun.shadow.normalBias = sun.userData.nb0; delete sun.userData.nb0; } } catch (e) {}
     try { if (CSMX.on && CSMX.csm) { const l0 = CSMX.csm.lights[0]; if (l0) { if (cabin) { if (l0.userData.nb0 === undefined) l0.userData.nb0 = l0.shadow.normalBias; l0.shadow.normalBias = 0.03; } else if (l0.userData.nb0 !== undefined) { l0.shadow.normalBias = l0.userData.nb0; delete l0.userData.nb0; } } } } catch (e) {}
     const lowTier = !(QUAL.q && QUAL.q.shadow); F.U.sun.value = lowTier ? 0.22 : 1; F.U.hemi.value = 0.3;
-    // the exterior shots carry the jet's own engines (the traffic engine loop; updateTraffic set it just before this hook runs)
-    try { const A = typeof AUD !== "undefined" && AUD.traffic; if (A && typeof audioReady !== "undefined" && audioReady) { let k = 0; const id = F.shot && F.shot.id; if (!cabin) { k = id === "wing" ? 0.9 : id === "tail" ? 0.75 : id === "window" ? 0.65 : id === "establish" ? 0.55 : 0.4; if ((id === "touch" || id === "arrive") && F.jetP) { const d = camera.position.distanceTo(F.jetP); k = Math.max(0.12, Math.min(1, 90 / Math.max(20, d))) * (id === "arrive" ? 0.45 : 1); } } const want = soundOn ? +(A.dataset.vol || 0.6) * k : 0; A.volume = Math.max(0, Math.min(1, want)); if (want > 0.01 && A.paused) A.play().catch(() => {}); } } catch (e) {}
+    // R20 FY: the engines are plan_jetaudio.js (F.eng, set in the flight frame). The music under the cabin: the client's cabin loop
+    // at a lower bed, ducked under the PA, the radio held off for the flight (this hook runs after the client's audio update)
+    try { if (typeof AUD !== "undefined" && typeof audioReady !== "undefined" && audioReady) { const duck = F.pa && FLY.t > F.pa.t0 - 0.6 ? 0.22 : 1; const on = soundOn ? 1 : 0;
+      const wantC = on * (cabin ? 0.15 * Math.max(0, 1 - Math.abs(FLY.local.z - 0.9) / 7.5) : 0) * duck * VOL.music * VOL.master; F.musV = (F.musV || 0) + (wantC - (F.musV || 0)) * Math.min(1, (dt || 0.016) * 3); const m = AUD.cabinMusic; if (m && !m.fyStub) { m.volume = Math.max(0, Math.min(1, F.musV)); }
+      if (typeof RADIO !== "undefined" && RADIO.a) RADIO.a.volume = Math.max(0, RADIO.a.volume * (1 - Math.min(1, (dt || 0.016) * 3))); } } catch (e) {}
     try { const fu = POST.mFinal && POST.mFinal.uniforms; if (fu && fu.uFog && fu.uHazeK) { fu.uFog.value.x *= F.fogK; fu.uHazeK.value *= F.hazeK; } } catch (e) {}
     if (F.shake) F.shake = Math.max(0, F.shake - (dt || 0.016) * 0.5);
   }

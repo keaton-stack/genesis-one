@@ -799,6 +799,8 @@ body.touch #fl-keys{display:none!important}
   // ───────────────────────────── engine sound ─────────────────────────────
   function engineAudio(s) {
     try {
+      // R20 FY: the jet's sound is plan_jetaudio.js (turbofan outside, cabin in the cockpit view); this sawtooth stays as the fallback
+      if (window.PLAN_JETAUDIO && PLAN_JETAUDIO.on && PLAN_JETAUDIO.flight && PLAN_JETAUDIO.flight(s, FL.view)) { if (FL.au) { FL.au.g.gain.value = 0; FL.au.ng.gain.value = 0; } return; }
       const on = s && typeof soundOn !== "undefined" && soundOn && typeof actx === "function" && (typeof audioReady === "undefined" || audioReady);
       if (!on) { if (FL.au) { FL.au.g.gain.value = 0; FL.au.ng.gain.value = 0; } return; }
       if (!FL.au) { const c = actx(); const g = c.createGain(); g.gain.value = 0; g.connect(c.destination); const o = c.createOscillator(); o.type = "sawtooth"; const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700; o.connect(f); f.connect(g); o.start();

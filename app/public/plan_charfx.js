@@ -384,7 +384,7 @@ window.PLAN_ANIM = window.PLAN_ANIM || { v: "r19-0", errs: [], n: {} };
   var Q = location.search;
   function flag(k, d) { var m = Q.match(new RegExp("[?&]" + k + "=(\\d+)")); return m ? +m[1] : d; }
   function note(where, e) { if (AN.errs.length < 40) AN.errs.push(where + ": " + (e && e.message ? e.message : e)); try { console.warn("plan_anim " + where, e); } catch (x) {} }
-  AN.off = flag("anim", 1) === 0; AN.ready = false; AN.locked = null;
+  AN.off = flag("anim", 0) === 0;   /* R20: the user preferred the R18 walk, run and idle, so the R19 engine is opt-in (?anim=1); seats and beds (plan_seat.js) stay */ AN.ready = false; AN.locked = null;
   if (AN.off) { AN.step = function () { return false; }; AN.whenReady = function () { return Promise.resolve(false); }; return; }
   var OPT = { rig: flag("animrig", 1) !== 0, look: flag("animlook", 1) !== 0, lean: flag("animlean", 1) !== 0, ik: flag("animik", 1) !== 0 };
   AN.opt = OPT;
