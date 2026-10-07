@@ -381,7 +381,11 @@ function initCSM() {
   } catch (e) { console.warn("cascaded shadows unavailable", e); CSMX.on = false; CSMX.csm = null; }
 }
 initCSM();
-function updateCSM() { const c = CSMX.csm; if (!c) return; if (camera.fov !== CSMX.fov || camera.aspect !== CSMX.aspect || camera.near !== CSMX.near) { CSMX.fov = camera.fov; CSMX.aspect = camera.aspect; CSMX.near = camera.near; c.updateFrustums(); }
+/* R21 CP (HANDOFF_R21_CPU.md, ?cpcsm=0, ?cp=0): when only the FOV or the aspect changed (the sprint's FOV ease, every frame for about a second), the
+   cascades' frusta and bounds are rebuilt but not the uniforms of every CSM material: those hold the splits, the near plane and the shadow far, none
+   of which depend on the FOV, so the old full update wrote the same values into thousands of materials (3 to 4 ms a frame) */
+const CPCSM = !/[?&](cp|cpcsm)=0\b/.test(location.search);
+function updateCSM() { const c = CSMX.csm; if (!c) return; if (camera.fov !== CSMX.fov || camera.aspect !== CSMX.aspect || camera.near !== CSMX.near) { const fovOnly = CPCSM && CSMX.fov !== 0 && camera.near === CSMX.near && typeof c.initCascades === "function" && typeof c.updateShadowBounds === "function"; CSMX.fov = camera.fov; CSMX.aspect = camera.aspect; CSMX.near = camera.near; if (fovOnly) { c.initCascades(); c.updateShadowBounds(); } else c.updateFrustums(); }
   const above = camera.position.y - (typeof getH === "function" ? getH(camera.position.x, camera.position.z) : 0); const wantFar = Math.max(CSMX.far, Math.min(2400, CSMX.far + Math.max(0, above - 14) * 6)); if (Math.abs(wantFar - CSMX.lastFar) > CSMX.lastFar * 0.15) { CSMX.lastFar = wantFar; c.maxFar = wantFar; c.updateFrustums(); }
   c.update(); }
 function resize() { if (VRX.on) { VRX.resized = true; return; } renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (typeof POST !== "undefined" && POST.rt) POST.resize(); }

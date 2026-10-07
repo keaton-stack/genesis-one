@@ -359,11 +359,29 @@ window.PLAN_CHARSHADE = window.PLAN_CHARSHADE || { v: "r19-0", errs: [], n: {} }
   // ───────── curvature per vertex (folds, creases): one geometry a frame, from the welded bind-pose surface ─────────
   var CQ = [], CSEEN = new WeakSet();
   function curvQueue(root) { if (!root) return; root.traverse(function (o) { if (o.isSkinnedMesh && o.geometry && !CSEEN.has(o.geometry) && !o.geometry.getAttribute("aChsC")) { CSEEN.add(o.geometry); CQ.push(o.geometry); } }); }
+  // R21 CP (HANDOFF_R21_CPU.md, ?cpcs=0, ?cp=0): curvAttr welded a character's vertices through a Map of "x,y,z" strings, 40 to 70 ms for
+  // one body in a single frame. curvWeld gives every vertex the same welded index in the same first-seen order, from the same rounded
+  // integer coordinates, through an open-addressing table on typed arrays; it declines (the string path runs) for any coordinate that is
+  // not finite or rounds outside 2^30.
+  var CPCS = !/[?&](cp|cpcs)=0\b/.test(Q);
+  function curvWeld(P, Nn, n, q, wi, px, py, pz, nx, ny, nz) {
+    var cap = 16; while (cap < n * 2) cap *= 2; var M = cap - 1, KX = new Int32Array(cap), KY = new Int32Array(cap), KZ = new Int32Array(cap), KV = new Int32Array(cap).fill(-1), LIM = 1073741824;
+    var X = new Int32Array(n), Y = new Int32Array(n), Z = new Int32Array(n), i;
+    for (i = 0; i < n; i++) { var rx = Math.round(P.getX(i) * q), ry = Math.round(P.getY(i) * q), rz = Math.round(P.getZ(i) * q);
+      if (!(rx > -LIM && rx < LIM && ry > -LIM && ry < LIM && rz > -LIM && rz < LIM)) return false; X[i] = rx; Y[i] = ry; Z[i] = rz; }
+    for (i = 0; i < n; i++) { var a = X[i], b = Y[i], c = Z[i], h = (Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791)) & M, w;
+      while (true) { w = KV[h]; if (w === -1 || (KX[h] === a && KY[h] === b && KZ[h] === c)) break; h = (h + 1) & M; }
+      if (w === -1) { w = px.length; KV[h] = w; KX[h] = a; KY[h] = b; KZ[h] = c; px.push(P.getX(i)); py.push(P.getY(i)); pz.push(P.getZ(i)); nx.push(0); ny.push(0); nz.push(0); }
+      wi[i] = w; nx[w] += Nn.getX(i); ny[w] += Nn.getY(i); nz[w] += Nn.getZ(i); }
+    return true;
+  }
+  CS.curvWeld = curvWeld;
   function curvAttr(g) {
     var P = g.getAttribute("position"), Nn = g.getAttribute("normal"); if (!P || !Nn) return; var n = P.count; if (!g.boundingBox) g.computeBoundingBox(); var bb = g.boundingBox, hgt = Math.max(1e-4, bb.max.y - bb.min.y);
     var q = 2e4 / hgt, map = new Map(), wi = new Int32Array(n), nw = 0, px = [], py = [], pz = [], nx = [], ny = [], nz = [];
+    if (CPCS && curvWeld(P, Nn, n, q, wi, px, py, pz, nx, ny, nz)) nw = px.length; else {   /* R21 CP: the same weld on integer keys (?cpcs=0: the string keys) */
     for (var i = 0; i < n; i++) { var x = P.getX(i), y = P.getY(i), z = P.getZ(i), k = Math.round(x * q) + "," + Math.round(y * q) + "," + Math.round(z * q); var w = map.get(k);
-      if (w === undefined) { w = nw++; map.set(k, w); px.push(x); py.push(y); pz.push(z); nx.push(0); ny.push(0); nz.push(0); } wi[i] = w; nx[w] += Nn.getX(i); ny[w] += Nn.getY(i); nz[w] += Nn.getZ(i); }
+      if (w === undefined) { w = nw++; map.set(k, w); px.push(x); py.push(y); pz.push(z); nx.push(0); ny.push(0); nz.push(0); } wi[i] = w; nx[w] += Nn.getX(i); ny[w] += Nn.getY(i); nz[w] += Nn.getZ(i); } }
     for (w = 0; w < nw; w++) { var l = Math.hypot(nx[w], ny[w], nz[w]) || 1; nx[w] /= l; ny[w] /= l; nz[w] /= l; }
     var S = new Float32Array(nw), C = new Float32Array(nw), I = g.index, tn = I ? I.count : n;
     var edge = function (a, b) { var dx = px[b] - px[a], dy = py[b] - py[a], dz = pz[b] - pz[a], d2 = dx * dx + dy * dy + dz * dz; if (d2 < 1e-14) return; var c = ((nx[b] - nx[a]) * dx + (ny[b] - ny[a]) * dy + (nz[b] - nz[a]) * dz) / d2; S[a] += c; C[a]++; S[b] += c; C[b]++; };

@@ -1046,6 +1046,21 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   // PMREM (environment maps) renders once into its cube-UV targets: those keep three's wait, a skipped draw there would stay
   function pmremTarget() { try { var rt = renderer.getRenderTarget(); return !!(rt && rt.texture && rt.texture.mapping === THREE.CubeUVReflectionMapping); } catch (e) { return false; } }
+  /* R21 CP (HANDOFF_R21_CPU.md, ?cpdm=0, ?cp=0): three's shadow pass draws every plain caster with one shared depth material (and each
+     alpha-tested material with one shared depth variant). A material drawn by an instanced mesh and then a plain one is looked up
+     again (three's getProgram: all the parameters, the cache key string) at every switch, 20 to 30 times a frame for the shared depth
+     material alone. Instanced and batched casters now draw with twins of those depth materials (a clone, given the per-draw values
+     three just set on the original: side, maps, alpha test, clipping, displacement), so each keeps its own program. Same programs,
+     same pixels. */
+  var DM = P.cpdm = { on: !/[?&](cp|cpdm)=0\b/.test(Q), n: 0, tw: new WeakMap() };
+  function dmTwin(m, k) {
+    var L = DM.tw.get(m); if (L === undefined) { L = [null, null]; DM.tw.set(m, L); try { m.addEventListener("dispose", function () { for (var i = 0; i < 2; i++) if (L[i]) { try { L[i].dispose(); } catch (e) {} L[i] = null; } }); } catch (e) {} }
+    var t = L[k]; if (t === null) { t = L[k] = m.clone(); t.name = (m.name || "depth") + (k === 0 ? " +inst" : " +batch"); DM.n++; }
+    t.side = m.side; t.map = m.map; t.alphaMap = m.alphaMap; t.alphaTest = m.alphaTest; t.clipShadows = m.clipShadows; t.clippingPlanes = m.clippingPlanes; t.clipIntersection = m.clipIntersection;
+    t.displacementMap = m.displacementMap; t.displacementScale = m.displacementScale; t.displacementBias = m.displacementBias; t.wireframeLinewidth = m.wireframeLinewidth; t.linewidth = m.linewidth;
+    if (t.version !== m.version) t.version = m.version;
+    return t;
+  }
   function nsInstall(R) {
     if (!R || !R.info || !R.extensions) return; var arr = R.info.programs; if (!arr || arr === NS.arr) return;
     try { NS.par = !!R.extensions.has("KHR_parallel_shader_compile"); } catch (e) { NS.par = false; } if (!NS.par) return;   // without the extension every program is "ready": nothing to do
@@ -1054,6 +1069,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     for (var i = 0; i < arr.length; i++) guard(arr[i]);
     if (!R.__r5rbd) { var rbd = R.renderBufferDirect; R.__r5rbd = rbd;
       R.renderBufferDirect = function () { if (NS.depth === 0 && this.info.programs !== NS.arr) nsInstall(this);   /* a restored context has a new program list: guard it before its first draw */
+        if (DM.on === true && arguments[1] === null) { var dm = arguments[3], dob = arguments[4]; if (dm !== null && dm !== undefined && dm.isMeshDepthMaterial === true && dob !== null && (dob.isInstancedMesh === true || dob.isBatchedMesh === true) && dob.customDepthMaterial !== dm) arguments[3] = dmTwin(dm, dob.isInstancedMesh === true ? 0 : 1); }   /* R21 CP: instanced / batched casters get their own depth material */
         NS.depth++; try { return rbd.apply(this, arguments); } catch (e) { if (e === NS.NR) { W.n.skips++; NS.fs++; return; } throw e; } finally { NS.depth--; } }; }
   }
 
@@ -1927,4 +1943,46 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     }
   }
   if (GV.on && window.PLAN_HOOKS && PLAN_HOOKS.frame) PLAN_HOOKS.frame.push({ name: "opGov", fn: function () { try { govFrame(); } catch (e) { note("gov", e); } } });
+})();
+// ───────────────────────────── R21 CP: main-thread CPU (HANDOFF_R21_CPU.md) ─────────────────────────────
+// ?cp=0 turns every R21 CP part off (here and the marked parts above: the skeleton skip ?cpsk=0, the shadow depth twins ?cpdm=0, the
+// governor extension ?cpgov=1 / 0); ?cp<part>=0 one part.
+// hud (?cphud=0): HUD text written only when it changes. Several writers replace the same text every frame (plan_progress puts the rank
+//   line into #rank every frame, updateSky the clock, updateZone and its module wrappers the action prompt's markup), and each
+//   replacement re-lays out the HUD: a style recalc, a layout and a paint every frame. The elements below get an own textContent /
+//   innerHTML setter that skips a write leaving the element exactly as it is (one text node with the same text; the same markup with
+//   the DOM unchanged since our last write). Every other write goes through as before.
+(function () {
+  "use strict";
+  var P = window.PLAN_PERF; if (!P || P.off || P.cp) return;
+  var Q = location.search, OFF = /[?&]cp=0\b/.test(Q);
+  var CP = P.cp = { on: !OFF, errs: [], n: {} };
+  function note(tag, e) { try { if (CP.errs.length < 30) CP.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); } catch (x) {} }
+  if (!CP.on) return;
+  var HG = CP.hud = { on: !/[?&]cphud=0\b/.test(Q), n: { skip: 0, write: 0 }, els: [] };
+  var TD = Object.getOwnPropertyDescriptor(Node.prototype, "textContent"), HD = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
+  function guardText(el) {
+    if (!TD || !TD.set || el.__cpg) return; el.__cpg = 1; HG.els.push("#" + el.id);
+    Object.defineProperty(el, "textContent", { configurable: true, enumerable: true, get: function () { return TD.get.call(this); }, set: function (v) {
+      if (HG.on === true) { var s = v === null || v === undefined ? "" : String(v), c = this.firstChild; if ((c === null && s === "") || (c !== null && c === this.lastChild && c.nodeType === 3 && c.data === s)) { HG.n.skip++; return; } }
+      HG.n.write++; TD.set.call(this, v); } });
+  }
+  function guardHTML(el) {
+    if (!HD || !HD.set || el.__cpg) return; el.__cpg = 1; HG.els.push("#" + el.id); var last = null, ser = null;
+    Object.defineProperty(el, "innerHTML", { configurable: true, enumerable: true, get: function () { return HD.get.call(this); }, set: function (v) {
+      var s = String(v); if (HG.on === true && s === last && ser !== null && HD.get.call(this) === ser) { HG.n.skip++; return; }
+      HD.set.call(this, v); last = s; ser = HD.get.call(this); HG.n.write++; } });
+  }
+  function hudInstall() { try { ["rank", "clock", "online", "coins", "gback", "zone-n", "zone-k", "p2streamt"].forEach(function (id) { var el = document.getElementById(id); if (el) guardText(el); }); ["prompt-t"].forEach(function (id) { var el = document.getElementById(id); if (el) guardHTML(el); }); } catch (e) { note("hud", e); } }
+  if (HG.on) { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", hudInstall); else hudInstall(); setTimeout(hudInstall, 15000); }
+  // classList.remove of tokens that are absent (and add of tokens already there) rewrites the class attribute anyway (DOM spec): a
+  // mutation and a style invalidation each. plan_flight removes "on" from six HUD elements every frame, frame() the #game one. Such calls
+  // now return at once; any other call (an empty or spaced token included, which throws) goes through as before.
+  HG.n.cls = 0;
+  if (HG.on) try {
+    var TL = DOMTokenList.prototype, rm0 = TL.remove, add0 = TL.add, WS = /\s/;
+    var plain = function (a) { for (var i = 0; i < a.length; i++) { var t = a[i]; if (typeof t !== "string" || t === "" || WS.test(t)) return false; } return a.length > 0; };
+    TL.remove = function () { if (HG.on === true && plain(arguments)) { var i, any = false; for (i = 0; i < arguments.length; i++) if (this.contains(arguments[i])) { any = true; break; } if (!any) { HG.n.cls++; return; } } return rm0.apply(this, arguments); };
+    TL.add = function () { if (HG.on === true && plain(arguments)) { var i, all = true; for (i = 0; i < arguments.length; i++) if (!this.contains(arguments[i])) { all = false; break; } if (all) { HG.n.cls++; return; } } return add0.apply(this, arguments); };
+  } catch (e) { note("classList", e); }
 })();
