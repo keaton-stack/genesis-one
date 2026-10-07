@@ -646,7 +646,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     // the cabin crew: Ava, in her galley
     for (const c of [...FLY.g.children]) if (c.userData && c.userData.id === "fa_ava") FLY.g.remove(c);
     try { const fa = avatar("fa_ava", "Ava · Flight attendant", { body: "f", skin: "c98f63", shirt: "f2ecdf", pants: "16261c", shoes: "141414", hair: 10, hairc: "2a1a10" }, null, null);   /* R20 FY: a cream blouse under the uniform shells (crewUniform), the neat bun */ fa.userData.label.scale.set(1.6, 0.4, 1); fa.userData.label.visible = false; fa.position.set(-0.12, 0, 7.0); fa.rotation.y = -Math.PI / 2; FLY.g.add(fa); cabTree(fa);
-      FLY.fa = { g: fa, name: "Ava", id: "fa_ava", mode: "galley", pause: 6, tz: 7.0, lines: ["Good evening, and welcome aboard Giveback One. We are joining the circuit for Runway 21 at Solport.", "Champagne, a Desert Sunrise or an espresso? I can bring it to your seat.", "Look out the left side: that is The Expanse, with the Genesis Ring in the far corner.", "Main Street runs straight at the Ring. Four Corners is the crossroads halfway down.", "We turn base over the open desert, then final over the North Section Road.", "Sky, your guide, meets you at Arrivals Court, just out of the landside door of the Stellar Aviation FBO."], li: 0 }; } catch (e) { log("crew", e); FLY.fa = null; }
+      FLY.fa = { g: fa, name: "Ava", id: "fa_ava", mode: "galley", pause: 6, tz: 7.0, lines: ["Good evening, and welcome aboard Giveback One. We are joining the circuit for Runway 21 at Solport.", "Champagne, a Desert Sunrise or an espresso? I can bring it to your seat.", "Look out the left side: that is The Expanse, with the Genesis Ring in the far corner.", "Main Street runs straight at the Ring. Four Corners is the crossroads halfway down.", "We turn base over the open desert, then line up with Runway 21 for Solport.", "Sky, your guide, meets you at Arrivals Court, just out of the landside door of the Stellar Aviation FBO."], li: 0 }; } catch (e) { log("crew", e); FLY.fa = null; }
     FLY.spots = [{ lx: -0.15, lz: 6.95, r: 0.9, t: "ask Ava for a drink", fn: orderDrinkR2 }, { lx: 0, lz: 8.05, r: 0.8, t: "flight deck door", fn: () => { lower("CAPTAIN", "Cleared to land, Runway 21", "Left-hand circuit over The Expanse. Enjoy the view.", 5); sfx("ui"); } },
       { lx: -0.45, lz: 5.35, r: 0.75, t: "the moving map", fn: () => { lower("MOVING MAP", "Giveback One on the circuit", "The map draws the layout of Genesis and our path to Gate A2.", 6); sfx("ui"); } },
       { lx: 0, lz: F.aftModel ? -5.7 : -5.95, r: 0.75, t: F.aftModel ? "the aft cabin" : "lavatory", fn: () => { lower("AFT CABIN", "The lavatory", "Walnut, onyx and a window of its own, behind the aft bulkhead. Please be seated for landing.", 5); sfx("ui"); } },
@@ -718,7 +718,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     const cross = (x) => prev < x && t >= x; const tTD = P.tTD;
     if (cross(24.5)) { lower("CAPTAIN", "Joining the left-hand downwind, Runway 21", "The Expanse is off our left side. The Outpost and the Genesis Ring are furthest out.", 7); }
     if (cross(P.tBase + 1)) { lower("CAPTAIN", "Turning base over the open desert", "Stage One, The Landing, passes below us on final.", 6); }
-    if (cross(P.tFinal + 1.5)) { lower("CAPTAIN", "Established on final, Runway 21", "Crossing the North Section Road. Cabin crew, please take your seats for landing.", 6); }
+    if (cross(P.tFinal + 1.5)) { lower("CAPTAIN", "Established on final, Runway 21", "Over the open desert, the cabin secure for landing.", 6); }
     if (cross(tTD)) { sfx("land"); F.shake = 1; tyreSmoke(1.4); } if (cross(tTD + 0.12)) tyreSmoke(1); if (t > tTD && t < tTD + 0.9 && Math.random() < 0.6) tyreSmoke(0.25);
     if (t > tTD && t < FLY_T.roll && FX && FX.dust && Math.random() < 0.3 && F.jetP) emitDust(F.jetP.x, getH(F.jetP.x, F.jetP.z), F.jetP.z, 1, 3, 0.6);
     if (cross(tTD + 19.5)) { lower("CAPTAIN", "Welcome to Solport", "Almost a century of flying from this field. We are taxiing to Gate A2 at the Stellar Aviation FBO. Please stay seated.", 7); }
@@ -979,12 +979,13 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   // recording cannot play, the browser's speechSynthesis reads the same text.
   const PA = F.PA = {
     welcome: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_welcome.m4a", dur: 14.24, crew: true, cues: [[0.4, "Good evening, and welcome aboard Giveback One."], [3.85, "My name is Ava, and I'll be looking after you on our short flight into Solport."], [8.9, "Please make yourself comfortable, and enjoy the view of Genesis from the left side windows."]], gest: [[0.5, "talk"], [5.5, "talk"], [9.2, "point"]] },
-    captain: { who: "CAPTAIN · FLIGHT DECK", src: "/audio/fy_pa_captain.m4a", dur: 14.47, cues: [[0, "Ladies and gentlemen, this is your captain speaking from the flight deck."], [4.6, "We are starting our descent into Solport."], [7.4, "It's a clear evening on the ground, with light winds, and we'll have you at the gate in just a few minutes."], [13.75, "Thank you."]] },
-    descent: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_descent.m4a", dur: 14.03, crew: true, cues: [[0, "Ladies and gentlemen, we have begun our descent."], [4.3, "Please return to your seats, fasten your seatbelts,"], [8.45, "and make sure your tray tables are stowed."], [11.55, "Cabin crew, prepare for landing."]], gest: [[0.3, "talk"], [4.4, "point"], [8.6, "talk"]] },
-    arrival: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_arrival.m4a", dur: 10.06, crew: true, cues: [[0.25, "Ladies and gentlemen, welcome to Solport."], [2.95, "Please stay seated with your seatbelt fastened until the seatbelt sign is switched off."], [7.4, "Thank you for flying with us on Giveback One."]], gest: [[0.4, "talk"]] }
+    captain: { who: "CAPTAIN · FLIGHT DECK", src: "/audio/fy_pa_captain.m4a", dur: 20.8, cues: [[0.36, "Hi everyone, it's your captain."], [3.8, "We're beginning our descent into Solport now, just a few minutes to the ground."], [9.6, "Clear skies, light winds, seventy-eight degrees on the field."], [14.9, "Please take your seats and fasten your seatbelts."], [18.3, "Ava, cabin, prepare for landing."]] },
+    // R20b: private-jet phrasing (the coordinator's review): general and warm, nothing asked of the player personally
+    secure: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_secure.m4a", dur: 8.8, crew: true, chime: "call", cues: [[0.25, "We'll be landing in Solport in just a few minutes."], [3.6, "Please take a seat and fasten your seatbelt, and I'll secure the cabin for our arrival."]], gest: [[0.4, "talk"], [3.8, "talk"]] },
+    arrival: { who: "AVA · CABIN CREW", src: "/audio/fy_pa_arrival.m4a", dur: 11.0, crew: true, chime: "call", cues: [[0.25, "Welcome to Solport, everyone."], [2.55, "Stellar Aviation is ready for you at the FBO, and your cart is waiting planeside."], [8.15, "I'll have the door open for you in just a moment."]], gest: [[0.4, "talk"]] }
   };
   const PA_LEAD = 1.5;   // the ding-dong, then the voice
-  function commsPlan(P) { return [{ at: 19.8, pa: "welcome" }, { at: 36.0, pa: "captain" }, { at: 46.9, flaps: 3.6 }, { at: 52.6, belt: 1 }, { at: 53.8, pa: "descent" }, { at: 59.5, gear: 1 }, { at: P.tFinal - 3, flaps: 4.2 }, { at: P.tTD + 11.0, pa: "arrival" }, { at: P.tEnd - 1.4, belt: 0 }]; }
+  function commsPlan(P) { return [{ at: 19.8, pa: "welcome" }, { at: 36.0, pa: "captain" }, { at: 46.9, flaps: 3.6 }, { at: 52.2, belt: 1 }, { at: 58.6, pa: "secure" }, { at: 61.5, gear: 1 }, { at: P.tFinal - 3, flaps: 4.2 }, { at: P.tTD + 11.0, pa: "arrival" }, { at: P.tEnd - 1.4, belt: 0 }]; }
   F.commsPlan = commsPlan;
   function subUI() {
     if (F.sub && F.sub.el.isConnected) return F.sub; const U2 = ui();
@@ -1001,8 +1002,8 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   function chime(kind) { try { if (window.PLAN_JETAUDIO && PLAN_JETAUDIO.chime && PLAN_JETAUDIO.chime(kind)) return; } catch (e) {} try { if (kind === "belt") tone(659, 0.9, "sine", 0.06); else { cabinChime(); } } catch (e) {} }
   // a voice line: the recording (or speechSynthesis), its subtitles on the flight clock
   function paStart(id) {
-    const L = PA[id]; if (!L) return; paStop(); const C2 = F.pa = { id, L, t0: FLY.t + PA_LEAD, el: null, synth: false, failed: false };
-    chime("pa");
+    const L = PA[id]; if (!L) return; paStop(); const lead = L.chime === "call" ? 1.0 : PA_LEAD; const C2 = F.pa = { id, L, t0: FLY.t + lead, el: null, synth: false, failed: false };
+    chime(L.chime || "pa");
     if (soundOn) { try { const a = paEl(id); if (a) { C2.el = a; FLY.voice = a; } else C2.failed = true; } catch (e) { C2.failed = true; } }
   }
   // the recordings are fetched when the flight starts (about 440 KB in all), so each one is buffered before its cue
@@ -1076,9 +1077,9 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   // ───────────────────────────── R20 FY: the crew's cues ─────────────────────────────
   const GALLEY = [-0.12, 7.0], PA_SPOT = [0.05, 5.32], JUMP = [-0.12, 7.25];
   function crewCue(t, P) {
-    const plan = F.comms || commsPlan(P); for (const c of plan) if (c.pa && PA[c.pa].crew && t >= c.at - 1.5 && t < c.at + PA_LEAD + PA[c.pa].dur + 0.3) return { k: c.pa === "arrival" ? "pa-seat" : "pa", c, lt: t - c.at - PA_LEAD };
-    const dsc = plan.find((c) => c.pa === "descent"); const bc0 = dsc ? dsc.at + PA_LEAD + PA.descent.dur + 0.2 : 69.5;
-    if (t >= bc0 && t < bc0 + 4.6) return { k: "belts", lt: t - bc0 }; if (t >= bc0 + 4.6 && t < FLY_T.roll + 30) return { k: "seat" };
+    const plan = F.comms || commsPlan(P); for (const c of plan) if (c.pa && PA[c.pa].crew && t >= c.at - 1.5 && t < c.at + (PA[c.pa].chime === "call" ? 1.0 : PA_LEAD) + PA[c.pa].dur + 0.3) return { k: c.pa === "arrival" ? "pa-seat" : "pa", c, lt: t - c.at - (PA[c.pa].chime === "call" ? 1.0 : PA_LEAD) };
+    const sc = plan.find((c) => c.pa === "secure"); const bc0 = sc ? sc.at + 1.0 + PA.secure.dur + 0.2 : 68.6;
+    if (t >= bc0 && t < bc0 + 5.4) return { k: "sweep", lt: t - bc0 }; if (t >= bc0 + 5.4 && t < FLY_T.roll + 30) return { k: "seat" };
     return null;
   }
   function gesture(a, kind, loops) { try { if (window.PLAN_ANIM && PLAN_ANIM.gesture) PLAN_ANIM.gesture(a, kind, { loops: loops || 1 }); } catch (e) {} }
@@ -1109,11 +1110,8 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
       const spot = cue.k === "pa-seat" ? JUMP : PA_SPOT; if (walkTo(a, spot[0], spot[1], 0.07, dt, 1.05)) { turnTo(Math.PI); animateWalk(a, 0, dt); }
       const G = PA[cue.c.pa].gest || []; fa.gi = fa.gi || {}; for (const [gt, kind] of G) { const id = cue.c.pa + ":" + gt; if (cue.lt >= gt && cue.lt < gt + 1.5 && !fa.gi[id]) { fa.gi[id] = 1; gesture(a, kind, kind === "talk" ? 2 : 1); } }
       return; }
-    if (cue && cue.k === "belts") {
-      const q = FLY.seat; const tx = q ? (q.zone === "divan" ? -0.05 : Math.sign(q.x || 1) * 0.06) : FLY.local.x - 0.25 * Math.sign(FLY.local.x || 1), tz = q ? cl(q.z + (q.zone === "divan" ? 0 : 0.32), Z.ab + 0.5, Z.gb - 0.35) : FLY.local.z + 0.6;
-      if (walkTo(a, tx, tz, 0.08, dt, 1.15)) { const lx = q ? q.x : FLY.local.x, lz = q ? q.z : FLY.local.z; turnTo(Math.atan2(lx - a.position.x, lz - a.position.z), 6); animateWalk(a, 0, dt);
-        if (!fa.beltSaid) { fa.beltSaid = true; gesture(a, "point", 1); const line = q ? "Seatbelt fastened? Lovely, thank you." : "Please take your seat now, we are about to land."; npcSay(fa, line); F.crewSay = { who: "AVA · CABIN CREW", text: line, until: performance.now() + 3200 }; } }
-      return; }
+    // securing the cabin: a quiet walk down the aisle and a glance over the seats, nothing addressed to the player
+    if (cue && cue.k === "sweep") { const back = cue.lt > 2.6; const tz = back ? PA_SPOT[1] : 2.7; if (walkTo(a, 0.02, tz, 0.08, dt, 1.0)) { turnTo(back ? Math.PI : Math.PI + Math.sin(cue.lt * 2.4) * 0.6, 3); animateWalk(a, 0, dt); } return; }
     if (cue && cue.k === "seat") { if (walkTo(a, JUMP[0], JUMP[1], 0.08, dt, 1.1)) { turnTo(Math.PI); animateWalk(a, 0, dt); } return; }
     if (FLY.order) { serveDrinkR2(fa, dt); return; }
     if (fa.mode === "galley") { if (!walkTo(a, -0.12, 7.0, 0.06, dt, 0.8)) return; a.rotation.y += wrapA(-Math.PI / 2 - a.rotation.y) * Math.min(1, dt * 4); animateWalk(a, 0, dt); fa.pause -= dt; if (fa.pause <= 0 && cabin) { fa.mode = "aisle"; fa.tz = FLY.local.z + (FLY.local.z > 1 ? -0.9 : 0.9); fa.tz = cl(fa.tz, Z.ab + 0.6, Z.gb - 0.4); } return; }
@@ -1155,10 +1153,10 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
     try { if (CSMX.on && CSMX.csm) { const l0 = CSMX.csm.lights[0]; if (l0) { if (cabin) { if (l0.userData.nb0 === undefined) l0.userData.nb0 = l0.shadow.normalBias; l0.shadow.normalBias = 0.03; } else if (l0.userData.nb0 !== undefined) { l0.shadow.normalBias = l0.userData.nb0; delete l0.userData.nb0; } } } } catch (e) {}
     const lowTier = !(QUAL.q && QUAL.q.shadow); F.U.sun.value = lowTier ? 0.22 : 1; F.U.hemi.value = 0.3;
     // R20 FY: the engines are plan_jetaudio.js (F.eng, set in the flight frame). The music under the cabin: the client's cabin loop
-    // at a lower bed, ducked under the PA, the radio held off for the flight (this hook runs after the client's audio update)
+    // at a lower bed, ducked under the PA, the radio held off aboard and playing over the exterior shots (this hook runs after the client's audio update)
     try { if (typeof AUD !== "undefined" && typeof audioReady !== "undefined" && audioReady) { const duck = F.pa && FLY.t > F.pa.t0 - 0.6 ? 0.22 : 1; const on = soundOn ? 1 : 0;
       const wantC = on * (cabin ? 0.15 * Math.max(0, 1 - Math.abs(FLY.local.z - 0.9) / 7.5) : 0) * duck * VOL.music * VOL.master; F.musV = (F.musV || 0) + (wantC - (F.musV || 0)) * Math.min(1, (dt || 0.016) * 3); const m = AUD.cabinMusic; if (m && !m.fyStub) { m.volume = Math.max(0, Math.min(1, F.musV)); }
-      if (typeof RADIO !== "undefined" && RADIO.a) RADIO.a.volume = Math.max(0, RADIO.a.volume * (1 - Math.min(1, (dt || 0.016) * 3))); } } catch (e) {}
+      if (cabin && typeof RADIO !== "undefined" && RADIO.a) RADIO.a.volume = Math.max(0, RADIO.a.volume * (1 - Math.min(1, (dt || 0.016) * 3))); } } catch (e) {}   // outside, the music plays over the soft jet bed
     try { const fu = POST.mFinal && POST.mFinal.uniforms; if (fu && fu.uFog && fu.uHazeK) { fu.uFog.value.x *= F.fogK; fu.uHazeK.value *= F.hazeK; } } catch (e) {}
     if (F.shake) F.shake = Math.max(0, F.shake - (dt || 0.016) * 0.5);
   }

@@ -5,9 +5,9 @@
 //   - the CABIN: broadband air and engine rumble centred low (about 60 to 250 Hz), a soft air rush, a faint fan whine aft, a
 //     sub-bass pressure hum, slow random variation, the engines spooling (idle on descent, the reverser surge), gear-down
 //     thunks and gear rumble, the flap motor whir, the touchdown thump through the floor, braking rumble and the spool-down;
-//   - OUTSIDE: a turbofan (fan whine with buzz-saw tones, a broadband roar that follows thrust, the low exhaust rumble, inlet
-//     hiss), aimed (whine forward, roar aft), Doppler, distance attenuation with air absorption, stereo placement, wind for a
-//     camera moving with the jet, the touchdown chirp and thump, rollout rumble, reverse thrust roar and taxi idle;
+//   - OUTSIDE (R20b, after the user's review): a soft, distant broadband jet rumble centred low (steep low-pass, nothing tonal,
+//     no whine), louder aft, gentle Doppler, distance attenuation, gentle wind for a camera moving with the jet, a soft
+//     touchdown chirp and thump, reverse thrust and taxi idle as more or less rumble;
 //   - CHIMES: the two-tone PA ding-dong, the seatbelt sign bong, the single call ding.
 // At most one cabin voice and three positional jet voices exist (the loudest three jets), all built from three shared noise
 // buffers, a few oscillators and biquads. Everything stops when nothing is audible. Respects soundOn, VOL.master, VOL.amb
@@ -19,7 +19,7 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
   "use strict";
   const JA = window.PLAN_JETAUDIO;
   JA.v = "r20-1"; JA.errs = JA.errs || []; JA.n = { voices: 0, builds: 0, oneShots: 0 }; JA.on = !/[?&]jetaudio=0\b/.test(location.search);
-  JA.K = Object.assign({ cabin: 1.0, ext: 1.0, fx: 1.0, chime: 0.55 }, JA.K || {});
+  JA.K = Object.assign({ cabin: 1.0, ext: 0.6, fx: 1.0, chime: 0.55 }, JA.K && JA.K.v === 2 ? JA.K : {}); JA.K.v = 2;
   const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
   function log(tag, e) { try { if (JA.errs.length < 30) JA.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); } catch (x) {} }
   const audible = () => { try { return JA.on && typeof soundOn !== "undefined" && soundOn && typeof audioReady !== "undefined" && audioReady; } catch (e) { return false; } };
@@ -78,7 +78,7 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
     set(o.rG.gain, (0.2 + 0.36 * n1 + 0.32 * rev + 0.08 * ak) * (1 + 0.07 * wob) * (0.85 + 0.3 * aft), 0.25); set(o.rLP.frequency, 170 + 110 * n1 + 90 * rev, 0.4);
     set(o.aG.gain, 0.085 * ak * (1 + 0.05 * wob), 0.3); set(o.aLP.frequency, 1150 + 800 * Math.min(1.4, ak) + 90 * wob, 0.5);
     set(o.sG.gain, 0.05 + 0.05 * n1 + 0.06 * rev, 0.4);
-    set(o.w1.frequency, 1750 + 1100 * n1, 1.2); set(o.w2.frequency, 1756 + 1104 * n1, 1.2); set(o.wBP.frequency, 2500 + 1300 * n1, 1.2); set(o.wG.gain, (0.0035 + 0.011 * n1 + 0.006 * rev) * (0.5 + 1.1 * aft), 0.6);
+    set(o.w1.frequency, 1750 + 1100 * n1, 1.2); set(o.w2.frequency, 1756 + 1104 * n1, 1.2); set(o.wBP.frequency, 2500 + 1300 * n1, 1.2); set(o.wG.gain, p.cockpit ? 0 : (0.0035 + 0.011 * n1 + 0.006 * rev) * (0.5 + 1.1 * aft), 0.6);
     set(o.d.frequency, 78 + 72 * n1, 1.2); set(o.d2.frequency, 117 + 108 * n1, 1.2); set(o.dG.gain, 0.008 + 0.022 * n1 + 0.02 * rev, 0.5);
     const roll = cl((p.roll || 0) / 45, 0, 1); set(o.wlG.gain, roll > 0 ? (0.08 + 0.42 * roll) * (1 + 0.25 * Math.random()) : 0, 0.12); set(o.w.playbackRate, 0.8 + 0.9 * roll, 0.3);
     set(o.gG.gain, 0.14 * cl(p.gear || 0, 0, 1) * Math.min(1, ak * 1.3), 0.6);
@@ -88,39 +88,36 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
 
   // ───────────────────────────── positional jet voices ─────────────────────────────
   const POOL = []; const MAXV = 3;
+  // R20b: outside, every jet is a soft, distant broadband rumble centred low (no fan whine, no buzz-saw, no inlet hiss): two
+  // noise layers through steep low-pass filters (24 dB per octave, never above about 1 kHz), so it sits under the music
   function mkExt() {
     const o = { nodes: [], key: null, k: 0 }; const N = (x) => { o.nodes.push(x); return x; };
-    o.out = N(gn(0)); o.lp = N(bq("lowpass", 12000, 0.5)); o.pan = N(C.createStereoPanner ? C.createStereoPanner() : gn(1)); chain(o.out, o.lp, o.pan, B.eng);
-    o.r = N(noiseSrc(NB.pink, 1)); o.rLP = N(bq("lowpass", 1400, 0.6)); o.rG = N(gn(0)); chain(o.r, o.rLP, o.rG, o.out);                      // broadband roar (aft)
-    o.b = N(noiseSrc(NB.brown, 1)); o.bLP = N(bq("lowpass", 300, 0.7)); o.bG = N(gn(0)); chain(o.b, o.bLP, o.bG, o.out);                      // exhaust rumble
-    o.f1 = N(osc("sine", 2500)); o.f2 = N(osc("sine", 5000)); o.fz = N(osc("sawtooth", 420)); o.fBP = N(bq("bandpass", 2600, 1.6)); o.fzLP = N(bq("lowpass", 1600, 0.8)); o.fzG = N(gn(0)); o.fG = N(gn(0));
-    o.f1.connect(o.fBP); o.f2.connect(o.fBP); chain(o.fz, o.fzLP, o.fzG, o.fG); chain(o.fBP, o.fG, o.out);                                       // fan whine and buzz-saw (forward)
-    o.h = N(noiseSrc(NB.white, 1)); o.hHP = N(bq("highpass", 4200, 0.6)); o.hG = N(gn(0)); chain(o.h, o.hHP, o.hG, o.out);                     // inlet hiss
+    o.out = N(gn(0)); o.lp = N(bq("lowpass", 900, 0.5)); o.lp2 = N(bq("lowpass", 900, 0.5)); o.pan = N(C.createStereoPanner ? C.createStereoPanner() : gn(1)); chain(o.out, o.lp, o.lp2, o.pan, B.eng);
+    o.r = N(noiseSrc(NB.pink, 1)); o.rLP = N(bq("lowpass", 420, 0.55)); o.rLP2 = N(bq("lowpass", 420, 0.55)); o.rHP = N(bq("highpass", 45, 0.6)); o.rG = N(gn(0)); chain(o.r, o.rHP, o.rLP, o.rLP2, o.rG, o.out);   // the roar, low
+    o.b = N(noiseSrc(NB.brown, 1)); o.bLP = N(bq("lowpass", 170, 0.7)); o.bG = N(gn(0)); chain(o.b, o.bLP, o.bG, o.out);                                                                     // the deep rumble
     JA.n.voices++; return o;
   }
   const _d = { x: 0, y: 0, z: 0 };
-  // S: { key, p: Vector3, v: Vector3, fwd: Vector3, n1, rev }, L: listener { p, v, right }
+  // S: { key, p: Vector3, v: Vector3, fwd: Vector3, n1, rev, own }, L: listener { p, v, right }
   function extFrame(o, S, L, k) {
     const dx = S.p.x - L.p.x, dy = S.p.y - L.p.y, dz = S.p.z - L.p.z; const d = Math.max(1, Math.hypot(dx, dy, dz)); _d.x = dx / d; _d.y = dy / d; _d.z = dz / d;
-    const vr = cl(-((S.v.x - L.v.x) * _d.x + (S.v.y - L.v.y) * _d.y + (S.v.z - L.v.z) * _d.z), -160, 160); const dop = cl(343 / (343 - vr), 0.62, 1.7);
-    const front = -(S.fwd.x * _d.x + S.fwd.y * _d.y + S.fwd.z * _d.z); const fr = Math.max(0, front), bk = Math.max(0, -front);
-    const n1 = cl(S.n1, 0, 1), rev = cl(S.rev || 0, 0, 1); const att = Math.pow(120 / (120 + d), 1.0) * 1.1;
-    set(o.lp.frequency, cl(17000 / (1 + d / 260), 600, 17000), 0.2);
-    set(o.rG.gain, (0.035 + 0.62 * n1 * n1 + 0.55 * rev) * (0.6 + 0.65 * bk + 0.2 * fr), 0.15); set(o.rLP.frequency, (650 + 2700 * n1 + 900 * rev) * dop, 0.15);
-    set(o.bG.gain, (0.03 + 0.5 * n1 * n1 + 0.5 * rev) * (0.55 + 0.75 * bk), 0.15);
-    const fan = (1300 + 2900 * n1) * dop; set(o.f1.frequency, fan, 0.12); set(o.f2.frequency, fan * 2.01, 0.12); set(o.fBP.frequency, fan * 1.08, 0.12); set(o.fz.frequency, fan / 7.0, 0.12);
-    set(o.fG.gain, (0.02 + 0.13 * Math.pow(n1, 1.3)) * (0.45 + 0.85 * fr), 0.12); set(o.fzG.gain, 0.6 * cl((n1 - 0.55) / 0.35, 0, 1) * fr, 0.2);
-    set(o.hG.gain, (0.012 + 0.06 * n1) * fr, 0.15);
-    set(o.r.playbackRate, dop, 0.12); set(o.b.playbackRate, dop, 0.12); set(o.h.playbackRate, dop, 0.12);
-    try { if (o.pan.pan) set(o.pan.pan, cl((_d.x * L.right.x + _d.y * L.right.y + _d.z * L.right.z) * 0.85, -0.9, 0.9), 0.08); } catch (e) {}
-    set(o.out.gain, att * k * JA.K.ext, 0.12);
+    const vr = cl(-((S.v.x - L.v.x) * _d.x + (S.v.y - L.v.y) * _d.y + (S.v.z - L.v.z) * _d.z), -160, 160); const dop = cl(343 / (343 - vr), 0.8, 1.25);
+    const front = -(S.fwd.x * _d.x + S.fwd.y * _d.y + S.fwd.z * _d.z); const bk = Math.max(0, -front);
+    const n1 = cl(S.n1, 0, 1), rev = cl(S.rev || 0, 0, 1); const att = (150 / (150 + d)) * 0.75; const ch = S.own ? 1.3 : 1;   // your own jet keeps a little more body
+    set(o.lp.frequency, cl(1000 * ch / (1 + d / 400), 260, 1000 * ch), 0.3); set(o.lp2.frequency, cl(1000 * ch / (1 + d / 400), 260, 1000 * ch), 0.3);
+    const fc = (300 + 300 * n1 + 150 * rev) * ch; set(o.rLP.frequency, fc, 0.4); set(o.rLP2.frequency, fc, 0.4);
+    set(o.rG.gain, (0.12 + 0.5 * n1 * n1 + 0.4 * rev) * (0.75 + 0.35 * bk), 0.4);
+    set(o.bG.gain, (0.1 + 0.45 * n1 * n1 + 0.4 * rev) * (0.7 + 0.4 * bk), 0.4);
+    set(o.r.playbackRate, dop, 0.3); set(o.b.playbackRate, dop, 0.3);
+    try { if (o.pan.pan) set(o.pan.pan, cl((_d.x * L.right.x + _d.y * L.right.y + _d.z * L.right.z) * 0.6, -0.7, 0.7), 0.2); } catch (e) {}
+    set(o.out.gain, att * k * JA.K.ext, 0.35);
     return att * (0.2 + n1);
   }
-  // the wind on a camera that moves with a jet (chase shots, the chase view)
+  // gentle wind on a camera that moves with a jet (chase shots, the chase view): low and soft
   let WIND = null;
   function windFrame(speed, k) {
-    const want = k * cl((speed - 25) / 110, 0, 1); if (!WIND) { if (want < 0.005) return; WIND = { nodes: [] }; const o = WIND; o.s = noiseSrc(NB.pink, 1); o.bp = bq("bandpass", 520, 0.45); o.lp = bq("lowpass", 2400, 0.5); o.g = gn(0); chain(o.s, o.bp, o.lp, o.g, B.eng); o.nodes.push(o.s, o.bp, o.lp, o.g); }
-    set(WIND.g.gain, 0.22 * want, 0.4); set(WIND.bp.frequency, 380 + 600 * cl(speed / 140, 0, 1), 0.6); WIND.idle = want < 0.005 ? (WIND.idle || 0) + 1 : 0;
+    const want = k * cl((speed - 25) / 120, 0, 1); if (!WIND) { if (want < 0.005) return; WIND = { nodes: [] }; const o = WIND; o.s = noiseSrc(NB.pink, 0.9); o.hp = bq("highpass", 110, 0.5); o.lp = bq("lowpass", 520, 0.5); o.lp2 = bq("lowpass", 700, 0.5); o.g = gn(0); chain(o.s, o.hp, o.lp, o.lp2, o.g, B.eng); o.nodes.push(o.s, o.hp, o.lp, o.lp2, o.g); }
+    set(WIND.g.gain, 0.1 * want, 0.8); set(WIND.lp.frequency, 360 + 260 * cl(speed / 140, 0, 1), 1.0); WIND.idle = want < 0.005 ? (WIND.idle || 0) + 1 : 0;
   }
 
   // ───────────────────────────── one-shots ─────────────────────────────
@@ -134,7 +131,7 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
   function whir(dest, at, dur, f0, f1, peak) { const o = C.createOscillator(); o.type = "sawtooth"; const bp = bq("bandpass", f0 * 3, 3); const g = gn(0); chain(o, bp, g, dest); const t = T() + (at || 0); o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f1, t + dur * 0.3); o.frequency.linearRampToValueAtTime(f1 * 0.97, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.35); g.gain.setValueAtTime(peak, t + dur - 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.start(t); o.stop(t + dur + 0.05); o.onended = () => { try { g.disconnect(); bp.disconnect(); } catch (e) {} }; }
   // a positional one-shot: gain and pan from the listener
-  function placed(p) { const L = LS; if (!L.ok || !p) return { g: 0.6, pan: 0 }; const dx = p.x - L.p.x, dy = p.y - L.p.y, dz = p.z - L.p.z, d = Math.max(1, Math.hypot(dx, dy, dz)); return { g: Math.pow(60 / (60 + d), 1.05) * 1.3, pan: cl((dx * L.right.x + dy * L.right.y + dz * L.right.z) / d * 0.8, -0.9, 0.9), lp: cl(17000 / (1 + d / 160), 500, 17000) }; }
+  function placed(p) { const L = LS; if (!L.ok || !p) return { g: 0.6, pan: 0 }; const dx = p.x - L.p.x, dy = p.y - L.p.y, dz = p.z - L.p.z, d = Math.max(1, Math.hypot(dx, dy, dz)); return { g: Math.pow(60 / (60 + d), 1.05) * 1.1, pan: cl((dx * L.right.x + dy * L.right.y + dz * L.right.z) / d * 0.6, -0.7, 0.7), lp: cl(1800 / (1 + d / 300), 400, 1800) }; }
   function spot(p) { const q = placed(p); const g = gn(q.g); const lp = bq("lowpass", q.lp || 17000, 0.5); let pn = null; try { pn = C.createStereoPanner(); pn.pan.value = q.pan; chain(g, lp, pn, B.fx); } catch (e) { chain(g, lp, B.fx); } setTimeout(() => { try { g.disconnect(); lp.disconnect(); if (pn) pn.disconnect(); } catch (e) {} }, 4000); return g; }
   const FX = JA.fx = {
     // cabin: the main gear going down (the doors, the uplock, the thump into the locks; the rumble comes from the cabin voice)
@@ -146,7 +143,7 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
     touchdown(k) { if (!audible() || !ctx()) return; k = k == null ? 1 : k; const d = B.fx; thud(d, 0, 58, 0.55, 0.75 * k, 34); thud(d, 0, 31, 0.7, 0.5 * k, 24); burst(d, NB.brown, 0, 0.5, "lowpass", 420, 120, 0.9, 0.7 * k); burst(d, NB.white, 0.01, 0.18, "bandpass", 1500, 900, 1.5, 0.05 * k);
       thud(d, 1.5, 64, 0.4, 0.42 * k, 40); burst(d, NB.brown, 1.5, 0.35, "lowpass", 360, 120, 0.9, 0.35 * k); },
     // outside: the tyre chirp on both main bogies and the thump, at p
-    chirp(p, k) { if (!audible() || !ctx()) return; k = k == null ? 1 : k; const d = spot(p); burst(d, NB.white, 0, 0.16, "bandpass", 2300, 1350, 5, 0.55 * k, 0.004); burst(d, NB.white, 0.055, 0.2, "bandpass", 2100, 1250, 5, 0.5 * k, 0.004); burst(d, NB.pink, 0.02, 0.9, "bandpass", 900, 500, 1.2, 0.12 * k, 0.01); thud(d, 0, 60, 0.4, 0.5 * k, 38); }
+    chirp(p, k) { if (!audible() || !ctx()) return; k = (k == null ? 1 : k) * 0.4; const d = spot(p); burst(d, NB.white, 0, 0.14, "bandpass", 1350, 950, 4, 0.3 * k, 0.006); burst(d, NB.white, 0.055, 0.18, "bandpass", 1250, 900, 4, 0.26 * k, 0.006); burst(d, NB.pink, 0.02, 0.9, "lowpass", 600, 300, 0.7, 0.18 * k, 0.01); thud(d, 0, 60, 0.4, 0.6 * k, 38); }
   };
   // chimes: a bell made of a few inharmonic partials; "pa" = the two-tone ding-dong, "belt" = the seatbelt sign bong, "call" = one ding
   function bell(at, f, peak, len) { const t = T() + at; const out = gn(0); const lp = bq("lowpass", 5200, 0.5); chain(out, lp, B.pa); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(peak, t + 0.006); out.gain.exponentialRampToValueAtTime(0.0001, t + len);
@@ -182,8 +179,8 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
     try { if (typeof TRAFFIC !== "undefined" && TRAFFIC.jets) for (const j of TRAFFIC.jets) { if (!j.g) continue; const key = "ai:" + (j.id || j.g.id); const t = track(key, j.g.position, dt, null, j.g.rotation.y); const n1 = trafficN1(j, dt, t); if (n1 < 0.02) continue; out.push({ key, p: t.p, v: t.v, fwd: t.fwd, n1, rev: t.rev || 0 }); } } catch (e) { log("traffic", e); }
     try { if (typeof view !== "undefined" && view && view.vehicles && typeof VEH !== "undefined") for (const [id, v] of Object.entries(view.vehicles)) { const V = VEH[id]; if (!V || V.kind !== "jet" || !V.g) continue; if (JA.pilot && JA.pilot.id === id && JA.pilot.view === 1) continue;
         const key = "veh:" + id; V.g.getWorldPosition(_p); V.g.getWorldQuaternion(_q); const t = track(key, _p, dt, _q); const sp = t.v.length(); let want;
-        if (JA.pilot && JA.pilot.id === id) { want = JA.pilot.n1; t.rev = JA.pilot.rev || 0; } else { const driven = !!v.driver; const air = (v.y || 0) > 2; want = air ? 0.5 + cl(t.v.y / 20, -0.15, 0.4) : sp > 1.5 ? 0.24 + cl(sp / 70, 0, 0.6) : driven ? 0.2 : 0; t.rev = 0; }
-        const n1 = spool(t, want, dt); if (n1 < 0.02) continue; out.push({ key, p: t.p, v: t.v, fwd: t.fwd, n1, rev: t.rev || 0 }); } } catch (e) { log("vehicles", e); }
+        if (JA.pilot && JA.pilot.id === id) { want = JA.pilot.n1; t.rev = JA.pilot.rev || 0; t.own = true; } else { const driven = !!v.driver; const air = (v.y || 0) > 2; want = air ? 0.5 + cl(t.v.y / 20, -0.15, 0.4) : sp > 1.5 ? 0.24 + cl(sp / 70, 0, 0.6) : driven ? 0.2 : 0; t.rev = 0; }
+        const n1 = spool(t, want, dt); if (n1 < 0.02) continue; out.push({ key, p: t.p, v: t.v, fwd: t.fwd, n1, rev: t.rev || 0, own: !!t.own }); } } catch (e) { log("vehicles", e); }
     try { const F = window.FLYIN; if (F && F.active && F.eng && F.eng.ext && typeof FLY !== "undefined" && FLY.jet) { FLY.jet.getWorldPosition(_p); const t = track("hero", _p, dt, F.jetQ || FLY.jet.quaternion); out.push({ key: "hero", p: t.p, v: t.v, fwd: t.fwd, n1: F.eng.n1, rev: F.eng.rev || 0, k: F.eng.extK == null ? 1 : F.eng.extK }); } } catch (e) { log("hero", e); }
     const now = performance.now(); for (const [k, t] of TRK) if (now - t.seen > 5000) TRK.delete(k);
     return out;
@@ -240,7 +237,8 @@ window.PLAN_JETAUDIO = window.PLAN_JETAUDIO || {};
   // MediaStreamDestination as well as the speakers; JA.tapStream() is that stream. Not used in play.
   let TAP = null; JA.tapStart = function () { if (!ctx()) return null; if (TAP) return TAP; const d = C.createMediaStreamDestination(); B.comp.connect(d); B.pa.connect(d); TAP = JA.recTap = d;
     JA.tapEl = function (el) { try { if (!el || el.__fyTap) return; const src = C.createMediaElementSource(el); src.connect(C.destination); src.connect(d); el.__fyTap = src; } catch (e) { log("tap", e); } };
-    try { if (typeof AUD !== "undefined" && AUD.cabinMusic && !AUD.cabinMusic.fyStub) JA.tapEl(AUD.cabinMusic); } catch (e) {} return d; };
+    try { if (typeof AUD !== "undefined" && AUD.cabinMusic && !AUD.cabinMusic.fyStub) JA.tapEl(AUD.cabinMusic); } catch (e) {} try { if (typeof RADIO !== "undefined" && RADIO.a) JA.tapEl(RADIO.a); } catch (e) {} return d; };
+  JA.tapJet = function () { if (!ctx()) return null; const d = C.createMediaStreamDestination(); B.comp.connect(d); return d; };   // the jet bus alone (engines, one-shots), for analysis
   JA.tapStream = function () { return TAP ? TAP.stream : null; };
 
   if (!JA.hooked && JA.on) { JA.hooked = true; window.PLAN_HOOKS.frame.push({ name: "jetAudio", fn: function (dt) { try { JA.frame(dt); } catch (e) { log("frame", e); } } }); }
