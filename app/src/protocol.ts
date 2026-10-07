@@ -31,9 +31,10 @@ const MAX_PLAYER_ID = 64;
 const MAX_ACTION_BYTES = 4 * 1024;
 
 export type ClientMessage =
-  | { type: "join"; playerId: string }
+  | { type: "join"; playerId: string; nt?: number; ntc?: string[] }
   | { type: "action"; action: unknown }
   | { type: "reset" }
+  | { type: "resync" }
   | { type: "signal"; to: string; data: unknown };
 
 export type ParseResult =
@@ -75,7 +76,12 @@ export function parseClientMessage(raw: string | ArrayBuffer): ParseResult {
       }
       const playerId = String(rawId).slice(0, MAX_PLAYER_ID);
       if (!playerId) return { ok: false, error: "playerId required" };
-      return { ok: true, msg: { type: "join", playerId } };
+      // R21 NT: a client that speaks the v2 state protocol says so here (src/net.ts); anything else gets the v1 format.
+      // Unknown or malformed values are ignored rather than refused, so a join never fails over them.
+      const msg: { type: "join"; playerId: string; nt?: number; ntc?: string[] } = { type: "join", playerId };
+      if (Number.isInteger(parsed.nt) && (parsed.nt as number) >= 1 && (parsed.nt as number) <= 99) msg.nt = parsed.nt as number;
+      if (Array.isArray(parsed.ntc)) msg.ntc = (parsed.ntc as unknown[]).filter((c): c is string => typeof c === "string" && /^[a-z]{1,8}$/.test(c)).slice(0, 8);
+      return { ok: true, msg };
     }
     case "action": {
       if (!("action" in parsed)) return { ok: false, error: "action required" };
@@ -92,6 +98,9 @@ export function parseClientMessage(raw: string | ArrayBuffer): ParseResult {
     }
     case "reset":
       return { ok: true, msg: { type: "reset" } };
+    case "resync":
+      // R21 NT: a v2 client that missed a delta asks for a full snapshot (it never sends this to a room that did not speak v2 to it)
+      return { ok: true, msg: { type: "resync" } };
     case "signal": {
       // WebRTC signalling for proximity voice: relayed to one player, never stored.
       if (typeof parsed.to !== "string" || !parsed.to || parsed.to.length > MAX_PLAYER_ID) return { ok: false, error: "signal target required" };

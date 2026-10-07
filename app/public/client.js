@@ -199,11 +199,46 @@ function playerId() { const key = "hf:game:playerId"; let id = localStorage.getI
 const ME = playerId();
 const PING = "__ping", PONG = "__pong";
 let socket = null, retry = 0, view = null, connected = 0;
+/* R21 NT (HANDOFF_R21_NET.md): the room's v2 state protocol. The join announces nt:2 and the room sends a full snapshot, then
+   only what changed (players' changed fields, slow state such as boards, lots, the guestbook and props only when it changes),
+   with a full snapshot every 5 s. public/net_nt.js rebuilds the exact v1 message, so onState and every reader of `view` are
+   unchanged. A room that does not speak v2 keeps sending v1 and this client reads it as before.
+   ?nt=0 forces the v1 path. ?ntaoi=1 opts in to interest management (far players at about 2 Hz), ?ntarr=1 to compact movement
+   arrays (both off by default until proven). window.__nt holds the counters (bytes, messages, parse and apply ms). */
+const NT = { on: !!window.NTNET && !/[?&]nt=0\b/.test(location.search), caps: ["aoi", "arr"].filter((c) => new RegExp("[?&]nt" + c + "=1\\b").test(location.search)), st: null,
+  n: { msgs: 0, bytes: 0, v1: 0, v2: 0, fulls: 0, resyncs: 0, parseMs: 0, applyMs: 0, t0: performance.now() } };
+window.__nt = NT;
+/* runtime switch: __nt.use(false) reconnects on the v1 protocol, __nt.use(true) back on v2 (the socket's close handler reconnects) */
+NT.use = (on) => { NT.on = !!on && !!window.NTNET; try { if (socket) socket.close(); } catch (e) {} return NT.on; };
+function ntMessage(msg) { const r = NTNET.apply(NT.st || (NT.st = NTNET.create()), msg); if (r.resync) { NT.n.resyncs++; send({ type: "resync" }); return; } if (!r.msg) return; if (r.full) NT.n.fulls++; if (NTL.on) ntLerpNote(r, msg); onState(r.msg, r.full ? null : r.changed, r.full ? null : msg); }
+/* R21 NT: with interest management (?ntaoi=1) a player past about 120 m arrives at about 2 Hz. Instead of the avatar easing to each
+   new spot and stopping, that player's x and z in `view` glide from where they were to the room's value over the measured gap
+   between its updates (so the avatar loop's own smoothing sees steady motion). The room's values are kept here and always reached
+   at the end of a glide. ?ntlerp=0 turns the glide off. */
+const NTL = { on: NT.on && NT.caps.includes("aoi") && !/[?&]ntlerp=0\b/.test(location.search), m: new Map(), hooked: false };
+function ntLerpNote(r, msg) {
+  if (r.full) { NTL.m.clear(); return; }
+  if (!NTL.hooked && window.PLAN_HOOKS && Array.isArray(PLAN_HOOKS.frame)) { NTL.hooked = true; PLAN_HOOKS.frame.push({ name: "ntLerp", fn: ntLerpFrame }); }
+  if (r.removed) for (const id of r.removed) NTL.m.delete(id);
+  if (!player || !view) return; const now = performance.now(), P = msg.P || {};
+  for (const id of r.changed) {
+    if (id === ME) continue; const p = view.players[id]; if (!p) continue; const L = NTL.m.get(id), d = P[id];
+    const hasPos = !d || Array.isArray(d) || "x" in d || "z" in d;   // a new player (no d) carries the room's position
+    const tx = d && !Array.isArray(d) && !("x" in d) && L ? L.tx : p.x, tz = d && !Array.isArray(d) && !("z" in d) && L ? L.tz : p.z;
+    if (Math.hypot(tx - player.position.x, tz - player.position.z) <= 110 || Math.hypot(tx - (L ? L.cx : p.x), tz - (L ? L.cz : p.z)) > 40) { NTL.m.delete(id); p.x = tx; p.z = tz; continue; }   // near (full rate) or a jump: no glide
+    if (!hasPos) { if (L) { p.x = L.cx; p.z = L.cz; } continue; }
+    const fx = L ? L.cx : p.x, fz = L ? L.cz : p.z, dur = L ? Math.min(700, Math.max(100, now - L.t0)) : 450;
+    NTL.m.set(id, { fx, fz, tx, tz, cx: fx, cz: fz, t0: now, dur }); p.x = fx; p.z = fz;
+  }
+}
+function ntLerpFrame() { if (!NTL.m.size || !view) return; const now = performance.now();
+  for (const [id, L] of NTL.m) { const p = view.players[id]; if (!p) { NTL.m.delete(id); continue; } const a = Math.min(1, (now - L.t0) / L.dur); L.cx = L.fx + (L.tx - L.fx) * a; L.cz = L.fz + (L.tz - L.fz) * a; p.x = L.cx; p.z = L.cz; if (a >= 1) { p.x = L.tx; p.z = L.tz; NTL.m.delete(id); } } }
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   socket = new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}`);
-  socket.addEventListener("open", () => { retry = 0; setStatus("connected"); send({ type: "join", playerId: ME }); });
-  socket.addEventListener("message", (ev) => { if (ev.data === PONG) return; let msg; try { msg = JSON.parse(ev.data); } catch { return; } if (msg.type === "state") onState(msg); else if (msg.type === "signal") onSignal(msg); else if (msg.type === "error") { if (!(FLY.on && /outside the site|moved too far/.test(msg.error || ""))) setStatus(msg.error, true); } });
+  socket.addEventListener("open", () => { retry = 0; setStatus("connected"); NT.st = null; const j = { type: "join", playerId: ME }; if (NT.on) { j.nt = 2; if (NT.caps.length) j.ntc = NT.caps; } send(j); });
+  socket.addEventListener("message", (ev) => { if (ev.data === PONG) return; const t0 = performance.now(); let msg; try { msg = JSON.parse(ev.data); } catch { return; } const t1 = performance.now(); NT.n.msgs++; NT.n.bytes += ev.data.length; NT.n.parseMs += t1 - t0;
+    if (msg.type === "state") { NT.n.v1++; onState(msg); NT.n.applyMs += performance.now() - t1; } else if (msg.type === "nt") { NT.n.v2++; ntMessage(msg); NT.n.applyMs += performance.now() - t1; } else if (msg.type === "signal") onSignal(msg); else if (msg.type === "error") { if (!(FLY.on && /outside the site|moved too far/.test(msg.error || ""))) setStatus(msg.error, true); } });
   socket.addEventListener("close", () => { retry = Math.min(retry + 1, 6); const wait = 500 * 2 ** (retry - 1); setStatus(`reconnecting in ${Math.round(wait / 1000)}s`, true); setTimeout(connect, wait); });
 }
 function send(msg) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg)); }
@@ -222,11 +257,15 @@ setInterval(checkBuild, 180000); document.addEventListener("visibilitychange", (
 /* P3: the room keeps every player it has ever seen (up to 500); a player who is away has no avatar in the scene (see the avatar loop in frame) */
 const P3AV = !/[?&](pav|p3)=0\b/.test(location.search);
 const seen = new Map(); let introduced = false, riding = null; const chatSeen = new Map(); const SYNC = { at: 0 };
-function onState(msg) {
-  connected = msg.connected || 1; $("#online").textContent = String(connected);
+/* R21 NT: `changed` (v2 deltas) lists the players that changed; the loop below only reacts to a changed `t` or `sayTick`, so walking
+   just those is the same as walking everyone. `nt` is the raw v2 delta (which slow keys changed). */
+let ntOnline = "";
+function onState(msg, changed, nt) {
+  connected = msg.connected || 1; if (ntOnline !== String(connected)) { ntOnline = String(connected); $("#online").textContent = ntOnline; }
   if (!msg.view) return; view = msg.view; onView(view);
   const now = performance.now();
-  for (const [id, p] of Object.entries(view.players)) {
+  for (const id of (changed || Object.keys(view.players))) {
+    const p = view.players[id]; if (!p) continue;
     const s = seen.get(id); if (!s || s.t !== p.t) seen.set(id, { t: p.t, at: !s && P3AV && view.tick - p.t > 600 ? -1e9 : now });   /* P3: first seen far behind the room's clock: away from the start */
     if (p.say && p.sayTick && chatSeen.get(id) !== p.sayTick) { chatSeen.set(id, p.sayTick); if (introduced && player && (id === ME || Math.hypot(p.x - player.position.x, p.z - player.position.z) < 45)) logLine(p.name, p.say); }
   }
@@ -237,7 +276,7 @@ function onState(msg) {
   }
   const mine = view.players[ME];
   if (mine) { const v = mine.veh && view.vehicles && view.vehicles[mine.veh]; if (v && (!riding || riding.id !== mine.veh)) enterVehicle(mine.veh, v); if (!v && riding) exitVehicle(); if (riding) riding.driver = v.driver === ME; }
-  if (gbOpen) renderGuestbook(); if (boardOpen) renderBoard();
+  if (gbOpen && (!nt || (nt.K && "guestbook" in nt.K))) renderGuestbook(); if (boardOpen && (!nt || (nt.K && ("boards" in nt.K || "arcade" in nt.K)))) renderBoard();
 }
 function logLine(name, text) { const log = $("#log"); const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = name + " "; d.append(b, document.createTextNode(text)); log.append(d); while (log.children.length > 6) log.removeChild(log.firstChild); setTimeout(() => { if (d.parentNode) d.remove(); }, 14000); }
 

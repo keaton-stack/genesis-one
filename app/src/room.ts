@@ -36,6 +36,15 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import * as logic from "./logic.js";
 import { parseClientMessage } from "./protocol";
+import { newNtHist, roomBroadcast, NT_VERSION, type NtCaps, type NtConn } from "./net";
+
+/** R21 NT: broadcast inline from a message once this long has passed since the last one, so a busy room keeps its 10 Hz even when
+ *  the 100 ms alarm is starved by a steady stream of socket messages (seen on wrangler dev: 3.7 s gaps at 50 players). The alarm
+ *  stays as the trailing flush. Set to 0 to go back to alarm-only broadcasting. */
+const NT_INLINE_FLUSH_MS = 100;
+
+/** What a socket carries across hibernation: its id and the state protocol it announced (src/net.ts). */
+interface Attachment { connId?: string; nt?: number; ntc?: string[] }
 
 /** Server-authoritative room state. Persisted; `view` is derived per player. */
 interface Game {
@@ -137,6 +146,11 @@ export class Room extends DurableObject<Env> {
   private dirty = false;
   private wantBroadcast = false;
   private flushArmed = false;
+  private lastFlushAt = 0;
+  /** R21 NT: per-connection v2 baselines (src/net.ts). In memory only: a revived room sends each v2 client a full snapshot first. */
+  private ntConns = new Map<string, { caps: NtCaps; c: NtConn }>();
+  /** R21 NT: the roster as of the last broadcast, so connections in step share one players section (src/net.ts). */
+  private ntHist = newNtHist();
 
   private async load(): Promise<{ game: Game; conns: Conns }> {
     if (this.mem) return this.mem;
@@ -165,16 +179,20 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.now() + 100);
   }
 
-  private async flush(): Promise<Out[]> {
-    this.flushArmed = false;
+  /** fromAlarm: the 100 ms alarm (writes storage, then broadcasts). false: R21 NT's inline broadcast from a message (no storage). */
+  private async flush(fromAlarm = true): Promise<Out[]> {
+    if (fromAlarm) this.flushArmed = false;
     const m = this.mem;
     if (!m) return [];
-    if (this.dirty) {
+    if (fromAlarm && this.dirty) {
       this.dirty = false;
       await this.ctx.storage.put({ game: m.game, conns: m.conns });
     }
     if (this.wantBroadcast) {
+      // an inline broadcast went out since this alarm was set: wait for the rest of the interval instead of sending twice
+      if (fromAlarm && NT_INLINE_FLUSH_MS > 0 && Date.now() - this.lastFlushAt < NT_INLINE_FLUSH_MS - 5) { await this.armFlush(); return []; }
       this.wantBroadcast = false;
+      this.lastFlushAt = Date.now();
       return this.broadcast(m.game, m.conns);
     }
     return [];
@@ -182,41 +200,23 @@ export class Room extends DurableObject<Env> {
 
   // ── protocol helpers ───────────────────────────────────────────────────
 
-  /** Everyone's view of the room. Each player sees only `viewFor(state, them)`. */
+  /** Everyone's view of the room. Each player sees only `viewFor(state, them)`.
+   *  R21 NT: a connection that announced v2 gets a delta against what it was last sent (src/net.ts); every other connection gets
+   *  the v1 message, built exactly as before. */
   private broadcast(game: Game, conns: Conns): Out[] {
     // only sockets that are actually open count (and get sent to); stale entries from dropped sockets are pruned here
-    const live = new Set<string>();
-    for (const s of this.ctx.getWebSockets()) { const id = this.connIdOf(s); if (id) live.add(id); }
+    const live = new Map<string, Attachment>();
+    for (const s of this.ctx.getWebSockets()) { const att = this.attOf(s); if (att && att.connId) live.set(att.connId, att); }
     for (const id of Object.keys(conns)) if (!live.has(id)) delete conns[id];
-    const online = new Set(Object.values(conns));
-    const connected = online.size || 1;
-    // The room keeps every player it has ever seen (coins, passports, boards stay in state), but each update only carries the
-    // players who are connected now or acted within the last few hundred ticks, so the payload and the clients' work no longer
-    // grow with the visitor history (it used to send up to 500 stored players every tick).
-    const st = game.state as { tick?: number } | null;
-    const tick = st && typeof st.tick === "number" ? st.tick : 0;
-    const shown = (all: Record<string, { t?: number }>): Record<string, unknown> => {
-      const out: Record<string, unknown> = {};
-      for (const id in all) { const p = all[id]; if (online.has(id) || (p && typeof p.t === "number" && tick - p.t <= 600)) out[id] = p; }
-      return out;
-    };
-    return Object.entries(conns).map(([connId, playerId]) => {
-      const view = (game.state ? logic.viewFor(game.state, playerId) : null) as { players?: Record<string, { t?: number }> } | null;
-      if (view && view.players) view.players = shown(view.players) as Record<string, { t?: number }>;
-      return {
-        to: connId,
-        data: {
-          type: "state",
-          status: game.status,
-          seats: game.seats,
-          you: playerId,
-          connected,
-          view,
-          result: game.result,
-          meta: META,
-        },
-      };
-    });
+    for (const id of this.ntConns.keys()) if (!live.has(id)) this.ntConns.delete(id);
+    const { msgs, held } = roomBroadcast({ game, conns, live, ntConns: this.ntConns, hist: this.ntHist, viewFor: logic.viewFor, meta: META, now: Date.now() });
+    // interest management held a far player's change back: make sure another broadcast follows so it is delivered
+    if (held) { this.wantBroadcast = true; void this.armFlush(); }
+    return msgs;
+  }
+
+  private attOf(ws: WebSocket): Attachment | null {
+    return ws.deserializeAttachment() as Attachment | null;
   }
 
   private error(connId: string, error: string): Out[] {
@@ -246,15 +246,14 @@ export class Room extends DurableObject<Env> {
   }
 
   private connIdOf(ws: WebSocket): string | undefined {
-    const att = ws.deserializeAttachment() as { connId?: string } | null;
-    return att?.connId;
+    return this.attOf(ws)?.connId;
   }
 
   override async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
     const connId = this.connIdOf(ws);
     if (!connId) return;
     try {
-      await this.dispatch(await this.onMessage(connId, raw));
+      await this.dispatch(await this.onMessage(connId, raw, ws));
     } catch (err) {
       // A throw here is almost always a bug in logic.js. Tell that one client
       // instead of killing the room for everybody. The reason stays server-side:
@@ -272,6 +271,7 @@ export class Room extends DurableObject<Env> {
     const connId = this.connIdOf(ws);
     if (!connId) return;
     const { game, conns } = await this.load();
+    this.ntConns.delete(connId);
     if (conns[connId] === undefined) return;
     delete conns[connId];
     await this.save(game, conns);
@@ -298,7 +298,7 @@ export class Room extends DurableObject<Env> {
 
   // ── game semantics (the previous engine's kernel, behaviour preserved) ──
 
-  private async onMessage(connId: string, raw: string | ArrayBuffer): Promise<Dispatchable> {
+  private async onMessage(connId: string, raw: string | ArrayBuffer, ws?: WebSocket): Promise<Dispatchable> {
     // Untrusted frame: validated before anything reads it (see ./protocol).
     const parsed = parseClientMessage(raw);
     if (!parsed.ok) return this.error(connId, parsed.error);
@@ -310,6 +310,13 @@ export class Room extends DurableObject<Env> {
     // playerId reclaims that seat (a reconnect after a dropped socket).
     if (msg.type === "join") {
       conns[connId] = msg.playerId;
+      // R21 NT: remember which state protocol this socket speaks, on the socket itself so it survives hibernation
+      if (ws) {
+        const att: Attachment = { connId };
+        if (msg.nt === NT_VERSION) { att.nt = NT_VERSION; if (msg.ntc && msg.ntc.length) att.ntc = msg.ntc; }
+        ws.serializeAttachment(att);
+      }
+      this.ntConns.delete(connId);
       if (!game.seats.includes(msg.playerId) && game.seats.length < META.maxPlayers) {
         game.seats.push(msg.playerId);
       }
@@ -323,6 +330,15 @@ export class Room extends DurableObject<Env> {
 
     const playerId = conns[connId];
     if (!playerId) return this.error(connId, "join first");
+
+    if (msg.type === "resync") {
+      // R21 NT: the client missed a delta; its next message is a full snapshot
+      const nc = this.ntConns.get(connId);
+      if (nc) nc.c.wantFull = true;
+      this.wantBroadcast = true;
+      await this.armFlush();
+      return [];
+    }
 
     if (msg.type === "signal") {
       // relay to every socket of the target player; nothing is persisted
@@ -347,6 +363,8 @@ export class Room extends DurableObject<Env> {
       const kind = (msg.action as { t?: unknown }).t; const light = kind === "move" || kind === "drive" || kind === "ball" || kind === "tick" || kind === "lava" || kind === "hockey";
       await this.save(game, conns, !light);
       this.wantBroadcast = true;
+      // R21 NT: a busy room broadcasts from here at most every NT_INLINE_FLUSH_MS (see the constant)
+      if (NT_INLINE_FLUSH_MS > 0 && Date.now() - this.lastFlushAt >= NT_INLINE_FLUSH_MS) return this.flush(false);
       return [];
     }
 
