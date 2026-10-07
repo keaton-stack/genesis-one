@@ -120,6 +120,33 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     function mixerRoots(m) { var ids = [], root = null; try { root = m.getRoot(); } catch (e) {} if (root && root.traverse) root.traverse(function (o) { if (o.isBone && !(o.parent && o.parent.isBone)) { if (o.id >= MW.cap) mwGrow(o.id); if (o.id >= MW.cap) return; MW.BR[o.id] = 1; MW.CF[o.id] = -1; ids.push(o.id); } }); return ids; }
     P.n.mw = 1;
   })();
+  // R21 CP (HANDOFF_R21_CPU.md, ?cpsk=0, ?cp=0): three's Skeleton.update runs for every skinned mesh drawn, every frame: one
+  // multiply and one copy per bone, then a re-upload of the bone texture, even when no bone moved (far people's mixers run every
+  // 2nd to 24th frame, and P3 then leaves their bones alone). The bone matrices depend only on the bones' world matrices and the
+  // inverse bind matrices, so a skeleton is recomputed only when one of its bones' world matrices changed since its last update
+  // (P3's version numbers), its inverses or bone texture were replaced, or on a slow round (every 32nd frame, staggered). Same
+  // matrices, bit for bit; fewer bone texture uploads. P.cpsk.n counts.
+  P.K.cpsk = P.K.mw && !/[?&](cp|cpsk)=0\b/.test(Q);
+  (function skelSkip() {
+    if (!P.K.cpsk || !window.THREE || !THREE.Skeleton || !MW.cap || THREE.Skeleton.prototype.__cpsk) return;
+    var SP = THREE.Skeleton.prototype, up0 = SP.update; SP.__cpsk = true;
+    var CPS = P.cpsk = { on: true, n: { full: 0, skip: 0 } }, REC = new WeakMap(), seq = 0;
+    SP.update = function () {
+      if (CPS.on !== true || this.boneMatrices === null) { CPS.n.full++; return up0.apply(this, arguments); }
+      var b = this.bones, n = b.length, r = REC.get(this), inv = this.boneInverses, wv = MW.WV, cap = MW.cap, i, id, same;
+      if (r === undefined) { r = { v: new Float64Array(n), k: (seq++) & 31, inv0: null, invN: -1, tex: null, mats: null }; r.v.fill(-1); REC.set(this, r); }
+      same = r.v.length === n && r.inv0 === inv[0] && r.invN === inv.length && r.tex === this.boneTexture && r.mats === this.boneMatrices && ((MW.fr + r.k) & 31) !== 0;
+      if (same) for (i = 0; i < n; i++) { id = b[i].id; if (id >= cap || wv[id] !== r.v[i]) { same = false; break; } }
+      if (same) { CPS.n.skip++; r.sf = MW.fr; return; }
+      var res = up0.apply(this, arguments); CPS.n.full++;
+      if (r.v.length !== n) { r.v = new Float64Array(n); }
+      for (i = 0; i < n; i++) { id = b[i].id; r.v[i] = id < cap ? wv[id] : -1; }
+      r.inv0 = inv[0]; r.invN = inv.length; r.tex = this.boneTexture; r.mats = this.boneMatrices;
+      return res;
+    };
+    // test: every skeleton skipped in this frame recomputed the old way; returns how many differ (0 expected)
+    CPS.test = function (root) { var bad = 0, n = 0, seen = new Set(); (root || G("scene")).traverse(function (o) { var sk = o.isSkinnedMesh && o.skeleton; if (!sk || seen.has(sk)) return; seen.add(sk); var r = REC.get(sk); if (!r || r.sf !== MW.fr || !sk.boneMatrices) return; n++; var a = sk.boneMatrices.slice(); up0.call(sk); var B = sk.boneMatrices; for (var i = 0; i < a.length; i++) if (a[i] !== B[i]) { bad++; break; } }); return { checked: n, differ: bad }; };
+  })();
   // a far person: only its group's own matrix stays current; whatever was still drawn inside is hidden until it wakes
   P.sleep = function (g, on) {
     try { if (!P.K.mw || !MW.cap || !g || !g.isObject3D) return; var id = g.id; if (id >= MW.cap) mwGrow(id); if (id >= MW.cap) return;
@@ -1772,6 +1799,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ───────── the governor ─────────
   var GV = OP.gov = { on: part("gov"), level: 0, act: [], log: [], bar: {}, st: "idle", tgt: 0, tier: null, res: 1, last: 0, over: 0, under: 0, n: { down: 0, up: 0, bounce: 0, windows: 0, resize: 0 } };
   var TGT = { ultra: 25, high: 22.2, medium: 20, low: 16.7 };
+  /* R21 CP (HANDOFF_R21_CPU.md, ?cpgov=0 or ?cp=0: the R19 governor exactly): a 60 fps aim on every tier, a GPU timer so headroom is
+     seen under a vsync cap, an absolute 30 fps floor (36.7 ms) for the visible steps, and a registry for other modules' knobs */
+  var CPG = OP.cpg = /[?&]cpgov=1\b/.test(Q) && !/[?&](cp|cpgov)=0\b/.test(Q), HARD_MS = 36.7;   /* OFF by default until proven (?cpgov=1 on) */
+  if (CPG) TGT = { ultra: 16.7, high: 16.7, medium: 16.7, low: 16.7 };
   var qt = +((Q.match(/[?&]optarget=([0-9.]+)/) || [])[1]) || 0;
   function pp() { var p = window.PLAN_POST; return p && p.ready && p.K && p.sw && p.set ? p : null; }
   function tierIdx() { try { return G("QUAL").level === "ultra" ? 0 : 1; } catch (e) { return 1; } }
@@ -1801,6 +1832,40 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     hard({ side: "c", name: "people past 110 m", on: function () { OPK.skin = 110; }, off: function () { OPK.skin = 0; } })
   ];
   RUNGS.forEach(function (r, i) { r.i = i; r.saving = 0; });
+  (function () { var ORD = [10, 20, 30, 40, 50, 60, 70, 100, 110, 120, 130, 140]; RUNGS.forEach(function (r, i) { r.order = ORD[i] !== undefined ? ORD[i] : 200 + i; }); })();
+  /* R21 CP: other modules' knobs. GV.knob({ id, side: "g" | "c", name, hard, order, avail, on, off }) or window.PLAN_<X>.govKnobs = [spec]
+     (scanned every 2 s). GPU steps of R19 sit at 10 to 70, CPU steps at 100 to 140; a multi-level knob is one spec per level. */
+  GV.knob = function (sp) {
+    try { if (!CPG || !sp || !sp.id || typeof sp.on !== "function" || typeof sp.off !== "function") return false; for (var i = 0; i < RUNGS.length; i++) if (RUNGS[i].id === sp.id) return false;
+      var r = { id: String(sp.id), ext: true, side: sp.side === "c" ? "c" : "g", name: String(sp.name || sp.id), hard: !!sp.hard, order: isFinite(+sp.order) ? +sp.order : 90, avail: typeof sp.avail === "function" ? sp.avail : null, on: sp.on, off: sp.off, saving: 0, i: RUNGS.length };
+      RUNGS.push(r); RUNGS.sort(function (a, b) { return a.order - b.order; }); GV.n.knobs = (GV.n.knobs || 0) + 1; logS("k", r, 0); return true; } catch (e) { note("knob", e); return false; }
+  };
+  var KS = { at: 0, keys: null, kAt: 0 };
+  function knobScan(t) {
+    if (!CPG || t - KS.at < 2000) return; KS.at = t;
+    if (!KS.keys || t - KS.kAt > 20000) { KS.kAt = t; KS.keys = Object.keys(window).filter(function (k) { return k.indexOf("PLAN_") === 0; }); }
+    for (var i = 0; i < KS.keys.length; i++) { var m = null; try { m = window[KS.keys[i]]; } catch (e) {} var L = m && m.govKnobs; if (!L || !L.length || L.__gv === L.length) continue; for (var j = 0; j < L.length; j++) GV.knob(L[j]); try { L.__gv = L.length; } catch (e) {} }
+  }
+  /* R21 CP: GPU time of the client's renderFrame, one frame in four (EXT_disjoint_timer_query_webgl2; skipped while any other timer
+     query is open, so measuring tools keep theirs) */
+  var GT = GV.gt = { on: CPG && part("gt"), ext: null, gl: null, q: [], win: [], last: 0, n: 0, err: 0 };
+  function gtInstall() {
+    if (!GT.on || GT.gl) return; var R = G("renderer"); if (!R) return; var gl = R.getContext(); GT.gl = gl;
+    var ext = null; try { ext = gl.getExtension("EXT_disjoint_timer_query_webgl2"); } catch (e) {} if (!ext || typeof gl.getQuery !== "function") { GT.on = false; return; } GT.ext = ext;
+    var rf = null; try { rf = (0, eval)("renderFrame"); } catch (e) {} if (typeof rf !== "function" || rf.__gt) { GT.on = false; return; }
+    var TE = ext.TIME_ELAPSED_EXT, CQ = gl.CURRENT_QUERY || 0x8865;
+    var w = function () {
+      var q = null; if (GT.on && (++GT.n & 3) === 0 && GT.q.length < 6) { try { if (gl.getQuery(TE, CQ) === null) { q = gl.createQuery(); gl.beginQuery(TE, q); } } catch (e) { q = null; if (++GT.err > 3) GT.on = false; } }
+      try { return rf.apply(this, arguments); } finally { if (q) { try { gl.endQuery(TE); GT.q.push(q); } catch (e) { if (++GT.err > 3) GT.on = false; } } }
+    };
+    w.__gt = true; try { window.renderFrame = w; } catch (e) { GT.on = false; }
+  }
+  function gtPoll() {
+    var gl = GT.gl; if (!gl || !GT.q.length) return; var dis = false; try { dis = !!gl.getParameter(GT.ext.GPU_DISJOINT_EXT); } catch (e) {}
+    while (GT.q.length) { var q = GT.q[0], ok = false; try { ok = gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE); } catch (e) { ok = true; dis = true; } if (!ok) break; GT.q.shift();
+      if (!dis) { try { var ms = gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6; if (ms > 0 && ms < 500) { GT.win.push(ms); GT.last = ms; } } catch (e) {} } try { gl.deleteQuery(q); } catch (e) {} }
+    if (GT.win.length > 64) GT.win.splice(0, GT.win.length - 64);
+  }
   GV.rungs = RUNGS;
   // props' draw range (INSTSET entries of prop kinds): scaled from the range the client last set (applyQuality rewrites it)
   function propRange(k) {
@@ -1811,7 +1876,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   GV.propRange = propRange;
   function hasCSM() { try { var c = G("CSMX"); return !!(c && c.csm && G("renderer").shadowMap.enabled); } catch (e) { return false; } }   // the cascade steps do nothing without cascades (low, medium)
-  function ladder(side) { var L = []; for (var i = 0; i < RUNGS.length; i++) { var r = RUNGS[i]; if (r.side !== side) continue; if (r.needPP && !pp()) continue; if (r.csm && !hasCSM()) continue; L.push(r); } return L; }
+  function ladder(side) { var L = []; for (var i = 0; i < RUNGS.length; i++) { var r = RUNGS[i]; if (r.side !== side) continue; if (r.needPP && !pp()) continue; if (r.csm && !hasCSM()) continue; if (r.avail) { var av = false; try { av = !!r.avail(); } catch (e) {} if (!av) continue; } L.push(r); } return L; }
   function logS(s, r, ms) { GV.log.push([Math.round(now() / 1000), s, r.name, +(+ms || 0).toFixed(1)]); if (GV.log.length > 60) GV.log.shift(); }
   function activate(r, ms) { GV.act.push(r); try { r.on(); } catch (e) { note("rung on " + r.name, e); } r.at = now(); r.before = ms; r.after = 0; GV.level = GV.act.length; GV.n.down++; logS("-", r, ms); }
   function release(ms) { var r = GV.act.pop(); if (!r) return; try { r.off(); } catch (e) { note("rung off " + r.name, e); } r.offAt = now(); GV.level = GV.act.length; GV.n.up++; logS("+", r, ms); }
@@ -1833,25 +1898,31 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function govFrame() {
     if (!GV.on || GV.forced) return; var t = now(), Qq = G("QUAL"), cam = G("camera"); if (!Qq || !cam) return;
+    if (CPG) { knobScan(t); if (GT.on) { if (!GT.gl) gtInstall(); gtPoll(); } }
     if (GV.tier !== Qq.level) { if (GV.tier !== null) GV.reset(); GV.tier = Qq.level; GV.tgt = qt || TGT[Qq.level] || 22; F.held = t + 4000; }
     var dt = F.last ? t - F.last : 0; F.last = t;
     if (F.cam) { var dx = cam.position.x - F.cam.x, dz = cam.position.z - F.cam.z; if (dx * dx + dz * dz > 900) F.held = Math.max(F.held, t + 3000); F.cam.copy(cam.position); } else F.cam = cam.position.clone();   // a warp or a cut: 3 s to settle
-    var h = held(t); GV.st = h || "run"; if (h) { F.buf.length = 0; F.js.length = 0; F.w0 = t; return; }
+    var h = held(t); GV.st = h || "run"; if (h) { F.buf.length = 0; F.js.length = 0; GT.win.length = 0; F.w0 = t; return; }
     if (!dt || dt > 250) return; F.buf.push(dt); F.js.push(P.fJs || 0); if (!F.w0) F.w0 = t; if (t - F.w0 < 1000 || F.buf.length < 8) return;
     var b = F.buf.slice().sort(function (a, c) { return a - c; }), med = b[b.length >> 1], jsm = F.js.slice().sort(function (a, c) { return a - c; })[F.js.length >> 1];
     F.buf.length = 0; F.js.length = 0; F.w0 = t; GV.n.windows++; var side = jsm > 0.8 * med ? "c" : "g"; GV.lastWin = [+med.toFixed(1), +jsm.toFixed(1), side];
-    var T = GV.tgt; GV.over = med > T * 1.12 ? GV.over + 1 : 0; GV.under = med < T * 0.8 ? GV.under + 1 : 0; GV.overH = med > T * HARD ? (GV.overH || 0) + 1 : 0; GV.underH = med < T * HARD * 0.8 ? (GV.underH || 0) + 1 : 0;
-    var lr = GV.act[GV.act.length - 1]; if (lr && !lr.after && t - lr.at > 2500) { lr.after = med; if (lr.before) lr.saving = Math.max(0, lr.before - med); }   // what the last step gave
+    /* R21 CP: under a vsync cap the interval hides the headroom; there the frame's own need (its JS time or its GPU time, whichever is
+       larger) decides the step-ups and measures the savings. HM is the visible steps' threshold (30 fps floor). */
+    var rl = med, gpm = 0, HM = CPG ? HARD_MS : GV.tgt * HARD;
+    if (CPG) { if (GT.win.length >= 2) { var gs = GT.win.slice().sort(function (a, c) { return a - c; }); gpm = gs[gs.length >> 1]; } GT.win.length = 0;
+      GV.vs = Math.max(6, Math.min(GV.vs || 1e9, med)); var capped = GV.vs < 17.5 && med < GV.vs * 1.15; if (capped && gpm > 0) rl = Math.max(jsm, gpm); GV.lastWin.push(+gpm.toFixed(1), +rl.toFixed(1)); }
+    var T = GV.tgt; GV.over = med > T * 1.12 ? GV.over + 1 : 0; GV.under = rl < T * 0.8 ? GV.under + 1 : 0; GV.overH = med > HM ? (GV.overH || 0) + 1 : 0; GV.underH = rl < HM * 0.8 ? (GV.underH || 0) + 1 : 0;
+    var lr = GV.act[GV.act.length - 1]; if (lr && !lr.after && t - lr.at > 2500) { lr.after = rl; if (lr.before) lr.saving = Math.max(0, lr.before - rl); }   // what the last step gave
     if (GV.over >= 3 && t - GV.last > 3000) {
       var r = null, L = ladder(side), i; for (i = 0; i < L.length && !r; i++) if (GV.act.indexOf(L[i]) < 0) r = L[i];   /* only the side that binds: a GPU step does nothing for a CPU-bound frame */
       if (r && r.hard && GV.overH < 5) r = null;   /* the visible steps only under heavy, sustained load */
       if (r) { if (r.offAt && t - r.offAt < 20000) { var bb = GV.bar[r.name] || { n: 0, until: 0 }; bb.n++; bb.until = t + 120000 * Math.pow(2, Math.min(3, bb.n - 1)); GV.bar[r.name] = bb; GV.n.bounce++; }   // it had to go back on: barred from coming off for a while
-        activate(r, med); GV.last = t; GV.over = 0; }
+        activate(r, rl); GV.last = t; GV.over = 0; }
     } else if (GV.act.length && t - GV.last > 8000) {
       /* a visible step comes off once the frame is back under 0.8 x its own threshold (1.6 x target) with the step's saving added;
          the near-invisible ones need the frame under 0.8 x target (and the saving added under 0.92 x target) */
       var top = GV.act[GV.act.length - 1], bar = GV.bar[top.name]; if (bar && t < bar.until) return;
-      var ok = top.hard ? GV.underH >= 8 && med + (top.saving || 0) * 1.15 < T * HARD * 0.85 : GV.under >= 8 && med + (top.saving || 0) * 1.15 < T * 0.92;
+      var ok = top.hard ? GV.underH >= 8 && rl + (top.saving || 0) * 1.15 < HM * 0.85 : GV.under >= 8 && rl + (top.saving || 0) * 1.15 < T * 0.92;
       if (ok) { release(med); GV.last = t; GV.under = 0; GV.underH = 0; }
     }
   }
