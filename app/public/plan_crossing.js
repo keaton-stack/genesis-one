@@ -292,7 +292,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function headwallText() { const grp = group("crossing_headwall_text");
     for (const T0 of PC.tunnels) { for (const [R, sgn, far] of [[T0.ramps[0], -1, 1], [T0.ramps[1], 1, 0]]) { const hwl = R.headWall; if (!hwl) continue; const h = Math.min(2.4, hwl.yt - hwl.yb - 0.4); if (h < 0.7) continue; const Wd = Math.min(T0.hw * 2 - 1.2, h * 6.5);
         const title = T0.id === "crossing" ? (far ? "THE EXPANSE" : "THE LANDING") : (far ? "THE FLIGHT LINE" : "ARRIVALS COURT");
-        const sub = T0.id === "crossing" ? (far ? "STAGE THREE  ·  MAIN STREET AND THE GENESIS RING" : "STAGE ONE  ·  CROSSING PLAZA AND THE TERMINAL") : (far ? "STAGE TWO  ·  PROPELLER PLAZA" : "THE TERMINAL AND GENESIS PARK");
+        const sub = T0.id === "crossing" ? (far ? "STAGE THREE  ·  MAIN STREET AND THE GENESIS RING" : "STAGE ONE  ·  CROSSING PLAZA AND THE STELLAR FBO") : (far ? "STAGE TWO  ·  PROPELLER PLAZA" : "THE STELLAR FBO AND GENESIS PARK");
         const ch = Math.max(96, Math.round(1024 * h / Wd));
         const tex = canvasTex(1024, ch, (x, w, hh) => { x.textAlign = "center"; x.textBaseline = "middle"; const s = fitText(x, title, w * 0.92, hh * 0.6, FONT.d); x.fillStyle = "#2e2721"; x.font = `400 ${s}px ${FONT.d}`; x.fillText(title, w / 2, hh * 0.4); const s2 = fitText(x, sub, w * 0.9, hh * 0.15, FONT.b, 600); x.font = `600 ${s2}px ${FONT.b}`; x.fillStyle = "#4a3f33"; x.fillText(sub, w / 2, hh * 0.85); }, { text: true, fonts: true });
         const pl = new THREE.Mesh(new THREE.PlaneGeometry(Wd, h), textMat(tex, { transparent: true })); const c = boxP(T0, hwl.w + sgn * 0.03, 0, hwl.yb + 0.2 + h / 2); pl.position.set(c[0], c[1], c[2]); pl.rotation.y = Math.atan2(T0.d[0] * sgn, T0.d[1] * sgn); pl.renderOrder = 2; grp.add(pl); } }
@@ -307,7 +307,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     { y: "1920s", t: "BARNSTORMERS", s: "Open cockpits and packed-earth strips: the first flyers land on the valley floor.", i: "biplane", th: "sepia" },
     { y: "1928", t: "WHEELS DOWN", s: "The airfield opens, and the town takes to the air.", i: "hangar", th: "sepia" },
     { y: "1928", t: "THE WINDSOCK AND THE HANGAR", s: "A packed-earth field, a hangar and a windsock: where this runway began.", i: "windsock", th: "sepia" },
-    { y: "TODAY", t: "SUNFIELD", s: "The old airfield flies on as Sunfield, with Runway 03/21 at its heart.", i: "runway", th: "flight" },
+    { y: "TODAY", t: "SOLPORT", s: "The old airfield flies on as Solport, with Runway 03/21 at its heart.", i: "runway", th: "flight" },
     { y: "AHEAD", t: "THE RUNWAY HALL", s: "Look up in the hall: the LED ceiling shows the jets rolling overhead.", i: "jet", th: "flight" },
     // The Crossing, south half: the frontier ahead (read from the hall toward the Expanse Gate)
     { y: "NEXT", t: "THE FRONTIER AHEAD", s: "Stage Three, The Expanse: the Old West, desert modern and the off-world frontier.", i: "sun", th: "dusk" },
@@ -578,7 +578,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (typeof CAM !== "undefined") { CAM.init = false; CAM.dist = 9.5; }
     const hud = document.getElementById("game-big"); if (hud) hud.textContent = ""; const hs = document.getElementById("game-s"); if (hs) hs.textContent = ""; const hn = document.getElementById("game-n"); if (hn) hn.textContent = "";
     setTimeout(() => fadeTo(false, 700), 140); sfx("board");
-    setStatus(T0.id === "crossing" ? (end === 1 ? "The Expanse Gate · Main Street and the Genesis Ring straight ahead" : "Crossing Plaza · Stage One, The Landing") : (end === 1 ? "Propeller Plaza · Stage Two, The Flight Line" : "Link Plaza · the Terminal and Arrivals Court"));
+    setStatus(T0.id === "crossing" ? (end === 1 ? "The Expanse Gate · Main Street and the Genesis Ring straight ahead" : "Crossing Plaza · Stage One, The Landing") : (end === 1 ? "Propeller Plaza · Stage Two, The Flight Line" : "Link Plaza · the Stellar FBO and Arrivals Court"));
     for (const k in TRIG) TRIG[k].cool = performance.now() + 1500; (TRIG[Rm.id] || (TRIG[Rm.id] = { prev: 99, cool: 0, hint: true })).hint = true;
     PC.lastRide = { id: T0.id, end, at: performance.now() };
   }
@@ -673,7 +673,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function buildPortals() { const grp = group("crossing_portals");
     for (const T0 of PC.tunnels) { T0.ramps.forEach((R, end) => { const yaw = Math.atan2(R.out[0], R.out[1]);
       const sgn = PLAN_IDX && window.PLAN ? (window.PLAN.signs || []).find((s) => s.id === (T0.id === "crossing" ? (end === 0 ? "sg583" : "sg584") : (end === 0 ? "sg585" : "sg586"))) : null; const faces = sgn ? sgn.faces : [];
-      const loc = T0.id === "crossing" ? "THE CROSSING" : "FLIGHT LINE LINK"; const dirText = T0.id === "crossing" ? (end === 0 ? "THE EXPANSE  STAGE THREE ->" : "<- THE LANDING  TERMINAL") : (end === 0 ? "STAGE TWO  THE FLIGHT LINE ->" : "<- TERMINAL  ARRIVALS COURT");
+      const loc = T0.id === "crossing" ? "THE CROSSING" : "FLIGHT LINE LINK"; const dirText = T0.id === "crossing" ? (end === 0 ? "THE EXPANSE  STAGE THREE ->" : "<- THE LANDING  STELLAR FBO") : (end === 0 ? "STAGE TWO  THE FLIGHT LINE ->" : "<- STELLAR FBO  ARRIVALS COURT");
       const sub = T0.id === "crossing" ? "The Crossing Shuttle boards here · 460 m portal to portal · the Runway Hall at the middle" : "The Link cart boards here · 230 m ramp head to ramp head, under the main taxiway";
       const backDir = T0.id === "crossing" ? (end === 0 ? "<- CROSSING PLAZA" : "MAIN STREET AND THE RING ->") : (end === 0 ? "<- LINK PLAZA" : "PROPELLER PLAZA ->");
       const front = portalSignTex(loc, dirText, sub), back = portalSignTex(loc, backDir, end === 0 ? "Stage One · The Landing" : T0.id === "crossing" ? "Stage Three · The Expanse" : "Stage Two · The Flight Line");
@@ -858,7 +858,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     const g = hasModel("frontier_arch") ? makeModel("frontier_arch") : proceduralArch(); g.position.set(A.c[0], y, A.c[1]); g.rotation.y = A.yaw; g.scale.setScalar(s); g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.noInst = true; } }); const grp = group("frontier_arch"); grp.add(g);
     // the hanging board: MAIN STREET toward the Expanse Gate, THE CROSSING toward Main Street
     const tf = bigText([{ text: "MAIN STREET", y: 0.42, size: 0.56, color: "#f3e3c0" }, { text: "THE EXPANSE  ·  STAGE THREE", y: 0.83, size: 0.17, color: "#e9c46a", font: FONT.b, weight: 700 }], 1024, 300, null);
-    const tb = bigText([{ text: "THE CROSSING", y: 0.42, size: 0.56, color: "#f3e3c0" }, { text: "TO THE TERMINAL AND STAGE ONE", y: 0.83, size: 0.17, color: "#e9c46a", font: FONT.b, weight: 700 }], 1024, 300, null);
+    const tb = bigText([{ text: "THE CROSSING", y: 0.42, size: 0.56, color: "#f3e3c0" }, { text: "TO THE STELLAR FBO AND STAGE ONE", y: 0.83, size: 0.17, color: "#e9c46a", font: FONT.b, weight: 700 }], 1024, 300, null);
     const W = 4.8 * s, Hh = 1.38 * s, yc = 5.86 * s; const cs = Math.cos(A.yaw), sn = Math.sin(A.yaw);
     for (const [tex, lz, flip] of [[tf, -0.14, 0], [tb, -0.74, 1]]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(W, Hh), textMat(tex, { transparent: true, glow: 0.3 })); const lzz = lz * s; pl.position.set(A.c[0] + lzz * sn, y + yc, A.c[1] + lzz * cs); pl.rotation.y = A.yaw + (flip ? Math.PI : 0); grp.add(pl); }
     for (const p of A.posts) addSolid(p[0], p[1], A.yaw, 1.3 * s, 1.3 * s, y - 0.3, y + 8.6 * s, "world"); scene.add(grp); }

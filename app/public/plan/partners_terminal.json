@@ -2,14 +2,14 @@
   "version": 1,
   "hall": {
     "title": "INDUSTRY PARTNERS",
-    "subtitle": "Aviation and travel partners, all under one roof at Sunfield."
+    "subtitle": "Aviation, travel and finance partners, all under one roof at Solport."
   },
   "partners": {
     "stellar": {
-      "name": "Sunfield Terminal",
-      "badge": "FIELD SNF",
-      "blurb": "The front door of Sunfield: fuel, hangar, ground services, a crew lounge and concierge, all at one desk.",
-      "tagline": "Every Flight, One Front Door",
+      "name": "Stellar Aviation",
+      "badge": "SOLPORT FBO",
+      "blurb": "A proven FBO operator, now running the FBO at Solport: fuel, hangar, ground services, a crew lounge and concierge, along with local jobs.",
+      "tagline": "Soaring Beyond Expectations",
       "services": [
         "Fuel",
         "Hangar",
@@ -19,30 +19,30 @@
         "Flight planning"
       ],
       "locations": [
-        "Los Angeles  LAX",
-        "Denver  DEN",
-        "Dallas  DFW",
-        "Chicago  ORD"
+        "Reno  KRNO",
+        "Carson-Tahoe  KCXP",
+        "South Palm Beach  KLNA",
+        "Springfield  KSPI"
       ],
       "npc": {
         "id": "pt_stellar",
-        "name": "Dale Calder",
-        "role": "Terminal Manager · Sunfield Terminal"
+        "name": "Brad Kost",
+        "role": "Founding Partner and COO · Stellar Aviation"
       },
       "contact": [
-        "Dale Calder",
-        "Terminal Manager",
-        "Sunfield Terminal front desk",
-        "Ask for me at the stand by the hall"
+        "Brad Kost",
+        "Founding Partner and COO",
+        "Bkost@stellaraviationgroup.com",
+        "stellaraviationgroup.com"
       ],
       "greet": [
-        "Welcome to Sunfield. You are standing in the terminal.",
+        "Welcome to Solport. This is the Stellar Aviation FBO.",
         "Fuel, hangar and ground services, all at one desk.",
         "Flying in? We look after the aircraft, the crew and you."
       ],
       "talk": [
         {
-          "t": "I'm Dale Calder, I manage the Sunfield Terminal. This whole building is the terminal, and we look after every aircraft, crew and passenger that comes through it. What would you like to know?",
+          "t": "I'm Brad Kost, Founding Partner and COO of Stellar Aviation. Stellar operates the FBO here at Solport: this whole building is our FBO, and we look after every aircraft, crew and passenger that comes through it. What would you like to know?",
           "o": [
             [
               "What does an FBO do?",
@@ -53,7 +53,7 @@
               2
             ],
             [
-              "What's in this terminal?",
+              "What's in this FBO?",
               5
             ],
             [
@@ -61,7 +61,7 @@
               3
             ],
             [
-              "How do I reach you?",
+              "How do I reach Stellar?",
               4
             ],
             [
@@ -78,7 +78,7 @@
               2
             ],
             [
-              "What's in this terminal?",
+              "What's in this FBO?",
               5
             ],
             [
@@ -88,14 +88,14 @@
           ]
         },
         {
-          "t": "Right here. Fuel, hangar space, ground services, the crew lounge and concierge all run through this desk, with fueling out on the ramp by Gate A2. The hangar homes and the Flight Line of Genesis stay fuel free.",
+          "t": "Right here. Stellar operates the FBO at Solport, so fuel, hangar space, ground services, the crew lounge and concierge all run through this desk, with fueling out on the ramp by Gate A2. The hangar homes and the Flight Line of Genesis stay fuel free.",
           "o": [
             [
               "What does an FBO do?",
               1
             ],
             [
-              "How do I reach you?",
+              "How do I reach Stellar?",
               4
             ],
             [
@@ -105,10 +105,10 @@
           ]
         },
         {
-          "t": "Nonstops leave Gate A2 for Los Angeles, Dallas, Chicago and Denver, and the boards inside list the rest. Wherever you land, we look after you the same way.",
+          "t": "Stellar runs FBOs at Reno (KRNO), Carson-Tahoe (KCXP), South Palm Beach (KLNA) and Springfield (KSPI), and recently refreshed its Reno-Tahoe FBO. Solport brings the same standard to the high desert.",
           "o": [
             [
-              "How do I reach you?",
+              "How do I reach Stellar?",
               4
             ],
             [
@@ -118,7 +118,7 @@
           ]
         },
         {
-          "t": "Ask for me at the desk any time. My details are on this card; you can select and copy them.",
+          "t": "I'm the contact for Solport. My details are on this card; you can select and copy them.",
           "o": [
             [
               "Thanks",
@@ -127,14 +127,14 @@
           ]
         },
         {
-          "t": "Everything a flight needs, under one roof. Arrivals and check-in are inside the doors, the crew lounge and flight planning room sit beside this stand, and concierge can arrange cars and ground transport across Genesis. Out on the ramp we handle fuel, hangar space and ground services. The terminal looks after the aviation side of Sunfield, from the moment a jet lands to the moment it leaves.",
+          "t": "Everything a flight needs, under one roof. Arrivals and check-in are inside the doors, the crew lounge and flight planning room sit beside this stand, and concierge can arrange cars and ground transport across Genesis. Out on the ramp we handle fuel, hangar space and ground services. Stellar looks after the aviation side of Solport, from the moment a jet lands to the moment it leaves.",
           "o": [
             [
               "Where do jets refuel?",
               2
             ],
             [
-              "How do I reach you?",
+              "How do I reach Stellar?",
               4
             ],
             [
@@ -145,54 +145,176 @@
         }
       ]
     },
+    "financeadvisors": {
+      "name": "FinanceAdvisors.com",
+      "blurb": "A fintech corporation that matches high-net-worth retirees with wealth managers. Servicing Fisher Investments, Edelman Financial Engines, Empower, and more.",
+      "notice": "FinanceAdvisors.com does not provide investment advice. It introduces people to licensed, independent wealth managers.",
+      "npc": {
+        "id": "pt_paul",
+        "name": "Paul Mazzapica",
+        "role": "Co-Founder and President · FinanceAdvisors.com"
+      },
+      "contact": [
+        "Paul Mazzapica",
+        "Co-Founder and President",
+        "paul@financeadvisors.com",
+        "financeadvisors.com"
+      ],
+      "footer": "Nothing here is an offer to sell securities or investment advice.",
+      "greet": [
+        "Hi, I'm Paul. Come on in.",
+        "Matching retirees with the right wealth manager.",
+        "Questions about how capital moves in Genesis? Ask away."
+      ],
+      "talk": [
+        {
+          "t": "Hi, I'm Paul Mazzapica, Co-Founder and President of FinanceAdvisors.com. We are a fintech company that matches high-net-worth retirees with wealth managers, servicing Fisher Investments, Edelman Financial Engines, Empower and more. What can I help you with?",
+          "o": [
+            [
+              "How does the matching work?",
+              1
+            ],
+            [
+              "How does capital move in Genesis?",
+              2
+            ],
+            [
+              "What does tokenizing land mean?",
+              3
+            ],
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "Thanks",
+              5
+            ]
+          ]
+        },
+        {
+          "t": "You answer a short questionnaire about your situation, your goals and the state you live in, and we introduce you to licensed, independent wealth managers who fit. FinanceAdvisors.com does not give investment advice itself: the advisor you choose does, under their own licence and duties to you.",
+          "o": [
+            [
+              "How does capital move in Genesis?",
+              2
+            ],
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "Thanks",
+              5
+            ]
+          ]
+        },
+        {
+          "t": "Here is the path money takes in the Giveback ecosystem: a corporate bank account, then the Altitude bridge onto the blockchain, then a Squads multisig treasury that needs several signers to move anything, then the Giveback protocol, and finally nonprofits verified by Giveback Ventures' own compliance team. Every step is recorded on chain, so anyone can follow it. $GBACK is the utility token that runs on those rails; Giveback Ventures is its largest holder, not its issuer, and it is never an investment.",
+          "o": [
+            [
+              "What does tokenizing land mean?",
+              3
+            ],
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "Thanks",
+              5
+            ]
+          ]
+        },
+        {
+          "t": "Tokenizing a real-world asset means recording ownership or rights in it as tokens on a blockchain, with the legal documents behind them. That can make records transparent and transfers simpler. Any investment in an asset like that is a securities matter, handled by licensed professionals, never by a token in a game.",
+          "o": [
+            [
+              "I'm interested in investing",
+              4
+            ],
+            [
+              "How does capital move in Genesis?",
+              2
+            ],
+            [
+              "Thanks",
+              5
+            ]
+          ]
+        },
+        {
+          "t": "Then speak with Riverside Management Group directly. Giveback Ventures and RMG have signed an agreement to work together, and RMG brings decades of merchant banking and capital markets experience; its affiliated broker-dealer, BCW Securities, is a FINRA member. Will Deitrick of RMG is at GBANK, on the east side of Compass Plaza. I can't take investments or give investment advice here.",
+          "o": [
+            [
+              "How does the matching work?",
+              1
+            ],
+            [
+              "Thanks",
+              5
+            ]
+          ]
+        },
+        {
+          "t": "Thanks for stopping by. My details are on this card if you want to talk about finding the right wealth manager. Nothing here is an offer to sell securities or investment advice.",
+          "o": [
+            [
+              "Goodbye",
+              null
+            ]
+          ]
+        }
+      ]
+    },
     "jetfinders": {
-      "name": "Tailwind Jets",
-      "tagline": "Your whole trip, one call.",
-      "blurb": "One advisor for all your flying: on-demand charter, jet cards, fractional ownership, aircraft sales and management, and hangars on the Flight Line.",
+      "name": "JetFinders",
+      "tagline": "The only jet contact you'll ever need.",
+      "blurb": "One advisor for all your flying: on-demand charter, jet cards, fractional ownership, aircraft sales and management, hangars, aircraft tax and business solutions, and asset tokenization.",
       "services": [
         "On-demand charter",
         "Jet cards",
         "Fractional ownership",
         "Aircraft sales and management",
         "Business and specialty flights",
-        "Hangars and hangar homes",
-        "Aircraft management",
-        "Trip and crew planning"
+        "Real estate and hangars",
+        "Aircraft tax and business solutions",
+        "Asset tokenization"
       ],
       "npc": {
         "id": "pt_jetfinders",
         "name": "Jake",
-        "role": "Tailwind Jets · private aviation advisor"
+        "role": "JetFinders · private aviation advisor"
       },
       "contact": [
-        "Tailwind Jets",
+        "JetFinders",
         "Private aviation advisors",
-        "Ask at the Tailwind Jets stand",
-        "Quotes at the desk, any time"
+        "jetfinders.com",
+        "Request a quote at jetfinders.com"
       ],
       "greet": [
-        "Your whole trip, one call.",
+        "The only jet contact you'll ever need.",
         "Charter, jet cards, hangars. Ask me anything.",
         "Thinking about a hangar home? Start here."
       ],
       "talk": [
         {
-          "t": "I'm Jake with Tailwind Jets: one advisor for all your flying, with thousands of aircraft to choose from, worldwide. What can I help with?",
+          "t": "I'm Jake with JetFinders. Welcome to JetFinders, the only jet contact you'll ever need: one advisor for all your flying, with access to around 3,500 aircraft in more than 170 countries. What can I help with?",
           "o": [
             [
               "What do you offer?",
               1
             ],
             [
-              "Tailwind Jets at Genesis?",
+              "JetFinders at Genesis?",
               2
             ],
             [
-              "What is a jet card?",
+              "Asset tokenization?",
               3
             ],
             [
-              "How do I reach Tailwind Jets?",
+              "How do I reach JetFinders?",
               4
             ],
             [
@@ -202,14 +324,14 @@
           ]
         },
         {
-          "t": "On-demand charter, jet cards, fractional ownership, aircraft sales and management, business and specialty flights such as helicopter and medical, hangars and hangar homes, and trip and crew planning.",
+          "t": "On-demand charter, jet cards, fractional ownership, aircraft sales and management, business and specialty flights such as helicopter and medical, real estate and hangars, aircraft tax and business solutions, and asset tokenization.",
           "o": [
             [
-              "Tailwind Jets at Genesis?",
+              "JetFinders at Genesis?",
               2
             ],
             [
-              "How do I reach Tailwind Jets?",
+              "How do I reach JetFinders?",
               4
             ],
             [
@@ -219,14 +341,14 @@
           ]
         },
         {
-          "t": "Tailwind Jets is the aviation partner for Genesis: charters in and out of Sunfield, owners' aircraft at home on the Flight Line, and hangars and hangar homes with their own taxiway access. Captain Reyes flies with us; you'll find him out on the apron by Gate A2.",
+          "t": "JetFinders is the aviation partner for Genesis: charters in and out of Solport, owners' aircraft at home on the Flight Line, and hangars and hangar homes with their own taxiway access. Captain Reyes flies with us; you'll find him out on the apron by Gate A2.",
           "o": [
             [
               "What do you offer?",
               1
             ],
             [
-              "How do I reach Tailwind Jets?",
+              "How do I reach JetFinders?",
               4
             ],
             [
@@ -236,14 +358,14 @@
           ]
         },
         {
-          "t": "A jet card is a block of flying hours you book ahead, so an aircraft is ready when you are, with the same crew standards on every trip. Ask me and I'll walk you through how it works.",
+          "t": "Asset tokenization records ownership of an aircraft, or rights in one, on a blockchain with the legal paperwork behind it. An advisor can walk you through how it works for a specific aircraft; anything that involves investing is handled by licensed professionals.",
           "o": [
             [
               "What do you offer?",
               1
             ],
             [
-              "How do I reach Tailwind Jets?",
+              "How do I reach JetFinders?",
               4
             ],
             [
@@ -253,7 +375,7 @@
           ]
         },
         {
-          "t": "Ask me here at the stand and I'll come back to you with options. The details are on this card.",
+          "t": "Start at jetfinders.com and request a quote, and an advisor will come back to you. The details are on this card.",
           "o": [
             [
               "Thanks",
@@ -264,9 +386,9 @@
       ]
     },
     "freedomair": {
-      "name": "Open Range Air",
-      "tagline": "Open skies, open range",
-      "blurb": "Private jet charter and aircraft management, positioning aircraft right here at Sunfield.",
+      "name": "Freedom Air",
+      "tagline": "Finding freedom",
+      "blurb": "Private jet charter and aircraft management from Reno, Nevada, positioning aircraft right here at Solport.",
       "fleet": [
         "Challenger 300",
         "Citation X",
@@ -279,21 +401,23 @@
       "npc": {
         "id": "freedomair",
         "name": "Joe",
-        "role": "Open Range Air · private jet charter"
+        "role": "Freedom Air · private jet charter"
       },
       "contact": [
-        "Open Range Air charter desk",
-        "Ask at the charter desk",
-        "Empty legs posted at the desk"
+        "Freedom Air charter desk",
+        "Reno, Nevada",
+        "+1 775 447 9830",
+        "charter@freedomairservices.com",
+        "freedomairservices.com"
       ],
       "greet": [
-        "Open skies start here.",
+        "Finding freedom starts here.",
         "Need a jet positioned on the runway? Ask me.",
         "Empty legs this week. Ask me what's open."
       ],
       "talk": [
         {
-          "t": "I'm Joe, and this is Beth. Welcome to Open Range Air. We run private jet charter and aircraft management, and we position aircraft right here at Sunfield. Where are you headed?",
+          "t": "I'm Joe, and this is Beth. Welcome to Freedom Air. We run private jet charter and aircraft management out of Reno, and we position aircraft right here at Solport. Where are you headed?",
           "o": [
             [
               "What do you fly?",
@@ -344,7 +468,7 @@
           ]
         },
         {
-          "t": "Ask at the charter desk, right here, and we'll put a trip together for you. The details are on this card.",
+          "t": "Call +1 775 447 9830 or email charter@freedomairservices.com, and tell them Genesis sent you. The details are on this card.",
           "o": [
             [
               "Got it",

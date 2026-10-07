@@ -116,7 +116,7 @@
         "  float h = vS.y; float dTop = uDen.x; float fadeK = smoothstep(uFade.x, uFade.y, h); float den = mix(uDen.y, dTop, fadeK) * smoothstep(0.0, 0.006, h + 0.004) * smoothstep(uHL.x, uHL.y, vS2.x);\n" +
         "  vec2 sp = vec2(vS.w * 260.0, vS.z * 240.0); vec2 cell = floor(sp); float n1 = avH(cell); vec2 fp = fract(sp) - 0.5; float dotK = smoothstep(0.42, 0.18, length(fp + (vec2(avH(cell + 3.1), avH(cell + 7.7)) - 0.5) * 0.4));\n" +
         "  float aa = clamp(1.0 - length(fwidth(sp)) * 0.9, 0.0, 1.0); float stub = mix(den, step(1.0 - den, n1) * dotK * 1.6, aa * (1.0 - uDen.z));\n" +
-        "  vec3 hc = uHair * mix(0.55 + 0.25 * n1, 0.34 + 0.12 * n1, uDen.z); avStub = clamp(stub * uDen.w, 0.0, 1.0); diffuseColor.rgb = mix(diffuseColor.rgb, hc, avStub); diffuseColor.a *= vS.x; }")
+        "  vec3 hc = uHair * mix(0.55 + 0.25 * n1, 0.44 + 0.14 * n1, uDen.z); avStub = clamp(stub * uDen.w, 0.0, 1.0); diffuseColor.rgb = mix(diffuseColor.rgb, hc, avStub); diffuseColor.a *= vS.x; }")
       .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\nreflectedLight.indirectSpecular *= 1.0 - 0.92 * avStub; reflectedLight.directSpecular *= 1.0 - 0.85 * avStub;")   // hair covered scalp: no grazing angle sheen (it read as a pale bald patch at the parting)
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.85, clamp(uDen.x * 1.2, 0.0, 1.0));");
     if (window.PLAN_CHARFX && PLAN_CHARFX.on && PLAN_CHARFX.ext) PLAN_CHARFX.ext(sh, "scalp");   // R16: the character skin model (plan_charfx.js)
@@ -124,7 +124,7 @@
   var SCALPMAT = AV.SCALPMAT = AV.SCALPMAT || new Map();
   // den: [top density, bottom density, coverage solid (0 dotted stubble, 1 solid base), strength]; fade: heights (m above the edge) of the fade ramp
   AV.scalpMat = function (skin, hair, den, fade, hl) {
-    hl = hl || [-0.06, -0.01]; var key = skin + "|" + hair + "|" + den.join(",") + "|" + fade.join(",") + "|" + hl.join(","); var m = SCALPMAT.get(key); if (m) return m;
+    hl = hl || [-0.012, 0.02];   /* R19 AN: from the hairline up, under the roots */ var key = skin + "|" + hair + "|" + den.join(",") + "|" + fade.join(",") + "|" + hl.join(","); var m = SCALPMAT.get(key); if (m) return m;
     var covered = den[0] > 0.5 && den[2] > 0.5; m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: covered ? 0.8 : 0.55, metalness: 0, transparent: true, depthWrite: true, sheen: covered || (window.PLAN_CHARFX && PLAN_CHARFX.on) ? 0.0 : 0.45, sheenColor: new THREE.Color(0xffb09a), sheenRoughness: 0.6 });
     m.userData.u = { uSkin: { value: new THREE.Color("#" + skin) }, uHair: { value: hairCol(hair, 1) }, uDen: { value: new THREE.Vector4(den[0], den[1], den[2], den[3]) }, uFade: { value: new THREE.Vector2(fade[0], fade[1]) }, uHL: { value: new THREE.Vector2(hl[0], hl[1]) } };
     m.onBeforeCompile = SCALP_OBC(m.userData.u); m.name = "avScalp"; m.userData.avShared = true; AV.n.mats++;
@@ -181,7 +181,7 @@
     for (var k in u) sh.uniforms[k] = u[k];
     sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nattribute vec3 aT; attribute vec4 aH; varying vec3 vAvT; varying vec4 vAvH; varying vec3 vAvP;")
       .replace("#include <skinnormal_vertex>", "#include <skinnormal_vertex>\nvec3 avT0 = aT;\n#ifdef USE_SKINNING\navT0 = (skinMatrix * vec4(aT, 0.0)).xyz;\n#endif\nvAvT = normalize(normalMatrix * avT0); vAvH = aH; vAvP = position;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform vec3 uRoot; uniform vec3 uTip; uniform vec4 uSpec; uniform vec4 uShade; uniform float uVar; uniform float uSoft; varying vec3 vAvT; varying vec4 vAvH; varying vec3 vAvP; vec3 avT; float avNz; float avId; float avSm;\nfloat avH3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }\nfloat avVN3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(avH3(i), avH3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(avH3(i + vec3(0.0, 1.0, 0.0)), avH3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y), mix(mix(avH3(i + vec3(0.0, 0.0, 1.0)), avH3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(avH3(i + vec3(0.0, 1.0, 1.0)), avH3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }\nfloat avHs(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat avVN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(avHs(i), avHs(i + vec2(1.0, 0.0)), f.x), mix(avHs(i + vec2(0.0, 1.0)), avHs(i + vec2(1.0, 1.0)), f.x), f.y); }")
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform vec3 uRoot; uniform vec3 uTip; uniform vec4 uSpec; uniform vec4 uShade; uniform float uVar; uniform float uSoft; uniform vec2 uDith; varying vec3 vAvT; varying vec4 vAvH; varying vec3 vAvP; vec3 avT; float avNz; float avId; float avSm;\nfloat avH3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }\nfloat avVN3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(mix(avH3(i), avH3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(avH3(i + vec3(0.0, 1.0, 0.0)), avH3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y), mix(mix(avH3(i + vec3(0.0, 0.0, 1.0)), avH3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(avH3(i + vec3(0.0, 1.0, 1.0)), avH3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }\nfloat avHs(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat avVN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(avHs(i), avHs(i + vec2(1.0, 0.0)), f.x), mix(avHs(i + vec2(0.0, 1.0)), avHs(i + vec2(1.0, 1.0)), f.x), f.y); }")
       .replace("#include <lights_physical_pars_fragment>", "#include <lights_physical_pars_fragment>\n" +
         "void RE_Direct_Hair(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {\n" +
         "  float dotNL = dot(geometryNormal, directLight.direction); float wrapK = uShade.z; float diffT = clamp((dotNL + wrapK) / (1.0 + wrapK), 0.0, 1.0);\n#ifdef AV_TRANS\n  diffT += 0.1 * (1.0 - diffT);\n#endif\n" +
@@ -194,7 +194,7 @@
         "if (vAvH.y < 0.003) { vec3 q = vAvP * 470.0; float n = avVN3(q) * 0.58 + avVN3(q * 2.1 + 7.1) * 0.3 + avVN3(q * 4.2 + 3.3) * 0.12; float cu = 0.5 + 0.5 * sin((n * 6.0 + (q.x + q.y + q.z) * 0.33) * 3.1416); float v = n * 0.7 + cu * 0.4; float px = length(fwidth(q)); float thr = (vAvH.x * vAvH.x * 0.66 + 0.03) * (1.0 - smoothstep(0.45, 1.1, px)); float rim = 1.0 - smoothstep(0.0, 0.16, v - thr); avTx = vec4(0.6 + 0.32 * cu + 0.38 * rim * vAvH.x, n, 0.0, step(thr, v)); }\n" +
         "{ float lod = log2(max(1.0, max(length(dFdx(vMapUv * 1024.0)), length(dFdy(vMapUv * 1024.0))))); float a = avTx.a * (1.0 + lod * 0.32);\n" +
         "  vec3 base = mix(uRoot, uTip, smoothstep(0.0, 1.0, vAvH.x)) * (1.0 + (vAvH.w - 0.5) * 2.0 * uVar); float ao = mix(uShade.w, 1.0, vAvH.z);\n" +
-        "  diffuseColor.rgb = base * (0.42 + 0.6 * avTx.r) * ao; diffuseColor.a = uSoft > 0.5 ? (a >= 0.5 ? 0.0 : a * 1.6) : a; avNz = 0.8 + avTx.g * 0.4; avId = avTx.g; avSm = mix(0.18, 1.0, smoothstep(0.62, 0.97, avTx.r)); }")
+        "  diffuseColor.rgb = base * (0.42 + 0.6 * avTx.r) * ao; diffuseColor.a = uSoft > 0.5 ? (a >= 0.5 ? 0.0 : a * 1.6) : a + (avHs(floor(gl_FragCoord.xy) + uDith.y) - 0.5) * uDith.x; avNz = 0.8 + avTx.g * 0.4; avId = avTx.g; avSm = mix(0.18, 1.0, smoothstep(0.62, 0.97, avTx.r)); }")
       .replace("#include <normal_fragment_begin>", "#include <normal_fragment_begin>\nnormal = vNormal * inversesqrt(max(dot(vNormal, vNormal), 1e-8)); avT = vAvT * inversesqrt(max(dot(vAvT, vAvT), 1e-8)); if (dot(avT, avT) < 0.25) { vec3 avC = cross(normal, abs(normal.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)); avT = avC * inversesqrt(max(dot(avC, avC), 1e-8)); }")
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = 0.6;")
       .replace("#include <lights_fragment_end>", "#include <lights_fragment_end>\nreflectedLight.indirectSpecular *= 0.22 * avSm;\n#ifdef AV_TRANS\n{ vec3 avE = max(irradiance + iblIrradiance, vec3(0.0)) * RECIPROCAL_PI; vec3 avDn = max(material.diffuseColor, vec3(0.0)); vec3 avTn = avDn / max(max(avDn.r, max(avDn.g, avDn.b)), 1e-4);\n  float avLum = dot(avDn, vec3(0.3, 0.59, 0.11)); reflectedLight.indirectDiffuse *= min(2.0, max(1.0, 0.6 / max(avLum, 1e-3))); reflectedLight.indirectSpecular += avE * (0.02 * (0.4 + 0.6 * avSm) * avNz) * mix(vec3(1.0), avTn, 0.7); }\n#endif");   // flat cards at grazing angles mirrored the sky as a flat sheet: keep a little image based specular, broken up by the strands
@@ -202,6 +202,9 @@
   AV.HAIR_OBC = HAIR_OBC;
   AV.hairSoft = function (hex, style) { var S = Object.assign({}, style || {}, { soft: true }); var m = AV.hairMat(hex, S); return m; };
   var HAIRMAT = AV.HAIRMAT = AV.HAIRMAT || new Map();
+  AV.uDith = AV.uDith || { value: new THREE.Vector2(0, 0) };
+  (function () { var H = window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] }; H.frame = H.frame || []; var f = 0;
+    H.frame.push({ name: "avHairDither", fn: function () { var PP = window.PLAN_POST; var on = !!(PP && PP.active && PP.sw && PP.sw.taa) && !/[?&]hdith=0\b/.test(location.search); AV.uDith.value.set(on ? 0.34 : 0, on ? ((f = (f + 1) & 63) * 17.31) : 0); } }); })();
   // spec: [primary, secondary, shift1, shift2]; shade: [exp1, exp2, wrap, root occlusion]
   AV.hairMat = function (hex, style) {
     var S = style || {}; var key = hex + "|" + (S.gloss || 1) + "|" + (S.tipK || 1) + "|" + (S.var || 0.035) + "|" + (S.warm || 0) + "|" + (S.soft ? 1 : 0);
@@ -210,7 +213,7 @@
     base.multiplyScalar(window.PLAN_CHARFX && PLAN_CHARFX.on ? 0.5 : 0.43); var root = base.clone().multiplyScalar(0.55), tip = base.clone().multiplyScalar(1.05 + 0.2 * (1 - Math.min(1, lum * 3)) * (S.tipK || 1)); tip.lerp(new THREE.Color(1, 0.92, 0.8).multiplyScalar(Math.max(tip.r, tip.g, tip.b)), 0.08);
     var gl = S.gloss || 1;
     m = new THREE.MeshStandardMaterial({ map: AV.atlas(), color: 0xffffff, roughness: 0.6, metalness: 0, side: THREE.DoubleSide, alphaTest: S.soft ? 0.06 : 0.5, envMapIntensity: 0.35 }); if (S.soft) { m.transparent = true; m.depthWrite = false; }
-    m.userData.u = { uRoot: { value: root }, uTip: { value: tip }, uSpec: { value: new THREE.Vector4(0.026 * gl, 0.045 * gl, -0.06, 0.1) }, uShade: { value: new THREE.Vector4(64, 20, 0.35, 0.7) }, uVar: { value: S.var || 0.035 }, uSoft: { value: S.soft ? 1 : 0 } };
+    m.userData.u = { uRoot: { value: root }, uTip: { value: tip }, uSpec: { value: new THREE.Vector4(0.026 * gl, 0.045 * gl, -0.06, 0.1) }, uShade: { value: new THREE.Vector4(64, 20, 0.35, 0.7) }, uVar: { value: S.var || 0.035 }, uSoft: { value: S.soft ? 1 : 0 }, uDith: AV.uDith };
     if (window.PLAN_CHARFX && PLAN_CHARFX.on) m.defines = Object.assign({}, m.defines || {}, { AV_TRANS: 1 });   // R16: back-lit transmission
     m.onBeforeCompile = HAIR_OBC(m.userData.u); m.name = "avHair"; m.userData.avShared = true; AV.n.mats++;
     HAIRMAT.set(key, m); return m;
@@ -297,7 +300,7 @@
       if (S.floorDh !== undefined && P.length >= 3) { sph(K, q[0], q[1], q[2], _s); if (Math.cos(_s.th) < 0.2 && _s.ph < AV.hairline(K, _s.th) - S.floorDh) break; }   // short styles end at the nape hairline (no tails on the neck)
       d = vnorm(vsub(q, p)); p = q; P.push(p); D.push(d); Hd.push(hid); }
     if (curlA > 0) { // helical offset about the core path
-      for (var j = 1; j < P.length; j++) { var dj = D[j]; if (!b1) b1 = vnorm(vcross(dj, Math.abs(dj[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])); b1 = vnorm(proj(b1, dj)); var b2 = vcross(dj, b1); var s = j * seg * curlF * TAU + curlPh, a = curlA * Math.min(1, j / 2.5); P[j] = vadd(vadd(P[j], b1, Math.cos(s) * a), b2, Math.sin(s) * a); }
+      for (var j = 1; j < P.length; j++) { var dj = D[j]; if (!b1) b1 = vnorm(vcross(dj, Math.abs(dj[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])); b1 = vnorm(proj(b1, dj)); var b2 = vcross(dj, b1); var s = j * seg * curlF * TAU + curlPh, a = curlA * (S.long ? sstep(0, 0.07, j * seg) : Math.min(1, j / 2.5)); P[j] = vadd(vadd(P[j], b1, Math.cos(s) * a), b2, Math.sin(s) * a); }
       for (j = 1; j < P.length; j++) { collide(K, P[j], clr * 0.7, hat, _o); P[j] = [_o[0], _o[1], _o[2]]; }
       for (j = 1; j < P.length; j++) D[j] = vnorm(vsub(P[j], P[j - 1])); D[0] = D[1] || D[0]; }
     return { P: P, D: D, H: Hd, L: L };
@@ -315,13 +318,13 @@
     g.setAttribute("aH", new THREE.BufferAttribute(u8(A.h), 4, true)); yield 0; g.setIndex(A.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(A.ind, 1) : new THREE.Uint16BufferAttribute(A.ind, 1)); return g; };
   Acc.prototype.geo = function () { var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(this.pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(i8(this.nrm), 3, true)); g.setAttribute("uv", new THREE.BufferAttribute(u16(this.uv.map(function (x) { return Math.max(0, Math.min(1, x)); })), 2, true)); g.setAttribute("aT", new THREE.BufferAttribute(i8(this.t), 3, true)); g.setAttribute("aH", new THREE.BufferAttribute(u8(this.h), 4, true)); g.setIndex(this.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(this.ind, 1) : new THREE.Uint16BufferAttribute(this.ind, 1)); return g; };
   // a tapered card along a strand: lies on the hair surface (its width across the strand, its normal outward)
-  function card(acc, K, st, w0, tex, ao, rnd, twist, taper, normalFrom) {
+  function card(acc, K, st, w0, tex, ao, rnd, twist, taper, normalFrom, rootAo) {
     var P = st.P, D = st.D, H = st.H, n = P.length; if (n < 2) return; var col = tex * 0.125, span = 0.125 * (0.75 + 0.25 * rnd()), u0 = col + (0.125 - span) * rnd() * 0.98 + 0.0012, u1 = u0 + span - 0.0024; var vr = 0.01 + 0.99 * rnd(), cv = rnd(), tw = (rnd() - 0.5) * (twist || 0.5);
     var prev = -1, base = -1; var cen = [K.c.x, K.c.y, K.c.z];
     for (var i = 0; i < n; i++) { var t = i / (n - 1); var p = P[i], d = D[i];
       var out = normalFrom ? normalFrom(p, i) : vnorm(vsub(p, cen)); if (p[1] < K.eyeY - 0.1) out = vnorm(vmix(out, vnorm([p[0], 0, p[2] - K.c.z]), sstep(K.eyeY - 0.1, K.eyeY - 0.2, p[1])));
       var sd = vnorm(vcross(d, out)); if (tw) sd = rotAxis(sd, d, tw * t); var nn = vnorm(vcross(sd, d)); if (vdot(nn, out) < 0) nn = [-nn[0], -nn[1], -nn[2]];
-      var w = w0 * (1 - (taper === undefined ? 0.55 : taper) * Math.pow(t, 1.5)) * 0.5; var aoV = ao * (0.55 + 0.45 * sstep(0, 0.5, t));
+      var w = w0 * (1 - (taper === undefined ? 0.55 : taper) * Math.pow(t, 1.5)) * 0.5; var ra = rootAo === undefined ? 0.55 : rootAo; var aoV = ao * (ra + (1 - ra) * sstep(0, 0.5, t));
       var hidden = H[i] && (i === 0 || H[i - 1]) && (i === n - 1 || H[i + 1]);
       if (hidden) { prev = -1; continue; }
       var sn = vnorm(vmix(out, nn, 0.25)); var a = acc.v(vadd(p, sd, -w), sn, u0, t, d, [t, vr, aoV, cv]), b = acc.v(vadd(p, sd, w), sn, u1, t, d, [t, vr, aoV, cv]);
@@ -355,30 +358,30 @@
       layers: [{ n: 1000, w: 0.017, clr: 0.002, tex: T.TUFT, ao: 0.5, taper: 0.8 }, { n: 650, w: 0.013, clr: 0.005, tex: T.TUFT, ao: 0.8, lenK: 1.1, taper: 0.85 }], scalp: { den: [1, 0.55, 1, 0.95], fade: [0.006, 0.03] }, hatPad: 0.006 },
     { id: 2, key: "ponytail", n: "Ponytail", len: "long", special: "pony", L: Lc(0.3, 0.3, 0.3, 0.3, 0.3), scalp: SCALP_SOLID, hatPad: 0.006, gloss: 1.2 },
     { id: 3, key: "buzz", n: "Buzz cut", len: "short", layers: [], scalp: { den: [0.92, 0.88, 0, 0.85], fade: [0, 0.012] }, hatPad: 0.003 },
-    { id: 4, key: "bob", n: "Bob", len: "medium", L: Lc(0.075, 0.19, 0.15, 0.145, 0.09), flow: "center", lift: 0.12, grav: 0.95, hug: 0.016, tipCurl: [0.3, 0.45], long: true, seg: 12, hlFront: 0.01, swingK: 0.7,
-      layers: [{ n: 1100, w: 0.027, clr: 0.003, tex: T.STRAIGHT, ao: 0.45 }, { n: 700, w: 0.022, clr: 0.007, tex: T.STRAIGHT, ao: 0.72, lenK: 1.02 }, { n: 240, w: 0.012, clr: 0.011, tex: T.WISPY, ao: 1, lenK: 1.04 }], scalp: SCALP_SOLID, hatPad: 0.008, gloss: 1.2 },
-    { id: 5, key: "slick", n: "Slick back", len: "medium", L: Lc(0.12, 0.115, 0.05, 0.075, 0.03, 0.026), flow: "back", lift: 0.1, grav: 0.2, hug: 0.007, jitter: 0.12, floorDh: 0.06,
-      layers: [{ n: 1200, w: 0.02, clr: 0.002, tex: T.STRAIGHT, ao: 0.5 }, { n: 700, w: 0.016, clr: 0.005, tex: T.STRAIGHT, ao: 0.78, lenK: 1.03 }, { n: 200, w: 0.008, clr: 0.008, tex: T.WISPY, ao: 1 }], scalp: { den: [1, 0.7, 1, 0.95], fade: [0.004, 0.02] }, hatPad: 0.007, gloss: 1.45 },
+    { id: 4, key: "bob", n: "Bob", len: "medium", L: Lc(0.075, 0.19, 0.15, 0.145, 0.09), flow: "center", partGap: 0.002, lift: 0.06, grav: 0.95, hug: 0.009, tipCurl: [0.3, 0.45], long: true, seg: 12, hlFront: 0.01, swingK: 0.7,
+      layers: [{ n: 900, w: 0.016, clr: 0.0012, tex: T.STRAIGHT, ao: 0.42, taper: 0.6 }, { n: 1300, w: 0.012, clr: 0.003, tex: T.STRAIGHT, ao: 0.62, taper: 0.85 }, { n: 900, w: 0.0095, clr: 0.0055, tex: T.STRAIGHT, ao: 0.8, lenK: 1.02, taper: 0.9 }, { n: 320, w: 0.006, clr: 0.0075, tex: T.WISPY, ao: 1, lenK: 1.04 }], scalp: SCALP_SOLID, hatPad: 0.008, gloss: 1.2 },
+    { id: 5, key: "slick", n: "Slick back", len: "medium", L: Lc(0.12, 0.115, 0.05, 0.075, 0.03, 0.026), flow: "back", lift: 0.06, grav: 0.2, hug: 0.006, jitter: 0.12, floorDh: 0.06,
+      layers: [{ n: 1500, w: 0.013, clr: 0.0015, tex: T.STRAIGHT, ao: 0.5, taper: 0.8 }, { n: 1000, w: 0.0105, clr: 0.0038, tex: T.STRAIGHT, ao: 0.78, lenK: 1.03, taper: 0.88 }, { n: 260, w: 0.006, clr: 0.006, tex: T.WISPY, ao: 1 }], scalp: { den: [1, 0.7, 1, 0.95], fade: [0.004, 0.02] }, hatPad: 0.007, gloss: 1.45 },
     { id: 6, key: "curlytop", n: "Curly top", len: "short", L: Lc(0.052, 0.055, 0.024, 0.028, 0.01), flow: "up", lift: 0.55, grav: 0.12, curl: [0.0065, 26], jitter: 0.5, lenVar: 0.35, hug: 0.03,
       filter: function (th, ph, dh) { return dh > 0.26; }, layers: [{ n: 900, w: 0.022, clr: 0.003, tex: T.CURLY, ao: 0.5, twist: 1.2, taper: 0.4 }, { n: 600, w: 0.018, clr: 0.008, tex: T.CURLY, ao: 0.85, lenK: 1.1, twist: 1.4, taper: 0.4 }], scalp: { den: [1, 0.05, 1, 0.95], fade: [0.016, 0.045] }, hatPad: 0.01, gloss: 0.8 },
     { id: 7, key: "afro", n: "Afro", len: "volume", special: "afro", scalp: SCALP_SOLID, hatPad: 0.025, gloss: 0.1, var: 0.1 },
-    { id: 8, key: "long", n: "Long straight", len: "long", L: Lc(0.3, 0.4, 0.38, 0.42, 0.36), flow: "center", partGap: 0.004, lift: 0.08, grav: 1, hug: 0.012, long: true, seg: 14, hlFront: 0.0, lenVar: 0.15,
-      layers: [{ n: 1100, w: 0.03, clr: 0.003, tex: T.STRAIGHT, ao: 0.45 }, { n: 700, w: 0.025, clr: 0.007, tex: T.STRAIGHT, ao: 0.72, lenK: 1.02 }, { n: 220, w: 0.013, clr: 0.011, tex: T.WISPY, ao: 1, lenK: 1.03 }], scalp: SCALP_SOLID, hatPad: 0.009, gloss: 1.3 },
+    { id: 8, key: "long", n: "Long straight", len: "long", L: Lc(0.3, 0.4, 0.38, 0.42, 0.36), flow: "center", partGap: 0.002, lift: 0.04, grav: 1, hug: 0.007, long: true, seg: 14, hlFront: 0.0, lenVar: 0.15,
+      layers: [{ n: 800, w: 0.018, clr: 0.0012, tex: T.STRAIGHT, ao: 0.4, taper: 0.55, lenK: 0.96 }, { n: 1500, w: 0.012, clr: 0.003, tex: T.STRAIGHT, ao: 0.62, taper: 0.85 }, { n: 1100, w: 0.0095, clr: 0.0055, tex: T.STRAIGHT, ao: 0.8, lenK: 1.02, taper: 0.9 }, { n: 340, w: 0.006, clr: 0.0075, tex: T.WISPY, ao: 1, lenK: 1.03 }], scalp: SCALP_SOLID, hatPad: 0.009, gloss: 1.3 },
     { id: 9, key: "cornrows", n: "Cornrows", len: "short", special: "cornrows", scalp: { den: [0.4, 0.4, 0, 0.75], fade: [0, 0.01] }, hatPad: 0.006 },
     { id: 10, key: "bun", n: "Top bun", len: "long", special: "bun", scalp: SCALP_SOLID, hatPad: 0.006, gloss: 1.2 },
-    { id: 11, key: "wavy", n: "Long wavy", len: "long", L: Lc(0.27, 0.36, 0.34, 0.38, 0.33), flow: "center", partGap: 0.004, lift: 0.1, grav: 0.9, hug: 0.016, long: true, seg: 16, lenVar: 0.16, jitter: 0.1,
-      coherent: true, curl: [0.012, 3.4],
-      layers: [{ n: 700, w: 0.03, clr: 0.0012, tex: T.STRAIGHT, ao: 0.4, taper: 0.55, lenK: 0.95 }, { n: 1900, w: 0.017, clr: 0.003, tex: T.STRAIGHT, ao: 0.62, taper: 0.9 }, { n: 1600, w: 0.014, clr: 0.007, tex: T.STRAIGHT, ao: 0.8, lenK: 1.02, taper: 0.92 }, { n: 1000, w: 0.011, clr: 0.011, tex: T.STRAIGHT, ao: 0.92, lenK: 1.03, taper: 0.94 }, { n: 300, w: 0.008, clr: 0.014, tex: T.WISPY, ao: 1, lenK: 1.04 }], scalp: SCALP_SOLID, hatPad: 0.01, gloss: 1.15 },
+    { id: 11, key: "wavy", n: "Long wavy", len: "long", L: Lc(0.27, 0.36, 0.34, 0.38, 0.33), flow: "center", partGap: 0.002, lift: 0.05, grav: 0.9, hug: 0.008, long: true, seg: 16, lenVar: 0.16, jitter: 0.1,
+      coherent: true, curl: [0.011, 3.4],
+      layers: [{ n: 700, w: 0.018, clr: 0.001, tex: T.STRAIGHT, ao: 0.4, taper: 0.55, lenK: 0.95 }, { n: 2300, w: 0.011, clr: 0.0025, tex: T.STRAIGHT, ao: 0.62, taper: 0.9 }, { n: 1950, w: 0.009, clr: 0.0045, tex: T.STRAIGHT, ao: 0.8, lenK: 1.02, taper: 0.92 }, { n: 1250, w: 0.007, clr: 0.0065, tex: T.STRAIGHT, ao: 0.92, lenK: 1.03, taper: 0.94 }, { n: 420, w: 0.005, clr: 0.0085, tex: T.WISPY, ao: 1, lenK: 1.04 }], scalp: SCALP_SOLID, hatPad: 0.01, gloss: 1.15 },
     { id: 12, key: "fade", n: "Skin fade", len: "short", L: Lc(0.035, 0.032, 0.01, 0.012, 0.004), flow: "up", lift: 0.3, grav: 0.14, hug: 0.009, jitter: 0.26, filter: function (th, ph, dh) { return dh > 0.3; },
       layers: [{ n: 1250, w: 0.012, clr: 0.002, tex: T.TUFT, ao: 0.55, taper: 0.62 }, { n: 700, w: 0.0095, clr: 0.0045, tex: T.TUFT, ao: 0.85, lenK: 1.08, taper: 0.7 }], scalp: { den: [1, 0.0, 0.7, 0.95], fade: [0.008, 0.04] }, hatPad: 0.004 },
     { id: 13, key: "crew", n: "Crew cut", len: "short", L: Lc(0.032, 0.028, 0.012, 0.014, 0.006, 0.007), flow: "up", lift: 0.3, grav: 0.14, hug: 0.008, jitter: 0.26,
       layers: [{ n: 1500, w: 0.012, clr: 0.002, tex: T.TUFT, ao: 0.55, taper: 0.62 }, { n: 850, w: 0.0095, clr: 0.0045, tex: T.TUFT, ao: 0.85, lenK: 1.08, taper: 0.7 }], scalp: { den: [1, 0.6, 1, 0.95], fade: [0.004, 0.02] }, hatPad: 0.004 },
-    { id: 14, key: "sidepart", n: "Side part", len: "medium", L: Lc(0.075, 0.08, 0.024, 0.038, 0.012, 0.013), flow: "part", part: 0.03, lift: 0.18, grav: 0.3, hug: 0.01, jitter: 0.14, floorDh: 0.07,
-      layers: [{ n: 1500, w: 0.015, clr: 0.002, tex: T.STRAIGHT, ao: 0.5, taper: 0.88 }, { n: 900, w: 0.012, clr: 0.006, tex: T.STRAIGHT, ao: 0.78, lenK: 1.04, taper: 0.9 }, { n: 120, w: 0.008, clr: 0.006, tex: T.WISPY, ao: 1 }], scalp: { den: [1, 0.6, 1, 0.95], fade: [0.004, 0.022] }, hatPad: 0.006, gloss: 1.4 },
+    { id: 14, key: "sidepart", n: "Side part", len: "medium", L: Lc(0.075, 0.08, 0.024, 0.038, 0.012, 0.013), flow: "part", part: 0.03, lift: 0.1, grav: 0.3, hug: 0.007, jitter: 0.14, floorDh: 0.07,
+      layers: [{ n: 1900, w: 0.0105, clr: 0.0015, tex: T.STRAIGHT, ao: 0.5, taper: 0.88 }, { n: 1150, w: 0.0085, clr: 0.0042, tex: T.STRAIGHT, ao: 0.78, lenK: 1.04, taper: 0.9 }, { n: 160, w: 0.006, clr: 0.005, tex: T.WISPY, ao: 1 }], scalp: { den: [1, 0.6, 1, 0.95], fade: [0.004, 0.022] }, hatPad: 0.006, gloss: 1.4 },
     { id: 15, key: "locs", n: "Locs", len: "long", special: "locs", scalp: { den: [1, 1, 1, 0.95], fade: [0, 0.01] }, hatPad: 0.012, gloss: 0.22, tipK: 2.2, var: 0.3, warm: 0.22,
       L: Lc(0.012, 0.012, 0.01, 0.012, 0.008), flow: "up", lift: 0.2, jitter: 0.4, layers: [{ n: 900, w: 0.012, clr: 0.0015, tex: T.TUFT, ao: 0.45, taper: 0.7 }] },
-    { id: 16, key: "pixie", n: "Pixie", len: "short", L: Lc(0.09, 0.075, 0.035, 0.035, 0.016), flow: "part", part: -0.025, sweep: 0.85, lift: 0.16, grav: 0.45, hug: 0.01, jitter: 0.2, floorDh: 0.1,
-      layers: [{ n: 1500, w: 0.014, clr: 0.002, tex: T.STRAIGHT, ao: 0.5, taper: 0.88 }, { n: 900, w: 0.011, clr: 0.006, tex: T.STRAIGHT, ao: 0.78, lenK: 1.05, taper: 0.9 }, { n: 140, w: 0.008, clr: 0.006, tex: T.WISPY, ao: 1, lenK: 1.08 }], scalp: SCALP_SOLID, hatPad: 0.006, gloss: 1.2 }
+    { id: 16, key: "pixie", n: "Pixie", len: "short", L: Lc(0.09, 0.075, 0.035, 0.035, 0.016), flow: "part", part: -0.025, sweep: 0.85, lift: 0.1, grav: 0.45, hug: 0.007, jitter: 0.2, floorDh: 0.1,
+      layers: [{ n: 1900, w: 0.01, clr: 0.0015, tex: T.STRAIGHT, ao: 0.5, taper: 0.88 }, { n: 1150, w: 0.008, clr: 0.0042, tex: T.STRAIGHT, ao: 0.78, lenK: 1.05, taper: 0.9 }, { n: 180, w: 0.006, clr: 0.005, tex: T.WISPY, ao: 1, lenK: 1.08 }], scalp: SCALP_SOLID, hatPad: 0.006, gloss: 1.2 }
   ];
   AV.STYLE_ORDER = [0, 3, 12, 13, 1, 14, 5, 6, 7, 15, 9, 10, 2, 8, 11, 4, 16];
   AV.style = function (id) { return AV.STYLES[id] || AV.STYLES[0]; };
@@ -386,25 +389,25 @@
   function* layerRun(acc, K, body, S, Ly, li, hat, rnd) {
     var SL = Object.assign({}, S, Ly.over || {}); var rs = roots(K, body, S, Ly.n, 1000 + S.id * 31 + li * 7 + (body === "f" ? 3 : 0), S.filter ? function (th, ph) { return S.filter(th, ph, ph - hairlineOf(K, body, th, S)); } : null);
     for (var i = 0; i < rs.length; i++) { var th = rs[i][0], ph = rs[i][1], dh = rs[i][2]; var L = regionLen(S.L, th, ph) * (Ly.lenK || 1) * (0.55 + 0.45 * sstep(0, 0.12, dh)); if (L < 0.004) continue;
-      if (S.partGap && ph > 0.55 && Math.cos(th) > -0.2) { var px = Math.cos(ph) * Math.sin(th) * 0.09; if (Math.abs(px - (S.part || 0)) < S.partGap * (0.5 + 0.5 * rnd())) continue; }
+      if (S.partGap && ph > 0.55 && Math.cos(th) > -0.2) { var px = Math.cos(ph) * Math.sin(th) * 0.09; if (Math.abs(px - (S.part || 0)) < S.partGap * rnd() * rnd()) continue; }
       if (hat && hat.covers(th, ph) && L < (hat.minLen || 0.06)) continue;
-      var stack = (S.stack !== undefined ? S.stack : (S.long ? 0.012 : 0.004)) * sstep(-0.5, 1.45, ph); var clr = Ly.clr * 0.6 + stack;
-      var root = surf(K, th, ph, Ly.clr * 0.4), n = surfN(K, th, ph);
+      var stack = (S.stack !== undefined ? S.stack : (S.long ? 0.0045 : 0.003)) * sstep(-0.5, 1.45, ph); var clr = Ly.clr * 0.6 + stack;
+      var edge = 1 - sstep(0.0, 0.07, dh); var root = surf(K, th, ph, Ly.clr * 0.4 * (1 - edge) + 0.0003 * edge), n = surfN(K, th, ph);
       var st = growStrand(K, SL, { len: L, clr: clr, seg: Ly.seg || S.seg, hug: Ly.hug, gravK: Ly.gravK }, root, n, th, ph, rnd, hat);
-      card(acc, K, st, Ly.w * (0.8 + 0.4 * rnd()), Ly.tex, Ly.ao, rnd, Ly.twist, Ly.taper); if ((i & 127) === 127) yield 0; }
+      card(acc, K, st, Ly.w * (0.62 + 0.76 * rnd() * rnd() + 0.2 * rnd()), Ly.tex, Ly.ao, rnd, Ly.twist, Ly.taper, null, 0.55 + 0.4 * edge); if ((i & 127) === 127) yield 0; }
   }
   // hair pulled back over the scalp to a point (buns, ponytails)
   function* pulled(acc, K, body, S, to, n, hat, rnd, tex) {
     var SL = Object.assign({}, S, { flow: "to", _to: to, lift: 0.02, grav: 0, jitter: 0.04 }); var rs = roots(K, body, S, n, 4000 + S.id);
     for (var i = 0; i < rs.length; i++) { var th = rs[i][0], ph = rs[i][1]; if (hat && hat.covers(th, ph)) { var e = AV.fromSph(K, th, ph, 1, [0, 0, 0]); } var root = surf(K, th, ph, 0.001), nn = surfN(K, th, ph); var dist = vlen(vsub(to, root)); if (dist < 0.012) continue;
-      var st = growStrand(K, SL, { len: dist * 1.7, clr: 0.0022 + 0.002 * rnd(), seg: 14, hug: 0.0015 }, root, nn, th, ph, rnd, hat); card(acc, K, st, 0.02 * (0.8 + 0.4 * rnd()), tex === undefined ? T.STRAIGHT : tex, 0.65 + 0.3 * rnd(), rnd, 0.2, 0.2); if ((i & 127) === 127) yield 0; }
+      var st = growStrand(K, SL, { len: dist * 1.7, clr: 0.0015 + 0.0015 * rnd(), seg: 14, hug: 0.001 }, root, nn, th, ph, rnd, hat); card(acc, K, st, 0.0125 * (0.65 + 0.7 * rnd()), tex === undefined ? T.STRAIGHT : tex, 0.65 + 0.3 * rnd(), rnd, 0.2, 0.35); if ((i & 127) === 127) yield 0; }
   }
   function tieRing(K, at, axis, r) { var acc = new Acc(); var b1 = vnorm(vcross(axis, Math.abs(axis[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), b2 = vcross(axis, b1); var P = [], D = [];
     for (var k = 0; k <= 18; k++) { var a = k / 18 * TAU; P.push(vadd(vadd(at, b1, Math.cos(a) * r), b2, Math.sin(a) * r)); D.push(vnorm(vadd(vmult(b1, -Math.sin(a)), b2, Math.cos(a)))); } tube(acc, K, P, D, 0.0035, 0.0035, T.BRAID, 0.6, rng(5), 6); return acc; }
   var SPECIAL = {
     bun: function* (acc, K, body, S, hat, rnd) {
       var high = !hat || !hat.covers(Math.PI, 1.0); var th0 = Math.PI, ph0 = high ? 1.02 : (hat.bunPh !== undefined ? hat.bunPh : -0.05); var at = surf(K, th0, ph0, 0.002), ax = surfN(K, th0, ph0); if (!high) ax = vnorm(vadd(ax, [0, -0.3, 0], 1));
-      yield* pulled(acc, K, body, S, at, 1500, hat, rnd);
+      yield* pulled(acc, K, body, S, at, 2300, hat, rnd);
       var Rm = body === "f" ? 0.024 : 0.021, rm = body === "f" ? 0.017 : 0.015, B = vadd(at, ax, rm * 0.9); var u = vnorm(vcross(ax, [1, 0, 0])), v = vcross(ax, u);
       for (var k = 0; k < 170; k++) { var psi0 = k * 2.39996, P = [], D = [], N = []; var span = TAU * (0.55 + 0.35 * rnd()), f0 = rnd() * TAU;
         for (var i = 0; i <= 18; i++) { var f = f0 + span * i / 18, psi = psi0 + i * 0.09; var rr = Rm + rm * Math.cos(psi); var p = vadd(vadd(vadd(B, u, rr * Math.cos(f)), v, rr * Math.sin(f)), ax, rm * Math.sin(psi)); P.push(p); var nr = vnorm(vadd(vadd(vmult(u, Math.cos(psi) * Math.cos(f)), v, Math.cos(psi) * Math.sin(f)), ax, Math.sin(psi))); N.push(nr); }
@@ -415,7 +418,7 @@
     },
     pony: function* (acc, K, body, S, hat, rnd, extra) {
       var ph0 = hat && hat.tailPh !== undefined ? hat.tailPh : (body === "f" ? 0.42 : 0.5); var at = surf(K, Math.PI, ph0, 0.002), ax = surfN(K, Math.PI, ph0);
-      yield* pulled(acc, K, body, S, at, 1500, hat, rnd);
+      yield* pulled(acc, K, body, S, at, 2300, hat, rnd);
       // the tail's centre line: out from the tie, then down the back
       var C = [vadd(at, ax, 0.006)], d = vnorm(vadd(ax, [0, -0.25, 0], 1)), seg = 0.02, len = body === "f" ? 0.34 : 0.27; var n = Math.round(len / seg);
       for (var i = 1; i <= n; i++) { d = vnorm(vadd(d, [0, -1, 0], 0.55)); var q = vadd(C[i - 1], d, seg); collide(K, q, 0.028, null, _o); q = [_o[0], _o[1], _o[2]]; d = vnorm(vsub(q, C[i - 1])); C.push(q); }
@@ -1071,7 +1074,7 @@
   function grid(items, sel, onPick, thumb, pre) { var g = el("div", "avs-grid"); items.forEach(function (it, i) { var lk = pre && AV.isUnlocked && !AV.isUnlocked(pre + it.id); var b = el("button", "avs-tile" + (it.id === sel ? " on" : "") + (lk ? " lock" : "")); b.dataset.id = it.id; var im = el("i", "im" + (thumb ? "" : " none")); if (thumb) { im.setAttribute("style", thumbStyle(thumb.sheet, thumb.index(it, i)) + ";--row:" + thumbRow(thumb.index(it, i), thumb.n)); im.style.backgroundPosition = ((thumb.index(it, i) % 6) / 5 * 100) + "% " + thumbRow(thumb.index(it, i), thumb.n); } else im.textContent = it.icon || ""; b.appendChild(im); b.appendChild(el("span", "", it.n)); b.title = lk ? it.n + " (unlock it through quests)" : it.n; b.onclick = function () { if (lk) { try { sfx("ui"); } catch (e) {} return; } onPick(it.id); }; g.appendChild(b); }); return g; }
   function swatches(list, val, onPick, custom) { var w = el("div", "avs-sw"); list.forEach(function (c) { var hex = Array.isArray(c) ? c[0] : c; var b = el("button", hex === val ? "on" : ""); b.style.background = "#" + hex; b.title = Array.isArray(c) ? c[1] : "#" + hex; b.onclick = function () { onPick(hex); }; w.appendChild(b); }); if (custom) { var inp = el("input"); inp.type = "color"; inp.value = "#" + val; inp.title = "Any colour"; inp.oninput = function () { onPick(inp.value.slice(1)); }; w.appendChild(inp); } return w; }
   function lab(t, v) { return el("div", "avs-lab", t + (v ? "<b>" + v + "</b>" : "")); }
-  var COPY = { body: ["Body", "Your build, height and skin tone."], hair: ["Hair", "Seventeen cuts, fitted to your head. Each one replaces your hair completely."], haircol: ["Hair colour", "Natural shades from root to tip, plus a few bold ones."], head: ["Headwear", "Caps, a beanie, a bucket hat, a desert cowboy hat and Sunfield flight gear. Your hair tucks under."], eyes: ["Eyewear", "Frames fitted to your eyes and ears."], acc: ["Accessories", "Jewellery and a watch."], outfit: ["Outfit", "Shirt, trousers and shoes."] };
+  var COPY = { body: ["Body", "Your build, height and skin tone."], hair: ["Hair", "Seventeen cuts, fitted to your head. Each one replaces your hair completely."], haircol: ["Hair colour", "Natural shades from root to tip, plus a few bold ones."], head: ["Headwear", "Caps, a beanie, a bucket hat, a desert cowboy hat and Solport flight gear. Your hair tucks under."], eyes: ["Eyewear", "Frames fitted to your eyes and ears."], acc: ["Accessories", "Jewellery and a watch."], outfit: ["Outfit", "Shirt, trousers and shoes."] };
   function renderPanel() {
     var P = $q("#avs-body"), H = $q("#avs-ph"); if (!P) return; var c = ST.cat, L = ST.look; P.innerHTML = ""; H.innerHTML = "<h3>" + COPY[c][0] + "</h3><div class='s'>" + COPY[c][1] + "</div>";
     if (c === "body") { P.appendChild(lab("Body")); var sg = el("div", "avs-seg"); [["m", "Man"], ["f", "Woman"]].forEach(function (b) { var x = el("button", L.body === b[0] ? "on" : "", b[1]); x.onclick = function () { setL("body", b[0]); renderPanel(); }; sg.appendChild(x); }); P.appendChild(sg);

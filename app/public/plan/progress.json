@@ -19,7 +19,7 @@
       "name": "Pilot",
       "xp": 750,
       "color": "#4DDE6F",
-      "blurb": "You have found your way around Sunfield.",
+      "blurb": "You have found your way around Solport.",
       "perks": [
         "Pilot wings on your nameplate, seen by everyone",
         "Stamp Travel: travel instantly from your passport to any place you have stamped",
@@ -46,7 +46,7 @@
       "blurb": "The rarest rank. You have seen everything Genesis has to offer.",
       "perks": [
         "The Tower beacon badge on your nameplate",
-        "The Tower Lookout: ride the lift to the roof deck of the Sunfield control tower",
+        "The Tower Lookout: ride the lift to the roof deck of the Solport control tower",
         "Tower Crimson paint for your golf cart"
       ]
     }
@@ -194,14 +194,13 @@
     {
       "id": "solport",
       "n": 0,
-      "name": "Sunfield Airfield",
+      "name": "Solport Airfield",
       "sub": "The old airfield, where every visit starts",
       "ink": "#2c5d9c",
       "stamps": [
         {
           "n": 0,
           "id": "p_terminal",
-          "name": "Sunfield Terminal",
           "place": "terminal",
           "r": 34
         },
@@ -1071,7 +1070,7 @@
       "id": "partners",
       "n": 9,
       "name": "Industry Partners",
-      "sub": "Meet the partners in the Terminal",
+      "sub": "Meet the partners in the FBO and at GBANK",
       "ink": "#0f4a2c",
       "bonus": 400,
       "stamps": [
@@ -1080,8 +1079,16 @@
           "id": "t_pt_stellar",
           "talk": "pt_stellar",
           "kind": "partner",
-          "name": "Dale Calder",
-          "org": "Sunfield Terminal"
+          "name": "Brad Kost",
+          "org": "Stellar Aviation"
+        },
+        {
+          "n": 171,
+          "id": "t_pt_paul",
+          "talk": "pt_paul",
+          "kind": "partner",
+          "name": "Paul Mazzapica",
+          "org": "FinanceAdvisors.com"
         },
         {
           "n": 172,
@@ -1089,7 +1096,7 @@
           "talk": "pt_jetfinders",
           "kind": "partner",
           "name": "Jake",
-          "org": "Tailwind Jets"
+          "org": "JetFinders"
         },
         {
           "n": 173,
@@ -1097,7 +1104,15 @@
           "talk": "freedomair",
           "kind": "partner",
           "name": "Joe",
-          "org": "Open Range Air"
+          "org": "Freedom Air"
+        },
+        {
+          "n": 174,
+          "id": "t_will",
+          "talk": "will",
+          "kind": "partner",
+          "name": "Will Deitrick",
+          "org": "GBANK · Riverside Management Group"
         }
       ]
     },
@@ -1238,7 +1253,7 @@
       "id": "darksky",
       "n": 11,
       "name": "The Dark Sky",
-      "sub": "The Stargazer Pyramids and the Sunfield Dark Sky Observatory",
+      "sub": "The Stargazer Pyramids and the Solport Dark Sky Observatory",
       "ink": "#2b2f6b",
       "stamps": [
         {
@@ -1252,7 +1267,7 @@
         {
           "n": 201,
           "id": "p_dark_sky_observatory",
-          "name": "Sunfield Dark Sky Observatory",
+          "name": "Solport Dark Sky Observatory",
           "x": 772,
           "z": 772,
           "r": 13
@@ -1271,7 +1286,7 @@
           "talk": "astronomer",
           "kind": "local",
           "name": "Dr. Celeste Ruiz",
-          "org": "Sunfield Dark Sky Observatory"
+          "org": "Solport Dark Sky Observatory"
         }
       ]
     },
@@ -1375,14 +1390,14 @@
     {
       "id": "convention",
       "n": 13,
-      "name": "Sunfield Convention Center",
-      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Cart Park and the Market Garden beside the Sunfield Terminal",
+      "name": "Solport Convention Center",
+      "sub": "The main arena, the Market Hall, the Festival Grounds, the Solar Cart Park and the Market Garden beside the Stellar FBO",
       "ink": "#8a4a22",
       "stamps": [
         {
           "n": 221,
           "id": "p_solport_arena",
-          "name": "Sunfield Convention Center",
+          "name": "Solport Convention Center",
           "x": -270,
           "z": -90,
           "r": 30
@@ -1401,7 +1416,7 @@
           "talk": "maren",
           "kind": "local",
           "name": "Maren",
-          "org": "Host, Sunfield Convention Center"
+          "org": "Host, Solport Convention Center"
         },
         {
           "n": 230,
@@ -1433,7 +1448,7 @@
           "talk": "jordan",
           "kind": "local",
           "name": "Jordan",
-          "org": "Campus host, Sunfield Convention Center"
+          "org": "Campus host, Solport Convention Center"
         },
         {
           "n": 240,
@@ -2320,12 +2335,61 @@
           "r": 0.3
         }
       ]
+    },
+    {
+      "id": "sanctuary",
+      "name": "Gentle Gate Animal Sanctuary",
+      "sub": "Rescue and care beside the Frontier Ranch: feed, meet and sponsor the residents",
+      "ink": "#7fbf6a",
+      "stamps": [
+        {
+          "n": 446,
+          "id": "p_sa_welcome",
+          "name": "Through the Gentle Gate",
+          "x": 838.0,
+          "z": -25.0,
+          "r": 0.3
+        },
+        {
+          "n": 447,
+          "id": "p_sa_feed",
+          "name": "Breakfast at the fence",
+          "x": 824.0,
+          "z": -48.0,
+          "r": 0.3
+        },
+        {
+          "n": 448,
+          "id": "p_sa_friends",
+          "name": "A friend in every yard",
+          "x": 883.0,
+          "z": -58.0,
+          "r": 0.3
+        },
+        {
+          "n": 449,
+          "id": "p_sa_adopt",
+          "name": "Sponsor a resident",
+          "x": 850.1,
+          "z": -27.8,
+          "r": 0.3
+        },
+        {
+          "n": 450,
+          "id": "p_sa_tortoise",
+          "name": "Slow and steady",
+          "x": 895.0,
+          "z": -66.0,
+          "r": 0.3
+        }
+      ],
+      "n": 26
     }
   ],
   "titles": [
     {
       "id": "solport_regular",
-      "name": "Sunfield Regular",
+      "name": "Solport Regular",
       "unlock": "chapter:solport"
     },
     {
@@ -2547,7 +2611,7 @@
     },
     {
       "t": "Meet the Industry Partners",
-      "d": "Your first conversation with Dale, Jake and Joe.",
+      "d": "Your first conversation with Brad, Paul, Jake, Joe and Will.",
       "xp": "+100 XP each"
     },
     {
@@ -2604,7 +2668,7 @@
   "rules": "Ranks are earned by play only. They are never bought and never tied to coins, tokens or money. Repeat XP from activities, flights, landings and rides is capped each day; stamps, firsts and bonuses are not.",
   "copy": {
     "title": "SOL PASSPORT",
-    "issuer": "Genesis · Sunfield, the high desert",
+    "issuer": "Genesis · Solport, the high desert",
     "mrzTag": "SOL",
     "hudHint": "Passport",
     "stampToast": "Passport stamp",

@@ -15,8 +15,8 @@
     "windsock": { "t": "Windsock", "k": "Read the wind before every flight", "p": "The sock points where the wind is going. Fully stretched out it means about fifteen knots; drooping means calm. The white circle round it is a segmented circle, the ground marker pilots look for from the air." },
     "fuel": { "t": "Fuel truck", "k": "Avgas for the trainers", "p": "The academy's refueller carries aviation gasoline for the piston trainers. A pilot checks the fuel on every walkaround: a sample from each tank, clear and blue, no water." },
     "hangar": { "t": "Training Hangar", "k": "Glass and steel on the flight line", "p": "A clear span of steel portal frames under a roof that lifts toward the apron, glass hangar doors that stack open, sandstone at the base and warm metal above. One trainer is in for its inspection; the sim pods line the back wall." },
-    "simcenter": { "t": "Sim Center", "k": "Three pods, one circuit", "p": "Each pod is a wrap-around cockpit set up for Giveback One. Press E at an open pod for a lesson: the sim puts you on Runway 03, you fly the nine gates of the Sunfield circuit and land on Runway 21, then come back here for your debrief." },
-    "briefing": { "t": "Briefing room", "k": "The Sunfield circuit on the wall", "p": "The big chart shows the field as a pilot sees it: Runway 03/21, the taxiways and the Flight Line Taxilane, and the nine gates of the lesson route from the Terminal over Main Street, Compass Plaza, The Outpost, Desert Golf and Genesis Park to the right base for Runway 21." },
+    "simcenter": { "t": "Sim Center", "k": "Three pods, one circuit", "p": "Each pod is a wrap-around cockpit set up for Giveback One. Press E at an open pod for a lesson: the sim puts you on Runway 03, you fly the nine gates of the Solport circuit and land on Runway 21, then come back here for your debrief." },
+    "briefing": { "t": "Briefing room", "k": "The Solport circuit on the wall", "p": "The big chart shows the field as a pilot sees it: Runway 03/21, the taxiways and the Flight Line Taxilane, and the nine gates of the lesson route from the Stellar FBO over Main Street, Compass Plaza, The Outpost, Desert Golf and Genesis Park to the right base for Runway 21." },
     "classroom": { "t": "Ground school", "k": "Lift, weight, thrust and drag", "p": "Ground school covers the four forces, the airspace, the weather and the radio before anyone flies. Take a seat for a lesson (sit at a desk or at the briefing table)." },
     "lounge": { "t": "Pilot lounge", "k": "Coffee with a view of the apron", "p": "Where students wait out the weather, log their hours and watch the trainers taxi out. The coffee is always on." },
     "dispatch": { "t": "Dispatch", "k": "Check in, sign out, log your flight", "p": "Every lesson starts and ends here. The flight board shows the day's lessons; the logbook on the stand keeps your stamps and every sim lesson you fly." },
@@ -27,7 +27,7 @@
       "greet": ["Welcome to the flight line.", "Pods are warm, the circuit is set."],
       "talk": [
         { "t": "Welcome to the Genesis Flight Academy. Ground school in the classrooms, the plan in the briefing room, and three sim pods back here for the flying. Ready to start a logbook?", "o": [["How do lessons work?", 1], ["What should I learn first?", 2], ["Tell me about this field", 3], ["See you on the flight line", null]] },
-        { "t": "Step up to any open sim pod and press E. The pod puts you in the left seat of Giveback One, lined up on Runway 03. Fly the nine gates of the Sunfield circuit, land on Runway 21 and stop. When you come back, your debrief and a logbook entry are waiting at the pod.", "o": [["What counts in the score?", 4], ["Back", 0]] },
+        { "t": "Step up to any open sim pod and press E. The pod puts you in the left seat of Giveback One, lined up on Runway 03. Fly the nine gates of the Solport circuit, land on Runway 21 and stop. When you come back, your debrief and a logbook entry are waiting at the pod.", "o": [["What counts in the score?", 4], ["Back", 0]] },
         { "t": "Start with a walkaround. Before every flight a pilot checks the aircraft: the nose and propeller, each wing tip, the tail. Walk all the way round one of our trainers on the apron, then sit in on ground school, then fly the sim.", "o": [["Back", 0]] },
         { "t": "This field has been flying for almost a century, right on the border. Our students fly from the same ground. The display in the lobby tells the story.", "o": [["Back", 0]] },
         { "t": "Gates, your touchdown rate, the centreline, the touchdown zone, smoothness and time. A gentle, centred landing on the aim point beats a fast one. Keep the sink rate under six hundred feet a minute and the wings level.", "o": [["Back", 0]] }
@@ -36,7 +36,7 @@
       "greet": ["Dispatch, good morning.", "Sign in and grab a pod."],
       "talk": [
         { "t": "Dispatch. The pods are open and Giveback One is on its stand by the Tower. Your logbook is on the stand right here: press E at it any time.", "o": [["What's on the board today?", 1], ["Where do I start?", 2], ["Thanks", null]] },
-        { "t": "Circuits all day: the Sunfield circuit in the sims, ground school on the hour in the classroom, walkarounds on the apron between lessons. Night lessons when the stars come out.", "o": [["Back", 0]] },
+        { "t": "Circuits all day: the Solport circuit in the sims, ground school on the hour in the classroom, walkarounds on the apron between lessons. Night lessons when the stars come out.", "o": [["Back", 0]] },
         { "t": "Walk round a trainer on the apron, sit in on ground school, then talk to Maya in the hangar about your first sim lesson. Every step stamps your logbook.", "o": [["Back", 0]] }
       ] }
   },
@@ -44,7 +44,7 @@
     "people": ["Ava", "Kai", "Priya", "Jonah", "Lena", "Marco", "Tess", "Omar"],
     "lines": {
       "walk": ["Fuel's clear, no water.", "Left wing tip, check.", "Control surfaces free and correct.", "Pitot cover off."],
-      "class": ["So the wing makes lift from the angle of attack...", "What's the frequency for Sunfield?", "I keep forgetting the left-turn rule."],
+      "class": ["So the wing makes lift from the angle of attack...", "What's the frequency for Solport?", "I keep forgetting the left-turn rule."],
       "map": ["Gate five is Desert Golf, then Genesis Park.", "Right base for Runway 21, got it."],
       "lounge": ["Did you grease it?", "Six hundred feet a minute, max.", "Best score this week, look."],
       "sim": ["My turn in pod two.", "I bounced it twice.", "Flaps thirty-five, one-ten knots."],
@@ -53,7 +53,7 @@
     }
   },
   "lesson": {
-    "title": "Lesson 1 · The Sunfield circuit",
+    "title": "Lesson 1 · The Solport circuit",
     "brief": "The sim puts you in the left seat of Giveback One on Runway 03. Fly the nine gates, then land on Runway 21 in the green zone and stop.",
     "steps": [
       "The tug lines you up on Runway 03",

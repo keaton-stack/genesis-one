@@ -33,7 +33,7 @@
         89
       ],
       "r": 80,
-      "k": "Sunfield Convention Center · park, charge, ride",
+      "k": "Solport Convention Center · park, charge, ride",
       "poly": [
         [
           -466,
@@ -62,7 +62,7 @@
         92
       ],
       "r": 45,
-      "k": "Sunfield Convention Center · grown for the Market Hall",
+      "k": "Solport Convention Center · grown for the Market Hall",
       "poly": [
         [
           -244,
@@ -95,13 +95,13 @@
   "info": {
     "park": [
       "Solar Cart Park",
-      "Sunfield Convention Center · park under the sun",
+      "Solport Convention Center · park under the sun",
       "Thirty-five steel canopies carry the panels that run the campus and shade every bay. Golf carts park two to a bay and charge from the seventy pedestals while their owners are at the summit; the few car bays are by the connector to the Flight Line Gate road and by the Shuttle Hub, where the accessible bays are. The walk along the Market Hall takes you to its doors and on to the arena and the Festival Grounds."
     ],
     "hub": [
       "Shuttle Hub",
       "Grand Loop · bike share · cart share · drop-off",
-      "The Grand Loop electric shuttle calls here on every lap, then runs to the Convention Center drop-off, Link Plaza and the Sunfield Terminal, round all three stages to Main Street and the Commons and back. The board shows the next shuttle. Bikes and carts are free to borrow: leave them in any share bay."
+      "The Grand Loop electric shuttle calls here on every lap, then runs to the Convention Center drop-off, Link Plaza and the Stellar Aviation FBO, round all three stages to Main Street and the Commons and back. The board shows the next shuttle. Bikes and carts are free to borrow: leave them in any share bay."
     ],
     "ev": [
       "Cart charging",
@@ -115,7 +115,7 @@
     ],
     "garden": [
       "Market Garden",
-      "Sunfield Convention Center · a working desert farm",
+      "Solport Convention Center · a working desert farm",
       "Raised timber and corten beds of chiles, squash, herbs, greens and tomatoes, rows of corn, a citrus, pomegranate and olive orchard and a hoop greenhouse, all on drip lines. Everything goes fifty metres to the Market Hall kitchens, and what is left goes on the farm stand."
     ],
     "greenhouse": [
@@ -343,7 +343,7 @@
         "match": "convention center"
       },
       {
-        "label": "Sunfield Terminal",
+        "label": "Stellar Aviation FBO",
         "sub": "Arrivals Court",
         "match": "arrivals court"
       },
@@ -363,7 +363,7 @@
     "Solar Cart Park",
     "Convention Center",
     "Link Plaza",
-    "Arrivals Court (Terminal)",
+    "Arrivals Court (FBO)",
     "Crossing Plaza",
     "North Gate",
     "Night Field Gate",

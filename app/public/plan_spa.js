@@ -366,7 +366,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function ringWall(K, mat, col, r, y0, y1, cu, cv, seg, inward) { var pos = [], nrm = [], uv = [], t = TILE[mat] || 1; seg = seg || 32;
     for (var i = 0; i < seg; i++) { var a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU, c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
       var A = [cu + c0 * r, y0, cv + s0 * r], B = [cu + c1 * r, y0, cv + s1 * r], Cc = [cu + c1 * r, y1, cv + s1 * r], D = [cu + c0 * r, y1, cv + s0 * r];
-      var tri = inward ? [A, Cc, B, A, D, Cc] : [A, B, Cc, A, Cc, D]; var nn = inward ? -1 : 1;
+      var tri = inward ? [A, B, Cc, A, Cc, D] : [A, Cc, B, A, D, Cc]; var nn = inward ? -1 : 1;   // R19 IN3: the winding was reversed (the tubs' and the planter's outer walls faced in, so they were see-through from outside)
       tri.forEach(function (p, k) { pos.push(p[0], p[1], p[2]); var a = (p === A || p === D) ? a0 : a1; nrm.push(Math.cos(a) * nn, 0, Math.sin(a) * nn); uv.push(a * r / t, p[1] / t); }); }
     var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); return K.add(mat, g, col, null, "keep"); }
   function ringSolids(cu, cv, r, top, n) { for (var i = 0; i < n; i++) { var a = i / n * TAU, w = 2 * r * Math.tan(PI / n) + 0.1; var p = [cu + Math.cos(a) * r, cv + Math.sin(a) * r]; solid(p[0], p[1], w, 0.3, -0.3, top, -a + PI / 2, { noStep: true }); } }

@@ -278,7 +278,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     card(x, SA.r.tl2, "RAIL", "RAILS AND RANCHES", "Trains, cattle and cotton tie the valley to the rest of the country.");
     card(x, SA.r.tl3, "1920s", "BARNSTORMERS", "Open cockpits and packed-earth strips: the first flyers land on the valley floor.");
     card(x, SA.r.tl4, "1928", "WHEELS DOWN", "The airfield opens: packed earth, a hangar, a windsock and a town in its Sunday best.");
-    card(x, SA.r.tl5, "TODAY", "SUNFIELD", "The old airfield flies on as Sunfield: the same runway, the same field.");
+    card(x, SA.r.tl5, "TODAY", "SOLPORT", "The 1928 airfield flies on as Solport: Runway 03/21, the same field.");
     [["s0", "QUIET PLEASE · SILENCIO"], ["s1", "CIRCULATION"], ["s2", "REFERENCE"], ["s3", "FICTION"], ["s4", "HIGH DESERT"], ["s5", "AVIATION"], ["s6", "THE NIGHT SKY"], ["s7", "THE 1928 ARCHIVE"]].forEach(function (q) { woodBoard(x, SA.r[q[0]], q[1], q[1].length > 14 ? 24 : 32); });
     var f = SA.r.files; x.fillStyle = "#d8ccb0"; x.fillRect(f[0], f[1], f[2], f[3]); for (var i = 0; i < 8; i++) { x.strokeStyle = "#5a4630"; x.lineWidth = 2; x.strokeRect(f[0] + i * 128 + 8, f[1] + 10, 112, 44); txt(x, ["OLD MAPS", "FIELD PLANS", "THE LINE", "RAILROAD", "SMELTER", "RANCHES", "AIR MAIL", "MISC."][i], f[0] + i * 128 + 64, f[1] + 32, "700 15px " + FT.serif, "#3a2716", 1, "center", 104); }
   }); }

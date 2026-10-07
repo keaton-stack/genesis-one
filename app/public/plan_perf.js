@@ -330,12 +330,13 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!P.K.shTurns || !sm.enabled || IC.kind || n < 2) { for (i = 0; i < n; i++) L[i].shadow.autoUpdate = true; return; }
     var every = 2; try { every = (FLY.on || SITES.ride || SITES.bride) ? 1 : (QUAL.q.shadowEvery || 1); } catch (e) {}
     var cp = camera.position; if (!SHT.cam) SHT.cam = cp.clone();
-    var all = SHT.cam.distanceToSquared(cp) > 400 || c.lastFar !== SHT.far; SHT.cam.copy(cp); SHT.far = c.lastFar;
+    var all = SHT.cam.distanceToSquared(cp) > 400 || c.lastFar !== SHT.far; SHT.cam.copy(cp); SHT.far = c.lastFar; if (P.shAllOnce) { all = true; P.shAllOnce = false; }   /* R19 OP: tests ask for every cascade in the next render */
     var f = FRAME_N, due = SHT.due;
     for (i = 0; i < n; i++) due[i] = all;
     if (every <= 1) { due[0] = true; due[n === 4 && P.K.r6 ? R6TURN[f % 6] : 1 + f % (n - 1)] = true; }   /* R6: on ultra the middle cascade every 2nd frame, the next every 3rd, the far one (1,300 draws, static at that range) every 6th */
     else { var slot = f % (2 * (n - 1)); if (slot % 2 === 0) due[0] = true; else due[1 + (slot >> 1)] = true; }
-    if (P.K.r6 && !all) for (i = 2; i < n; i++) if (due[i] && farStill(i, cp, csm)) due[i] = false;   /* R6: a far cascade is not redrawn while the view and the sun stand still (at most 2 s) */
+    if (P.K.r6 && !all) for (i = 2; i < n; i++) if (due[i] && farStill(i, cp, csm)) due[i] = false;
+    var OPK = P.opK; if (OPK && OPK.sh > 0 && !all) { var oc = SHT.opc || (SHT.opc = [0, 0, 0, 0]); for (i = (OPK.sh > 1 && n === 4) ? 1 : 2; i < n; i++) if (due[i] && (++oc[i] & 1) === 1) due[i] = false; }   /* R19 OP governor: the far (and at its second step the middle) cascades redraw at half their rate */   /* R6: a far cascade is not redrawn while the view and the sun stand still (at most 2 s) */
     for (i = 0; i < n; i++) { var s = L[i].shadow; L[i].__p3csm = true; s.autoUpdate = false; if (due[i]) { s.needsUpdate = true; if (P.K.r6) farMark(i, cp, csm); } }
     sm.needsUpdate = true; SHT.on = true;
   }
@@ -494,8 +495,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // land: they are drawn in the first minutes anyway, and R6 drops a KTX2 texture's transcoded data from the heap 10 s after its
   // upload (a texture never uploaded keeps it, and the heap is already near 3 GB of its 4 GB limit while the world streams)
   var LDT = { seen: {}, q: [], n: 0, ms: 0 };
-  function ldTexScan(PSm) { var ks = (PSm.bootKinds || []).concat(PSm.hold ? PSm.hold.ks : []);
-    for (var i = 0; i < ks.length; i++) { var k = ks[i]; if (LDT.seen[k] || PSm.st[k] !== "full") continue; LDT.seen[k] = 1; var m = MODELS[k]; if (!m || !m.parts) continue;
+  // R19 OP (?opldtex=0, high and ultra): the interior-only kinds the boot's room samples woke (no placement in the world: hangar,
+  // FBO, manor, terminal, dock, the jet cabin, ...) were transcoded but never uploaded, so their texture data stayed in the heap
+  // (about 0.3 to 0.45 GB of the 1.7 GB left after a collection); their textures go up behind the screen too, and R6 drops the
+  // data 10 s later (the GPU holds them from the start instead of from the first visit)
+  var OPLT = !/[?&](op|opldtex)=0\b/.test(Q);
+  var LDW = { at: 0, ks: [] };
+  function ldWoken(PSm) { try { var q = QUAL.level; if (!OPLT || (q !== "high" && q !== "ultra")) return LDW.ks; var t = now(); if (t - LDW.at < 1500) return LDW.ks; LDW.at = t; var out = [];
+    for (var k in MODELS) { var m = MODELS[k]; if (!m || !m.parts || m.proxy || (PLACE[k] && PLACE[k].length)) continue; var st = PSm.st[k]; if (st !== undefined && st !== "full") continue; out.push(k); } LDW.ks = out; } catch (e) {} return LDW.ks; }
+  function ldTexScan(PSm) { var ks = (PSm.bootKinds || []).concat(PSm.hold ? PSm.hold.ks : [], ldWoken(PSm));
+    for (var i = 0; i < ks.length; i++) { var k = ks[i]; if (LDT.seen[k] || (PSm.st[k] !== "full" && PSm.st[k] !== undefined)) continue; LDT.seen[k] = 1; var m = MODELS[k]; if (!m || !m.parts) continue;
       m.parts.forEach(function (pt) { var ms = Array.isArray(pt.material) ? pt.material : [pt.material]; ms.forEach(function (mt) { if (!mt) return; for (var key in mt) { var v = mt[key]; if (v && v.isTexture && !v.isRenderTargetTexture && !v.isVideoTexture && !LDTS.has(v)) { LDTS.add(v); LDT.q.push(v); } } }); }); } }
   function ldTexUp(budget) { var t0 = now(), n = 0; while (LDT.q.length && (n === 0 || now() - t0 < budget)) { var tx = LDT.q.shift(); try { if (texReady(tx) && texPending(tx)) { renderer.initTexture(tx); LDT.n++; n++; } } catch (e) { note("ld tex", e); } } LDT.ms += now() - t0; }
   // and the textures of everything else drawn in the scene within LD.K.texR of the spawn (the modules' own meshes; hidden groups
@@ -513,10 +522,22 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!LD.active) return;
     var sw = LD.sweep; if (sw) { var f = Math.min(1, (t - sw.t0) / LD.K.sweepMs); try { yaw = sw.yaw0 + f * Math.PI * 2; } catch (e) {} if (f >= 1) sw.done = true; }
     try { runQueue(LD.K.qBudget); } catch (e) { note("ld queue", e); }
+    try { ldRooms(t); } catch (e) { note("ld rooms", e); }
     var pg = renderer.info.programs ? renderer.info.programs.length : 0, st = LD.settle;
     if (st) { if (dt > 0 && dt < LD.K.settleMs && pg === LDF.pg && !sw) st.n++; else st.n = 0; st.best = Math.max(st.best || 0, st.n); }
     LDF.pg = pg;
   }
+  // R19 OP (?oprw=0): plan_rooms' warm-up (room textures, 2048 px JPEGs at 13 to 74 ms an upload, and the rooms' materials) waited
+  // for 4 s after the loading screen went and then ran in play (3 ms a frame on average for 10 to 15 s, single frames up to 74 ms);
+  // it now runs behind the screen, its own hook called up to four times a frame, and the settle waits for its first pass (at most
+  // the settle window)
+  var OPRW = !/[?&](op|oprw)=0\b/.test(Q), RWF = null;
+  function ldRoomsWU() { return OPRW && window.PLAN_ROOMS && PLAN_ROOMS.wu ? PLAN_ROOMS.wu : null; }
+  function ldRooms(t) { var W = ldRoomsWU(); if (!W) return; W.go = true; if (!W.outAt || t - W.outAt < 1300) W.outAt = t - 1300;
+    if (!RWF) { var L = window.PLAN_HOOKS.frame; for (var i = 0; i < L.length; i++) if (L[i] && L[i].name === "planRoomsWarm") RWF = L[i]; if (!RWF) return; }
+    var t0 = now(), s0 = PRE.state; PRE.state = 2;   /* its own gate waits for the end of the boot's pre-pass, which this hold is part of */
+    try { for (var k = 0; k < 4 && now() - t0 < 12 && !W.n.firstDone; k++) RWF.fn(0, t); } finally { PRE.state = s0; } LD.n.roomsMs = (LD.n.roomsMs || 0) + (now() - t0); }
+  function ldRoomsDone() { var W = ldRoomsWU(); return !W || !!W.n.firstDone; }
   async function ldHold() {
     var t0 = now(), base = P.n.clientReadyMs || t0, cap = base + LD.K.cap, PSm = window.PLAN_STREAM, ks = [], yaw0 = 0, ry0 = 0, sweeps = 0, got = 0;
     LD.active = true; LD.n.h0 = Math.round(t0); try { yaw0 = yaw; ry0 = player.rotation.y; } catch (e) {}
@@ -532,7 +553,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         if (fs < 1) { ldStep("stream"); ldMsg("Streaming the land around you (" + got + " of " + ks.length + ")"); }
         else if (sweeps < 2 || LD.sweep) { ldStep("tex"); ldMsg("Drawing every direction once: textures, shadows, materials"); }
         else { ldStep("warm"); if (!LD.settle) { LD.settle = { n: 0, t0: t }; LD.n.settle0 = Math.round(t - t0); } ldMsg(left || q || LDT.q.length ? "Final warm-up (" + (left + q + LDT.q.length) + " left)" : "Final warm-up: waiting for a steady frame rate");
-          if ((LD.settle.n >= LD.K.settleN && !left && !q && !LDT.q.length) || t - LD.settle.t0 > LD.K.settleMax) { LD.n.end = LD.settle.n >= LD.K.settleN ? "warm" : "settle timeout"; LD.n.settleBest = LD.settle.best || 0; break; } }
+          if ((LD.settle.n >= LD.K.settleN && !left && !q && !LDT.q.length && ldRoomsDone()) || t - LD.settle.t0 > LD.K.settleMax) { LD.n.end = LD.settle.n >= LD.K.settleN ? "warm" : "settle timeout"; LD.n.settleBest = LD.settle.best || 0; break; } }
         var sf = LD.settle ? Math.min(1, LD.settle.n / LD.K.settleN) : 0;
         ldBar("warm", 0.55 * fs + 0.25 * (Math.min(2, sweeps + (LD.sweep ? 0.5 : 0)) / 2) + 0.2 * sf);
         await sleep(100);
@@ -581,7 +602,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var n = 0, t0 = now();
     for (var i = 0; i < kinds.length; i++) {
       if (now() > deadline || LD.skip) break; var k = kinds[i], e = PLACE[k][0];
-      say("Preparing the graphics: " + (k === "terminal" ? "the terminal" : k === "arcade" ? "the arcade" : "interiors " + Math.round(100 * i / kinds.length) + "%"));
+      say("Preparing the graphics: " + (k === "terminal" ? "the Stellar FBO" : k === "arcade" ? "the arcade" : "interiors " + Math.round(100 * i / kinds.length) + "%"));
       var keep = { p: player.position.clone(), yaw: yaw, pitch: pitch, ry: player.rotation.y, cp: camera.position.clone(), cq: camera.quaternion.clone() };
       try { enterInterior({ kind: k, i: 0, e: e, r: MODELS[k].radius * e[4] }); if (inside && inside.g) { try { collectLights(); } catch (x) {} both(inside.g); n++; } } catch (err) { note("pre room " + k, err); }
       if (k === "terminal" && inside && inside.g) { await nextFrame(); await nextFrame(); pinPrograms(); if (window.R9 && R9.part("p")) { try { await r9WarmProbes(); } catch (e) { note("pre probes fbo", e); } } }   // two frames in the FBO behind the loading screen: the gfx floor probe and the hall pay their first-time costs here
@@ -1025,7 +1046,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     // a program's first use reads its info logs to report shader errors: two more round trips to the GPU process per program, each
     // waiting behind whatever the driver is busy with. Off in deployed builds (three's advice for production), on in dev; ?shadercheck=0/1
     if (!W.csSet && R.debug) { W.csSet = true; var dev = !window.BUILD || window.BUILD === "dev"; if (/[?&]shadercheck=0\b/.test(Q) || (!dev && !/[?&]shadercheck=1\b/.test(Q))) R.debug.checkShaderErrors = false; W.n.shaderCheck = R.debug.checkShaderErrors; }
-    try { var F = G("frame"); if (typeof F === "function" && !F.__r5) { var w = function () { P.inFrame = (P.inFrame || 0) + 1; try { return F.apply(this, arguments); } finally { P.inFrame--; } }; w.__r5 = true; (0, eval)("frame") === F && (window.frame = w); } } catch (e) { note("frame wrap", e); }   /* the whole client frame (its hooks render probes too) */
+    try { var F = G("frame"); if (typeof F === "function" && !F.__r5) { var w = function () { var t0 = now(); P.inFrame = (P.inFrame || 0) + 1; try { return F.apply(this, arguments); } finally { P.inFrame--; P.fJs = now() - t0; P.fAt = t0; } };   /* R19 OP: the client frame's JS time (the governor's CPU-bound test) */ w.__r5 = true; (0, eval)("frame") === F && (window.frame = w); } } catch (e) { note("frame wrap", e); }   /* the whole client frame (its hooks render probes too) */
     var gl = null; try { gl = R.getContext(); } catch (e) {}
     if (gl && NS.par) pollLinks(gl);
     var nr = 0; try { var ps = R.info.programs; for (var i = 0; i < ps.length; i++) if (ps[i].isReady && !ps[i].isReady()) nr++; } catch (e) {} if (nr > W.n.nrMax) W.n.nrMax = nr;
@@ -1219,8 +1240,66 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // client.js (R6 memory) drops geometry arrays a minute after upload and reads them back from the GPU if anything touches them: nothing
   // here reads a dropped array (bounds are computed only while the data is there, batches skip such meshes)
   function dropped(geo) { var a = geo.attributes; for (var k in a) if (a[k] && a[k].r6free) return true; return !!(geo.index && geo.index.r6free); }
+  // R19 OP (?opism=0): instanced shadow casters merged per tier. Every part of an instanced kind is its own InstancedMesh (same
+  // instance buffer content, its own geometry and material), and each one was a draw in every cascade it reached: 750 to 900 of
+  // the 1,300 to 1,700 shadow draws of an ultra frame with every cascade due. In a depth pass the parts that cast with three's plain
+  // depth material (no alpha-tested map, displacement, clipping, custom depth material or shadow callback) differ only in the face
+  // side, so per instanced set, tier, geometry tier (R6's LOD swap per cascade) and shadow side they are drawn as one position-only
+  // geometry with the first part's instances (count cut included); the others are skipped in that cascade's pass. Built in idle
+  // slices (2 ms a frame), checked once per cascade render against the parts (material, its version, side, geometry, flags), rebuilt
+  // when one changed (the stream's swap), dropped after three rebuilds. Not indoors (the portal culling owns the buffers there).
+  var ISM = D.ism = { on: !/[?&](op|opism)=0\b/.test(Q), c: new WeakMap(), q: [], n: { built: 0, rebuilt: 0, bad: 0, skip: 0, draw: 0, verts: 0, ms: 0, readback: 0 }, upRT: null, upCam: null, upMat: null, upScene: null };
+  var FLIPS = [1, 0, 2], O3P = THREE.Object3D.prototype;
+  function ismSide(M) { return M.shadowSide !== null && M.shadowSide !== undefined ? M.shadowSide : FLIPS[M.side]; }
+  function ismOK(o) { var M = o.material; if (!M || Array.isArray(M) || o.castShadow !== true || o.visible !== true || o.customDepthMaterial !== undefined || o.onBeforeShadow !== O3P.onBeforeShadow || o.layers.mask !== 1) return false;
+    if ((M.displacementMap && M.displacementScale !== 0) || ((M.map || M.alphaMap) && M.alphaTest > 0) || (M.clipShadows && M.clippingPlanes && M.clippingPlanes.length)) return false;
+    var g = o.geometry; if (!g || !g.attributes.position || g.attributes.position.isInterleavedBufferAttribute || g.drawRange.start !== 0 || g.drawRange.count !== Infinity) return false; return true; }
+  function lodTier(S2, tt, ci) { if (!D.lod) return tt; var want = ci >= 2 ? 2 : ci === 1 && tt === 0 ? 1 : 0; if (want <= tt) return tt;
+    for (var w = want; w > tt; w--) { var arr = tierOf(S2, w); if (!arr || !arr.length) continue; if (!arr[0].visible || !(arr[0].count > 0)) continue; return w; } return tt; }
+  function ismSig(S2, tt, w, side, E) {   // fills E (when given) or compares with it; true when E matches the parts as they are
+    var A = tierOf(S2, tt), B = tierOf(S2, w); if (!A || !B) return false; if (E.n !== undefined && (E.n !== A.length || E.A !== A || E.B !== B)) return false;
+    var fill = E.n === undefined; if (fill) { E.n = A.length; E.A = A; E.B = B; E.el = new Uint8Array(A.length); E.mat = []; E.mv = []; E.geo = []; }
+    for (var i = 0; i < A.length; i++) { var o = A[i], el = ismOK(o) && ismSide(o.material) === side ? 1 : 0, gq = i < B.length ? B[i].geometry : null;
+      if (fill) { E.el[i] = el; E.mat[i] = o.material; E.mv[i] = o.material.version; E.geo[i] = gq; continue; }
+      if (E.el[i] !== el || E.mat[i] !== o.material || E.mv[i] !== o.material.version || E.geo[i] !== gq) return false; }
+    return true;
+  }
+  function ismGet(S2, tt, w, side, rid) {
+    var m = ISM.c.get(S2); if (!m) { m = {}; ISM.c.set(S2, m); } var k = tt * 9 + w * 3 + side, E = m[k];
+    if (!E) { E = m[k] = { S: S2, tt: tt, w: w, side: side, st: 0, tries: 0, rid: -1, vrid: -1, mesh: null, inq: true }; ISM.q.push(E); return null; }
+    if (E.st !== 2) { if (E.st === 0 && !E.inq) { E.inq = true; ISM.q.push(E); } return null; }
+    if (E.vrid !== rid) { E.vrid = rid; if (!ismSig(S2, tt, w, side, E.chk)) { E.st = E.tries >= 3 ? 3 : 0; if (E.st === 0) { E.inq = true; ISM.q.push(E); } else ISM.n.bad++; return null; } }
+    return E;
+  }
+  function ismUpload(geo) {   // three binds only uploaded attributes: one 1 px draw of the geometry uploads its buffers
+    if (!ISM.upRT) { ISM.upRT = new THREE.WebGLRenderTarget(1, 1); ISM.upCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); ISM.upMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false }); ISM.upScene = new THREE.Scene(); ISM.upMesh = new THREE.Mesh(geo, ISM.upMat); ISM.upMesh.frustumCulled = false; ISM.upScene.add(ISM.upMesh); }
+    var R = R0 || G("renderer"); ISM.upMesh.geometry = geo; var prt = R.getRenderTarget(), ar = R.info.autoReset, su = R.shadowMap.autoUpdate, sn = R.shadowMap.needsUpdate;
+    try { R.info.autoReset = false; R.shadowMap.autoUpdate = false; R.shadowMap.needsUpdate = false; R.setRenderTarget(ISM.upRT); var c0 = R.info.render.calls; R.render(ISM.upScene, ISM.upCam); if (R.info.render.calls === c0) throw new Error("not drawn"); }
+    finally { R.setRenderTarget(prt); R.info.autoReset = ar; R.shadowMap.autoUpdate = su; R.shadowMap.needsUpdate = sn; ISM.upMesh.geometry = null; }
+  }
+  var _iv = new THREE.Vector3();
+  function ismBuild(E) {   // one entry: position-only geometry of its member parts (those parts' geometry tier w)
+    var t0 = performance.now(), chk = {}; if (!ismSig(E.S, E.tt, E.w, E.side, chk)) { E.st = 3; return; }
+    var nm = 0, nv = 0, ni = 0, mem = new Uint8Array(chk.n), list = [];
+    for (var i = 0; i < chk.n; i++) { if (!chk.el[i]) continue; var o = chk.A[i]; if (!o.matrixWorld.equals(_ID)) continue; mem[i] = 1; nm++; var g = chk.geo[i]; if (!g) continue; var p = g.attributes.position; list.push(g); nv += p.count; ni += g.index ? g.index.count : p.count; }
+    if (nm < 2 || nv === 0 || nv > 1500000) { E.st = 3; ISM.n.bad++; return; }
+    var pos = new Float32Array(nv * 3), idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni), vo = 0, io = 0;
+    for (var j = 0; j < list.length; j++) { var gg = list[j], pa = gg.attributes.position, cnt = pa.count; if (pa.r6free || (gg.index && gg.index.r6free)) ISM.n.readback++;
+      if (!pa.normalized && pa.array instanceof Float32Array && pa.itemSize === 3) pos.set(pa.array.subarray(0, cnt * 3), vo * 3);
+      else for (var v = 0; v < cnt; v++) { _iv.fromBufferAttribute(pa, v); pos[(vo + v) * 3] = _iv.x; pos[(vo + v) * 3 + 1] = _iv.y; pos[(vo + v) * 3 + 2] = _iv.z; }
+      if (gg.index) { var ix = gg.index.array; for (var q = 0; q < ix.length; q++) idx[io + q] = ix[q] + vo; io += ix.length; } else { for (var q2 = 0; q2 < cnt; q2++) idx[io + q2] = vo + q2; io += cnt; }
+      vo += cnt; }
+    var out = new THREE.BufferGeometry(); out.setAttribute("position", new THREE.BufferAttribute(pos, 3)); out.setIndex(new THREE.BufferAttribute(idx, 1)); out.name = "op ism " + E.S.kind;
+    try { ismUpload(out); } catch (e) { out.dispose(); E.tries++; ISM.n.upRetry = (ISM.n.upRetry || 0) + 1; if (E.tries > 4) { E.st = 3; ISM.n.bad++; } else { E.st = 0; E.inq = true; E.wait = performance.now() + 1500; ISM.q.push(E); } return; }   /* the 1 px draw was held back (its program still linking): later */
+    if (E.mesh) { try { E.mesh.dispose(); } catch (e) {} ISM.n.rebuilt++; E.tries++; } else ISM.n.built++;
+    E.mesh = out; E.mem = mem; E.chk = chk; E.st = 2; E.rid = -1; E.vrid = -1; ISM.n.verts += nv; ISM.n.ms += performance.now() - t0;
+  }
+  var _ID = new THREE.Matrix4();
+  function ismStep() { if (!ISM.on || !ISM.q.length || D.indoor) return; var t0 = performance.now(); while (ISM.q.length && performance.now() - t0 < 2) { var E = ISM.q.shift(); E.inq = false; if (E.st === 2 || E.st === 3) continue; if (E.wait && performance.now() < E.wait) { E.inq = true; ISM.q.push(E); break; } try { ismBuild(E); } catch (e) { note("ism build", e); E.st = 3; } } }
+  P.ismStats = function () { var o = {}; for (var k in ISM.n) o[k] = typeof ISM.n[k] === "number" ? Math.round(ISM.n[k]) : ISM.n[k]; o.q = ISM.q.length; o.on = ISM.on; return o; };
+  P.ismSet = function (on) { ISM.on = !!on; return ISM.on; };
   function wrapDraw(R) {
-    if (D.installed || !R) return; D.installed = true; R0 = R; var rbd = R.renderBufferDirect;
+    if (D.installed || !R) return; D.installed = true; R0 = R; var rbd = R.renderBufferDirect; var OPK = P.opK || (P.opK = { px: 1, shPx: 1, skin: 0, skinSh: 0, sh: 0 });   /* R19 OP governor knobs (1 / 0: as before) */
     R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
       if (sc === null && D.csm !== null && obj && cam.isOrthographicCamera === true) { var ci = D.cams.get(cam);
         if (ci !== undefined) {
@@ -1229,12 +1308,14 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
               if (ci <= 1 && !D.indoor && rec && rec.d && rec.ver === m0.instanceMatrix.version && rec.n === m0.count) { var sz = tf.S.h * 1.6; var lim = D.far[ci] + sz / D.tanEl + tf.S.rad * 1.6 + Math.hypot(D.cam.position.x - rec.x, D.cam.position.z - rec.z); var k = upper(rec.d, lim); if (k < cnt) { D.n.cutSh += cnt - k; cnt = k; } }
               if (cnt <= 0) { D.n.skipSh++; return; }
               sub = lodGeo(tf.S, tf.t, tf.i, ci); if (sub === false) { D.n.skipSh++; return; }
+              if (ISM.on === true && D.indoor === false) { var we = lodTier(tf.S, tf.t, ci), rid = R0.info.render.frame * 8 + ci, IE = ismGet(tf.S, tf.t, we, mat.side, rid); if (IE !== null && IE.mem[tf.i] === 1) { if (IE.rid === rid) { ISM.n.skip++; return; } IE.rid = rid; var c1 = obj.count; obj.count = cnt; ISM.n.draw++; try { return rbd.call(this, cam, sc, IE.mesh, mat, obj, grp); } finally { obj.count = c1; } } }   /* R19 OP: the set's merged depth geometry, once per cascade render */
               if (sub || cnt !== obj.count) { var c0 = obj.count; obj.count = cnt; if (sub) D.n.lodSh++; try { return rbd.call(this, cam, sc, sub || geo, mat, obj, grp); } finally { obj.count = c0; } } } }
-          else if (geo && obj.isMesh === true) { if (ci >= 2 && obj.isSkinnedMesh === true) { D.n.skipSh++; return; } var bs = geo.boundingSphere; if (bs === null && !dropped(geo)) { geo.computeBoundingSphere(); bs = geo.boundingSphere; } if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < (ci >= 2 ? 5 : 2) * D.texel[ci]) { D.n.skipSh++; return; } } } }
+          else if (geo && obj.isMesh === true) { if ((ci >= 2 || (ci >= 1 && OPK.skinSh === 1)) && obj.isSkinnedMesh === true) { D.n.skipSh++; return; } var bs = geo.boundingSphere; if (bs === null && !dropped(geo)) { geo.computeBoundingSphere(); bs = geo.boundingSphere; } if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < (ci >= 2 ? 5 : 2) * D.texel[ci] * OPK.shPx) { D.n.skipSh++; return; } } } }
       else if (D.px && (cam === D.cam || cam.r10eye === true) && sc === D.scene && obj && obj.isMesh === true && obj.isInstancedMesh !== true && geo) { var bs2 = geo.boundingSphere; if (bs2 === null && !dropped(geo)) { geo.computeBoundingSphere(); bs2 = geo.boundingSphere; }
         if (bs2) { _sp.copy(bs2.center).applyMatrix4(obj.matrixWorld); var eye = cam.r10eye === true, cpos = eye ? _ep.setFromMatrixPosition(cam.matrixWorld) : cam.position, dist = _sp.distanceTo(cpos), rad = bs2.radius * obj.matrixWorld.getMaxScaleOnAxis();
           if (eye && obj.isSkinnedMesh !== true && eyeOut(cam, _sp, rad)) { D.n.skipEye++; return; }   /* R10: three culls against both eyes' joint frustum; each eye draws only what is in its own */
-          if (dist > 30) { var px = rad / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35) * (eye ? D.vrPx : 1)) { D.n.skipPx++; return; } } } }
+          if (OPK.skin > 0 && dist > OPK.skin && obj.isSkinnedMesh === true && !eye) { D.n.skipSkin = (D.n.skipSkin || 0) + 1; return; }   /* R19 OP governor: far people under sustained load */
+          if (dist > 30) { var px = rad / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35) * (eye ? D.vrPx : OPK.px)) { D.n.skipPx++; return; } } } }
       return rbd.apply(this, arguments);
     };
   }
@@ -1360,7 +1441,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     try { var uc = G("updateCulling"); if (typeof uc === "function" && !uc.r6) { window.__r6uc = function () { var r = uc.apply(this, arguments); try { sortInst(false); } catch (e) { note("sort", e); } return r; }; window.__r6uc.r6 = true; updateCulling = window.__r6uc; } } catch (e) { note("wrap culling", e); }
     return true;
   }
-  if (D.on && HK && HK.frame) HK.frame.push({ name: "r6Draw", fn: function () { if (!D.installed) { if (!dInstall()) return; } try { frameSetup(); if ((D.f = (D.f || 0) + 1) % 30 === 1) lodDist(); sortInst(false); } catch (e) { note("draw frame", e); } if (BT.on && P.readyAt && performance.now() - P.readyAt > 10000) { try { checkSome(); if ((D.f & 7) === 0) batchStep(); } catch (e) { note("batch frame", e); } } } });
+  if (D.on && HK && HK.frame) HK.frame.push({ name: "r6Draw", fn: function () { if (!D.installed) { if (!dInstall()) return; } try { frameSetup(); if ((D.f = (D.f || 0) + 1) % 30 === 1) lodDist(); sortInst(false); } catch (e) { note("draw frame", e); } try { ismStep(); } catch (e) { note("ism step", e); } if (BT.on && P.readyAt && performance.now() - P.readyAt > 10000) { try { checkSome(); if ((D.f & 7) === 0) batchStep(); } catch (e) { note("batch frame", e); } } } });
   var tries = 0; (function early() { chunks(); if (++tries < 400 && !(typeof CSMX !== "undefined" && CSMX && CSMX.csm)) setTimeout(early, 25); else chunks(); })();
 })();
 // ───────────────────────────── R9: hitches (HANDOFF_R9_HITCHES.md) ─────────────────────────────
@@ -1653,4 +1734,126 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   S.stats = function () { var o = { live: W.live.length, q0: W.q0.length, q1: W.q1.length, pend: W.pend.size, smAct: SM.act, scAct: SC.act, skippedWalk: H.skipped }; [["w", W.n], ["sm", SM.n], ["sc", SC.n]].forEach(function (x) { for (var k in x[1]) o[x[0] + "." + k] = typeof x[1][k] === "number" ? Math.round(x[1][k] * 10) / 10 : x[1][k]; }); return o; };
   SM.stats = S.stats;
   var HK = window.PLAN_HOOKS; if ((SM.on || SC.on) && HK && HK.frame) HK.frame.push({ name: "s16Frame", fn: function () { try { frame(); } catch (e) { note("frame hook", e); } } });
+})();
+// ───────────────────────────── R19 OP: the optimisation layer (HANDOFF_R19_OPT.md) ─────────────────────────────
+// ?op=0 turns every part off (the R18 behaviour, including the client's own adaptive resolution); ?op<part>=0 one part.
+// gov (?opgov=0): the frame governor. It replaces the client's two adaptive blocks in frame() (the pixel-ratio step, floor 0.85, and
+//   the dead "switch to Medium" one: its frame time was read after lastT was reset, so it was always 0). Per tier a frame-time target
+//   (ultra 25 ms, high 22, medium 20, low 16.7; ?optarget=<ms>); 1 s windows of rAF intervals (hitches over 250 ms, warps, rooms, the
+//   fly-in, VR, a hidden tab and the loading screen are left out). Three windows in a row over 1.12 x target take one step down the
+//   ladder of the side that binds (the client frame's JS time over 80 per cent of the interval: CPU, else GPU); a step back up needs
+//   eight windows under 0.8 x target and a predicted frame (now plus the saving that step was measured to give) under 0.92 x target; a
+//   step that has to go back on within 20 s of coming off is barred from coming off for 2 minutes, then 4, 8 (no oscillation). At
+//   most one step every 3 s down and 8 s up.
+//   Only the binding side's ladder is used. GPU ladder: resolution 0.92, lighter GTAO, resolution 0.85, fewer bloom mips and no
+//   contact shadows; then (visible steps, only after five windows over 1.6 x target) resolution 0.78, no GTAO, resolution 0.72.
+//   CPU ladder: far cascades at half rate, the middle cascade at half rate, small-caster and sub-pixel cull x1.6; then (visible)
+//   people only in the near cascade, people past 110 m not drawn. (A props' draw-range step was tried and dropped: every change
+//   refilled and re-uploaded the instance buffers, a 2 s burst of 100 to 230 ms frames on high; propRange() is kept for tests.)
+//   Live: PLAN_PERF.op.gov.state(), .set(bool), .force(n, "g" | "c") (test: the first n steps held, the governor paused), .reset().
+// Elsewhere in this file, marked R19 OP: the instanced shadow merge (?opism=0, R6 section), plan_rooms' warm-up behind the loading
+//   screen (?oprw=0) and the unplaced kinds' textures uploaded there (?opldtex=0) (LD section), PLAN_PERF.fJs (the client frame's JS
+//   time) and PLAN_PERF.shAllOnce (tests: every cascade in the next render).
+(function () {
+  "use strict";
+  var P = window.PLAN_PERF; if (!P || P.off || P.op) return;
+  var Q = location.search;
+  var OP = P.op = { on: !/[?&]op=0\b/.test(Q), errs: [], n: {} };
+  function part(k) { return OP.on && !new RegExp("[?&]op" + k + "=0\\b").test(Q); }
+  OP.part = part;
+  function note(tag, e) { try { if (OP.errs.length < 30) OP.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); } catch (x) {} }
+  OP.note = note;
+  var GC = {}; function G(name) { var v = GC[name]; if (v !== undefined) return v; try { v = (0, eval)(name); } catch (e) { return undefined; } if (v && (name === "renderer" || name === "camera" || name === "scene" || name === "QUAL" || name === "INSTSET" || name === "MODEL_SPECS" || name === "CAM")) GC[name] = v; return v; }
+  OP.G = G;
+  var now = function () { return performance.now(); };
+  var OPK = P.opK || (P.opK = { px: 1, shPx: 1, skin: 0, skinSh: 0, sh: 0 });
+  if (!OP.on) return;
+
+  // ───────── the governor ─────────
+  var GV = OP.gov = { on: part("gov"), level: 0, act: [], log: [], bar: {}, st: "idle", tgt: 0, tier: null, res: 1, last: 0, over: 0, under: 0, n: { down: 0, up: 0, bounce: 0, windows: 0, resize: 0 } };
+  var TGT = { ultra: 25, high: 22.2, medium: 20, low: 16.7 };
+  var qt = +((Q.match(/[?&]optarget=([0-9.]+)/) || [])[1]) || 0;
+  function pp() { var p = window.PLAN_POST; return p && p.ready && p.K && p.sw && p.set ? p : null; }
+  function tierIdx() { try { return G("QUAL").level === "ultra" ? 0 : 1; } catch (e) { return 1; } }
+  function setRes(k) {   // the pixel ratio as a share of the tier's cap
+    var R = G("renderer"), Qq = G("QUAL"); if (!R || !Qq || !Qq.q) return; var cap = Math.min(window.devicePixelRatio || 1, Qq.q.pr || 1), pr = +Math.max(Math.min(cap, 0.6), cap * k).toFixed(3);
+    GV.res = k; if (Math.abs(R.getPixelRatio() - pr) < 0.005) return; R.setPixelRatio(pr); GV.n.resize++;
+    try { var CAM = G("CAM"); if (CAM) CAM.pr = pr; } catch (e) {} try { (0, eval)("resize")(); } catch (e) { note("resize", e); }
+  }
+  function applyRes() { var k = 1; for (var i = 0; i < GV.act.length; i++) { var r = GV.act[i]; if (r.res && r.res < k) k = r.res; } setRes(k); }
+  function resRung(k) { return { side: "g", name: "res " + k, res: k, on: applyRes, off: applyRes }; }
+  var SAVE = {};
+  function hard(r) { r.hard = true; return r; }   // a visible step: only while frames run over HARD x target
+  var HARD = 1.6;
+  function ppRung(name, on, off) { return { side: "g", name: name, needPP: true, on: on, off: off }; }
+  var RUNGS = [
+    resRung(0.92),
+    ppRung("gtao lighter", function () { var p = pp(); if (!p) return; var ti = tierIdx(); SAVE.aoN = p.K.aoN.slice(); SAVE.aoS = p.K.aoS.slice(); p.K.aoN[ti] = Math.max(3, p.K.aoN[ti] - 2); }, function () { var p = pp(); if (p && SAVE.aoN) { p.K.aoN = SAVE.aoN; p.K.aoS = SAVE.aoS; } }),
+    resRung(0.85),
+    ppRung("bloom mips, contact shadows", function () { var p = pp(); if (!p) return; SAVE.bm = p.K.bMips.slice(); SAVE.cs = p.sw.cs; p.K.bMips = p.K.bMips.map(function (m) { return Math.max(3, m - 2); }); p.set("cs", false); }, function () { var p = pp(); if (!p) return; if (SAVE.bm) p.K.bMips = SAVE.bm; if (SAVE.cs !== undefined) p.set("cs", SAVE.cs); }),
+    hard(resRung(0.78)),
+    hard(ppRung("gtao off", function () { var p = pp(); if (!p) return; SAVE.ao = p.sw.gtao; p.set("gtao", false); }, function () { var p = pp(); if (p && SAVE.ao !== undefined) p.set("gtao", SAVE.ao); })),
+    hard(resRung(0.72)),
+    { side: "c", csm: true, name: "far cascades half rate", on: function () { OPK.sh = 1; }, off: function () { OPK.sh = 0; } },
+    { side: "c", csm: true, name: "middle cascade half rate", on: function () { OPK.sh = 2; }, off: function () { OPK.sh = 1; } },
+    { side: "c", name: "cull x1.6", on: function () { OPK.px = 1.6; OPK.shPx = 1.6; }, off: function () { OPK.px = 1; OPK.shPx = 1; } },
+    hard({ side: "c", csm: true, name: "people in the near cascade only", on: function () { OPK.skinSh = 1; }, off: function () { OPK.skinSh = 0; } }),
+    hard({ side: "c", name: "people past 110 m", on: function () { OPK.skin = 110; }, off: function () { OPK.skin = 0; } })
+  ];
+  RUNGS.forEach(function (r, i) { r.i = i; r.saving = 0; });
+  GV.rungs = RUNGS;
+  // props' draw range (INSTSET entries of prop kinds): scaled from the range the client last set (applyQuality rewrites it)
+  function propRange(k) {
+    var IS = G("INSTSET"), SP = G("MODEL_SPECS"); if (!IS || !SP) return;
+    for (var s = 0; s < IS.length; s++) { var S = IS[s], sp = SP[S.kind]; if (!sp || !sp.prop || !(S.R < 1e8)) continue;
+      if (S.opBase === undefined || S.R !== S.opSet) S.opBase = S.R; S.R = S.opBase * k; S.opSet = S.R; }
+    try { (0, eval)("cullAt = 0"); } catch (e) {}
+  }
+  GV.propRange = propRange;
+  function hasCSM() { try { var c = G("CSMX"); return !!(c && c.csm && G("renderer").shadowMap.enabled); } catch (e) { return false; } }   // the cascade steps do nothing without cascades (low, medium)
+  function ladder(side) { var L = []; for (var i = 0; i < RUNGS.length; i++) { var r = RUNGS[i]; if (r.side !== side) continue; if (r.needPP && !pp()) continue; if (r.csm && !hasCSM()) continue; L.push(r); } return L; }
+  function logS(s, r, ms) { GV.log.push([Math.round(now() / 1000), s, r.name, +(+ms || 0).toFixed(1)]); if (GV.log.length > 60) GV.log.shift(); }
+  function activate(r, ms) { GV.act.push(r); try { r.on(); } catch (e) { note("rung on " + r.name, e); } r.at = now(); r.before = ms; r.after = 0; GV.level = GV.act.length; GV.n.down++; logS("-", r, ms); }
+  function release(ms) { var r = GV.act.pop(); if (!r) return; try { r.off(); } catch (e) { note("rung off " + r.name, e); } r.offAt = now(); GV.level = GV.act.length; GV.n.up++; logS("+", r, ms); }
+  function releaseAll() { while (GV.act.length) { var r = GV.act.pop(); try { r.off(); } catch (e) {} } GV.level = 0; OPK.px = 1; OPK.shPx = 1; OPK.skin = 0; OPK.skinSh = 0; OPK.sh = 0; applyRes(); }
+  GV.reset = function () { releaseAll(); GV.bar = {}; GV.over = 0; GV.under = 0; GV.forced = 0; return true; };
+  GV.set = function (on) { on = !!on; GV.reset(); GV.on = on; P.opGov = on; return on; };
+  // testing: the first n rungs of a ladder ("g", "c" or both) held on, the governor paused (GV.force(0) resumes it)
+  GV.force = function (n, side) { GV.reset(); var all = side ? ladder(side) : ladder("g").concat(ladder("c")); for (var i = 0; i < n && i < all.length; i++) activate(all[i], 0); GV.forced = n; return GV.act.map(function (r) { return r.name; }); };
+  GV.state = function () { return { on: GV.on, st: GV.st, tier: GV.tier, target: GV.tgt, level: GV.level, res: GV.res, act: GV.act.map(function (r) { return r.name; }), savings: RUNGS.filter(function (r) { return r.saving; }).map(function (r) { return [r.name, +r.saving.toFixed(1)]; }), bar: GV.bar, n: GV.n, log: GV.log.slice(-16), last: GV.lastWin }; };
+  P.opGov = GV.on;   // client.js frame(): its own adaptive blocks stand down while this is true
+  var F = { last: 0, buf: [], js: [], held: 0, cam: null, w0: 0 };
+  function held(t) {
+    if (!P.readyAt || document.hidden) return "loading";
+    try { var el = document.getElementById("load"); if (el && !el.classList.contains("off")) return "loading"; } catch (e) {}
+    if (P.ic && P.ic.kind) return "indoors"; try { if (G("inside")) return "indoors"; } catch (e) {}
+    try { if (G("FLY").on) return "fly-in"; } catch (e) {} try { if (window.PLAN_VR && PLAN_VR.on) return "vr"; } catch (e) {}
+    try { if (document.body.classList.contains("photo")) return "photo"; } catch (e) {}
+    if (t < F.held || t - P.readyAt < 12000) return "settling"; return null;   /* and the first 12 s of play (the stream's busiest seconds) */
+  }
+  function govFrame() {
+    if (!GV.on || GV.forced) return; var t = now(), Qq = G("QUAL"), cam = G("camera"); if (!Qq || !cam) return;
+    if (GV.tier !== Qq.level) { if (GV.tier !== null) GV.reset(); GV.tier = Qq.level; GV.tgt = qt || TGT[Qq.level] || 22; F.held = t + 4000; }
+    var dt = F.last ? t - F.last : 0; F.last = t;
+    if (F.cam) { var dx = cam.position.x - F.cam.x, dz = cam.position.z - F.cam.z; if (dx * dx + dz * dz > 900) F.held = Math.max(F.held, t + 3000); F.cam.copy(cam.position); } else F.cam = cam.position.clone();   // a warp or a cut: 3 s to settle
+    var h = held(t); GV.st = h || "run"; if (h) { F.buf.length = 0; F.js.length = 0; F.w0 = t; return; }
+    if (!dt || dt > 250) return; F.buf.push(dt); F.js.push(P.fJs || 0); if (!F.w0) F.w0 = t; if (t - F.w0 < 1000 || F.buf.length < 8) return;
+    var b = F.buf.slice().sort(function (a, c) { return a - c; }), med = b[b.length >> 1], jsm = F.js.slice().sort(function (a, c) { return a - c; })[F.js.length >> 1];
+    F.buf.length = 0; F.js.length = 0; F.w0 = t; GV.n.windows++; var side = jsm > 0.8 * med ? "c" : "g"; GV.lastWin = [+med.toFixed(1), +jsm.toFixed(1), side];
+    var T = GV.tgt; GV.over = med > T * 1.12 ? GV.over + 1 : 0; GV.under = med < T * 0.8 ? GV.under + 1 : 0; GV.overH = med > T * HARD ? (GV.overH || 0) + 1 : 0; GV.underH = med < T * HARD * 0.8 ? (GV.underH || 0) + 1 : 0;
+    var lr = GV.act[GV.act.length - 1]; if (lr && !lr.after && t - lr.at > 2500) { lr.after = med; if (lr.before) lr.saving = Math.max(0, lr.before - med); }   // what the last step gave
+    if (GV.over >= 3 && t - GV.last > 3000) {
+      var r = null, L = ladder(side), i; for (i = 0; i < L.length && !r; i++) if (GV.act.indexOf(L[i]) < 0) r = L[i];   /* only the side that binds: a GPU step does nothing for a CPU-bound frame */
+      if (r && r.hard && GV.overH < 5) r = null;   /* the visible steps only under heavy, sustained load */
+      if (r) { if (r.offAt && t - r.offAt < 20000) { var bb = GV.bar[r.name] || { n: 0, until: 0 }; bb.n++; bb.until = t + 120000 * Math.pow(2, Math.min(3, bb.n - 1)); GV.bar[r.name] = bb; GV.n.bounce++; }   // it had to go back on: barred from coming off for a while
+        activate(r, med); GV.last = t; GV.over = 0; }
+    } else if (GV.act.length && t - GV.last > 8000) {
+      /* a visible step comes off once the frame is back under 0.8 x its own threshold (1.6 x target) with the step's saving added;
+         the near-invisible ones need the frame under 0.8 x target (and the saving added under 0.92 x target) */
+      var top = GV.act[GV.act.length - 1], bar = GV.bar[top.name]; if (bar && t < bar.until) return;
+      var ok = top.hard ? GV.underH >= 8 && med + (top.saving || 0) * 1.15 < T * HARD * 0.85 : GV.under >= 8 && med + (top.saving || 0) * 1.15 < T * 0.92;
+      if (ok) { release(med); GV.last = t; GV.under = 0; GV.underH = 0; }
+    }
+  }
+  if (GV.on && window.PLAN_HOOKS && PLAN_HOOKS.frame) PLAN_HOOKS.frame.push({ name: "opGov", fn: function () { try { govFrame(); } catch (e) { note("gov", e); } } });
 })();

@@ -1,0 +1,98 @@
+{
+  "_about": "R19 SA: Gentle Gate Animal Sanctuary (plan_sanctuary.js). Every name and line of copy. Local frame: u east, v south from (868, -38).",
+  "names": {
+    "venue": "Gentle Gate Animal Sanctuary",
+    "short": "Gentle Gate",
+    "kicker": "Animal rescue and care sanctuary",
+    "arch2": "RESCUE  ·  CARE  ·  A HOME FOR LIFE",
+    "barn": "WELCOME BARN",
+    "barn2": "visitors, volunteers and adoptions",
+    "feed": "FEED AND CARE BARN",
+    "feed2": "the vet clinic at the east end",
+    "kind": { "horse": "horse", "donkey": "donkey", "goat": "goat", "sheep": "sheep", "tortoise": "tortoise", "rabbit": "rabbit", "chicken": "hen", "owl": "owl", "quail": "quail" }
+  },
+  "yardSigns": ["Horse and Donkey Yard", "Goat and Sheep Yard", "Desert Tortoise Garden", "Small Animal Yard", "The Aviary", "Water Troughs", "Volunteers welcome", "Walk softly, we are home"],
+  "chalk": { "title": "Feeding times", "lines": ["7:00  hay and water rounds", "10:00  greens for the tortoises", "13:00  goats and sheep", "16:00  horses and donkeys", "18:00  barn check, lights low"] },
+  "clinic": { "title": "Daily care rounds", "lines": ["Hooves and teeth checked", "Weights logged every week", "Medicines by the chart", "Gentle hands, quiet voices"] },
+  "info": {
+    "venue": { "t": "Gentle Gate Animal Sanctuary", "k": "Rescue and care, open 7:00 to 19:30", "p": "A forever home for animals who needed one: retired ranch horses, donkeys walked in from the desert, goats and sheep from homes that could no longer keep them, desert tortoises, rabbits, hens and two owls who cannot fly free again. Everything here runs on care that people give: their time, their hands, a bale of hay, a morning of mucking out. Walk in, say hello at the Welcome Barn, and feed someone at the fence." },
+    "troughs": { "t": "The water troughs", "k": "Galvanised stock tanks, filled every morning", "p": "Clean water is the first thing a rescued animal gets and the last thing a volunteer checks before the barn lights go down. The tanks are scrubbed on Saturdays by whoever turns up. There are no ponds here on purpose: in the high desert, water belongs in a trough where it stays clean and nobody gets stuck." },
+    "horses": { "t": "Horse and Donkey Yard", "k": "Three horses, three donkeys", "p": "Juniper, Dusty and Ranger worked cattle for most of their lives. Pepper, Biscuit and Moe arrived thin and footsore from the open desert. They share the run-in shed, the round bale and a lot of opinions. Stand at the rail and press E: they know what a visitor means." },
+    "goats": { "t": "Goat and Sheep Yard", "k": "Spools, a deck and plenty of hay", "p": "Goats climb, so the yard has cable spools and a plank deck to stand on; the sheep prefer the shade and the hay rack. Clover is the boss, Woolsey is the gentlest, and every one of them will tell you it has not been fed today." },
+    "tortoise": { "t": "Desert Tortoise Garden", "k": "Burrows, basking stones and slow afternoons", "p": "Old Sage, Pebble and Mesa were surrendered by families who could no longer care for them. A tortoise can outlive the people who adopt it, so this garden is built for decades: deep burrows for the heat, flat stones for the morning sun, and greens at ten o'clock sharp." },
+    "hutch": { "t": "Small Animal Yard", "k": "Rabbits and hens", "p": "Thistle, Nutmeg, Button and Fern share the yard with four hens who run it. The hutches are raised against the heat and the coop has a ramp the hens ignore. Volunteers sit on the straw corner on quiet mornings so the shy ones learn that hands bring good things." },
+    "aviary": { "t": "The Aviary", "k": "Two owls and a covey of quail", "p": "Hoot and Luna are great horned owls who were hurt too badly to hunt again. They live here with a covey of quail under a shade roof and a dead mesquite full of perches. Go in quietly through the double door: the owls will watch you the whole way round." },
+    "feed": { "t": "Feed and Care Barn", "k": "Hay to the rafters, the vet clinic at the east end", "p": "Every bale stacked in here was given by somebody, a neighbour with a trailer, a school food drive, a volunteer who skipped a weekend away. The clinic at the east end is where Dr. Okafor checks hooves, teeth and weights, and where new arrivals rest before they meet the herd." },
+    "hay": { "t": "Hay and straw", "k": "Small square bales", "p": "Horses and donkeys eat hay all day, goats pick the best bits, and the rest becomes bedding. A sanctuary measures the year in bales. Sit on one if you like: they are made for it." }
+  },
+  "staff": {
+    "marisol": { "greet": ["Welcome to Gentle Gate."], "talk": [
+      { "t": "Welcome to Gentle Gate. I'm Marisol, I run the place, which mostly means I count bales and answer to a donkey named Pepper. Everyone who lives here came because someone noticed them and decided to help.", "o": [["What is this place?", 1], ["How can I help?", 2], ["Thanks", null]] },
+      { "t": "A sanctuary is a promise: once an animal comes through that gate, it has a home for the rest of its life. No shows, no rides, just care. The horses retired from ranch work, the donkeys walked in from the desert, the tortoises were handed in by families who loved them but could not keep them.", "o": [["How can I help?", 2], ["Thanks", null]] },
+      { "t": "The same way everyone here does: give a little of what you have. An hour with a muck fork. A bale of hay. Sponsoring one resident on the adoption board on the porch. Giving is not only money, it is showing up, and care is the most honest kind of giving there is.", "o": [["Where do I start?", 3], ["Thanks", null]] },
+      { "t": "Feed somebody at a fence (press E at the rail), read the adoption board on the porch, and talk to Teo about a volunteer morning. Dr. Okafor is in the clinic in the feed barn if you want to see how the residents are looked after.", "o": [["Thanks, Marisol", null]] } ] },
+    "amara": { "greet": ["Mind the stall, Moe is napping."], "talk": [
+      { "t": "Hello, I'm Dr. Okafor. Every resident gets a check-up here: hooves, teeth, eyes, weight. Old animals need small, steady care far more than they need anything dramatic.", "o": [["What does care look like?", 1], ["Thanks", null]] },
+      { "t": "A donkey's hooves trimmed every eight weeks. A tortoise weighed before and after winter. An owl's diet weighed to the gram. It is quiet, patient work, and it only happens because people keep giving their time and their hay.", "o": [["Who are you treating today?", 2], ["Thanks", null]] },
+      { "t": "Moe, in the recovery stall. He came in with sore feet and a bad attitude. The feet are better. The attitude is a work in progress. Go and say hello to the herd for him.", "o": [["Thanks, doctor", null]] } ] },
+    "teo": { "greet": ["Here to volunteer?"], "talk": [
+      { "t": "Hey! I'm Teo, I look after the volunteers and the adoption board. We run on helpers: mornings are mucking out and water, afternoons are hay and brushing, evenings are the barn check.", "o": [["What is the adoption board?", 1], ["Sign me up", 2], ["Thanks", null]] },
+      { "t": "Every resident has a card. Sponsoring one means you look out for them: you visit, you bring their favourite greens, you help with their care day. The animal stays here, safe, for life. You just become part of their family.", "o": [["Sign me up", 2], ["Thanks", null]] },
+      { "t": "Brilliant. Grab a pair of gloves from the barn and start at the troughs. And take a look at the board on the wall: pick a resident and get to know them.", "o": [["See you at the troughs", null]] } ] }
+  },
+  "adopt": {
+    "name": "The adoption board",
+    "role": "Gentle Gate Animal Sanctuary · sponsor a resident",
+    "kicker": "press E to read the board",
+    "title": "Sponsor a resident",
+    "sub": "Every name here was given a second chance by someone who cared",
+    "talk": [
+      { "t": "Six cards pinned to the cork, each with a photograph and a name. Across the top in green paint: SPONSOR A RESIDENT. Underneath, smaller: nobody here is for sale, and nobody leaves.", "o": [["Pepper the donkey", 1], ["Hoot the owl", 2], ["Thistle the rabbit", 3], ["Old Sage the tortoise", 4]] },
+      { "t": "PEPPER, donkey. Walked in out of the desert two winters ago with overgrown hooves and no name. Now the loudest voice in the yard at feeding time. Likes: carrots, ear scratches, being right. Needs: a hoof trim every eight weeks.", "o": [["Sponsor Pepper", 5], ["Back to the board", 0]] },
+      { "t": "HOOT, great horned owl. Found with a broken wing beside the runway road. The wing healed, but not well enough to hunt. Likes: the high branch, dusk, staring. Needs: a weighed supper every evening and a quiet aviary.", "o": [["Sponsor Hoot", 5], ["Back to the board", 0]] },
+      { "t": "THISTLE, rabbit. Handed in when her family moved. Shy for a month, now the first to the gate when the greens come. Likes: dandelion leaves, the straw corner, gentle hands. Needs: a cool hutch and company.", "o": [["Sponsor Thistle", 5], ["Back to the board", 0]] },
+      { "t": "OLD SAGE, desert tortoise. Older than the barn. Lived in one backyard for forty years until the family could no longer care for him. Likes: the morning stone, hibiscus, taking his time. Needs: a burrow and a lot of patience.", "o": [["Sponsor Old Sage", 5], ["Back to the board", 0]] },
+      { "t": "Your name goes on the card in pencil. Sponsoring means care, not ownership: you visit, you help on their care day, you bring their favourite greens, and you tell people about them. That is how a place like this keeps its gate open, one giver at a time.", "stamp": true, "o": [["Pin my name up", null]] } ]
+  },
+  "residents": [
+    { "name": "Pepper", "kind": "donkey" },
+    { "name": "Hoot", "kind": "great horned owl" },
+    { "name": "Thistle", "kind": "rabbit" },
+    { "name": "Old Sage", "kind": "desert tortoise", "glyph": "S" },
+    { "name": "Juniper", "kind": "retired ranch horse", "glyph": "J" },
+    { "name": "Clover", "kind": "goat, yard boss", "glyph": "C" }
+  ],
+  "care": {
+    "feedEvery": 75,
+    "friendsKinds": 4,
+    "activity": "sanctuary_care",
+    "feedLines": ["{name} the {kind} comes over for a handful of hay.", "{name} the {kind} takes the hay very politely, then asks for more.", "{name} the {kind} eats from your hand. Care given, care received.", "A soft nose, warm breath and crunching: {name} the {kind} approves."],
+    "petLines": ["{name} the {kind} leans into a scratch.", "{name} the {kind} closes their eyes while you scratch behind the ears.", "{name} the {kind} sniffs your sleeve, just in case there is more hay."]
+  },
+  "prompts": { "feed": "feed", "pet": "pet" },
+  "roam": {
+    "people": ["Rosa", "Kai", "Hannah", "Mateo", "Imani", "Gus"],
+    "lines": {
+      "horses": ["Look at Pepper bossing the horses around.", "Juniper used to work cattle, can you believe it?"],
+      "goats": ["Clover is on the spool again.", "The sheep never leave the shade."],
+      "tortoise": ["Old Sage moved! A whole metre.", "They say he is older than the barn."],
+      "hutch": ["The rabbits know it is greens time.", "Those hens run this yard."],
+      "aviary": ["The owl is watching us.", "Hoot turned his whole head round."],
+      "troughs": ["Fresh water every morning, that is the rule.", "I scrubbed these last Saturday."],
+      "adopt": ["I am going to sponsor Thistle.", "Every one of them has a story."],
+      "volunteer": ["Mornings are mucking out, I signed up for Saturday.", "Gloves are in the barn."],
+      "barn": ["Look at all their photos.", "School groups sit in here for the talks."],
+      "feed": ["That is a lot of hay.", "Every bale was given by somebody."],
+      "court": ["Let's feed the donkeys first.", "This place is so calm."],
+      "ramada": ["Best shade on the ranch.", "Lunch with a view of the goats."],
+      "rest": ["Just watching them is enough.", "I could sit here all day."]
+    }
+  },
+  "stamps": { "welcome": "p_sa_welcome", "feed": "p_sa_feed", "friends": "p_sa_friends", "adopt": "p_sa_adopt", "tortoise": "p_sa_tortoise" },
+  "stamps_proposal": { "id": "sanctuary", "name": "Gentle Gate Animal Sanctuary", "sub": "Rescue and care beside the Frontier Ranch: feed, meet and sponsor the residents", "ink": "#7fbf6a", "stamps": [
+    { "n": 446, "id": "p_sa_welcome", "name": "Through the Gentle Gate", "x": 838.0, "z": -25.0, "r": 0.3 },
+    { "n": 447, "id": "p_sa_feed", "name": "Breakfast at the fence", "x": 824.0, "z": -48.0, "r": 0.3 },
+    { "n": 448, "id": "p_sa_friends", "name": "A friend in every yard", "x": 883.0, "z": -58.0, "r": 0.3 },
+    { "n": 449, "id": "p_sa_adopt", "name": "Sponsor a resident", "x": 850.1, "z": -27.8, "r": 0.3 },
+    { "n": 450, "id": "p_sa_tortoise", "name": "Slow and steady", "x": 895.0, "z": -66.0, "r": 0.3 } ] }
+}

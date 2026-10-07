@@ -253,7 +253,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function lowq() { try { return QUAL && QUAL.level === "low"; } catch (e) { return false; } }
 
   // ───────────────────────── hubs: names, positions, distances ─────────────────────────
-  var HUBDEF = [["Sunfield Terminal", "Terminal"], ["Crossing Plaza", "Crossing Plaza"], ["The Landing Clubhouse", "Landing Club"], ["Founders Row", "Founders Row"], ["Propeller Plaza", "The Flight Line"], ["Expanse Gate", "Expanse Gate"], ["Four Corners", "Main Street"], ["Compass Plaza", "Compass Plaza"], ["GBANK", "GBANK"], ["The Commons", "The Commons"], ["The Genesis Ring", "Genesis Ring"], ["Genesis Park", "Genesis Park"], ["Genesis Arcade", "Genesis Arcade"], ["Sunfield Convention Center", "Convention Center"]];
+  var HUBDEF = [["Stellar Aviation FBO", "Stellar FBO"], ["Crossing Plaza", "Crossing Plaza"], ["The Landing Clubhouse", "Landing Club"], ["Founders Row", "Founders Row"], ["Propeller Plaza", "The Flight Line"], ["Expanse Gate", "Expanse Gate"], ["Four Corners", "Main Street"], ["Compass Plaza", "Compass Plaza"], ["GBANK", "GBANK"], ["The Commons", "The Commons"], ["The Genesis Ring", "Genesis Ring"], ["Genesis Park", "Genesis Park"], ["Genesis Arcade", "Genesis Arcade"], ["Solport Convention Center", "Convention Center"]];
   function hubs() { var out = []; try { for (var i = 0; i < HUBDEF.length; i++) { var nm = HUBDEF[i][0]; var h = HUBS.find(function (q) { return q[0] === nm; }); if (!h) continue; var d = Math.hypot(h[1] - K.c[0], h[2] - K.c[1]); out.push({ name: HUBDEF[i][1], full: nm, x: h[1], z: h[2], d: d }); } } catch (e) { note("hubs", e); } return out; }
   function distTxt(d) { return d < 950 ? Math.round(d / 10) * 10 + " m" : (d / 1000).toFixed(1) + " km"; }
   function minTxt(d) { var m = Math.max(1, Math.round(d / 75)); return m + " min"; }
@@ -405,7 +405,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     grp.add(g); AR.model = { g: g, halo: halo, x: w[0], z: w[1] };
     for (var k5 = 0; k5 < 4; k5++) { var c5 = corners[k5]; wall(w[0] + c5[0] * 1.04, w[1] + c5[2] * 1.04, 0, 0.3, 0.3, y, y + c5[1]); }
     wall(w[0], w[1], 0, TW + 0.2, TD + 0.2, y - 0.2, y + top);
-    hotspots.push({ x: w[0], z: w[1], r: 5.5, t: "The relief model", k: "Genesis in relief · true north", p: "All of Genesis on one table: The Landing north of the runway, The Flight Line on the west side and The Expanse across the runway, the buildings in their stage colours and the Sunfield Terminal in white. The green pin is Arrivals Court, where you stand." });
+    hotspots.push({ x: w[0], z: w[1], r: 5.5, t: "The relief model", k: "Genesis in relief · true north", p: "All of Genesis on one table: The Landing north of the runway, The Flight Line on the west side and The Expanse across the runway, the buildings in their stage colours and the Stellar Aviation FBO in white. The green pin is Arrivals Court, where you stand." });
   }
 
   // the hub signpost: a brass mast with a blade to every hub, each pointing at it, with its distance and walking time
@@ -455,7 +455,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var draw = function (img) { for (var i = 0; i < D; i++) { var X0 = i * 256; var dark = i % 2 === 0; x.fillStyle = dark ? "#0b1712" : "#f3ead8"; x.fillRect(X0, 0, 256, 1024); x.fillStyle = "#c9a24d"; x.fillRect(X0 + 16, 22, 224, 5); x.fillRect(X0 + 16, 997, 224, 5);
         if (i === 0) { if (img) drawLogo(x, img, X0 + 128, 330, 110); txt(x, "WELCOME", X0 + 128, 620, 64, FT.d, "#f5f1e6", 400, "center", 220, 4); txt(x, "TO GENESIS", X0 + 128, 700, 30, FT.b, "#4DDE6F", 600, "center", 220, 2); }
         if (i === 1) { txt(x, "THE", X0 + 128, 330, 44, FT.d, "#1f6b3a", 400, "center", 220, 6); txt(x, "LANDING", X0 + 128, 420, 72, FT.d, "#0b1712", 400, "center", 220, 2); txt(x, "STAGE ONE", X0 + 128, 520, 30, FT.b, "#1f6b3a", 600, "center", 220, 3); }
-        if (i === 2) { if (img) drawLogo(x, img, X0 + 128, 300, 100); txt(x, "SUNFIELD", X0 + 128, 560, 66, FT.d, "#f5f1e6", 400, "center", 220, 4); txt(x, "FIELD SNF · 1928", X0 + 128, 640, 26, FT.m, "#f4cd5a", 600, "center", 220); }
+        if (i === 2) { if (img) drawLogo(x, img, X0 + 128, 300, 100); txt(x, "SOLPORT", X0 + 128, 560, 66, FT.d, "#f5f1e6", 400, "center", 220, 4); txt(x, "FIELD DGL · 1928", X0 + 128, 640, 26, FT.m, "#f4cd5a", 600, "center", 220); }
         if (i === 3) { txt(x, "ARRIVALS", X0 + 128, 360, 60, FT.d, "#0b1712", 400, "center", 220, 3); txt(x, "COURT", X0 + 128, 440, 60, FT.d, "#1f6b3a", 400, "center", 220, 3); txt(x, "GENESIS", X0 + 128, 540, 26, FT.b, "#0b1712", 600, "center", 220, 3); } } tex.needsUpdate = true; };
     onFonts(function () { draw(LOGO.ok ? LOGO.img : null); }); logo(function (img) { draw(img); });
     var bm = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0, roughness: 0.8 }); MT.banner = bm;
@@ -594,7 +594,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
         ban.quad([A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]], [u0, 0], [u1, 0], [u1, 1], [u0, 1]); ban.quad([B[0], y0, B[1]], [A[0], y0, A[1]], [A[0], y1, A[1]], [B[0], y1, B[1]], [u0, 0], [u1, 0], [u1, 1], [u0, 1]); wall(x, z, 0, 0.4, 0.4, y - 0.1, y + 2.5); });
       [poles.mesh(M.bronze, { cast: true, name: "ar blvd poles" }), ban.mesh(MT.banner, { cast: true, name: "ar blvd banners" })].forEach(function (m) { if (m) grp.add(m); }); }
     // the fingerpost at the Arrivals Walk crossing (south-west corner)
-    var fx = -9.6, fz = roadZ(-9.6) + 9.4; var fy = gy(fx, fz); var dests = [["SUNFIELD CONVENTION CENTER", -268, -90], ["ARRIVALS COURT", K.c[0], K.c[1]], ["GENESIS PARK · OVERLOOK GATE", 0, -238]];
+    var fx = -9.6, fz = roadZ(-9.6) + 9.4; var fy = gy(fx, fz); var dests = [["SOLPORT CONVENTION CENTER", -268, -90], ["ARRIVALS COURT", K.c[0], K.c[1]], ["GENESIS PARK · OVERLOOK GATE", 0, -238]];
     var c = cv(512, 80 * 6), x = c.getContext("2d"), tex = canvasTex(c, {});
     onFonts(function () { for (var i = 0; i < 3; i++) { var d = Math.hypot(dests[i][1] - fx, dests[i][2] - fz); for (var s = 0; s < 2; s++) { var Y0 = (i * 2 + s) * 80; x.fillStyle = "#0e1a14"; x.fillRect(0, Y0, 512, 80); x.fillStyle = "#c9a24d"; x.fillRect(0, Y0, 512, 4); x.fillRect(0, Y0 + 76, 512, 4); txt(x, dests[i][0], s === 0 ? 20 : 492, Y0 + 40, 28, FT.d, "#f5f1e6", 400, s === 0 ? "left" : "right", 330, 1); txt(x, distTxt(d) + " · " + minTxt(d), s === 0 ? 492 : 20, Y0 + 40, 21, FT.m, "#f4cd5a", 600, s === 0 ? "right" : "left", 150); } } tex.needsUpdate = true; });
     var bm = new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.25, roughness: 0.4, metalness: 0.2 }); MT.blade2 = bm; var bl = new Geo(), mast = new Geo();
@@ -603,7 +603,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       bl.quad(P(a0, -Hb / 2, -t), P(a1, -Hb / 2, -t), P(a1, Hb / 2, -t), P(a0, Hb / 2, -t), [0, vA0], [1, vA0], [1, vA1], [0, vA1]); bl.quad(P(a1, -Hb / 2, t), P(a0, -Hb / 2, t), P(a0, Hb / 2, t), P(a1, Hb / 2, t), [0, vB0], [1, vB0], [1, vB1], [0, vB1]); }
     mast.cyl(fx, fy, fz, 0.1, 0.13, fy + 3.6, 14); mast.cyl(fx, fy, fz, 0.28, 0.32, fy + 0.28, 18); var sp = new THREE.SphereGeometry(0.15, 14, 10); mast.add(sp, M4(fx, fy + 3.72, fz, 0)); sp.dispose();
     [bl.mesh(bm, { cast: true, name: "ar blvd fingerpost" }), mast.mesh(M.brass, { cast: true })].forEach(function (m) { if (m) grp.add(m); }); wall(fx, fz, 0, 0.56, 0.56, fy - 0.1, fy + 3);
-    hotspots.push({ x: fx, z: fz, r: 6, t: "Terminal Drive", k: "To the Sunfield Convention Center · Arrivals Court · Genesis Park", p: "The palm boulevard along Terminal Drive runs west from Arrivals Court to the Sunfield Convention Center, the Market Hall and the festival grounds. The Arrivals Walk crosses here north to the Overlook Gate of Genesis Park." });
+    hotspots.push({ x: fx, z: fz, r: 6, t: "Terminal Drive", k: "To the Solport Convention Center · Arrivals Court · Genesis Park", p: "The palm boulevard along Terminal Drive runs west from Arrivals Court to the Solport Convention Center, the Market Hall and the festival grounds. The Arrivals Walk crosses here north to the Overlook Gate of Genesis Park." });
   }
 
   // ───────────────────────── AIRSIDE: the ramp outside the FBO airside doors (terminal frame T) ─────────────────────────
@@ -712,7 +712,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     edgeL([[8, APR.z1 - 0.6], [APR.x1 - 0.6, APR.z1 - 0.6], [APR.x1 - 0.6, APR.z0 + 6]]); edgeL([[8, APR.z1 - 0.95], [APR.x1 - 0.95, APR.z1 - 0.95], [APR.x1 - 0.95, APR.z0 + 6]]);
     var me = G.mesh(M.paint, { name: "ar apron markings" }); if (me) grp.add(me);
     // stand numbers and words (canvas atlas, alpha tested)
-    var c = cv(1024, 512), x = c.getContext("2d"), tex = canvasTex(c, {}); var labels = [["A1", YEL], ["A2", YEL], ["B1", YEL], ["STOP", YEL], ["TERMINAL", WHT], ["NO PARKING", YEL], ["PASSENGERS", WHT], ["SUNFIELD", WHT]];
+    var c = cv(1024, 512), x = c.getContext("2d"), tex = canvasTex(c, {}); var labels = [["A1", YEL], ["A2", YEL], ["B1", YEL], ["STOP", YEL], ["FBO", WHT], ["NO PARKING", YEL], ["PASSENGERS", WHT], ["STELLAR", WHT]];
     onFonts(function () { x.clearRect(0, 0, 1024, 512); for (var i = 0; i < labels.length; i++) { var cx = (i % 2) * 512 + 256, cy = Math.floor(i / 2) * 128 + 64; var col = "#" + labels[i][1].toString(16).padStart(6, "0"); if (i < 3) { x.fillStyle = "#111214"; x.fillRect(cx - 120, cy - 56, 240, 112); x.strokeStyle = col; x.lineWidth = 8; x.strokeRect(cx - 112, cy - 48, 224, 96); } txt(x, labels[i][0], cx, cy + 4, i < 3 ? 86 : 70, FT.d, col, 400, "center", 470, 4); } tex.needsUpdate = true; });
     var lm = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }); var LG = new Geo();
     var decal = function (idx, lx, lz, w, h, rot) { var u0 = (idx % 2) * 0.5, v1 = 1 - Math.floor(idx / 2) * 0.25, u1 = u0 + 0.5, v0 = v1 - 0.25; var c2 = Math.cos(rot), s2 = Math.sin(rot); var P = function (a, b) { var l = [lx + a * c2 + b * s2, lz - a * s2 + b * c2]; var q = t2w(l[0], l[1]); return [q[0], APR.y(q[0], q[1]) + 0.012, q[1]]; }; LG.quad(P(-w / 2, h / 2), P(w / 2, h / 2), P(w / 2, -h / 2), P(-w / 2, -h / 2), [u0, v0], [u1, v0], [u1, v1], [u0, v1]); };
@@ -813,7 +813,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var heatM = new THREE.MeshStandardMaterial({ color: 0x2a2b2e, emissive: 0xff8a3a, emissiveIntensity: 0.0, roughness: 0.4, metalness: 0.6 }); MT.heat = heatM;
     var glassM = new THREE.MeshStandardMaterial({ color: 0xcfe2e8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.28, depthWrite: false });
     [pw.mesh(M.trav, { cast: true, name: "ar airside planters" }), pc.mesh(M.bronze, {}), ps.mesh(soilMat(), {}), wood.mesh(woodMat(), { cast: true, name: "ar lounge wood" }), lea.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.02 }), { cast: true }), glass.mesh(glassM, { order: 2 }), heat.mesh(heatM, { cast: true })].forEach(function (m) { if (m) grp.add(m); });
-    hotspots.push({ x: t2w(-30, 37)[0], z: t2w(-30, 37)[1], r: 9, t: "The airside lounge", k: "Sunfield Terminal · the terrace on the ramp", p: "Shade under the terminal's roof, deep sofas and the heaters for the desert evening, with the whole ramp in front of you: the jets on stands A1 and B1, the arrivals on Gate A2 and the line crew at work. Press E beside a seat to sit." });
+    hotspots.push({ x: t2w(-30, 37)[0], z: t2w(-30, 37)[1], r: 9, t: "The airside lounge", k: "Stellar Aviation FBO · the terrace on the ramp", p: "Shade under the FBO's roof, deep sofas and the heaters for the desert evening, with the whole ramp in front of you: the jets on stands A1 and B1, the arrivals on Gate A2 and the line crew at work. Press E beside a seat to sit." });
   }
 
   // floodlight masts (emissive heads, a glow and a light pool on the ramp at night), blue edge lights, the security fence
@@ -1256,7 +1256,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function inlayTex() { var c = cv(2048, 1024), x = c.getContext("2d"), tex = canvasTex(c, {});
     var dist = function (x2, z2) { return distTxt(Math.hypot(x2 - K.c[0], z2 - K.c[1])); }; var hub = function (nm) { try { var h = HUBS.find(function (q) { return q[0] === nm; }); return h ? [h[1], h[2]] : null; } catch (e) { return null; } };
-    var draw = function () { x.clearRect(0, 0, 2048, 1024); var rowsT = [["SUNFIELD TERMINAL", "THE SUN GATE · THE LANDSIDE DOOR · THE RAMP"], ["THE CLUB WALK", "CROSSING PLAZA · THE CROSSING TO STAGE THREE"], ["THE LANDSIDE WALK", "THE CONVENTION CENTER · THE MARKET HALL · GENESIS PARK"], ["STAGE ONE · THE LANDING", ""]];
+    var draw = function () { x.clearRect(0, 0, 2048, 1024); var rowsT = [["STELLAR AVIATION FBO · SOLPORT", "THE SUN GATE · THE LANDSIDE DOOR · THE RAMP"], ["THE CLUB WALK", "CROSSING PLAZA · THE CROSSING TO STAGE THREE"], ["THE LANDSIDE WALK", "THE CONVENTION CENTER · THE MARKET HALL · GENESIS PARK"], ["STAGE ONE · THE LANDING", ""]];
       try { var cp = hub("Crossing Plaza"); if (cp) rowsT[1][1] = "CROSSING PLAZA " + dist(cp[0], cp[1]) + " · THE CROSSING TO STAGE THREE"; } catch (e) {}
       for (var r = 0; r < 4; r++) { var Y0 = r * 256; if (r < 3) { x.strokeStyle = "#d8b25c"; x.lineWidth = 5; x.strokeRect(10, Y0 + 12, 2028, 232); x.beginPath(); x.moveTo(1024, Y0 + 26); x.lineTo(1064, Y0 + 62); x.lineTo(984, Y0 + 62); x.closePath(); x.fillStyle = "#e2bd66"; x.fill(); }
         txt(x, rowsT[r][0], 1024, Y0 + (r < 3 ? 122 : 128), r < 3 ? 92 : 120, FT.d, "#e2bd66", 400, "center", 1900, r < 3 ? 14 : 24); if (rowsT[r][1]) txt(x, rowsT[r][1], 1024, Y0 + 204, 40, FT.b, "#e2bd66", 700, "center", 1900, 4); }

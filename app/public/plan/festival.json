@@ -1,10 +1,10 @@
 {
  "version": 1,
  "names": {
-  "campus": "Sunfield Convention Center",
+  "campus": "Solport Convention Center",
   "grounds": "The Festival Grounds",
   "short": "Festival Grounds",
-  "summit": "Sunfield Summit",
+  "summit": "Solport Summit",
   "kicker": "Lawn, bars, food trucks and the Side Stage",
   "dropoff": "Convention Center Drop-off",
   "stage": "The Side Stage"
@@ -660,7 +660,7 @@
       "S"
      ],
      [
-      "Terminal",
+      "Stellar FBO",
       "E"
      ]
     ]
@@ -671,7 +671,7 @@
     "face": 1.5708,
     "lines": [
      [
-      "Link Plaza and Terminal",
+      "Link Plaza and Stellar FBO",
       "E"
      ],
      [
@@ -717,7 +717,7 @@
       "N"
      ],
      [
-      "Terminal",
+      "Stellar FBO",
       "E"
      ]
     ]
@@ -968,7 +968,7 @@
  "paths": [
   {
    "id": "fest_link",
-   "name": "Festival Walk (to Link Plaza and Sunfield Terminal)",
+   "name": "Festival Walk (to Link Plaza and the Stellar FBO)",
    "w": 6,
    "pts": [
     [
@@ -1168,7 +1168,7 @@
    "id": "keynote",
    "start": 9.5,
    "end": 12.0,
-   "name": "Sunfield Summit Keynotes",
+   "name": "Solport Summit Keynotes",
    "where": "Keynote Hall",
    "crowd": {
     "stage": 0.0,
@@ -1270,7 +1270,7 @@
    "picnic": 0.06,
    "lawn": 0.04
   },
-  "screen": "SUNFIELD SUMMIT"
+  "screen": "SOLPORT SUMMIT"
  },
  "roam": {
   "names": [
@@ -1308,7 +1308,7 @@
    ],
    "shuttle": [
     "The shuttle should be here any minute.",
-    "Grand Loop to the terminal, then the Flight Line.",
+    "Grand Loop to the terminal, then the FBO.",
     "Good thing the stop has shade."
    ],
    "hello": [
@@ -1326,7 +1326,7 @@
  "staff": {
   "jordan": {
    "name": "Jordan",
-   "role": "Campus host, Sunfield Convention Center",
+   "role": "Campus host, Solport Convention Center",
    "look": {
     "body": "f",
     "skin": "c98f63",
@@ -1341,7 +1341,7 @@
    ],
    "talk": [
     {
-     "t": "Welcome to the Festival Grounds at the Sunfield Convention Center. The arena is to the west, the Market Hall is to the south and the walk to Sunfield Terminal starts at the east gate.",
+     "t": "Welcome to the Festival Grounds at the Solport Convention Center. The arena is to the west, the Market Hall is to the south and the walk to the Stellar FBO starts at the east gate.",
      "o": [
       [
        "What is on today?",
@@ -1358,7 +1358,7 @@
      ]
     },
     {
-     "t": "The day runs from Sunrise Coffee through the Sunfield Summit Keynotes, Lunch on the Lawn and the Golden Hour Social. At sunset the DJ takes the Side Stage, then the Night Market opens in the Market Hall. The boards by the gates show what is on now.",
+     "t": "The day runs from Sunrise Coffee through the Solport Summit Keynotes, Lunch on the Lawn and the Golden Hour Social. At sunset the DJ takes the Side Stage, then the Night Market opens in the Market Hall. The boards by the gates show what is on now.",
      "o": [
       [
        "Where can I eat?",
@@ -1508,7 +1508,7 @@
   "lawn": [
    "The drapes look amazing with the light coming through.",
    "The shuttle drops off right by the north gate.",
-   "Walk to the terminal is about ten minutes from the east gate.",
+   "Walk to the FBO is about ten minutes from the east gate.",
    "Night Market later?"
   ]
  },
@@ -1582,13 +1582,13 @@
  "info": {
   "grounds": {
    "t": "The Festival Grounds",
-   "k": "Sunfield Convention Center · Festival Grounds",
-   "p": "A lawn and decomposed granite plaza between the arena and the Market Hall: open-air bars, the Side Stage, food trucks along the west walk and picnic tables under white umbrellas. The boards show the Sunfield Summit schedule for the day. Sit at a table with E, dance on the floor in front of the Side Stage, and follow the Festival Walk east to Link Plaza and Sunfield Terminal."
+   "k": "Solport Convention Center · Festival Grounds",
+   "p": "A lawn and decomposed granite plaza between the arena and the Market Hall: open-air bars, the Side Stage, food trucks along the west walk and picnic tables under white umbrellas. The boards show the Solport Summit schedule for the day. Sit at a table with E, dance on the floor in front of the Side Stage, and follow the Festival Walk east to Link Plaza and the Stellar FBO."
   },
   "dropoff": {
    "t": "Convention Center Drop-off",
    "k": "Shuttle stop · Terminal Drive",
-   "p": "The drop-off for the Sunfield Convention Center, off Terminal Drive. Shuttle carts wait at the east end of the bay. The north gate of the Festival Grounds is a few steps south."
+   "p": "The drop-off for the Solport Convention Center, off Terminal Drive. Shuttle carts wait at the east end of the bay. The north gate of the Festival Grounds is a few steps south."
   },
   "stage": {
    "t": "The Side Stage",
@@ -1602,7 +1602,7 @@
   "talk": "talk"
  },
  "toast": {
-  "kicker": "SUNFIELD SUMMIT",
+  "kicker": "SOLPORT SUMMIT",
   "now": "Now",
   "next": "Next",
   "until": "until",

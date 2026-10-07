@@ -70,17 +70,17 @@
   "aircraft": {
     "jet_light": {
       "t": "Light business jet",
-      "k": "Parked in {hangar} · Sunfield hangar services",
+      "k": "Parked in {hangar} · Stellar Aviation hangar services",
       "p": "A light business jet, the size class that flies most private trips: range about 2,000 nautical miles, up to 8 passengers and 2 crew. Cleaned, chocked and on ground power while the crew plans the next leg upstairs."
     },
     "jet_mid": {
       "t": "Midsize business jet",
-      "k": "Parked in {hangar} · Sunfield hangar services",
+      "k": "Parked in {hangar} · Stellar Aviation hangar services",
       "p": "A midsize business jet with a stand-up cabin: range about 3,000 nautical miles, 8 to 9 passengers and 2 crew. It fits this large hangar with room for the ground crew to work around it."
     },
     "jet_heavy": {
       "t": "Large-cabin business jet",
-      "k": "Parked in {hangar} · Sunfield hangar services",
+      "k": "Parked in {hangar} · Stellar Aviation hangar services",
       "p": "A large-cabin, long-range business jet: range about 6,500 nautical miles, up to 14 passengers and a crew of 3 or 4."
     },
     "biplane": {
@@ -90,16 +90,16 @@
     }
   },
   "chief": {
-    "name": "Sunfield crew chief",
-    "role": "Sunfield · hangar and line services",
+    "name": "Stellar crew chief",
+    "role": "Stellar Aviation · hangar and line services",
     "greet": [
-      "Welcome to Sunfield. Mind the wingtips.",
+      "Welcome to Stellar Aviation. Mind the wingtips.",
       "Coffee is on upstairs.",
       "Good to see you on the Flight Line."
     ],
     "talk": [
       {
-        "t": "Welcome to the hangar. The Sunfield Terminal team runs the desk in the terminal and looks after the hangars and ground services out here: towing, ground power, hangar space, and getting every aircraft turned around for its crew.",
+        "t": "Welcome to the hangar. Stellar Aviation runs the FBO in the terminal and looks after the hangars and ground services out here: towing, ground power, hangar space, and getting every aircraft turned around for its crew.",
         "o": [
           [
             "What is parked in here?",
@@ -114,7 +114,7 @@
             3
           ],
           [
-            "Who runs the hangars?",
+            "Who is Stellar Aviation?",
             4
           ],
           [
@@ -153,7 +153,7 @@
         "t": "Go ahead. The stair at the back on the left goes up to the crew lounge, the coffee bar and the flight planning office. Take a seat on the sofas if you like. Please keep clear of the aircraft and the tug.",
         "o": [
           [
-            "Who runs the hangars?",
+            "Who is Stellar Aviation?",
             4
           ],
           [
@@ -163,7 +163,7 @@
         ]
       },
       {
-        "t": "The Sunfield Terminal team: fuel, hangar space and ground services for every aircraft on the field. Their front desk in the terminal can tell you more.",
+        "t": "A proven FBO operator with locations at Reno, Carson-Tahoe, South Palm Beach and Springfield, bringing hangar and ground services to this field, along with local jobs. Their team at the terminal can tell you more.",
         "o": [
           [
             "Thanks",

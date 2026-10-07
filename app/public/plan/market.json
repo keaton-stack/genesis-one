@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "names": { "hall": "Market Hall", "full": "The Market Hall at Sunfield Convention Center", "stalls": "Weekend Market", "campus": "Sunfield Convention Center" },
+  "names": { "hall": "Market Hall", "full": "The Market Hall at Solport Convention Center", "stalls": "Weekend Market", "campus": "Solport Convention Center" },
   "hall": { "x0": -465, "x1": -140, "z0": 8, "z1": 46, "bays": 40, "front": 9, "mezz": 5.2, "cant": 1.8, "soffit": 10.6, "roof": 11.2, "rise": 8.6, "shopDepth": 5.0, "entrances": [5, 13, 20, 27, 35], "stairs": [[9, -1], [30, -1], [10, 1], [31, 1]] },
   "stalls": { "x0": -465, "x1": -250, "z0": -18, "z1": 0, "pitch": 4.6, "gaps": [-424, -364, -302] },
   "hub": { "name": "Market Hall", "x": -302, "z": 27 },
@@ -54,10 +54,11 @@
     { "name": "Highline Noodles", "tag": "RAMEN · DUMPLINGS" }
   ],
   "kiosks": [
-    { "id": "jetfinders", "name": "Tailwind Jets", "tag": "PRIVATE AVIATION", "col": "#1d2a44", "acc": "#f4cd5a", "info": ["Tailwind Jets", "Private aviation", "Tailwind Jets helps guests find the right private aircraft for a trip to Sunfield and beyond. Ask at the kiosk about charters into Sunfield Terminal across the field."] },
-    { "id": "freedomair", "name": "Open Range Air", "tag": "CHARTER DESK", "col": "#7a1f24", "acc": "#f4cd5a", "info": ["Open Range Air", "Charter desk", "Open Range Air flies guests in for the summit weekends and the market. Ask at the charter desk for schedules, aircraft and the crew who fly them."] },
+    { "id": "jetfinders", "name": "JetFinders", "tag": "PRIVATE AVIATION", "col": "#1d2a44", "acc": "#f4cd5a", "info": ["JetFinders", "Private aviation partner", "JetFinders helps guests find the right private aircraft for a trip to Solport and beyond. Ask at the kiosk about charters into the Stellar Aviation FBO across the field."] },
+    { "id": "freedomair", "name": "Freedom Air", "tag": "FLY WITH FREEDOM", "col": "#7a1f24", "acc": "#f4cd5a", "info": ["Freedom Air", "Aviation partner", "Freedom Air flies guests in for the summit weekends and the market. The kiosk has schedules, aircraft and the crew who fly them."] },
     { "id": "awake", "name": "Awake.org", "tag": "COMMUNITY PARTNER", "col": "#2a7a3e", "acc": "#f5f1e6", "info": ["Awake.org", "Community partner", "Awake.org runs community days, family events and volunteer drives with Giveback. Sign up at the kiosk for the next weekend market food drive."] },
-    { "id": "stellar", "name": "Sunfield Aviation", "tag": "TERMINAL · SUNFIELD", "col": "#0e1a2e", "acc": "#9fd0ff", "info": ["Sunfield Aviation", "The Sunfield Terminal", "Sunfield Aviation runs the terminal across the field: arrivals, fuel, hangars and the lounge. The kiosk books a shuttle cart to the terminal."] }
+    { "id": "stellar", "name": "Stellar Aviation", "tag": "FBO · SOLPORT", "col": "#0e1a2e", "acc": "#9fd0ff", "info": ["Stellar Aviation", "The Solport FBO", "Stellar Aviation runs the FBO across the field: arrivals, fuel, hangars and the lounge. The kiosk books a shuttle cart to the terminal."] },
+    { "id": "rmg", "name": "Riverside Management Group", "tag": "MERCHANT BANKING", "col": "#14263a", "acc": "#d8c39a", "info": ["Riverside Management Group", "Partner", "Riverside Management Group is a merchant banking partner of Giveback Ventures. The kiosk has information about the partner and its team."] }
   ],
   "stallTypes": [
     { "id": "produce", "names": ["Valley Produce", "Sunrise Farm", "Mesa Greens", "Valley Orchards", "Wide Valley Melons", "Settlers' Pecans"] },
@@ -80,7 +81,7 @@
       "greet": ["Tacos are on.", "Try the agua fresca.", "Welcome to the Market Hall."],
       "talk": [ { "t": "Welcome in. Everything on the board comes from the valley this week: squash and corn from the valley farms, beef from a ranch past the springs, tortillas pressed next door.", "o": [["What do you recommend?", 1], ["Who built this hall?", 2], ["Just looking, thanks", null]] },
                 { "t": "The bowls. Grains, charred corn, black beans, green chile and a spoon of crema. Grab a coffee at Copper Kettle and take it up to the terrace.", "o": [["Thanks", null]] },
-                { "t": "It is part of the Sunfield Convention Center. Glass roof on timber ribs, two levels of stalls and terraces, and the weekend market out front. On summit days the whole hall fills up.", "o": [["Good to know", null]] } ] },
+                { "t": "It is part of the Solport Convention Center. Glass roof on timber ribs, two levels of stalls and terraces, and the weekend market out front. On summit days the whole hall fills up.", "o": [["Good to know", null]] } ] },
     { "id": "eli_mk", "name": "Eli", "role": "Copper Kettle Coffee", "shop": 3, "look": { "body": "m", "skin": "e8c19a", "shirt": "2a7a3e", "pants": "2b3a4a", "hair": 1, "hairc": "3a2416" },
       "greet": ["Coffee's fresh.", "Cortado?", "Beans roasted this week."],
       "talk": [ { "t": "Morning. We roast right here in the high desert, small batches. Espresso, a horchata latte, or the cold brew if the sun is already on the glass?", "o": [["A coffee, please", 1], ["What is the terrace like?", 2], ["Nothing for now", null]] },
@@ -97,10 +98,10 @@
   ],
   "busker": { "x": -300, "z": 27, "name": "Busker", "line": "A guitarist plays by the planters. Press E to cheer." },
   "info": {
-    "hall": ["The Market Hall", "Sunfield Convention Center", "A glass galleria on arched glulam timber ribs: two levels of food stalls, artisans and restaurant terraces under one roof, opening north onto the weekend market and the festival grounds. Copper and sandstone shopfronts, travertine floors, clay planters of agave, ocotillo and desert grasses. Take the stairs to the mezzanine for the terraces."],
+    "hall": ["The Market Hall", "Solport Convention Center", "A glass galleria on arched glulam timber ribs: two levels of food stalls, artisans and restaurant terraces under one roof, opening north onto the weekend market and the festival grounds. Copper and sandstone shopfronts, travertine floors, clay planters of agave, ocotillo and desert grasses. Take the stairs to the mezzanine for the terraces."],
     "west": ["The west end", "Market Hall", "The end glass looks west down the valley to the mountains. The main doors on the axis lead out to the arena side of the campus."],
-    "east": ["The east end", "Market Hall", "The east doors face the Flight Line Link and the walk to Sunfield Terminal."],
-    "stalls": ["The Weekend Market", "Sunfield Convention Center", "An open air row of canopy stalls in front of the Market Hall: produce from the valley, crafts, pottery, textiles, flowers, coffee and the Giveback merch stand. String lights come on at dusk."],
+    "east": ["The east end", "Market Hall", "The east doors face the Flight Line Link and the walk to the Stellar Aviation FBO."],
+    "stalls": ["The Weekend Market", "Solport Convention Center", "An open air row of canopy stalls in front of the Market Hall: produce from the valley, crafts, pottery, textiles, flowers, coffee and the Giveback merch stand. String lights come on at dusk."],
     "mezz": ["The mezzanine terraces", "Market Hall", "Restaurant terraces run the length of the hall on both sides, with planters along the railings and the glass roof overhead. Sit at any table with E."],
     "busker": ["The Busker Corner", "Market Hall", "Local musicians play here on market days. Press E to cheer them on."]
   },
@@ -121,7 +122,7 @@
       "stall": ["Those melons smell amazing.", "Grab some pecans for later?", "The pottery stall is my favourite.", "Let's drop a can at the food drive."],
       "dine": ["This view of the vault never gets old.", "Save room for the conchas.", "Best patio in the hall.", "Another round of coffee?"],
       "mezz": ["You can see the whole nave from up here.", "Look at those timber ribs.", "The globes are coming on."],
-      "kiosk": ["Tailwind Jets flies out of Sunfield Terminal.", "Awake.org has a stand here too."],
+      "kiosk": ["JetFinders flies out of the Stellar FBO.", "Awake.org has a stand here too."],
       "busker": ["He's really good.", "Play another one!"],
       "nave": ["Meet you by the big agave.", "Did you catch the keynote?", "The Night Market starts at nine.", "I'm heading to the festival lawn after this."],
       "hello": ["Hi there.", "Enjoying the market?", "Try the green chile at Desert Kitchen.", "The terraces upstairs have the best view."],

@@ -115,7 +115,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function decal() {
     var e = SC.at.stellar_fueler, I = INFO("stellar_fueler"); if (!e || !I || !I.decal) return true;
     var TX = window.PLAN_TERMINAL && window.PLAN_TERMINAL.tx, t = TX && (TX.stDoor || TX.stLandB || TX.stRoof); if (!t) return false;
-    var D = I.decal, u0 = 0.035, u1 = 0.655, v0 = 0.1, v1 = 0.92;   // the logo part of the canvas (left of the FBO divider, above the blue band)
+    var D = I.decal, u0 = 0.035, u1 = 0.655, v0 = 0.1, v1 = 0.97;   // the logo part of the canvas (left of the FBO divider, above the blue band; R19: the official logo reaches 0.95)
     var w = D.w, h = w * ((v1 - v0) * (t.image ? t.image.height : 384)) / ((u1 - u0) * (t.image ? t.image.width : 1536));
     if (h > D.hmax) { h = D.hmax; w = h * ((u1 - u0) * (t.image ? t.image.width : 1536)) / ((v1 - v0) * (t.image ? t.image.height : 384)); }
     var m = mat({ map: t, roughness: 0.45, metalness: 0.0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, transparent: false });

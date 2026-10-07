@@ -197,7 +197,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var t = Date.now(); if (t - S.lastLanding < 20000) return 0; S.lastLanding = t;
     return commit(function (r, fx) {
       bump(r, "landings");
-      if (!r.aw["first:landing"]) { r.aw["first:landing"] = nowS(); fx.push({ type: "toast", k: "First landing", t: "Welcome back to Sunfield", xp: awardXP("first:landing") }); return; }
+      if (!r.aw["first:landing"]) { r.aw["first:landing"] = nowS(); fx.push({ type: "toast", k: "First landing", t: "Welcome back to Solport", xp: awardXP("first:landing") }); return; }
       var g = repeatXP(r, X().landing || 25, fx); fx.push({ type: "toast", k: "Landing", t: "Smooth landing", xp: g, quiet: true });
     });
   }
@@ -558,7 +558,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     ["GENESIS"].forEach(function (w, i) { x.fillText(w, 128, 362 + i * 66); });
     x.font = "700 21px 'JetBrains Mono', monospace"; try { x.letterSpacing = "5px"; } catch (e) {} x.fillStyle = acc;
     x.fillText(gold ? "SOL PASSPORT" : "COMMUNITY", 128, 470); x.fillText(gold ? "EVERY STAMP" : "IN-GAME", 128, 510); x.fillText(gold ? "COUNTS" : "IMPACT", 128, 544);
-    try { x.letterSpacing = "0px"; } catch (e) {} x.font = "400 30px Anton, Impact, sans-serif"; x.fillStyle = ink; x.fillText("SUNFIELD", 128, 640);
+    try { x.letterSpacing = "0px"; } catch (e) {} x.font = "400 30px Anton, Impact, sans-serif"; x.fillStyle = ink; x.fillText("SOLPORT", 128, 640);
     var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   }
   function buildBanners() {
@@ -842,7 +842,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       + '<text font-family="JetBrains Mono,monospace" font-weight="700" font-size="' + fsz + '" letter-spacing="1.1" fill="' + ink + '"><textPath href="#' + id + '" startOffset="25%" text-anchor="middle">' + esc(nm) + '</textPath></text>'
       + chapterGlyph(c.id, ink)
       + '<text x="50" y="66" text-anchor="middle" font-family="JetBrains Mono,monospace" font-weight="700" font-size="5.2" letter-spacing=".8" fill="' + ink + '">' + esc(date) + '</text>'
-      + '<text x="50" y="41" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="6.5" letter-spacing="1.4" fill="' + ink + '">SUNFIELD</text></g></svg>';
+      + '<text x="50" y="41" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="6.5" letter-spacing="1.4" fill="' + ink + '">SOLPORT</text></g></svg>';
   }
   function chapterGlyph(id, ink) {
     var g = { solport: "M50 44L51.4 50.4L58 53.6L58 55L51.4 53.2L51.2 57.4L53.2 59L53.2 60L50 59.3L46.8 60L46.8 59L48.8 57.4L48.6 53.2L42 55L42 53.6L48.6 50.4Z", outpost: "M42 58A8 8 0 0 1 58 58Z M48.5 48L51.5 48L51 44L49 44Z", park: "M50 44C54 48 56 51 56 54A6 6 0 0 1 44 54C44 51 46 48 50 44Z", design: "M50 43L52 50L59 52L52 54L50 61L48 54L41 52L48 50Z", mainstreet: "M43 60L43 49L50 44L57 49L57 60Z" }[id];
@@ -874,8 +874,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var pct = c.next ? clamp((c.xp - c.prevXp) / Math.max(1, c.next.xp - c.prevXp), 0, 1) : 1; var name = holderName();
     var chs = c.chapters.map(function (h) { var ch = chapterById(h.id); return '<div class="ch' + (S.tab === "stamps" && S.chap === h.id ? " on" : "") + '" data-ch="' + esc(h.id) + '"><span class="dt" style="background:' + esc(ch.ink) + '"></span>' + esc(h.name) + '<span class="ct">' + h.got + "/" + h.total + '</span>' + (h.done ? '<span class="sl">' + sealSVG(ch) + '</span>' : '<span class="sl"></span>') + '</div>'; }).join("");
     var mrzName = name.toUpperCase().replace(/[^A-Z0-9]+/g, "<"); var l1 = ("P<" + (copy("mrzTag", "SOL")) + "<<" + mrzName + "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<").slice(0, 44);
-    var l2 = ("G1" + String(c.stamps).padStart(3, "0") + "<" + R.name.toUpperCase() + "<<" + String(c.xp).padStart(6, "0") + "<<SUNFIELD<SNF<<<<<<<<<<<<<<<<<<<<<<<<<<").slice(0, 44);
-    pl.innerHTML = '<div class="hd"><img src="/logo.png" alt=""><div><b>' + esc(copy("title", "SOL PASSPORT")) + '</b><i>' + esc(copy("issuer", "Genesis · Sunfield, the high desert")) + '</i></div></div>'
+    var l2 = ("G1" + String(c.stamps).padStart(3, "0") + "<" + R.name.toUpperCase() + "<<" + String(c.xp).padStart(6, "0") + "<<SOLPORT<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<").slice(0, 44);
+    pl.innerHTML = '<div class="hd"><img src="/logo.png" alt=""><div><b>' + esc(copy("title", "SOL PASSPORT")) + '</b><i>' + esc(copy("issuer", "Genesis · Solport, the high desert")) + '</i></div></div>'
       + '<div class="id"><div class="big">' + insigniaSVG(c.rank, "b") + '</div><div style="min-width:0"><div class="lb">Holder</div><div class="nm">' + esc(name) + '</div><div class="lb" style="margin-top:6px">Rank</div><div class="rkn" style="color:' + (c.rank === 0 ? "#6b5d3a" : c.rank === 1 ? "#1f7a3e" : c.rank === 2 ? "#9a6a10" : "#1b7f8c") + '">' + esc(R.name) + '</div>' + (r.ti ? '<div class="tl">' + esc(titleName(r.ti) || "") + '</div>' : "") + '</div></div>'
       + '<div class="xpb"><div class="row"><span><b>' + fmt(c.xp) + '</b> XP</span><span>' + (c.next ? fmt(c.next.xp - c.xp) + " to " + esc(c.next.name) : "Top rank") + '</span></div><div class="br"><i style="width:' + (pct * 100).toFixed(1) + '%"></i></div></div>'
       + '<div class="stats"><div><b>' + c.stamps + '/' + c.total + '</b><span>Stamps</span></div><div><b>' + c.chapters.filter(function (h) { return h.done; }).length + '/' + c.chapters.length + '</b><span>Chapters</span></div><div><b>' + (r.sk || 0) + '</b><span>Day streak</span></div></div>'
