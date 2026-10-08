@@ -1817,8 +1817,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var TGT = { ultra: 25, high: 22.2, medium: 20, low: 16.7 };
   /* R21 CP (HANDOFF_R21_CPU.md, ?cpgov=0 or ?cp=0: the R19 governor exactly): a 60 fps aim on every tier, a GPU timer so headroom is
      seen under a vsync cap, an absolute 30 fps floor (36.7 ms) for the visible steps, and a registry for other modules' knobs */
-  var CPG = OP.cpg = /[?&]cpgov=1\b/.test(Q) && !/[?&](cp|cpgov)=0\b/.test(Q), HARD_MS = 36.7;   /* OFF by default until proven (?cpgov=1 on) */
-  if (CPG) TGT = { ultra: 16.7, high: 16.7, medium: 16.7, low: 16.7 };
+  var CPG = OP.cpg = /[?&]cpgov=1\b/.test(Q) && !/[?&]cp=0\b/.test(Q), HARD_MS = 36.7;   /* integration: the R21 governor extension (60 fps aim) is opt-in (?cpgov=1) until proven on ultra; the R19 governor runs otherwise */
+  var TGT0 = TGT; if (CPG) TGT = { ultra: 16.7, high: 16.7, medium: 16.7, low: 16.7 };   /* TGT0: R19's targets, which still set the visible steps' threshold */
   var qt = +((Q.match(/[?&]optarget=([0-9.]+)/) || [])[1]) || 0;
   function pp() { var p = window.PLAN_POST; return p && p.ready && p.K && p.sw && p.set ? p : null; }
   function tierIdx() { try { return G("QUAL").level === "ultra" ? 0 : 1; } catch (e) { return 1; } }
@@ -1877,8 +1877,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     w.__gt = true; try { window.renderFrame = w; } catch (e) { GT.on = false; }
   }
   function gtPoll() {
-    var gl = GT.gl; if (!gl || !GT.q.length) return; var dis = false; try { dis = !!gl.getParameter(GT.ext.GPU_DISJOINT_EXT); } catch (e) {}
+    var gl = GT.gl; if (!gl || !GT.q.length) return; var dis = null;   /* the disjoint flag (a synchronous query) is read only when a result is there */
     while (GT.q.length) { var q = GT.q[0], ok = false; try { ok = gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE); } catch (e) { ok = true; dis = true; } if (!ok) break; GT.q.shift();
+      if (dis === null) { try { dis = !!gl.getParameter(GT.ext.GPU_DISJOINT_EXT); } catch (e) { dis = true; } }
       if (!dis) { try { var ms = gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6; if (ms > 0 && ms < 500) { GT.win.push(ms); GT.last = ms; } } catch (e) {} } try { gl.deleteQuery(q); } catch (e) {} }
     if (GT.win.length > 64) GT.win.splice(0, GT.win.length - 64);
   }
@@ -1924,7 +1925,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     F.buf.length = 0; F.js.length = 0; F.w0 = t; GV.n.windows++; var side = jsm > 0.8 * med ? "c" : "g"; GV.lastWin = [+med.toFixed(1), +jsm.toFixed(1), side];
     /* R21 CP: under a vsync cap the interval hides the headroom; there the frame's own need (its JS time or its GPU time, whichever is
        larger) decides the step-ups and measures the savings. HM is the visible steps' threshold (30 fps floor). */
-    var rl = med, gpm = 0, HM = CPG ? HARD_MS : GV.tgt * HARD;
+    var rl = med, gpm = 0, HM = CPG ? Math.max(HARD_MS, (qt || TGT0[GV.tier] || 22) * HARD) : GV.tgt * HARD;   /* R21: never more eager to take a visible step than R19 */
     if (CPG) { if (GT.win.length >= 2) { var gs = GT.win.slice().sort(function (a, c) { return a - c; }); gpm = gs[gs.length >> 1]; } GT.win.length = 0;
       GV.vs = Math.max(6, Math.min(GV.vs || 1e9, med)); var capped = GV.vs < 17.5 && med < GV.vs * 1.15; if (capped && gpm > 0) rl = Math.max(jsm, gpm); GV.lastWin.push(+gpm.toFixed(1), +rl.toFixed(1)); }
     var T = GV.tgt; GV.over = med > T * 1.12 ? GV.over + 1 : 0; GV.under = rl < T * 0.8 ? GV.under + 1 : 0; GV.overH = med > HM ? (GV.overH || 0) + 1 : 0; GV.underH = rl < HM * 0.8 ? (GV.underH || 0) + 1 : 0;

@@ -40,6 +40,9 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
     arr: [-75, 275, -265, 80],   // the Arrivals zone (Agent F2) plus 5 m
     cell: 2, chunk: 16, refill: 3, budget: num("flbudget", 4),
   };
+  // R21 CP (HANDOFF_R21_CPU.md, ?cpfl=0, ?cp=0): the build's long loops yield on a 2 ms clock instead of every few thousand items, so no
+  // single step of the in-play build takes 20 to 60 ms (the same work, in the same order, over more frames)
+  var CPFL = !/[?&](cp|cpfl)=0\b/.test(Q), tY = 0;
   var readyRes; FL.whenReady = new Promise(function (r) { readyRes = r; });
   function err(where, e) { var s = where + ": " + ((e && e.message) || e); try { if (e && e.stack) s += " @ " + String(e.stack).split("\n").slice(1, 3).map(function (l) { return l.trim().replace(/^at /, "").replace(/\(?https?:\/\/[^/]+\//, "").slice(0, 80); }).join(" < "); } catch (x) {} if (FL.errs.length < 40) FL.errs.push(s); try { console.warn("PLAN_FLORA " + s); } catch (x) {} }
   function cnt(k, v) { FL.n[k] = (FL.n[k] || 0) + (v === undefined ? 1 : v); }
@@ -151,7 +154,7 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
     SRC = 11; try { var PL = window.PLAN; if (PL && PL.plazas) PL.plazas.forEach(function (z) { if (z && z.x !== undefined) markDisc(h1, z.x, z.z, z.r || 10, 1); }); } catch (e) { err("plan plazas", e); }
     yield 1;
     // buildings and props of the engine's placements; existing plants and rocks are soft
-    try { for (var kind in PLACE) { var sp = MODEL_SPECS[kind], m = MODELS[kind], list = PLACE[kind]; if (!sp || !list || !list.length) continue; var rad = m ? m.radius : (sp.size || 4) / 2;
+    FL.ph = "r.place"; try { for (var kind in PLACE) { var sp = MODEL_SPECS[kind], m = MODELS[kind], list = PLACE[kind]; if (!sp || !list || !list.length) continue; var rad = m ? m.radius : (sp.size || 4) / 2;
         var plant = PLANT_RE.test(kind) || (sp.prop && sp.sway);
         for (var q = 0; q < list.length; q++) { var e = list[q]; if (e.hide || !(e[4] > 0)) continue; var rr = rad * e[4];
           if (!sp.prop && !sp.vehicle) { SRC = 12; markDisc(h1, e[0], e[2], rr * 0.92, 1); }
@@ -160,12 +163,12 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
           else { SRC = 13; markDisc(ex, e[0], e[2], rr + K.clearFlat, 1); } }
         yield 1; } } catch (e) { err("place", e); }
     // solids: structures and decks
-    try { for (var s = 0; s < SOLIDS.length; s++) { var so = SOLIDS[s]; if (!so || so.tag === "room") continue; if (so.y1 - so.y0 > 0.9 || so.hw * so.hd > 4) { SRC = 15; markOBB(h1, so.x, so.z, so.ry || 0, so.hw, so.hd, 1); } else { SRC = 16; markOBB(ex, so.x, so.z, so.ry || 0, so.hw + K.clearFlat, so.hd + K.clearFlat, 1); } if ((s & 2047) === 2047) yield 1; } } catch (e) { err("solids", e); }
-    try { for (var c = 0; c < COLLIDERS.length; c++) { var co = COLLIDERS[c]; markDisc(soft, co[0], co[1], co[2] + 0.6, 1); } } catch (e) { err("colliders", e); }
+    FL.ph = "r.solids"; try { for (var s = 0; s < SOLIDS.length; s++) { var so = SOLIDS[s]; if (!so || so.tag === "room") continue; if (so.y1 - so.y0 > 0.9 || so.hw * so.hd > 4) { SRC = 15; markOBB(h1, so.x, so.z, so.ry || 0, so.hw, so.hd, 1); } else { SRC = 16; markOBB(ex, so.x, so.z, so.ry || 0, so.hw + K.clearFlat, so.hd + K.clearFlat, 1); } if (CPFL ? ((s & 255) === 255 && now() - tY > 2) : (s & 2047) === 2047) { yield 1; tY = now(); } } } catch (e) { err("solids", e); }
+    try { tY = now(); for (var c = 0; c < COLLIDERS.length; c++) { var co = COLLIDERS[c]; if (OLD !== null && OLD.colS.has(co)) continue; markDisc(soft, co[0], co[1], co[2] + 0.6, 1); if (CPFL && (c & 1023) === 1023 && now() - tY > 2) { yield 1; tY = now(); } } } catch (e) { err("colliders", e); }
     yield 1;
     // every module mesh in the scene: small ones by their bounds, large merged ones triangle by triangle (structures above the
     // ground count as built, flat pieces keep the small clearance)
-    var instSet = new Set(); try { INSTSET.forEach(function (S) { [S.insts, S.far, S.far2].forEach(function (a) { (a || []).forEach(function (im) { instSet.add(im); }); }); }); } catch (e) {}
+    FL.ph = "r.scene"; var instSet = new Set(); try { INSTSET.forEach(function (S) { [S.insts, S.far, S.far2].forEach(function (a) { (a || []).forEach(function (im) { instSet.add(im); }); }); }); } catch (e) {}
     try { [NEAR && NEAR.pebbles, NEAR && NEAR.rocks, NEAR && NEAR.grass].forEach(function (o) { if (o) instSet.add(o); }); } catch (e) {}
     try { if (window.PLAN_FOLIAGE && PLAN_FOLIAGE.gc) [].concat(PLAN_FOLIAGE.gc.meshes || []).forEach(function (o) { instSet.add(o); }); } catch (e) {}
     var list2 = []; var bb = new THREE.Box3(), mw = new THREE.Matrix4();
@@ -175,7 +178,7 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
         var mat0 = Array.isArray(o.material) ? o.material[0] : o.material; var leafy = mat0 && (mat0.alphaTest > 0.05 || /leaf|leaves|frond|grass|flower/i.test(mat0.name || ""));
         if (mat0 && ((mat0.transparent && mat0.depthWrite === false) || mat0.isSpriteMaterial || mat0.isPointsMaterial || mat0.colorWrite === false)) { cnt("decalSkip"); continue; }   // glows, light pools, contact shadows, decals
         if (o.isInstancedMesh) { if (!o.count || o.count > 3000) continue; if (g.boundingBox.max.y - g.boundingBox.min.y < 0.03) { cnt("planeSkip"); continue; } var gb = g.boundingBox, gcx = (gb.min.x + gb.max.x) / 2, gcy = (gb.min.y + gb.max.y) / 2, gcz = (gb.min.z + gb.max.z) / 2, ghx = (gb.max.x - gb.min.x) / 2, ghz = (gb.max.z - gb.min.z) / 2;
-          for (var ii = 0; ii < o.count; ii++) { mw.fromArray(o.instanceMatrix.array, ii * 16).premultiply(o.matrixWorld); var me = mw.elements; bb.copy(gb).applyMatrix4(mw); var sx = bb.max.x - bb.min.x, sz = bb.max.z - bb.min.z; if (!(sx < 400 && sz < 400) || !(sx + sz > 0)) continue;
+          for (var ii = 0; ii < o.count; ii++) { if (CPFL && (ii & 255) === 255 && now() - tY > 2) { yield 1; tY = now(); } mw.fromArray(o.instanceMatrix.array, ii * 16).premultiply(o.matrixWorld); var me = mw.elements; bb.copy(gb).applyMatrix4(mw); var sx = bb.max.x - bb.min.x, sz = bb.max.z - bb.min.z; if (!(sx < 400 && sz < 400) || !(sx + sz > 0)) continue;
             // the oriented footprint: the local x and z axes of the instance on the ground
             var wx = me[0] * gcx + me[4] * gcy + me[8] * gcz + me[12], wz = me[2] * gcx + me[6] * gcy + me[10] * gcz + me[14];
             var axx = me[0], axz = me[2], azx = me[8], azz = me[10], la = Math.hypot(axx, axz) || 1e-6, lb = Math.hypot(azx, azz) || 1e-6, hx = ghx * la, hz = ghz * lb;
@@ -194,20 +197,20 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
           var mnx = Math.min(ax, bxx, cxx), mxx = Math.max(ax, bxx, cxx), mnz = Math.min(az, bzz, czz), mxz = Math.max(az, bzz, czz); if (mxx - mnx > 60 || mxz - mnz > 60) continue;
           var my = Math.max(W3(a1, 1), W3(b1, 1), W3(c1, 1)), gy = sampleGrid(H, T, (mnx + mxx) / 2, (mnz + mxz) / 2);
           if (leafy) markTri(soft, ax, az, bxx, bzz, cxx, czz, 0); else if (my > gy + 1.0) { SRC = 21; markTri(h1, ax, az, bxx, bzz, cxx, czz, 0); } else { SRC = 22; markTri(ex, ax, az, bxx, bzz, cxx, czz, K.clearFlat); }
-          tri++; if ((t & 4095) === 0 && now() - tA > 6) { yield 1; tA = now(); } }
+          tri++; if (CPFL ? (tri & 63) === 0 && now() - tA > 2 : (t & 4095) === 0 && now() - tA > 6) { yield 1; tA = now(); } }
       } catch (e) { err("mesh " + (o.name || ""), e); }
-      if ((li & 127) === 127) yield 1; }
+      if (CPFL ? (li & 15) === 15 && now() - tY > 2 : (li & 127) === 127) { yield 1; tY = now(); } }
     FL.n.bigTris = tri;
     yield 1;
     // distance (m) from every cell to the nearest built cell: two-pass chamfer (3-4), in tenths of a cell
-    var W = R.W, D = R.D, dist = new Uint16Array(W * D), BIG = 60000;
-    for (var p = 0; p < W * D; p++) dist[p] = h1[p] ? 0 : BIG;
-    for (var j = 0; j < D; j++) { var o2 = j * W; for (var i = 0; i < W; i++) { var pp = o2 + i, v = dist[pp]; if (!v) continue; if (i > 0 && dist[pp - 1] + 3 < v) v = dist[pp - 1] + 3; if (j > 0) { if (dist[pp - W] + 3 < v) v = dist[pp - W] + 3; if (i > 0 && dist[pp - W - 1] + 4 < v) v = dist[pp - W - 1] + 4; if (i < W - 1 && dist[pp - W + 1] + 4 < v) v = dist[pp - W + 1] + 4; } dist[pp] = v; } if ((j & 127) === 127) yield 1; }
-    for (var j2 = D - 1; j2 >= 0; j2--) { var o3 = j2 * W; for (var i2 = W - 1; i2 >= 0; i2--) { var p2 = o3 + i2, v2 = dist[p2]; if (!v2) continue; if (i2 < W - 1 && dist[p2 + 1] + 3 < v2) v2 = dist[p2 + 1] + 3; if (j2 < D - 1) { if (dist[p2 + W] + 3 < v2) v2 = dist[p2 + W] + 3; if (i2 < W - 1 && dist[p2 + W + 1] + 4 < v2) v2 = dist[p2 + W + 1] + 4; if (i2 > 0 && dist[p2 + W - 1] + 4 < v2) v2 = dist[p2 + W - 1] + 4; } dist[p2] = v2; } if ((j2 & 127) === 127) yield 1; }
+    FL.ph = "r.dist"; var W = R.W, D = R.D, dist = new Uint16Array(W * D), BIG = 60000;
+    tY = now(); for (var p = 0; p < W * D; p++) { if (CPFL && (p & 262143) === 262143 && now() - tY > 2) { yield 1; tY = now(); } dist[p] = h1[p] ? 0 : BIG; }
+    tY = now(); for (var j = 0; j < D; j++) { if (CPFL && (j & 31) === 31 && now() - tY > 2) { yield 1; tY = now(); } var o2 = j * W; for (var i = 0; i < W; i++) { var pp = o2 + i, v = dist[pp]; if (!v) continue; if (i > 0 && dist[pp - 1] + 3 < v) v = dist[pp - 1] + 3; if (j > 0) { if (dist[pp - W] + 3 < v) v = dist[pp - W] + 3; if (i > 0 && dist[pp - W - 1] + 4 < v) v = dist[pp - W - 1] + 4; if (i < W - 1 && dist[pp - W + 1] + 4 < v) v = dist[pp - W + 1] + 4; } dist[pp] = v; } if ((j & 127) === 127) yield 1; }
+    for (var j2 = D - 1; j2 >= 0; j2--) { if (CPFL && (j2 & 31) === 31 && now() - tY > 2) { yield 1; tY = now(); } var o3 = j2 * W; for (var i2 = W - 1; i2 >= 0; i2--) { var p2 = o3 + i2, v2 = dist[p2]; if (!v2) continue; if (i2 < W - 1 && dist[p2 + 1] + 3 < v2) v2 = dist[p2 + 1] + 3; if (j2 < D - 1) { if (dist[p2 + W] + 3 < v2) v2 = dist[p2 + W] + 3; if (i2 < W - 1 && dist[p2 + W + 1] + 4 < v2) v2 = dist[p2 + W + 1] + 4; if (i2 > 0 && dist[p2 + W - 1] + 4 < v2) v2 = dist[p2 + W - 1] + 4; } dist[p2] = v2; } if ((j2 & 127) === 127) yield 1; }
     R.dist = dist; R.dk = R.C / 3;   // metres per chamfer unit
-    var free = 0; for (var f = 0; f < W * D; f++) if (!ex[f] && !soft[f] && dist[f] * R.dk >= K.clear) free++;
+    if (CPFL) yield 1; var free = 0; tY = now(); for (var f = 0; f < W * D; f++) { if (CPFL && (f & 262143) === 262143 && now() - tY > 2) { yield 1; tY = now(); } if (!ex[f] && !soft[f] && dist[f] * R.dk >= K.clear) free++; }
     FL.n.freeM2 = free * R.C * R.C; FL.t.raster = Math.round(now() - t0);
-    var bys = {}; for (var f2 = 0; f2 < W * D; f2++) { if (!(ex[f2] || h1[f2])) continue; var nm = FL.SRCN[R.src[f2]] || "?"; bys[nm] = (bys[nm] || 0) + R.C * R.C; } FL.n.bySrc = bys;
+    if (CPFL) yield 1; var bys = {}; tY = now(); for (var f2 = 0; f2 < W * D; f2++) { if (CPFL && (f2 & 262143) === 262143 && now() - tY > 2) { yield 1; tY = now(); } if (!(ex[f2] || h1[f2])) continue; var nm = FL.SRCN[R.src[f2]] || "?"; bys[nm] = (bys[nm] || 0) + R.C * R.C; } FL.n.bySrc = bys;
   }
   function distAt(x, z) { var k = idx(x, z); if (k < 0) return 0; return R.dist[k] * R.dk; }
 
@@ -269,7 +272,7 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
         var type = garden ? wpick(r, GW) : red && r() < 0.4 ? "redrock" : wpick(r, WW);
         try { CL[type](x, z, r); cnt("cl_" + type); } catch (e) { err("clump " + type, e); }
       }
-      if (now() - tA > 5) { yield 1; tA = now(); } }
+      if (now() - tA > (CPFL ? 2 : 5)) { yield 1; tA = now(); } }
     FL.t.place = Math.round(now() - t0); FL.n.items = IN.sp.length;
   }
 
@@ -369,7 +372,7 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
       ISP[k] = S.i; IX[k] = x; IZ[k] = z; IY[k] = y; IS[k * 2] = sc; IS[k * 2 + 1] = sy; IR[k] = rot; S.count = (S.count || 0) + 1;
       // colliders for the plants you would walk into
       if (S.col && !S.card) { var cr = (S.tree ? 0.35 : (m.radius || 0.5) * S.col) * sc; if (cr > 0.18) { var cc = [x, z, cr]; COLLIDERS.push(cc); MYCOL.push(cc); } }
-      if ((k & 4095) === 4095 && now() - tA > 6) { yield 1; tA = now(); } }
+      if (CPFL ? (k & 511) === 511 && now() - tA > 2 : (k & 4095) === 4095 && now() - tA > 6) { yield 1; tA = now(); } }
     // chunk grid (CSR): cells of K.chunk metres
     var C = K.chunk, cw = Math.ceil((T.xmax - T.xmin) / C), cd = Math.ceil((T.zmax - T.zmin) / C), cntA = new Int32Array(cw * cd + 1), cell = new Int32Array(NI);
     for (var a = 0; a < NI; a++) { var ci = Math.max(0, Math.min(cw - 1, Math.floor((IX[a] - T.xmin) / C))) + Math.max(0, Math.min(cd - 1, Math.floor((IZ[a] - T.zmin) / C))) * cw; cell[a] = ci; cntA[ci + 1]++; }
@@ -542,13 +545,22 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
     if (!K.beds) return; var defs = [["mulch", "/tex/fl_mulch.jpg", "/tex/fl_mulch_n.jpg", 1.6], ["dg", "/tex/fl_dg.jpg", "/tex/fl_dg_n.jpg", 2.2]], mats = {};
     for (var di = 0; di < defs.length; di++) { var def = defs[di], L = BEDS[def[0]]; if (!L.length) continue; var mat = bedMat(def[1], def[2], def[3]);
       var SEG = 14, P = [], Cc = [], Uv = [], I = [], tile = def[3], tA = now();
-      for (var b = 0; b < L.length; b++) { var cx = L[b][0], cz = L[b][1], rad = L[b][2], sd = L[b][3], base = P.length / 3;
+      var VB = []; for (var b = 0; b < L.length; b++) { var cx = L[b][0], cz = L[b][1], rad = L[b][2], sd = L[b][3], base = P.length / 3; VB.push(base, I.length);
         var y0 = sampleGrid(H, T, cx, cz) + 0.045; P.push(cx, y0, cz); Cc.push(1, 1, 1, 1); Uv.push(cx / tile, cz / tile);
         for (var ring = 0; ring < 2; ring++) for (var s = 0; s < SEG; s++) { var a = s / SEG * 6.2832, wob = 0.78 + 0.32 * vn(Math.cos(a) * 1.6 + sd, Math.sin(a) * 1.6 + sd * 0.7), rr = rad * wob * (ring ? 1 : 0.72);
           var x = cx + Math.cos(a) * rr, z = cz + Math.sin(a) * rr; P.push(x, sampleGrid(H, T, x, z) + 0.045, z); Cc.push(1, 1, 1, ring ? 0 : 0.96); Uv.push(x / tile, z / tile); }
         for (var s2 = 0; s2 < SEG; s2++) { var a0 = base + 1 + s2, a1 = base + 1 + (s2 + 1) % SEG, o0 = a0 + SEG, o1 = a1 + SEG; I.push(base, a1, a0, a0, a1, o1, a0, o1, o0); }
-        if (now() - tA > 5) { yield 1; tA = now(); } }
-      var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(Cc, 4)); g.setAttribute("uv", new THREE.Float32BufferAttribute(Uv, 2)); g.setIndex(P.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(I, 1) : new THREE.Uint16BufferAttribute(I, 1)); g.computeVertexNormals(); g.computeBoundingSphere();
+        if (now() - tA > (CPFL ? 2 : 5)) { yield 1; tA = now(); } }
+      var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(Cc, 4)); g.setAttribute("uv", new THREE.Float32BufferAttribute(Uv, 2)); g.setIndex(P.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(I, 1) : new THREE.Uint16BufferAttribute(I, 1));
+      if (CPFL && L.length > 64) {   /* R21 CP: the normals bed by bed in slices (no bed shares a vertex with another, so each slice gives the very values the whole-mesh pass gives) */
+        yield 1; var PA = g.attributes.position.array, NV = PA.length / 3, NA = new Float32Array(NV * 3), tN = now();
+        for (var b0 = 0; b0 < L.length; b0 += 128) { var b1 = Math.min(L.length, b0 + 128), v0 = VB[b0 * 2], i0 = VB[b0 * 2 + 1], v1 = b1 < L.length ? VB[b1 * 2] : NV, i1 = b1 < L.length ? VB[b1 * 2 + 1] : I.length;
+          var tg = new THREE.BufferGeometry(), ti = new Uint32Array(i1 - i0); for (var q = i0; q < i1; q++) ti[q - i0] = I[q] - v0;
+          tg.setAttribute("position", new THREE.BufferAttribute(PA.slice(v0 * 3, v1 * 3), 3)); tg.setIndex(new THREE.BufferAttribute(ti, 1)); tg.computeVertexNormals(); NA.set(tg.attributes.normal.array, v0 * 3); tg.dispose();
+          if (now() - tN > 2) { yield 1; tN = now(); } }
+        g.setAttribute("normal", new THREE.BufferAttribute(NA, 3)); yield 1;
+      } else g.computeVertexNormals();
+      g.computeBoundingSphere();
       if (def[0] === "dg") mat.color.setRGB(0.97, 0.9, 0.82);
       var mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; mesh.receiveShadow = true; mesh.castShadow = false; mesh.renderOrder = -1; mesh.name = "flora beds " + def[0]; mesh.userData.flora = true; mesh.userData.noBatch = true; mesh.userData.noCull = true; mesh.userData.noInst = true;
       GRP.add(mesh); OWN.add(mesh); mats[def[0]] = mesh; cnt("beds_" + def[0], L.length); }
@@ -568,20 +580,24 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
       var w = now() - tw; if (typeof XG !== "undefined" && XG.walkReady && ((cov && fo && pp && now() - ts > 2000) || w > 70000)) break; yield 0; }
     FL.sig = sig0;
     FL.t.wait = Math.round(now() - t0); var tb = now();
-    yield* rasterSteps();
-    yield* placeSteps();
+    FL.ph = "raster"; yield* rasterSteps();
+    FL.ph = "place"; yield* placeSteps(); FL.ph = "species";
     GRP = new THREE.Group(); GRP.name = "flora"; GRP.userData.noShadowTree = true; GRP.userData.flora = true;   // noShadowTree: the client's shadow sweep would turn every mesh of the layer into a caster GRP.userData.noBatch = true; GRP.userData.noCull = true; GRP.userData.perf = true; GRP.userData.noInst = true;
     for (var s = 0; s < SP.length; s++) { var S = SP[s]; try { S.ok = setupSpecies(S); } catch (e) { S.ok = false; err("species " + S.id, e); } if (!S.ok) cnt("spMissing"); yield 1; }
-    yield* finishInstances();
-    NR.maxR = 0; SP.forEach(function (S) { if (S.ok && S.count) { makeMeshes(S); S.tiers.forEach(function (tr) { if (tr.r1 > NR.maxR) NR.maxR = tr.r1; }); } });
+    FL.ph = "finish"; yield* finishInstances(); FL.ph = "meshes";
+    NR.maxR = 0; for (var mi = 0; mi < SP.length; mi++) { var S2 = SP[mi]; if (S2.ok && S2.count) { makeMeshes(S2); S2.tiers.forEach(function (tr) { if (tr.r1 > NR.maxR) NR.maxR = tr.r1; }); if (CPFL) yield 1; } }   /* R21 CP: a yield per species (?cpfl=0: all in one step, as before) */
     yield 1;
     { var tt = now(), sm = shrubMat().map; while (!(sm.userData.ok || sm.userData.bad) && now() - tt < 20000) yield 0; }
-    if (K.imp) { try { yield* bakeImpostors(); } catch (e) { err("bake", e); } yield 1; try { buildImpostors(); } catch (e) { err("impostors", e); } }
-    yield* buildBeds();
+    FL.ph = "bake"; if (K.imp) { try { yield* bakeImpostors(); } catch (e) { err("bake", e); } yield 1; try { buildImpostors(); } catch (e) { err("impostors", e); } }
+    FL.ph = "beds"; yield* buildBeds(); FL.ph = "compile";
     // compile the new programs before anything draws them (all tiers visible for the pass), then show the layer
-    var cdone = false; try { GRP.traverse(function (o) { if (o.isMesh) o.visible = true; }); var pc = renderer.compileAsync ? renderer.compileAsync(GRP, camera, scene) : null; if (pc && pc.then) pc.then(function () { cdone = true; }, function () { cdone = true; }); else cdone = true; } catch (e) { cdone = true; err("compile", e); }
+    var cdone = false; try { GRP.traverse(function (o) { if (o.isMesh) o.visible = true; });
+      if (CPFL && renderer.compileAsync && GRP.children.length > 1) {   /* R21 CP: one child of the layer a step (the synchronous part of a whole-layer compileAsync was 30 to 40 ms in one frame) */
+        var cps = []; for (var ci = 0; ci < GRP.children.length; ci++) { try { cps.push(renderer.compileAsync(GRP.children[ci], camera, scene)); } catch (e) { err("compile", e); } yield 1; }
+        Promise.all(cps).then(function () { cdone = true; }, function () { cdone = true; });
+      } else { var pc = renderer.compileAsync ? renderer.compileAsync(GRP, camera, scene) : null; if (pc && pc.then) pc.then(function () { cdone = true; }, function () { cdone = true; }); else cdone = true; } } catch (e) { cdone = true; err("compile", e); }
     var tc = now(); while (!cdone && now() - tc < 12000) yield 0; FL.t.compile = Math.round(now() - tc);
-    scene.add(GRP); nearUpdate(true);
+    FL.ph = "show"; scene.add(GRP); nearUpdate(true); dropOld();
     // the raster and spacing grids are only needed while building
     FL.t.build = Math.round(now() - tb); FL.t.total = Math.round(now() - t0); MG.a = null; if (!/[?&]fldebug=1\b/.test(Q)) { R.soft = null; R.h1 = null; R.src = null; R.ex = null; R.dist = null; }   // ?fldebug=1 keeps the raster for PLAN_FLORA.map and spots
     IN = null; FL.ready = true; try { readyRes(true); } catch (e) {}
@@ -592,22 +608,37 @@ window.PLAN_FLORA = window.PLAN_FLORA || { v: "r18-0", errs: [], n: {} };
     if (FL.abOff) return;
     if (STATE === "run") {
       var budget = loadingVisible() ? 24 : K.budget, t0 = now();
-      try { while (now() - t0 < budget) { var r = JOB.next(); if (r.done) { STATE = "done"; break; } if (r.value === 0) break; } } catch (e) { err("build", e); STATE = "failed"; try { readyRes(false); } catch (x) {} }
+      try { while (now() - t0 < budget) { var tq = now(); var r = JOB.next(); var dq = now() - tq; if (dq > CPM.step[0] && !loadingVisible()) { CPM.step[0] = +dq.toFixed(1); CPM.step[1] = FL.ph || ""; } if (r.done) { STATE = "done"; break; } if (r.value === 0) break; } } catch (e) { err("build", e); STATE = "failed"; try { readyRes(false); } catch (x) {} }
+      if (OLD !== null) { var hd = false; try { hd = !!inside; } catch (e) {} if (OLD.grp.visible === hd) OLD.grp.visible = !hd; }   /* R21 CP: the old layer, while the new one builds */
       return; }
     if (STATE !== "done" || !GRP) return;
-    watchWorld(); if (STATE !== "done" || !GRP) return;
+    var tw0 = now(); watchWorld(); var dw = now() - tw0; if (dw > CPM.watch) CPM.watch = +dw.toFixed(1); if (STATE !== "done" || !GRP) return;
     var hide = false; try { hide = !!inside; } catch (e) {} if (hide !== !!NR.hide) { NR.hide = hide; GRP.visible = !hide; }
     if (!hide) { try { nearUpdate(false); } catch (e) { err("near", e); } try { impUpdate(false); } catch (e) { err("imp", e); } }
   }
+  var CPM = FL.cpMax = { step: [0, ""], watch: 0 };
   function deferHook() { if (STATE !== "wait") return; JOB = build(); STATE = "run"; }
   // what the open-land raster depends on: when a module registers more after the build, the layer is rebuilt (first minutes only)
   function worldSig() { var e = 0; try { e = window.PLAN_PATHS && PLAN_PATHS.edges ? PLAN_PATHS.edges.length : 0; } catch (x) {} try { return PLAN_KEEP_POLY.length + ":" + KEEPOUT.length + ":" + ROADS.length + ":" + e + ":" + Math.round(SOLIDS.length / 50) + ":" + PLAZAS.length; } catch (x) { return "?"; } }
   var WATCH = { t0: 0, at: 0, n: 0 };
-  function watchWorld() { var t = now(); if (!WATCH.t0) WATCH.t0 = t; if (t - WATCH.t0 > 240000 || t - WATCH.at < 4000 || WATCH.n >= 3) return; WATCH.at = t; var sg = worldSig(); if (sg === FL.sig) return; WATCH.n++; cnt("rebuild"); try { console.log("PLAN_FLORA: the world changed (" + FL.sig + " -> " + sg + "), rebuilding"); } catch (e) {} reset(); deferHook(); }
+  function watchWorld() { var t = now(); if (!WATCH.t0) WATCH.t0 = t; if (t - WATCH.t0 > 240000 || t - WATCH.at < 4000 || WATCH.n >= 3) return; WATCH.at = t; var sg = worldSig(); if (sg === FL.sig) return; WATCH.n++; cnt("rebuild"); try { console.log("PLAN_FLORA: the world changed (" + FL.sig + " -> " + sg + "), rebuilding"); } catch (e) {} var keep = CPFL ? keepOld() : null; reset(); if (keep) keep.own.forEach(function (o) { OWN.add(o); }); deferHook(); }
+  // R21 CP (?cpfl=0): a rebuild in play keeps the old layer drawn (and its colliders) until the new one is shown; the new raster leaves
+  // the old layer's meshes and colliders out, exactly as after a reset, so the new layout is the same
+  var OLD = null;
+  function keepOld() {
+    if (!GRP) return null; dropOld(); OLD = { grp: GRP, imp: IMP.mesh, alb: IMP.alb, nrm: IMP.nrm, col: MYCOL.slice(), own: [] }; OLD.colS = new Set(OLD.col); OWN.forEach(function (o) { OLD.own.push(o); });
+    GRP = null; IMP.alb = IMP.nrm = null; MYCOL.length = 0; return OLD;
+  }
+  function dropOld() {
+    var O = OLD; if (!O) return; OLD = null;
+    try { if (O.grp.parent) O.grp.parent.remove(O.grp); O.grp.traverse(function (o) { if (!o.isMesh) return; if (o.isInstancedMesh) o.dispose(); if (o === O.imp || /beds/.test(o.name)) o.geometry.dispose(); }); } catch (e) { err("drop old", e); }
+    if (O.alb) O.alb.dispose(); if (O.nrm) O.nrm.dispose(); O.own.forEach(function (o) { OWN.delete(o); });
+    var cw = 0; for (var c = 0; c < COLLIDERS.length; c++) { var cc = COLLIDERS[c]; if (!O.colS.has(cc)) COLLIDERS[cw++] = cc; } COLLIDERS.length = cw;
+  }
   function reset() {
     if (GRP) { if (GRP.parent) GRP.parent.remove(GRP); GRP.traverse(function (o) { if (!o.isMesh) return; if (o.isInstancedMesh) o.dispose(); if (o === IMP.mesh || /beds/.test(o.name)) o.geometry.dispose(); }); GRP = null; }
     if (IMP.alb) IMP.alb.dispose(); if (IMP.nrm) IMP.nrm.dispose(); IMP.alb = IMP.nrm = IMP.mesh = IMP.B = null; IMP.n = 0; OWN.clear();
-    var drop = new Set(MYCOL); for (var c = COLLIDERS.length - 1; c >= 0; c--) if (drop.has(COLLIDERS[c])) COLLIDERS.splice(c, 1); MYCOL.length = 0;
+    var drop = new Set(MYCOL); if (CPFL) { var cw = 0; for (var c0 = 0; c0 < COLLIDERS.length; c0++) { var cc0 = COLLIDERS[c0]; if (!drop.has(cc0)) COLLIDERS[cw++] = cc0; } COLLIDERS.length = cw; } else for (var c = COLLIDERS.length - 1; c >= 0; c--) if (drop.has(COLLIDERS[c])) COLLIDERS.splice(c, 1); MYCOL.length = 0;   /* R21 CP: one pass (?cpfl=0: a splice each) */
     SP.forEach(function (S) { S.count = 0; S.ok = false; S.tiers = null; delete S.tile; });
     IN = { sp: [], x: [], y: [], z: [], rot: [], s: [], sy: [], tx: [], tz: [] }; BEDS = { mulch: [], dg: [] }; NI = 0; CH = null; NR.at = null; FL.ready = false; STATE = "wait"; }
   var HK = [{ name: "flora", fn: deferHook }, { name: "flora", fn: frameHook }];
