@@ -109,7 +109,7 @@ const R6URL = new Map();
 // Every caller still gets its own Texture (its own repeat, wrap, colour space) on one shared source; it becomes a
 // CompressedTexture when the file has been transcoded. Without the KTX2 loader, or if the file fails, the .jpg loads instead.
 // The transcoded data is kept (not dropped like the model textures): a caller may add a sampler setting later. ?r6tex=0: off.
-const R6KTX = new Set(["adobe", "apron", "dirt", "rock", "sand", "sand2", "tile", "turf", "wood", "corrugated", "detail", "detail2", "jet_carpet", "jet_gold", "jet_leather", "jet_wall", "jet_walnut", "terrazzo", "travertine", "wicker"].flatMap((s) => [s, s + "_n", s + "_r"]).concat(["wall_detail"]));
+const R6KTX = new Set(["adobe", "apron", "dirt", "rock", "sand", "sand2", "tile", "turf", "wood", "corrugated", "detail", "detail2", "jet_carpet", "jet_gold", "jet_leather", "jet_wall", "jet_walnut", "terrazzo", "travertine", "wicker"].flatMap((s) => [s, s + "_n", s + "_r"]).concat(["wall_detail"]).concat((window.PLAN_RP && PLAN_RP.ktx) || []));   /* R21 RP: more /tex sets (plan_gfx.js, ?rpktx=0) */
 const R6KT = new Map();
 function r6KtxUrl(url) {
   if (ASSET.tier !== "d" || /[?&]r6tex=0\b/.test(location.search)) return null; const m = url.match(/^\/tex\/([a-z0-9_]+)\.jpg(\?.*)?$/); if (!m || !R6KTX.has(m[1])) return null;

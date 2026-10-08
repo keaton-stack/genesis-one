@@ -62,6 +62,178 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   Wrapped.prototype = Orig.prototype; try { Object.setPrototypeOf(Wrapped, Orig); } catch (e) {} Wrapped.__rpaa = true; Wrapped.Orig = Orig;
   THREE.WebGLRenderer = Wrapped;
 })();
+// R21 RP: the 2D canvases behind the signs, boards and screens keep their own backing store (in the GPU process) after three has
+// uploaded them: about 600 canvases, 800 MB of backing, 727 MB of GPU memory measured on ultra, for pixels that already live in
+// the WebGL textures. A canvas that has not been uploaded again for 20 s gives its backing up (its width and height read as before,
+// through accessors on the element, so three still sees the same size). Anything that needs the pixels again gets them back first,
+// in the same task, read from the WebGL texture they were uploaded to (one readPixels, the flip undone, the 2D state put back): a
+// draw call on its 2D context, the canvas used as a source (drawImage, createPattern, createImageBitmap, a texture upload,
+// toDataURL / toBlob), a size change, or the deletion of the last WebGL texture holding its pixels. Canvases in the page (the HUD)
+// and canvases under 128 x 128 are left alone. ?rpcv=0 (or ?rp=0) off; PLAN_RP.cv.state(), .restoreAll(), .set(bool), .test(n)
+// (n released canvases restored, released and restored again, their pixels compared).
+(function () {
+  "use strict";
+  var Q = location.search, DEF = false; if (/[?&](rp|rpcv)=0(&|$)/.test(Q) || !(DEF || /[?&]rpcv=1(&|$)/.test(Q)) || !window.THREE || !THREE.WebGLRenderer || typeof HTMLCanvasElement === "undefined") return;
+  var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] };
+  var CV = RP.cv = { on: true, rec: new Map(), rel: new Set(), n: { uploads: 0, released: 0, restored: 0, restoreMs: 0, restoreMax: 0, lost: 0, MB: 0, why: {} }, K: { idle: 60000, minPx: 128 * 128, batch: 4 }, dbg: 0, keep: [], gl: null };
+  var DW = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, "width"), DH = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, "height");
+  function note(m) { if (RP.errs.length < 30) RP.errs.push("cv: " + m); }
+  function why(k) { CV.n.why[k] = (CV.n.why[k] || 0) + 1; }
+  // ── the WebGL side: which texture each canvas was last uploaded to (level 0, whole image), and with which flip ──
+  function hookGL(R) {
+    var gl = R.getContext(); if (!gl || gl.__rpcv) return; gl.__rpcv = true; CV.gl = gl; CV.R = R;
+    var unit = 0, bound = [], flip = false;
+    try { unit = gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0; bound[unit] = gl.getParameter(gl.TEXTURE_BINDING_2D); flip = !!gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL); } catch (e) {}   // three set some state before this hook
+    var at = gl.activeTexture, bt = gl.bindTexture, ps = gl.pixelStorei, ti = gl.texImage2D, ts = gl.texSubImage2D, dt = gl.deleteTexture;
+    gl.activeTexture = function (u) { unit = u - gl.TEXTURE0; return at.call(gl, u); };
+    gl.bindTexture = function (t, tex) { if (t === gl.TEXTURE_2D) bound[unit] = tex; return bt.call(gl, t, tex); };
+    gl.pixelStorei = function (p, v) { if (p === gl.UNPACK_FLIP_Y_WEBGL) flip = !!v; return ps.call(gl, p, v); };
+    var seen = function (args, full) { var c = null; for (var i = args.length - 1; i >= 4; i--) if (args[i] instanceof HTMLCanvasElement) { c = args[i]; break; } if (!c) return;
+      if (CV.rel.has(c)) restore(c, "upload"); if (args[0] !== gl.TEXTURE_2D || args[1] !== 0 || !full) return; var tex = bound[unit]; if (!tex) return;
+      var r = CV.rec.get(c); if (!r) { r = { tex: new Set(), flip: flip, at: 0, w: 0, h: 0, last: null }; CV.rec.set(c, r); } r.tex.add(tex); r.last = tex; r.flip = flip; r.at = performance.now(); CV.n.uploads++; };
+    gl.texImage2D = function () { seen(arguments, true); return ti.apply(gl, arguments); };
+    gl.texSubImage2D = function () { var a = arguments; seen(a, a[2] === 0 && a[3] === 0); return ts.apply(gl, a); };
+    gl.deleteTexture = function (tex) {
+      if (tex) CV.rec.forEach(function (r, c) { if (!r.tex.has(tex)) return; if (r.tex.size === 1 && CV.rel.has(c)) restore(c, "delete"); r.tex.delete(tex); if (r.last === tex) { r.last = null; r.tex.forEach(function (t) { r.last = t; }); } });
+      return dt.call(gl, tex); };
+  }
+  // ── release and restore ──
+  var STATE = ["font", "fillStyle", "strokeStyle", "lineWidth", "lineCap", "lineJoin", "miterLimit", "textAlign", "textBaseline", "direction", "globalAlpha", "globalCompositeOperation", "shadowBlur", "shadowColor", "shadowOffsetX", "shadowOffsetY", "imageSmoothingEnabled", "imageSmoothingQuality", "filter", "letterSpacing", "wordSpacing", "fontKerning", "lineDashOffset"];
+  // before a canvas gives its backing up: three rows of the texture it was last uploaded to must match the canvas (the right
+  // texture, the right flip), otherwise it keeps its backing for good. The texture rows are read asynchronously (a pixel-pack buffer
+  // and a fence, no GPU stall); the canvas rows when the read is queued.
+  var ROWS = [0.25, 0.5, 0.8];
+  function verifyStart(c, r, x, w, h) {
+    var gl = CV.gl; if (!gl || gl.isContextLost() || !r.last) return false; var prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), buf = gl.createBuffer(), ys = ROWS.map(function (f) { return Math.floor(h * f); });
+    if (!FB) FB = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, FB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.last, 0);
+    var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    if (ok) { gl.bindBuffer(gl.PIXEL_PACK_BUFFER, buf); gl.bufferData(gl.PIXEL_PACK_BUFFER, w * 4 * ys.length, gl.STREAM_READ);
+      ys.forEach(function (y, k) { gl.readPixels(0, r.flip ? h - 1 - y : y, w, 1, gl.RGBA, gl.UNSIGNED_BYTE, k * w * 4); }); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null); }
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
+    if (!ok) { gl.deleteBuffer(buf); return false; }
+    var rows = ys.map(function (y) { return GET.call(x, 0, y, w, 1).data; });
+    r.ver = { buf: buf, sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), rows: rows, w: w, h: h, tex: r.last, t: performance.now() }; gl.flush(); return true;
+  }
+  function verifyDone(r) {   // null: not ready yet; true / false: the result
+    var gl = CV.gl, v = r.ver; if (!v) return false;
+    var st = gl.getSyncParameter(v.sync, gl.SYNC_STATUS); if (st !== gl.SIGNALED && performance.now() - v.t < 10000) return null;
+    var t = new Uint8Array(v.w * 4 * v.rows.length), ok = 0, all = 0;
+    if (st === gl.SIGNALED) { gl.bindBuffer(gl.PIXEL_PACK_BUFFER, v.buf); gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, t); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      v.rows.forEach(function (d, k) { var o = k * v.w * 4; for (var i = 0; i < d.length; i += 4) { all++; if (d[i + 3] < 250) { ok++; continue; } if (Math.abs(d[i] - t[o + i]) <= 3 && Math.abs(d[i + 1] - t[o + i + 1]) <= 3 && Math.abs(d[i + 2] - t[o + i + 2]) <= 3) ok++; } }); }
+    gl.deleteSync(v.sync); gl.deleteBuffer(v.buf); r.ver = null;
+    return all > 0 && ok >= all * 0.995 && v.tex === r.last && v.w === DW.get.call(r.c) && v.h === DH.get.call(r.c);
+  }
+  function release(c, r) {
+    var x = c.getContext("2d"); if (!x) { r.skip = true; return false; }
+    var w = DW.get.call(c), h = DH.get.call(c), st = {};
+ for (var i = 0; i < STATE.length; i++) { var k = STATE[i]; if (k in x) st[k] = x[k]; }
+    try { st.__t = x.getTransform(); st.__d = x.getLineDash(); } catch (e) {}
+    r.w = w; r.h = h; r.st = st; r.ctx = x; CV.rel.add(c); c.__rpRel = true;
+    if (CV.dbg > CV.keep.length && !r.orig) { r.orig = GET.call(x, 0, 0, w, h).data; CV.keep.push(c); }
+    Object.defineProperty(c, "width", { configurable: true, enumerable: true, get: function () { return r.w; }, set: function (v) { restore(c, "resize"); DW.set.call(c, v); } });
+    Object.defineProperty(c, "height", { configurable: true, enumerable: true, get: function () { return r.h; }, set: function (v) { restore(c, "resize"); DH.set.call(c, v); } });
+    DW.set.call(c, 0); DH.set.call(c, 0); CV.n.released++; CV.n.MB += w * h * 4 / 1048576; return true;
+  }
+  var FB = null;
+  function restore(c, reason) {
+    if (!CV.rel.has(c)) return; var t0 = performance.now(), r = CV.rec.get(c); CV.rel.delete(c); c.__rpRel = false; why(reason);
+    delete c.width; delete c.height; DW.set.call(c, r.w); DH.set.call(c, r.h); var x = r.ctx, gl = CV.gl, ok = false;
+    try {
+      if (r.last && gl && !gl.isContextLost()) {
+        var px = new Uint8Array(r.w * r.h * 4), prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+        if (!FB) FB = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, FB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.last, 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) { gl.readPixels(0, 0, r.w, r.h, gl.RGBA, gl.UNSIGNED_BYTE, px); ok = true; }
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
+        if (ok) { var im = new ImageData(r.w, r.h), d = im.data, row = r.w * 4;
+          if (r.flip) { for (var y = 0; y < r.h; y++) d.set(px.subarray(y * row, (y + 1) * row), (r.h - 1 - y) * row); } else d.set(px);
+          PUT.call(x, im, 0, 0); }
+      }
+    } catch (e) { note("restore " + e.message); ok = false; }
+    if (!ok) CV.n.lost++;
+    try { var st = r.st; for (var k in st) if (k.charAt(0) !== "_") x[k] = st[k]; if (st.__t) x.setTransform(st.__t); if (st.__d) x.setLineDash(st.__d); } catch (e) {}
+    if (reason === "draw" || reason === "resize") r.skip = true;   // it is redrawn: it keeps its backing from now on
+    r.at = performance.now(); CV.n.restored++; var ms = performance.now() - t0; CV.n.restoreMs += ms; if (ms > CV.n.restoreMax) CV.n.restoreMax = ms;
+  }
+  // ── the 2D side: anything that draws into a released canvas or reads one brings its pixels back first ──
+  var C2 = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype, PUT = C2 && C2.putImageData, GET = C2 && C2.getImageData;
+  if (C2) ["fillRect", "strokeRect", "clearRect", "fillText", "strokeText", "fill", "stroke", "drawImage", "putImageData", "getImageData", "drawFocusIfNeeded"].forEach(function (k) {
+    var f = C2[k]; if (typeof f !== "function") return;
+    C2[k] = function (a) { var cv = this.canvas; if (cv) { if (cv.__rpRel) restore(cv, "draw"); if (k !== "getImageData") cv.__rpDraw = performance.now(); } if (k === "drawImage" && a && a.__rpRel) restore(a, "source"); return f.apply(this, arguments); };
+  });
+  if (C2 && C2.createPattern) { var cp = C2.createPattern; C2.createPattern = function (a) { if (a && a.__rpRel) restore(a, "source"); return cp.apply(this, arguments); }; }
+  ["toDataURL", "toBlob"].forEach(function (k) { var f = HTMLCanvasElement.prototype[k]; if (f) HTMLCanvasElement.prototype[k] = function () { if (this.__rpRel) restore(this, "read"); return f.apply(this, arguments); }; });
+  if (window.createImageBitmap) { var cib = window.createImageBitmap; window.createImageBitmap = function (a) { if (a && a.__rpRel) restore(a, "source"); return cib.apply(this, arguments); }; }
+  // ── the sweep: canvases idle for K.idle since their last upload, not in the page, big enough ──
+  function sweep() {
+    if (!CV.on || !CV.gl) return; var now = performance.now(), n = 0;
+    try { var L = document.getElementById("load"); if (L && !L.classList.contains("off")) return; } catch (e) {}
+    CV.rec.forEach(function (r, c) { if (r.skip || CV.rel.has(c)) return; r.c = c; if (c.__rpDraw > r.at) { if (r.ver) { try { CV.gl.deleteSync(r.ver.sync); CV.gl.deleteBuffer(r.ver.buf); } catch (e) {} r.ver = null; } return; }   /* drawn since its last upload: not idle */
+      if (r.ver) { var res = verifyDone(r); if (res === null) return; if (!res) { r.skip = true; why("mismatch"); return; } if (now - r.at < CV.K.idle) return; try { release(c, r); } catch (e) { note("release " + e.message); r.skip = true; } return; }
+      if (n >= CV.K.batch || now - r.at < CV.K.idle || !r.last) return;
+      if (c.isConnected) { r.skip = true; return; } if (DW.get.call(c) * DH.get.call(c) < CV.K.minPx) { r.skip = true; return; }
+      var x = c.getContext("2d"); if (!x) { r.skip = true; return; }
+      try { if (verifyStart(c, r, x, DW.get.call(c), DH.get.call(c))) n++; else { r.skip = true; why("noverify"); } } catch (e) { note("verify " + e.message); r.skip = true; } });
+  }
+  setInterval(function () { var t0 = performance.now(); try { sweep(); } catch (e) { note("sweep " + e.message); } var ms = performance.now() - t0; CV.n.sweepMs = (CV.n.sweepMs || 0) + ms; if (ms > (CV.n.sweepMax || 0)) CV.n.sweepMax = +ms.toFixed(1); }, 2000);
+  CV.restoreAll = function () { var a = Array.from(CV.rel); a.forEach(function (c) { restore(c, "all"); }); return a.length; };
+  CV.set = function (v) { CV.on = !!v; return CV.on; };   // off: no more releases (released canvases come back when used)
+  CV.state = function () { return { on: CV.on, tracked: CV.rec.size, released: CV.rel.size, n: CV.n }; };
+  CV.test = function (n) { var out = { n: 0, diff: 0, bytes: 0, max: 0 }, a = Array.from(CV.rel).slice(0, n || 8);
+    a.forEach(function (c) { var r = CV.rec.get(c); restore(c, "test"); var d1 = r.ctx.getImageData(0, 0, r.w, r.h).data; release(c, r); restore(c, "test"); var d2 = r.ctx.getImageData(0, 0, r.w, r.h).data; var k = 0;
+      for (var i = 0; i < d1.length; i++) { var e = Math.abs(d1[i] - d2[i]); if (e) { k++; if (e > out.max) out.max = e; } } out.n++; out.diff += k; out.bytes += d1.length; release(c, r); });
+    return out; };
+  // test (with PLAN_RP.cv.dbg = n set before the releases): the canvases released with a copy of their pixels, restored and compared
+  CV.testOrig = function () { var out = { n: 0, diff: 0, bytes: 0, max: 0, big: 0 };
+    CV.keep.forEach(function (c) { var r = CV.rec.get(c); if (!r || !r.orig) return; if (CV.rel.has(c)) restore(c, "test"); var d2 = GET.call(r.ctx, 0, 0, r.w, r.h).data, d1 = r.orig;
+      for (var i = 0; i < d1.length; i++) { var e = Math.abs(d1[i] - d2[i]); if (e) { out.diff++; if (e > out.max) out.max = e; if (e > 2) out.big++; } } out.n++; out.bytes += d1.length; r.orig = null; });
+    CV.keep.length = 0; return out; };
+  // the first comparison (no round trip yet): a canvas's own pixels against what it gets back from its texture
+  CV.test0 = function (n) { var out = { n: 0, diff: 0, bytes: 0, max: 0, big: 0 }, k0 = 0;
+    CV.rec.forEach(function (r, c) { if (out.n >= (n || 8) || CV.rel.has(c) || !r.last || c.isConnected || DW.get.call(c) * DH.get.call(c) < CV.K.minPx) return; var x = c.getContext("2d"); if (!x) return;
+      var w = DW.get.call(c), h = DH.get.call(c), d1 = x.getImageData(0, 0, w, h).data; release(c, r); restore(c, "test0"); var d2 = x.getImageData(0, 0, w, h).data, k = 0;
+      for (var i = 0; i < d1.length; i++) { var e = Math.abs(d1[i] - d2[i]); if (e) { k++; if (e > out.max) out.max = e; if (e > 2) out.big++; } } out.n++; out.diff += k; out.bytes += d1.length; });
+    return out; };
+  // install on the renderer as it is made (before the first upload)
+  var Prev = THREE.WebGLRenderer, W2 = function (p) { var R = new Prev(p); try { hookGL(R); } catch (e) { note("hook " + e.message); } return R; };
+  W2.prototype = Prev.prototype; try { Object.setPrototypeOf(W2, Prev); } catch (e) {} if (Prev.__rpaa) W2.__rpaa = true;
+  THREE.WebGLRenderer = W2;
+})();
+// R21 RP: GPU-compressed copies (KTX2, made by scratchpad r21rp/mk_rp_ktx.py as scripts/r6_ktx_textures.py does) of the /tex
+// JPEGs the game draws that had none: client.js's R6 loader (r6KtxUrl) loads tex/<name>.ktx2 for every name in this list and falls
+// back to the JPEG on any failure. 1 byte a pixel (BC7 from UASTC) or half (BC1 from ETC1S) on the GPU instead of 4, transcoded in
+// the loader's workers instead of a main-thread RGBA upload. ?rpktx=0 (or ?rp=0): the JPEGs.
+(function () {
+  var Q = location.search, RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] }, DEF = true;
+  RP.sw.ktx = !/[?&](rp|rpktx)=0(&|$)/.test(Q) && (DEF || /[?&]rpktx=1(&|$)/.test(Q));
+  RP.ktx = RP.sw.ktx ? ["xt_shop", "rp_atlas", "rh_stock", "rh_rugs", "rh_art", "mkt_stock", "bs_neon", "rv_bottles", "rh_vista_c", "rh_vista_b", "rh_vista_a", "bs_mural_b", "bs_mural_a", "sp_painting", "vp_cart_ao", "sp_plaster", "sp_earth_n", "sp_charred", "room", "rh_stone_s", "rh_stone_f", "rh_oak", "rh_logs", "rh_canvas", "mkt_floor", "gfx_gravel_n", "gfx_gravel", "fl_mulch", "fl_dg", "conv_copper_n", "bs_toolchest", "bs_concrete", "ar_fbo_trav_r", "ar_fbo_trav_n", "ar_fbo_trav", "ar_fbo_slat_r", "ar_fbo_slat_n", "ar_fbo_slat", "ar_fbo_roof_r", "ar_fbo_roof_n", "ar_fbo_roof", "fa2_photo", "rv_i3_p0", "rv_i3_l1", "rv_i3_l0", "rv_i3_l2", "rv_i3_l3", "sc_art", "ar_fbo_louver_r", "ar_fbo_louver_n", "ar_fbo_louver"] : [];
+  // the transcoded mip data of these textures is dropped once every texture handed out for the file has been uploaded and 10 s have
+  // passed (R6 does the same for the model atlases; it kept the /tex sets' data): the textures are frozen as uploaded with R6's
+  // r6Freeze, and a later load of the same file gets a fresh copy (its loader entry is marked to reload). ?rpktxdrop=0 keeps the data.
+  if (!RP.ktx.length || /[?&]rpktxdrop=0(&|$)/.test(Q) || !window.THREE || !THREE.TextureLoader) return;
+  var KD = RP.ktxDrop = { set: new Set(RP.ktx), by: new Map(), n: { tracked: 0, dropped: 0, MB: 0, late: 0 } };
+  function track(t, name) {
+    if (t.__rpKt) return; t.__rpKt = 1; var e = KD.by.get(name); if (!e) { e = { texs: [], last: 0, done: false }; KD.by.set(name, e); } if (e.done) { KD.n.late++; return; }
+    e.texs.push(t); e.last = performance.now(); KD.n.tracked++;
+    var prev = t.onUpdate; t.onUpdate = function (x) { if (prev) prev.call(this, x); e.last = Math.max(e.last, performance.now() - 5000); };
+    var cl = t.clone; t.clone = function () { var c = cl.apply(this, arguments); if (!e.done) track(c, name); return c; };
+  }
+  function step() {
+    var now = performance.now(), held = false; try { var L = document.getElementById("load"); held = !!L && !L.classList.contains("off"); } catch (x) {}
+    if (held || typeof R6KT === "undefined" || typeof r6Freeze !== "function" || typeof renderer === "undefined") return;
+    KD.by.forEach(function (e, name) {
+      if (e.done || now - e.last < 10000) return; var R = renderer, i, t, src = null;
+      for (i = 0; i < e.texs.length; i++) { t = e.texs[i]; if (!t.isCompressedTexture || !R.properties.get(t).__webglTexture) return; src = src || t.source; }
+      var url = null; R6KT.forEach(function (E, u) { if (!url && E.src === src && /^\/tex\/([a-z0-9_]+)\.jpg/.exec(u) && RegExp.$1 === name) url = u; });
+      var E = url && R6KT.get(url); if (!E || !E.tex || !E.tex.mipmaps) return;
+      e.done = true; var b = 0; E.tex.mipmaps.forEach(function (m) { if (m && m.data) { b += m.data.byteLength; m.data = null; } });
+      for (i = 0; i < e.texs.length; i++) r6Freeze(e.texs[i]); E.err = true; e.texs.length = 0; KD.n.dropped++; KD.n.MB += b / 1048576;
+    });
+  }
+  var P = THREE.TextureLoader.prototype, cur = P.load;
+  var outer = function (f) { return function (url) { var t = f.apply(this, arguments); try { var m = typeof url === "string" && /^\/tex\/([a-z0-9_]+)\.jpg/.exec(url); if (m && KD.set.has(m[1]) && t && t.isTexture) track(t, m[1]); } catch (x) {} return t; }; };
+  try { Object.defineProperty(P, "load", { configurable: true, get: function () { return cur; }, set: function (f) { cur = outer(f); } }); } catch (x) { RP.errs.push("ktx drop: " + x.message); return; }
+  setInterval(function () { try { step(); } catch (x) { if (RP.errs.length < 20) RP.errs.push("ktx drop: " + x.message); } }, 2000);
+})();
 (function () {
   "use strict";
   var HK = window.PLAN_HOOKS;
