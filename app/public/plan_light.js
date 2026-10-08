@@ -463,7 +463,7 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
       o.traverse(function (m) { if ((m.isMesh || m.isPoints || m.isLine) && m.castShadow === true && m.__rpDyn !== 1) rcMark(m, "mover"); }); }
   }
   function rcFrame(now) {
-    if (!RP.sw.sc) return; try { rcInstall(); } catch (e) { note("rc install", e); RP.sw.sc = false; return; }
+    if (!RP.sw.sc || !CS.csm) return; try { rcInstall(); }   /* nothing on the tiers without cascades */ catch (e) { note("rc install", e); RP.sw.sc = false; return; }
     try { rcMoversScan(now); } catch (e) { note("rc movers", e); }
   }
   // test: the map the cache path made this frame against a full redraw with the same light matrix (texels whose packed depth differs)

@@ -203,9 +203,9 @@ let socket = null, retry = 0, view = null, connected = 0;
    only what changed (players' changed fields, slow state such as boards, lots, the guestbook and props only when it changes),
    with a full snapshot every 5 s. public/net_nt.js rebuilds the exact v1 message, so onState and every reader of `view` are
    unchanged. A room that does not speak v2 keeps sending v1 and this client reads it as before.
-   ?nt=0 forces the v1 path. ?ntaoi=1 opts in to interest management (far players at about 2 Hz), ?ntarr=1 to compact movement
-   arrays (both off by default until proven). window.__nt holds the counters (bytes, messages, parse and apply ms). */
-const NT = { on: !!window.NTNET && !/[?&]nt=0\b/.test(location.search), caps: ["aoi", "arr"].filter((c) => new RegExp("[?&]nt" + c + "=1\\b").test(location.search)), st: null,
+   ?nt=0 forces the v1 path. ?ntaoi=1 opts in to interest management (far players at about 2 Hz; off by default), ?ntarr=0 turns off
+   the compact movement arrays (exact integer arrays for x, z, ry, t; on by default since stage B). window.__nt holds the counters (bytes, messages, parse and apply ms). */
+const NT = { on: !!window.NTNET && !/[?&]nt=0\b/.test(location.search), caps: [...(/[?&]ntaoi=1\b/.test(location.search) ? ["aoi"] : []), ...(/[?&]ntarr=0\b/.test(location.search) ? [] : ["arr"])], st: null,
   n: { msgs: 0, bytes: 0, v1: 0, v2: 0, fulls: 0, resyncs: 0, parseMs: 0, applyMs: 0, t0: performance.now() } };
 window.__nt = NT;
 /* runtime switch: __nt.use(false) reconnects on the v1 protocol, __nt.use(true) back on v2 (the socket's close handler reconnects) */
