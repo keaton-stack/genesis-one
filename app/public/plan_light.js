@@ -278,13 +278,13 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
   }
   function wrapDraw() {
     if (R.__plLd) return; R.__plLd = true; var rbd = R.renderBufferDirect;
-    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+    var soSt = function (cam, sc, geo, mat, obj, grp) {   /* R21 T3 (HANDOFF_R21_DRAW.md): this wrapper as a stage of PLAN_PERF.rbd */
       if (SO.inPass === true && sc === null && obj && SO.light && cam === SO.light.shadow.camera) {
-        if (obj.isSkinnedMesh === true || obj.isPoints === true || obj.isLine === true) { SO.n.skip++; return; }
-        var bs = geo && geo.boundingSphere; if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < K.soMinR) { SO.n.skip++; return; }
+        if (obj.isSkinnedMesh === true || obj.isPoints === true || obj.isLine === true) { SO.n.skip++; return true; }
+        var bs = geo && geo.boundingSphere; if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < K.soMinR) { SO.n.skip++; return true; }
       }
-      return rbd.apply(this, arguments);
-    };
+      return false;
+    }; var DXr = window.PLAN_PERF && PLAN_PERF.rbd; if (!(DXr && DXr.add && DXr.add(R, "plStrip", 50, soSt))) R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) { if (soSt(cam, sc, geo, mat, obj, grp) === true) return; return rbd.apply(this, arguments); };
   }
   function wrapShadowRender() {
     var sm = R.shadowMap; if (sm.__plL) return; sm.__plL = true; var s0 = sm.render;
@@ -457,11 +457,11 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
     RC.wrapper = w; sm.render = w;
     try { if (!RC.warm) { RC.warm = true; var Qd = rcQuad(); if (R.compileAsync) R.compileAsync(Qd.scene, Qd.cam).catch(function () {}); else R.compile(Qd.scene, Qd.cam); } } catch (e) { note("rc warm", e); }
     if (!R.__rpRbd) { R.__rpRbd = true; var rbd = R.renderBufferDirect;
-      R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
-        if (sc === null) { if (RC.vcol) RC.vcol.push(obj); if (RC.cam2S.size !== 0) { var S = RC.cam2S.get(cam); if (S !== undefined && S.full === true && obj) { S.ran = true; if (rcDyn(obj)) { if (!RC.dyn.has(obj)) rcMark(obj, "class"); RC.n.skip++; return; } if (obj[S.key] !== S.stamp) { obj[S.key] = S.stamp; S.rec.push(obj); } } } }
+      var rcSt = function (cam, sc, geo, mat, obj, grp) {   /* R21 T3 (HANDOFF_R21_DRAW.md): this wrapper as a stage of PLAN_PERF.rbd */
+        if (sc === null) { if (RC.vcol) RC.vcol.push(obj); if (RC.cam2S.size !== 0) { var S = RC.cam2S.get(cam); if (S !== undefined && S.full === true && obj) { S.ran = true; if (rcDyn(obj)) { if (!RC.dyn.has(obj)) rcMark(obj, "class"); RC.n.skip++; return true; } if (obj[S.key] !== S.stamp) { obj[S.key] = S.stamp; S.rec.push(obj); } } } }
         else if (obj && obj.isSkinnedMesh === true && obj.__rpDyn !== 1 && obj.castShadow === true) rcMark(obj, "seen");   // people seen in any colour pass
-        return rbd.apply(this, arguments);
-      }; }
+        return false;
+      }; var DXr = window.PLAN_PERF && PLAN_PERF.rbd; if (!(DXr && DXr.add && DXr.add(R, "rpCache", 60, rcSt))) R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) { if (rcSt(cam, sc, geo, mat, obj, grp) === true) return; return rbd.apply(this, arguments); }; }
   }
   // movers from the TAA's tracker (top-level objects that moved this frame): their meshes are redrawn every frame
   var RCM = { at: 0, seen: new WeakMap() };

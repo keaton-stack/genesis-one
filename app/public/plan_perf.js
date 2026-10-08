@@ -36,6 +36,33 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   if (P.off) return;
   function G(name) { try { return eval(name); } catch (e) { return undefined; } }   // a client global that may not exist yet (TDZ before client.js runs)
   var now = function () { return performance.now(); };
+  /* R21 T3 (HANDOFF_R21_DRAW.md, ?t3wr=0 or ?t3=0 off): one dispatcher for renderer.renderBufferDirect instead of a stack of seven
+     wrappers. Every module that used to wrap it registers its per-draw test as a stage (P.rbd.add(renderer, name, order, fn)); the
+     stages run outermost first in the order the wrappers ended up in (R16 70, RP cascade cache 60, plan_light strip pass 50, BC
+     horizon and occlusion 40, BC instanced 30, R6 20), and R5 (link guard, depth twins) is the tail that calls three. A stage is
+     fn(cam, scene, geometry, material, object, group, next) and returns true when the draw is done with (skipped, or drawn by the
+     stage itself through next, the rest of the chain). Off: the same stages run as nested wrappers again (as before, one apply
+     each). Live: P.rbd.set(bool). */
+  var DX = P.rbd = { on: !/[?&](t3|t3wr)=0\b/.test(Q), R: null, inner: null, tail: null, st: [], S: [], N: [], leg: null, errs: [], n: { built: 0 } };
+  function dxRest(i0) { return function (cam, sc, geo, mat, obj, grp) { var S = DX.S, N = DX.N; for (var i = i0, n = S.length; i < n; i++) if (S[i](cam, sc, geo, mat, obj, grp, N[i]) === true) return; return DX.tail.call(DX.R, cam, sc, geo, mat, obj, grp); }; }
+  function dxLeg(fn, inner) { return function (cam, sc, geo, mat, obj, grp) { if (fn(cam, sc, geo, mat, obj, grp, inner) === true) return; return inner.apply(this, arguments); }; }
+  DX.disp = function (cam, sc, geo, mat, obj, grp) {
+    if (DX.on !== true) return DX.leg.apply(this, arguments);   // off while someone else's wrapper sits outside the dispatcher
+    var S = DX.S, N = DX.N; for (var i = 0, n = S.length; i < n; i++) if (S[i](cam, sc, geo, mat, obj, grp, N[i]) === true) return;
+    return DX.tail.call(this, cam, sc, geo, mat, obj, grp);
+  };
+  function dxBuild() {
+    var st = DX.st.slice().sort(function (a, b) { return b.order - a.order; }), S = [], N = [];
+    for (var i = 0; i < st.length; i++) { S.push(st[i].fn); N.push(dxRest(i + 1)); }
+    var w = function () { return DX.tail.apply(DX.R, arguments); }; for (var j = S.length - 1; j >= 0; j--) w = dxLeg(S[j], w);
+    var old = DX.leg; DX.S = S; DX.N = N; DX.leg = w; DX.n.built++;
+    var R = DX.R; if (R.renderBufferDirect === DX.disp || R.renderBufferDirect === old) R.renderBufferDirect = DX.on ? DX.disp : w;
+  }
+  function dxAttach(R) { if (DX.R === R) return true; if (DX.R !== null) return false; DX.R = R; DX.inner = DX.tail = R.renderBufferDirect; R.renderBufferDirect = DX.disp; return true; }
+  DX.add = function (R, name, order, fn) { if (!dxAttach(R)) return false; for (var i = 0; i < DX.st.length; i++) if (DX.st[i].name === name) return true; DX.st.push({ name: name, order: order, fn: fn }); dxBuild(); return true; };
+  DX.setTail = function (R, fn) { if (!dxAttach(R)) return false; DX.tail = fn; dxBuild(); return true; };
+  DX.set = function (on) { DX.on = !!on; var R = DX.R; if (R && (R.renderBufferDirect === DX.disp || R.renderBufferDirect === DX.leg)) R.renderBufferDirect = DX.on ? DX.disp : DX.leg; return DX.on; };
+  DX.stages = function () { return DX.st.slice().sort(function (a, b) { return b.order - a.order; }).map(function (e) { return e.name + ":" + e.order; }); };
 
   // ───────────────────────── P3 (1 Oct 2026): world matrices only where something moved ─────────────────────────
   // three recomputes the world matrix of every object in every render: the scene root auto-updates, which forces its whole tree
@@ -1077,10 +1104,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     NS.arr = arr; var push0 = Array.prototype.push;
     arr.push = function () { for (var i = 0; i < arguments.length; i++) guard(arguments[i]); return push0.apply(this, arguments); };
     for (var i = 0; i < arr.length; i++) guard(arr[i]);
-    if (!R.__r5rbd) { var rbd = R.renderBufferDirect; R.__r5rbd = rbd;
+    if (!R.__r5rbd) { var DX = P.rbd, rbd = DX && DX.add ? null : R.renderBufferDirect;
+      if (rbd === null) { R.__r5rbd = true;   /* R21 T3: the dispatcher's tail (three is DX.inner) */
+        var r5t = function (cam, sc, geo, mat, obj, grp) { if (NS.depth === 0 && this.info.programs !== NS.arr) nsInstall(this);
+          if (DM.on === true && sc === null && mat !== null && mat !== undefined && mat.isMeshDepthMaterial === true && obj !== null && (obj.isInstancedMesh === true || obj.isBatchedMesh === true) && obj.customDepthMaterial !== mat) mat = dmTwin(mat, obj.isInstancedMesh === true ? 0 : 1);   /* R21 CP: instanced / batched casters get their own depth material */
+          NS.depth++; try { return DX.inner.call(this, cam, sc, geo, mat, obj, grp); } catch (e) { if (e === NS.NR) { W.n.skips++; NS.fs++; return; } throw e; } finally { NS.depth--; } };
+        if (!DX.setTail(R, r5t)) { R.__r5rbd = false; rbd = R.renderBufferDirect; } }
+      if (rbd !== null) { R.__r5rbd = rbd;
       R.renderBufferDirect = function () { if (NS.depth === 0 && this.info.programs !== NS.arr) nsInstall(this);   /* a restored context has a new program list: guard it before its first draw */
         if (DM.on === true && arguments[1] === null) { var dm = arguments[3], dob = arguments[4]; if (dm !== null && dm !== undefined && dm.isMeshDepthMaterial === true && dob !== null && (dob.isInstancedMesh === true || dob.isBatchedMesh === true) && dob.customDepthMaterial !== dm) arguments[3] = dmTwin(dm, dob.isInstancedMesh === true ? 0 : 1); }   /* R21 CP: instanced / batched casters get their own depth material */
-        NS.depth++; try { return rbd.apply(this, arguments); } catch (e) { if (e === NS.NR) { W.n.skips++; NS.fs++; return; } throw e; } finally { NS.depth--; } }; }
+        NS.depth++; try { return rbd.apply(this, arguments); } catch (e) { if (e === NS.NR) { W.n.skips++; NS.fs++; return; } throw e; } finally { NS.depth--; } }; } }
   }
 
   // ── long tasks (with the script the browser blames, where Long Animation Frames are available) ──
@@ -1353,24 +1386,26 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   P.ismSet = function (on) { ISM.on = !!on; return ISM.on; };
   function wrapDraw(R) {
     if (D.installed || !R) return; D.installed = true; R0 = R; var rbd = R.renderBufferDirect; var OPK = P.opK || (P.opK = { px: 1, shPx: 1, skin: 0, skinSh: 0, sh: 0 });   /* R19 OP governor knobs (1 / 0: as before) */
-    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+    var r6st = function (cam, sc, geo, mat, obj, grp, next) {   /* R21 T3: the R6 wrapper as a dispatcher stage (same tests, same order) */
       if (sc === null && D.csm !== null && obj && cam.isOrthographicCamera === true) { var ci = D.cams.get(cam);
         if (ci !== undefined) {
           if (obj.isInstancedMesh === true) { var tf = D.tier.get(obj);
             if (tf !== undefined) { var m0 = tierOf(tf.S, tf.t)[0], rec = D.sorted.get(m0), cnt = obj.count, sub = null;
               if (ci <= 1 && !D.indoor && rec && rec.d && rec.ver === m0.instanceMatrix.version && rec.n === m0.count) { var sz = tf.S.h * 1.6; var lim = D.far[ci] + sz / D.tanEl + tf.S.rad * 1.6 + Math.hypot(D.cam.position.x - rec.x, D.cam.position.z - rec.z); var k = upper(rec.d, lim); if (k < cnt) { D.n.cutSh += cnt - k; cnt = k; } }
-              if (cnt <= 0) { D.n.skipSh++; return; }
-              sub = lodGeo(tf.S, tf.t, tf.i, ci); if (sub === false) { D.n.skipSh++; return; }
-              if (ISM.on === true && D.indoor === false) { var we = lodTier(tf.S, tf.t, ci), rid = R0.info.render.frame * 8 + ci, IE = ismGet(tf.S, tf.t, we, mat.side, rid); if (IE !== null && IE.mem[tf.i] === 1) { if (IE.rid === rid) { ISM.n.skip++; return; } IE.rid = rid; var c1 = obj.count; obj.count = cnt; ISM.n.draw++; try { return rbd.call(this, cam, sc, IE.mesh, mat, obj, grp); } finally { obj.count = c1; } } }   /* R19 OP: the set's merged depth geometry, once per cascade render */
-              if (sub || cnt !== obj.count) { var c0 = obj.count; obj.count = cnt; if (sub) D.n.lodSh++; try { return rbd.call(this, cam, sc, sub || geo, mat, obj, grp); } finally { obj.count = c0; } } } }
-          else if (geo && obj.isMesh === true) { if ((ci >= 2 || (ci >= 1 && OPK.skinSh === 1)) && obj.isSkinnedMesh === true) { D.n.skipSh++; return; } var bs = geo.boundingSphere; if (bs === null && !dropped(geo)) { geo.computeBoundingSphere(); bs = geo.boundingSphere; } if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < (ci >= 2 ? 5 : 2) * D.texel[ci] * OPK.shPx) { D.n.skipSh++; return; } } } }
+              if (cnt <= 0) { D.n.skipSh++; return true; }
+              sub = lodGeo(tf.S, tf.t, tf.i, ci); if (sub === false) { D.n.skipSh++; return true; }
+              if (ISM.on === true && D.indoor === false) { var we = lodTier(tf.S, tf.t, ci), rid = R0.info.render.frame * 8 + ci, IE = ismGet(tf.S, tf.t, we, mat.side, rid); if (IE !== null && IE.mem[tf.i] === 1) { if (IE.rid === rid) { ISM.n.skip++; return true; } IE.rid = rid; var c1 = obj.count; obj.count = cnt; ISM.n.draw++; try { next(cam, sc, IE.mesh, mat, obj, grp); return true; } finally { obj.count = c1; } } }   /* R19 OP: the set's merged depth geometry, once per cascade render */
+              if (sub || cnt !== obj.count) { var c0 = obj.count; obj.count = cnt; if (sub) D.n.lodSh++; try { next(cam, sc, sub || geo, mat, obj, grp); return true; } finally { obj.count = c0; } } } }
+          else if (geo && obj.isMesh === true) { if ((ci >= 2 || (ci >= 1 && OPK.skinSh === 1)) && obj.isSkinnedMesh === true) { D.n.skipSh++; return true; } var bs = geo.boundingSphere; if (bs === null && !dropped(geo)) { geo.computeBoundingSphere(); bs = geo.boundingSphere; } if (bs && bs.radius * obj.matrixWorld.getMaxScaleOnAxis() < (ci >= 2 ? 5 : 2) * D.texel[ci] * OPK.shPx) { D.n.skipSh++; return true; } } } }
       else if (D.px && (cam === D.cam || cam.r10eye === true) && sc === D.scene && obj && obj.isMesh === true && obj.isInstancedMesh !== true && geo) { var bs2 = geo.boundingSphere; if (bs2 === null && !dropped(geo)) { geo.computeBoundingSphere(); bs2 = geo.boundingSphere; }
         if (bs2) { _sp.copy(bs2.center).applyMatrix4(obj.matrixWorld); var eye = cam.r10eye === true, cpos = eye ? _ep.setFromMatrixPosition(cam.matrixWorld) : cam.position, dist = _sp.distanceTo(cpos), rad = bs2.radius * obj.matrixWorld.getMaxScaleOnAxis();
-          if (eye && obj.isSkinnedMesh !== true && eyeOut(cam, _sp, rad)) { D.n.skipEye++; return; }   /* R10: three culls against both eyes' joint frustum; each eye draws only what is in its own */
-          if (OPK.skin > 0 && dist > OPK.skin && obj.isSkinnedMesh === true && !eye) { D.n.skipSkin = (D.n.skipSkin || 0) + 1; return; }   /* R19 OP governor: far people under sustained load */
-          if (dist > 30) { var px = rad / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35) * (eye ? D.vrPx : OPK.px)) { D.n.skipPx++; return; } } } }
-      return rbd.apply(this, arguments);
+          if (eye && obj.isSkinnedMesh !== true && eyeOut(cam, _sp, rad)) { D.n.skipEye++; return true; }   /* R10: three culls against both eyes' joint frustum; each eye draws only what is in its own */
+          if (OPK.skin > 0 && dist > OPK.skin && obj.isSkinnedMesh === true && !eye) { D.n.skipSkin = (D.n.skipSkin || 0) + 1; return true; }   /* R19 OP governor: far people under sustained load */
+          if (dist > 30) { var px = rad / dist * D.K; if (px < (lit(mat) ? 0.75 : 0.35) * (eye ? D.vrPx : OPK.px)) { D.n.skipPx++; return true; } } } }
+      return false;
     };
+    if (!(P.rbd && P.rbd.add && P.rbd.add(R, "r6", 20, r6st))) { var r6nx = function () { return rbd.apply(R, arguments); };
+      R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) { if (r6st(cam, sc, geo, mat, obj, grp, r6nx) === true) return; return rbd.apply(this, arguments); }; }
   }
   // buildings' far LOD distance (high and ultra)
   function lodDist() {
@@ -1746,18 +1781,19 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function wrap(R) {
     if (R0) return; R0 = R; var rbd0 = R.renderBufferDirect, sm = R.shadowMap, s0 = sm.render;
-    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+    var r16st = function (cam, sc, geo, mat, obj, grp) {   /* R21 T3: the R16 wrapper as a dispatcher stage */
       var f = obj.id < MW.cap ? MW.S16[obj.id] : 0;
       if (sc === null) { if (SM.act === true && W.spPass === true) {
-        if ((f & 1) !== 0) { var E = SM.byId.get(obj.id); if (E !== undefined && E.dead === false && E.rmin >= thr(cam)) { SM.n.skipMember++; return; } }
-        else if ((f & 8) !== 0 && obj.__s16e !== undefined) { if (!(obj.__s16e.rmin >= thr(cam))) { SM.n.proxySkip++; return; } SM.n.proxyDraw++; } } }
+        if ((f & 1) !== 0) { var E = SM.byId.get(obj.id); if (E !== undefined && E.dead === false && E.rmin >= thr(cam)) { SM.n.skipMember++; return true; } }
+        else if ((f & 8) !== 0 && obj.__s16e !== undefined) { if (!(obj.__s16e.rmin >= thr(cam))) { SM.n.proxySkip++; return true; } SM.n.proxyDraw++; } } }
       else if (SC.act === true) {
-        if ((f & 8) !== 0) return;   // a merged shadow caster is depth only
-        if ((f & 4) !== 0) { var E2 = SC.byId.get(obj.id); if (E2 !== undefined && E2.dead === false && useMain(E2, cam)) { SC.n.skipMember++; return; } }
-        else if ((f & 16) !== 0 && obj.__s16c !== undefined) { if (!useMain(obj.__s16c, cam)) { SC.n.mergedSkip++; return; } SC.n.mergedDraw++; } }
-      else if ((f & 24) !== 0) return;   // switched off (or a merged shadow caster in a colour pass): the originals draw
-      return rbd0.apply(this, arguments);
+        if ((f & 8) !== 0) return true;   // a merged shadow caster is depth only
+        if ((f & 4) !== 0) { var E2 = SC.byId.get(obj.id); if (E2 !== undefined && E2.dead === false && useMain(E2, cam)) { SC.n.skipMember++; return true; } }
+        else if ((f & 16) !== 0 && obj.__s16c !== undefined) { if (!useMain(obj.__s16c, cam)) { SC.n.mergedSkip++; return true; } SC.n.mergedDraw++; } }
+      else if ((f & 24) !== 0) return true;   // switched off (or a merged shadow caster in a colour pass): the originals draw
+      return false;
     };
+    if (!(P.rbd && P.rbd.add && P.rbd.add(R, "r16", 70, r16st))) R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) { if (r16st(cam, sc, geo, mat, obj, grp) === true) return; return rbd0.apply(this, arguments); };
     sm.render = function (lights, scn, cam) {   // three tests a caster's layers against the camera of the render: merged casters draw (and their members do not) only where that camera has their layer
       W.spPass = SM.act === true && W.live.length !== 0 && !!cam && (cam.layers.mask & BIT) !== 0;
       if (SM.act !== true && W.live.length !== 0) { var hid = []; for (var j = 0; j < W.live.length; j++) { var me = W.live[j].mesh; if (W.live[j].kind === "s" && me.layers.mask !== 0) { me.layers.mask = 0; hid.push(me); } } try { return s0.apply(this, arguments); } finally { for (var k = 0; k < hid.length; k++) hid[k].layers.mask = BIT; } }

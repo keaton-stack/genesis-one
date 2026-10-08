@@ -75,13 +75,13 @@
   function cascades() { var c = G("CSMX"), csm = c && c.csm; if (csm !== csmRef) { csmRef = csm; csmCams.clear(); if (csm) csm.lights.forEach(function (l, i) { csmCams.set(l.shadow.camera, i); }); } }
   function install(R) {
     if (C.installed) return; C.installed = true; var inner = R.renderBufferDirect, cam0 = G("camera"), sc0 = G("scene");
-    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+    var bcSt = function (cam, sc, geo, mat, obj, grp) {   /* R21 T3 (HANDOFF_R21_DRAW.md): this wrapper as a stage of PLAN_PERF.rbd */
       if (C.on === true && obj !== null && obj !== undefined && obj.isInstancedMesh === true) { var T = MAP.get(obj);
         if (T !== undefined) {
-          if (sc === null) { if (C.part.isf === true && cam.isOrthographicCamera === true) { var ci = csmCams.get(cam); if (ci !== undefined) { var rid = R.info.render.frame * 8 + ci; if (!anyIn(T, obj, cam, rid)) { C.n.shSkip++; return; } C.n.shKeep++; } } }
-          else if (C.part.ifr === true && cam === cam0 && sc === sc0) { var rid2 = R.info.render.frame * 8 + 7; if (!anyIn(T, obj, cam, rid2)) { C.n.mainSkip++; return; } C.n.mainKeep++; } } }
-      return inner.apply(this, arguments);
-    };
+          if (sc === null) { if (C.part.isf === true && cam.isOrthographicCamera === true) { var ci = csmCams.get(cam); if (ci !== undefined) { var rid = R.info.render.frame * 8 + ci; if (!anyIn(T, obj, cam, rid)) { C.n.shSkip++; return true; } C.n.shKeep++; } } }
+          else if (C.part.ifr === true && cam === cam0 && sc === sc0) { var rid2 = R.info.render.frame * 8 + 7; if (!anyIn(T, obj, cam, rid2)) { C.n.mainSkip++; return true; } C.n.mainKeep++; } } }
+      return false;
+    }; var DXr = window.PLAN_PERF && PLAN_PERF.rbd; if (!(DXr && DXr.add && DXr.add(R, "bcInst", 30, bcSt))) R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) { if (bcSt(cam, sc, geo, mat, obj, grp) === true) return; return inner.apply(this, arguments); };
   }
   var f = 0;
   var HK = window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
@@ -114,7 +114,7 @@
   var C = window.PLAN_CULL; if (!C || !C.on) return;
   var Q = location.search;
   var O = C.occ = { on: /[?&]bcocc=1\b/.test(Q), want: /[?&]bcocc=1\b/.test(Q), errs: [], n: { tests: 0, culled: 0, rasters: 0, occUsed: 0, capKinds: 0, capPlain: 0, boxes: 0, rejected: 0, invalid: 0, capMs: 0, solveMs: 0, rastMs: 0, testMs: 0 },
-    W: 256, H: 144, buf: null, K: { maxBoxes: 16, maxOcc: 220, minPx: 16, range: 700, minFrac: 0, minDim: 1.5, solveMs: 3 }, kinds: [], plain: [], q: [], busy: false, last: null };
+    W: 256, H: 144, tq: 0, buf: null, K: { maxBoxes: 16, maxOcc: 220, minPx: 16, range: 700, minFrac: 0, minDim: 1.5, solveMs: 3 }, kinds: [], plain: [], q: [], busy: false, last: null };
   function note(tag, e) { try { if (O.errs.length < 20) O.errs.push(tag + ": " + (e && e.message ? e.message : String(e))); } catch (x) {} }
   var GC = {};
   function G(name) { var v = GC[name]; if (v !== undefined) return v; try { v = (0, eval)(name); } catch (e) { return undefined; } if (v !== undefined && v !== null && (name === "INSTSET" || name === "renderer" || name === "scene" || name === "camera" || name === "MODEL_SPECS")) GC[name] = v; return v; }
@@ -468,16 +468,16 @@
   O.dbgOnly = null; O.culledNow = null;   // tests: a Set that collects the meshes culled (O.culledNow = new Set())
   function install(R) {
     inst = true; cam0 = G("camera"); sc0 = G("scene"); var inner = R.renderBufferDirect;
-    R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+    var hzSt = function (cam, sc, geo, mat, obj, grp) {   /* R21 T3 (HANDOFF_R21_DRAW.md): this wrapper as a stage of PLAN_PERF.rbd */
       if ((O.on === true || HZ.on === true) && cam === cam0 && sc === sc0 && obj && obj.isMesh === true && obj.isInstancedMesh !== true && geo) {
         var rid = R.info.render.frame; if (rid !== ridB) { ridB = rid; act = activeNow(); if (act) { if (HZ.on === true) { try { hzBuild(cam); } catch (e) { note("hz build", e); HZ.ok = false; } } if (O.on === true) { try { build(cam, R); O.bok = true; } catch (e) { note("build", e); O.bok = false; } } } }
-        if (act === true) { var oid = obj.id; if (oid >= CR.length) growC(oid); if (CR[oid] === rid) { if (CV[oid] === 1) return; } else { var t0 = performance.now(), v = false, trust = boundsTrusted(obj, geo, mat);
+        if (act === true) { var oid = obj.id; if (oid >= CR.length) growC(oid); if (CR[oid] === rid) { if (CV[oid] === 1) return true; } else { var tm = DXr === undefined || DXr.on !== true || (++O.tq & 15) === 0, t0 = tm ? performance.now() : 0, v = false, trust = boundsTrusted(obj, geo, mat);   /* R21 T3: with the dispatcher on, the test timer samples one test in 16 */
             if (trust === true && HZ.on === true && HZ.ok === true) { try { v = hzHidden(obj, geo, mat); } catch (e) { note("hz test", e); } HZ.n.tests++; if (v) HZ.n.culled++; }
             if (trust === true && v === false && O.on === true && O.bok === true && obj.isSkinnedMesh !== true) { try { v = occluded(obj, geo); } catch (e) { note("test", e); } O.n.tests++; if (v) O.n.culled++; }
             if (v === true && O.dbgOnly !== null && !O.dbgOnly.has(obj)) v = false;   // tests: cull only the meshes of a given set
-            CR[oid] = rid; CV[oid] = v ? 1 : 0; O.n.testMs += performance.now() - t0; if (v) { if (O.culledNow) O.culledNow.add(obj); return; } } } }
-      return inner.apply(this, arguments);
-    };
+            CR[oid] = rid; CV[oid] = v ? 1 : 0; if (tm) O.n.testMs += (performance.now() - t0) * (DXr !== undefined && DXr.on === true ? 16 : 1); if (v) { if (O.culledNow) O.culledNow.add(obj); return true; } } } }
+      return false;
+    }; var DXr = window.PLAN_PERF && PLAN_PERF.rbd; if (!(DXr && DXr.add && DXr.add(R, "bcHz", 40, hzSt))) R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) { if (hzSt(cam, sc, geo, mat, obj, grp) === true) return; return inner.apply(this, arguments); };
   }
   var f = 0;
   window.PLAN_HOOKS.frame.push({ name: "bcOcc", fn: function () {
