@@ -17,7 +17,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 // ?rpaa=0 (or ?rp=0): the R20 canvas. The context attributes are fixed at creation, so this one has no runtime switch.
 (function () {
   "use strict";
-  var Q = location.search, DEF = false;   // DEF: on by default (until proven, ?rpaa=1 opts in)
+  var Q = location.search, DEF = true;   // DEF: on by default (?rpaa=0 off)
   if (/[?&](rp|rpaa)=0(&|$)/.test(Q) || !(DEF || /[?&]rpaa=1(&|$)/.test(Q)) || !window.THREE || !THREE.WebGLRenderer || THREE.WebGLRenderer.__rpaa) return;
   var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] };
   var AA = RP.aa = { on: false, photo: 0, rt: null, n: { photo: 0, shots: 0, blitFail: 0 } };
@@ -1010,8 +1010,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // the bytes (only the red channel for the grey map); they go up in strips of about 2 MB a frame into an immutable texture
   // (texStorage2D) made the way three makes it (format, sRGB, wrap, filters, anisotropy), the mip chain is built on the GPU at the
   // end, and three is given the finished texture to bind. Without a worker or OffscreenCanvas, or on any error, the R20 path runs.
-  // Opt-in (?rpsky=1) until proven; ?rp=0: the R20 path.
-  var SKW = { on: /[?&]rpsky=1(&|$)/.test(location.search) && !/[?&]rp=0(&|$)/.test(location.search) && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function", w: null, id: 0, cb: {}, n: { strips: 0, ms: 0, msMax: 0 } };
+  // ?rpsky=0 (or ?rp=0): the R20 path. Verified: level 0 of both maps byte for byte equal to the R20 upload (GX.skw.verify).
+  var SKW = { on: !/[?&](rp|rpsky)=0(&|$)/.test(location.search) && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function", w: null, id: 0, cb: {}, n: { strips: 0, ms: 0, msMax: 0 } };
   GX.skw = SKW;
   SKW.verify = function (which) {   // test: "G" or "C"; resolves { px, diff, maxd }
     var t = which === "C" ? SKT.C : SKT.G; if (!t) return Promise.resolve("no map"); var R = renderer, gl = R.getContext(), url = SKDIR + (which === "C" ? "sky_gc_" + SK.cres : "sky_gl_" + SK.res) + ".jpg";
