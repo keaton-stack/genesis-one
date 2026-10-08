@@ -8,6 +8,60 @@
 // ?gfx=0 turns the whole module off (the client then runs exactly as before). PLAN_GFX.uninstall() / install() switch it at
 // runtime (A/B measurements). API for other modules: PLAN_GFX.addReflectiveFloor(meshOrGroup, opts), PLAN_GFX.addSunShaft(opts).
 window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
+// R21 RP (render pipeline): the canvas without its own 4x MSAA and preserved drawing buffer. Every tier draws the scene into a
+// render target and writes the canvas with one full-screen pass (FXAA, SMAA or the TAA resolve before it), so the canvas MSAA
+// (4 samples of colour and depth at the canvas size, resolved every frame) and the preserved buffer (a copy every frame) bought
+// nothing. Where the scene is drawn straight to the canvas, the look is kept: photo mode (H) draws into a 4x MSAA target with the
+// canvas's own output (ACES and sRGB in the shader, 8-bit samples, the same programs) and blits it over; VR's layer still gets its
+// MSAA (three asks the context attributes for it); a snapshot (canvas.toDataURL / toBlob) draws a frame first in the same task.
+// ?rpaa=0 (or ?rp=0): the R20 canvas. The context attributes are fixed at creation, so this one has no runtime switch.
+(function () {
+  "use strict";
+  var Q = location.search, DEF = false;   // DEF: on by default (until proven, ?rpaa=1 opts in)
+  if (/[?&](rp|rpaa)=0(&|$)/.test(Q) || !(DEF || /[?&]rpaa=1(&|$)/.test(Q)) || !window.THREE || !THREE.WebGLRenderer || THREE.WebGLRenderer.__rpaa) return;
+  var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] };
+  var AA = RP.aa = { on: false, photo: 0, rt: null, n: { photo: 0, shots: 0, blitFail: 0 } };
+  var Orig = THREE.WebGLRenderer;
+  var Wrapped = function (p) {
+    p = Object.assign({}, p || {}); var askAA = p.antialias === true, askPDB = p.preserveDrawingBuffer === true;
+    if (askAA || askPDB) { p.antialias = false; p.preserveDrawingBuffer = false; }
+    var R = new Orig(p); if (!(askAA || askPDB)) return R;
+    AA.on = true; AA.askAA = askAA; AA.askPDB = askPDB; AA.R = R;
+    try {   // three's XR manager reads antialias from the context attributes for the layer's own MSAA
+      var gl = R.getContext(), gca = gl.getContextAttributes.bind(gl);
+      gl.getContextAttributes = function () { var a = gca(); if (a && askAA) { a = Object.assign({}, a); a.antialias = true; } return a; };
+    } catch (e) { RP.errs.push("aa attrs: " + e.message); }
+    try {   // snapshots: the drawing buffer is not preserved, so draw a frame in the same task first
+      var cv = R.domElement, td = cv.toDataURL, tb = cv.toBlob;
+      var redraw = function () { try { if (!AA.inFrame && typeof renderFrame === "function") { AA.n.shots++; renderFrame(); } } catch (e) { RP.errs.push("aa redraw: " + e.message); } };
+      cv.toDataURL = function () { redraw(); return td.apply(cv, arguments); };
+      if (tb) cv.toBlob = function () { redraw(); return tb.apply(cv, arguments); };
+    } catch (e) { RP.errs.push("aa snapshot: " + e.message); }
+    try {   // photo mode: the scene straight to the canvas; drawn through a 4x MSAA target with the canvas's output instead
+      var r0 = R.render;
+      R.render = function (sc, cam) {
+        if (askAA && AA.on && sc && sc.isScene === true && this.getRenderTarget() === null && !this.xr.isPresenting && document.body.classList.contains("photo")) { try { if (photoFrame(this, r0, sc, cam)) return; } catch (e) { RP.errs.push("aa photo: " + e.message); AA.n.blitFail++; } }
+        return r0.apply(this, arguments);
+      };
+    } catch (e) { RP.errs.push("aa photo hook: " + e.message); }
+    return R;
+  };
+  function photoFrame(R, r0, sc, cam) {
+    var w = R.domElement.width, h = R.domElement.height, rt = AA.rt;
+    if (!rt || rt.width !== w || rt.height !== h) { if (rt) rt.dispose(); rt = AA.rt = new THREE.WebGLRenderTarget(w, h, { samples: 4, type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace, depthBuffer: true, stencilBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false });
+      rt.texture.internalFormat = "RGBA8";   // the shader writes sRGB (as for the canvas); the samples and their resolve stay as written
+      rt.isXRRenderTarget = true; }        // three applies the renderer's tone mapping and output colour space only for the canvas or an XR target
+    R.setRenderTarget(rt); r0.call(R, sc, cam); R.setRenderTarget(null);
+    var fb = R.properties.get(rt).__webglFramebuffer; if (!fb) return false; var gl = R.getContext(), st = R.state;
+    st.bindFramebuffer(gl.READ_FRAMEBUFFER, fb); st.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    st.bindFramebuffer(gl.READ_FRAMEBUFFER, null); R.setRenderTarget(null); AA.n.photo++; AA.photo = performance.now(); return true;
+  }
+  // the photo target is freed a few seconds after photo mode ends
+  setInterval(function () { if (AA.rt && performance.now() - AA.photo > 5000) { AA.rt.dispose(); AA.rt = null; } }, 3000);
+  Wrapped.prototype = Orig.prototype; try { Object.setPrototypeOf(Wrapped, Orig); } catch (e) {} Wrapped.__rpaa = true; Wrapped.Orig = Orig;
+  THREE.WebGLRenderer = Wrapped;
+})();
 (function () {
   "use strict";
   var HK = window.PLAN_HOOKS;
@@ -780,7 +834,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var t = new THREE.Texture(img); o = o || {}; t.flipY = false; t.format = o.red ? THREE.RedFormat : THREE.RGBAFormat; t.colorSpace = o.srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     t.wrapS = o.clampS ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.generateMipmaps = o.mips !== false; t.minFilter = o.mips === false ? THREE.LinearFilter : THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
     try { t.anisotropy = Math.min(o.aniso || 1, renderer.capabilities.getMaxAnisotropy()); } catch (e) {}
-    t.needsUpdate = true; return t;
+    if (img) t.needsUpdate = true; return t;
   }
   function px1(rgb) { var t = new THREE.DataTexture(new Uint8Array([rgb[0], rgb[1], rgb[2], 255]), 1, 1); t.needsUpdate = true; return t; }
   var SKT = ORIG.skt = ORIG.skt || { L: null, G: null, C: null, moon: null, moon2: null, img: {} };   // kept across a hot reload
@@ -950,6 +1004,49 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   function skMarkReady() { if (SK.loaded.stars) { PS_API.ready = true; var q = PS_API._q.splice(0); q.forEach(function (f) { try { f(PS_API); } catch (e) { skNote("onReady", e); } }); } }
   // the big map: after the loading screen has gone (plus a moment), decoded off-thread, uploaded in two quiet frames, cross-faded in
   function skLoadOff() { var L = document.getElementById("load"); return !L || L.classList.contains("off"); }
+  // R21 RP: the two maps (8k / 4k grey, 2k colour) were each uploaded in one texImage2D from an ImageBitmap: three converts the
+  // bitmap to the texture's format on the main thread (RGBA to R8 for the grey map), 33 to 39 ms frames in play. Now a worker
+  // decodes the JPEG (createImageBitmap, the same decoder and flags as before), draws it 1:1 into an OffscreenCanvas and hands back
+  // the bytes (only the red channel for the grey map); they go up in strips of about 2 MB a frame into an immutable texture
+  // (texStorage2D) made the way three makes it (format, sRGB, wrap, filters, anisotropy), the mip chain is built on the GPU at the
+  // end, and three is given the finished texture to bind. Without a worker or OffscreenCanvas, or on any error, the R20 path runs.
+  // Opt-in (?rpsky=1) until proven; ?rp=0: the R20 path.
+  var SKW = { on: /[?&]rpsky=1(&|$)/.test(location.search) && !/[?&]rp=0(&|$)/.test(location.search) && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof createImageBitmap === "function", w: null, id: 0, cb: {}, n: { strips: 0, ms: 0, msMax: 0 } };
+  GX.skw = SKW;
+  SKW.verify = function (which) {   // test: "G" or "C"; resolves { px, diff, maxd }
+    var t = which === "C" ? SKT.C : SKT.G; if (!t) return Promise.resolve("no map"); var R = renderer, gl = R.getContext(), url = SKDIR + (which === "C" ? "sky_gc_" + SK.cres : "sky_gl_" + SK.res) + ".jpg";
+    return skImage(url).then(function (im) { var o = which === "C" ? { srgb: true } : { red: true }; var t2 = skTex(im, o); t2.generateMipmaps = false; t2.minFilter = THREE.LinearFilter; R.initTexture(t2);
+      var rd = function (tx, w, h) { var fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0); var a = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); return a; };
+      var w = t.image.width, h = Math.min(512, t.image.height), A = rd(R.properties.get(t).__webglTexture, w, h), B = rd(R.properties.get(t2).__webglTexture, w, h); R.setRenderTarget(R.getRenderTarget());
+      var n = 0, mx = 0; for (var i = 0; i < A.length; i++) { if ((i & 3) === 3) continue; var d = Math.abs(A[i] - B[i]); if (d) { n++; if (d > mx) mx = d; } }
+      t2.dispose(); try { im.close(); } catch (e) {} return { which: which, w: w, rows: h, diff: n, maxd: mx }; });
+  };
+  var SKW_SRC = "self.onmessage=function(e){var d=e.data;createImageBitmap(new Blob([d.buf],{type:'image/jpeg'}),{imageOrientation:'none',premultiplyAlpha:'none',colorSpaceConversion:'none'}).then(function(b){var w=b.width,h=b.height,c=new OffscreenCanvas(w,h),x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;x.drawImage(b,0,0);b.close();var px=x.getImageData(0,0,w,h).data,out;if(d.red){out=new Uint8Array(w*h);for(var i=0,j=0;i<out.length;i++,j+=4)out[i]=px[j];}else out=new Uint8Array(px.buffer);self.postMessage({id:d.id,w:w,h:h,data:out},[out.buffer]);}).catch(function(er){self.postMessage({id:d.id,err:String(er&&er.message||er)});});};";
+  function skwDecode(url, red) {
+    return skFetch(url, "buf").then(function (buf) { return new Promise(function (res, rej) {
+      if (!SKW.w) { SKW.w = new Worker(URL.createObjectURL(new Blob([SKW_SRC], { type: "text/javascript" }))); SKW.w.onmessage = function (e) { var f = SKW.cb[e.data.id]; delete SKW.cb[e.data.id]; if (f) f(e.data); }; }
+      var id = ++SKW.id; SKW.cb[id] = function (r) { if (r.err) rej(new Error(r.err)); else res(r); }; SKW.w.postMessage({ id: id, buf: buf, red: red }, [buf]); }); });
+  }
+  // an immutable texture of the decoded bytes, filled a strip a frame; done() hands it to three
+  function skwTex(r, o) {
+    var R = renderer, gl = R.getContext(), t = skTex(null, o); t.image = { width: r.w, height: r.h, data: null };
+    var levels = 1 + Math.floor(Math.log2(Math.max(r.w, r.h))), ifmt = o.red ? gl.R8 : (o.srgb ? gl.SRGB8_ALPHA8 : gl.RGBA8), fmt = o.red ? gl.RED : gl.RGBA, bpp = o.red ? 1 : 4;
+    var tex = gl.createTexture(); R.state.bindTexture(gl.TEXTURE_2D, tex); gl.texStorage2D(gl.TEXTURE_2D, levels, ifmt, r.w, r.h);
+    var rows = Math.max(1, Math.floor(2097152 / (r.w * bpp))), y = 0;
+    return { t: t, done: false, step: function () {
+      var t0 = performance.now(); R.state.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      try { gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); } catch (e) {}
+      var hh = Math.min(rows, r.h - y); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y, r.w, hh, fmt, gl.UNSIGNED_BYTE, r.data.subarray(y * r.w * bpp, (y + hh) * r.w * bpp)); y += hh; SKW.n.strips++;
+      if (y >= r.h) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, t.wrapS === THREE.RepeatWrapping ? gl.REPEAT : gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        try { var ex = R.extensions.get("EXT_texture_filter_anisotropic"); if (ex && t.anisotropy > 1) gl.texParameterf(gl.TEXTURE_2D, ex.TEXTURE_MAX_ANISOTROPY_EXT, t.anisotropy); } catch (e) {}
+        var P = R.properties.get(t); P.__webglTexture = tex; P.__webglInit = true; P.__version = t.version;   // three binds it as its own
+        t.addEventListener("dispose", function () { try { gl.deleteTexture(tex); } catch (e) {} R.properties.remove(t); });
+        r.data = null; this.done = true; }
+      var ms = performance.now() - t0; SKW.n.ms += ms; if (ms > SKW.n.msMax) SKW.n.msMax = ms; } };
+  }
   function skMapStep(now) {
     if (SK.mapState === undefined) SK.mapState = 0;
     // R5: the sky maps' ImageBitmaps are closed after upload, so a lost-and-restored WebGL context cannot re-upload them: drop the
@@ -960,7 +1057,15 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (SK.mapState === 4 && !SK.warm && SK.tier >= 1 && SK.pts && now - (SK.mapT0 || 0) > 12000) { SK.warm = 1; try { var W = new TeleView([0, 1, 0], 1, { live: false, size: 16 }); var wi = SK.tele.indexOf(W); if (wi >= 0) SK.tele.splice(wi, 1); SK.teleWarm = W;
       (renderer.compileAsync ? renderer.compileAsync(W.scene, W.cam) : Promise.resolve(renderer.compile(W.scene, W.cam))).then(function () { renderer.compile(W.qs, W.qc); W.quad.material = W.scr; renderer.compile(W.qs, W.qc); W.quad.material = W.fin; SK.warmed = 1; }).catch(function (e) { skNote("tele warm", e); }); } catch (e) { skNote("tele warm", e); } }
     if (SK.mapState === 0) { if (!skLoadOff()) { SK.offAt = 0; return; } if (!SK.offAt) SK.offAt = now; if (now - SK.offAt < 2500 && !SK.mapNow) return; SK.mapState = 1; SK.mapT0 = now;
+      if (SKW.on) { Promise.all([skwDecode(SKDIR + "sky_gc_" + SK.cres + ".jpg", false), skwDecode(SKDIR + "sky_gl_" + SK.res + ".jpg", true)]).then(function (r) { SK.mapRaw = r; SK.mapState = 6; })
+          .catch(function (e) { skNote("map worker", e); SKW.on = false; SK.mapState = 0; SK.mapNow = true; }); return; }   /* any failure: the R20 path from the start */
       Promise.all([null, skImage(SKDIR + "sky_gc_" + SK.cres + ".jpg"), skImage(SKDIR + "sky_gl_" + SK.res + ".jpg")]).then(function (r) { SK.mapImgs = r; SK.mapState = 3; }).catch(function (e) { skNote("map", e); SK.mapState = 9; });
+      return; }
+    if (SK.mapState === 6) { try { busyGuard(); } catch (e) { return; }
+      try { if (!SK.upG) { SK.upG = skwTex(SK.mapRaw[1], { red: true, aniso: SK.tier >= 2 ? 8 : SK.tier >= 1 ? 4 : 1 }); SK.upC = skwTex(SK.mapRaw[0], { srgb: true }); }
+        var u = !SK.upG.done ? SK.upG : SK.upC; u.step();
+        if (SK.upG.done && SK.upC.done) { SKT.G = SK.upG.t; SKT.C = SK.upC.t; SK.upG = SK.upC = null; SK.mapRaw = null; var U6 = skyMat.uniforms; U6.tSkyG.value = SKT.G; U6.tSkyC.value = SKT.C; SK.mapWant = 1; SK.mapState = 4; SK.mapMs = Math.round(now - SK.mapT0); PS_API.mapReady = true; } }
+      catch (e) { skNote("map strips", e); SKW.on = false; SK.upG = SK.upC = null; SK.mapRaw = null; SK.mapState = 0; SK.mapNow = true; }
       return; }
     if (SK.mapState === 3) { try { busyGuard(); } catch (e) { return; } SKT.G = skTex(SK.mapImgs[2], { red: true, aniso: SK.tier >= 2 ? 8 : SK.tier >= 1 ? 4 : 1 }); try { renderer.initTexture(SKT.G); } catch (e) { skNote("upload G", e); } SK.mapState = 5; return; }
     if (SK.mapState === 5) { SKT.C = skTex(SK.mapImgs[1], { srgb: true }); try { renderer.initTexture(SKT.C); } catch (e) { skNote("upload C", e); }

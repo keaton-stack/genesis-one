@@ -200,14 +200,17 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
         var cam = this.camera, fr = this.frustums; _m1.lookAt(_o.set(0, 0, 0), this.lightDirection, UPV); _m1i.copy(_m1).invert();
         for (var i = 0; i < fr.length; i++) { var l = this.lights[i], s = l.shadow.camera; var tw = (s.right - s.left) / l.shadow.mapSize.x, th = (s.top - s.bottom) / l.shadow.mapSize.x;
           _m2.multiplyMatrices(_m1i, cam.matrixWorld); fr[i].toSpace(_m2, _lsf); _bb.makeEmpty(); for (var j = 0; j < 4; j++) { _bb.expandByPoint(_lsf.vertices.near[j]); _bb.expandByPoint(_lsf.vertices.far[j]); }
-          _bb.getCenter(_c); _c.z = _bb.max.z + this.lightMargin; _c.x = Math.floor(_c.x / tw) * tw; _c.y = Math.floor(_c.y / th) * th; _c.applyMatrix4(_m1);
+          _bb.getCenter(_c); _c.z = _bb.max.z + this.lightMargin; _c.x = Math.floor(_c.x / tw) * tw; _c.y = Math.floor(_c.y / th) * th;
+          if (i < 4) { var rc = l.__rpLS || (l.__rpLS = { c: V3(), m1i: new THREE.Matrix4() }); rc.c.copy(_c); rc.m1i.copy(_m1i); }   /* R21 RP: the fit in light space, for the cascade cache */
+          _c.applyMatrix4(_m1);
           l.position.copy(_c); l.target.position.copy(_c); l.target.position.x += this.lightDirection.x; l.target.position.y += this.lightDirection.y; l.target.position.z += this.lightDirection.z; }
       }
       // the shadow cameras widened by the blend margin the shader uses (the helper's own formula when the blend is off)
       updateShadowBounds() {
         var fr = this.frustums;
         for (var i = 0; i < fr.length; i++) { var s = this.lights[i].shadow.camera, f = fr[i], nv = f.vertices.near, fv = f.vertices.far, p1 = fv[0], p2 = p1.distanceTo(fv[2]) > p1.distanceTo(nv[2]) ? fv[2] : nv[2]; var w = p1.distanceTo(p2);
-          if (this.fade) { var cam = this.camera, far = Math.max(cam.far, this.maxFar), ld = f.vertices.far[0].z / (far - cam.near); w += blendMargin(ld, this) * (far - cam.near); }
+          var w0 = w; if (this.fade) { var cam = this.camera, far = Math.max(cam.far, this.maxFar), ld = f.vertices.far[0].z / (far - cam.near); w += blendMargin(ld, this) * (far - cam.near); }
+          s.__rpX = (w - w0) / 2;   /* R21 RP: the blend widening on each side (the cascade cache's containment test) */
           s.left = -w / 2; s.right = w / 2; s.top = w / 2; s.bottom = -w / 2; s.updateProjectionMatrix(); }
       }
     };
@@ -287,12 +290,216 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
     var sm = R.shadowMap; if (sm.__plL) return; sm.__plL = true; var s0 = sm.render;
     var mainScene = G("scene");
     sm.render = function (lights, scn, cam) {
+      if (L.dbgNoSh === true) return;   /* test only (R21 RP GPU split): no shadow map is drawn */
       var last = CS.last, due = false; if (last && !SO.inPass && (sm.autoUpdate || sm.needsUpdate) && lights && lights.indexOf(last) >= 0 && (last.shadow.autoUpdate || last.shadow.needsUpdate)) due = true;
       var r = s0.apply(this, arguments); if (due && SO.light && SO.light.shadow.map) { try { SO.ok = soBlit(); } catch (e) { note("blit", e); } }
       if (SO.want && !SO.inPass && scn === mainScene && cam && cam.isPerspectiveCamera) { var w = SO.want; SO.want = 0; try { soRender(w, s0, this, scn, cam); } catch (e) { note("soRender", e); SO.ok = false; SO.at = w; } }
       return r;
     };
   }
+
+  // ═══════════════════════ R21 RP: cascade cache ═══════════════════════
+  // The cascades were redrawn whole whenever due (the first every frame on ultra): 170 to 390 draws and 4 to 10 ms of submission a
+  // frame for the first, more for the far ones while walking, almost all of it static casters. Now each keeps a copy of its static casters' map (colour only: the packed
+  // depth) and its light matrix. While the light matrix may stay (the view's slice still inside the map with the blend margin, the
+  // Sun within a shift of a few cm on a 6 m caster's shadow tip, no static caster moved, shown or hidden, at most K.age frames) the
+  // cascade is not redrawn: the region the people, animals and movers covered last frame and cover now is restored from the copy
+  // (colour and depth, one small quad) and only they are drawn on top, through three's own shadow pass (same depth programs). A
+  // static caster that moves becomes a mover for good. The cached light matrix is the one the map was drawn with, so every static
+  // shadow stays exactly where a full redraw would put it (same texel grid); only the Sun's direction is up to K.age frames old.
+  // ?rpsc=0 (or ?rp=0) off; live PLAN_LIGHT.rc.set(false) or PLAN_RP.set("sc", false). State: PLAN_LIGHT.rc.state(); test:
+  // PLAN_LIGHT.rc.verify(i) compares the cascade's map against a full redraw with the same light matrix.
+  var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] };
+  RP.on = on("rp"); RP.sw.sc = RP.on && on("rpsc");   // on by default; ?rpsc=0 off
+  var RC = L.rc = { S: [], dyn: new Set(), log: [], rects: [], list: [], cam2S: new Map(), inCall: false, fullN: 0, prev: null, wrapper: null, rq: null,
+    n: { full: [0, 0, 0, 0], reuse: [0, 0, 0, 0], skip: 0, msMov: 0, msRest: 0, msDyn: 0, dynPasses: 0, frames: 0, dynDraws: 0, dynObjs: 0, restorePx: 0, msPre: 0, msPost: 0, why: {}, marked: 0, err: 0 },
+    // age: most frames a cascade's matrix is kept; tip: the shadow-tip shift allowed (m) on a tipH tall caster from the Sun's motion,
+    // so the angle allowed is tip sin^2(elevation) / tipH (low Sun: about a frame; noon: the age); zTol: light-depth drift (m); pad: px
+    K: { casc: 4, age: [20, 12, 30, 40], tip: [0.03, 0.08, 0.3, 1.0], tipH: 6, minDeg: 0.002, maxDeg: 0.3, zTol: 30, pad: 3 } };
+  var _rv = V3(), _rv2 = V3(), _rm = new THREE.Matrix4(), _rbb = new THREE.Box3();
+  var _rlsf = { vertices: { near: [V3(), V3(), V3(), V3()], far: [V3(), V3(), V3(), V3()] } };
+  function rcWhy(k) { RC.n.why[k] = (RC.n.why[k] || 0) + 1; }
+  function rcDyn(o) { return o.__rpDyn === 1 || o.isSkinnedMesh === true || o.customDepthMaterial !== undefined || o.isPoints === true || o.isLine === true; }
+  function rcName(o) { var p = o, s = ""; for (var k = 0; k < 3 && p; k++) { s += (p.name || p.type || "?").slice(0, 24) + "<"; p = p.parent; } return s; }
+  function rcMark(o, why) { if (o.__rpDyn !== 1) { o.__rpDyn = 1; RC.n.marked++; if (RC.log.length < 300) RC.log.push([why || "?", rcName(o), o.isInstancedMesh ? "inst" : o.isSkinnedMesh ? "skin" : "mesh", FRAME_N]); } RC.dyn.add(o); }
+  function effVis(o, scn) { var p = o; while (p) { if (p.visible !== true) return false; if (p === scn) return true; p = p.parent; } return false; }
+  function rcOK() {
+    if (!RP.sw.sc || !L.on) return false; var c = CS.csm; if (!c || c.lights.length < 2 || !R.shadowMap.enabled) return false;
+    try { if (inside) return false; } catch (e) {} try { if (FLY.on) return false; } catch (e) {} try { if (window.PLAN_VR && PLAN_VR.on) return false; } catch (e) {}
+    try { if (PLAN_PERF.ic && PLAN_PERF.ic.kind) return false; } catch (e) {} return true;
+  }
+  function rcState(i) { var S = RC.S[i]; if (!S) S = RC.S[i] = { strip: false, i: i, valid: false, rt: null, live: null, pos: V3(), tpos: V3(), dir: V3(), cen: V3(), m1i: new THREE.Matrix4(), mat: new THREE.Matrix4(), w: 0, x: 0, frame: -1, stamp: 0, rec: [], snap: null, iv: null, prev: null, full: false, reuse: false, half: 0, key: "__rpR" + i }; return S; }
+  function rcInvalidate() { for (var i = 0; i < RC.S.length; i++) if (RC.S[i]) { RC.S[i].valid = false; RC.S[i].prev = null; } }
+  // the cached cascade can stay: same map, same frustum widths, slice still inside, Sun close enough, nothing static changed
+  function rcCan(S, l, c, i) {
+    var s = l.shadow, cam = s.camera, map = s.map;
+    if (!S.valid || map !== S.live || !S.rt || S.rt.width !== map.width || S.rt.height !== map.height) return "nocache";
+    if (Math.abs((cam.right - cam.left) - S.w) > 1e-6 * S.w) return "width";
+    if (FRAME_N - S.frame >= RC.K.age[i]) return "age";
+    var d = c.lightDirection, dot = (d.x * S.dir.x + d.y * S.dir.y + d.z * S.dir.z) / (d.length() * S.dir.length() || 1); var ang = Math.acos(Math.min(1, dot));
+    var se = Math.max(0, Math.min(1, -d.y / (d.length() || 1))), lim = RC.K.tip[i] * se * se / RC.K.tipH; lim = Math.max(RC.K.minDeg * Math.PI / 180, Math.min(RC.K.maxDeg * Math.PI / 180, lim)); if (!(ang <= lim)) return "sun";
+    // the view's slice in the cached light basis, with the blend widening, inside the cached map
+    _rm.multiplyMatrices(S.m1i, c.camera.matrixWorld); c.frustums[i].toSpace(_rm, _rlsf); _rbb.makeEmpty(); for (var j = 0; j < 4; j++) { _rbb.expandByPoint(_rlsf.vertices.near[j]); _rbb.expandByPoint(_rlsf.vertices.far[j]); }
+    var h = S.w / 2, x = S.x; if (_rbb.min.x - x < S.cen.x - h || _rbb.max.x + x > S.cen.x + h || _rbb.min.y - x < S.cen.y - h || _rbb.max.y + x > S.cen.y + h) return "slice";
+    if (Math.abs(_rbb.max.z + c.lightMargin - S.cen.z) > RC.K.zTol) return "depth";
+    // static casters of the cached map: moved (then a mover for good), hidden, shown elsewhere or gone
+    var rec = S.rec, sn = S.snap, iv = S.iv, scn = scene;
+    for (var k = 0; k < rec.length; k++) { var o = rec[k]; if (o.castShadow !== true) return "cast"; if (!effVis(o, scn)) { rcMark(o, "vis"); return "hidden"; }   /* shown and hidden by the culling: a mover from now on, so its next appearance is drawn at once */ var e = o.matrixWorld.elements, b = k * 16, mv = false; for (var q = 0; q < 16; q++) if (e[q] !== sn[b + q]) { mv = true; break; }
+      var why = mv ? "mat" : null; if (!mv && o.isInstancedMesh === true && (o.instanceMatrix.version !== iv[k * 2] || o.count !== iv[k * 2 + 1])) { mv = true; why = o.count !== iv[k * 2 + 1] ? "icount" : "iver"; }
+      if (mv) { rcMark(o, why); return "moved"; } }
+    return null;
+  }
+  // the restore quad: colour and depth of a rectangle from the cached packed depth (texel for texel)
+  function rcQuad() {
+    if (RC.rq) return RC.rq; var m = new THREE.ShaderMaterial({ uniforms: { tC: { value: null }, uR: { value: new THREE.Vector4(-1, -1, 1, 1) } },
+      vertexShader: "uniform vec4 uR; void main(){ vec2 p = position.xy * 0.5 + 0.5; gl_Position = vec4(mix(uR.xy, uR.zw, p), 0.0, 1.0); }",
+      fragmentShader: "#include <packing>\nuniform sampler2D tC; void main(){ vec4 c = texelFetch(tC, ivec2(gl_FragCoord.xy), 0); gl_FragColor = c; gl_FragDepth = unpackRGBAToDepth(c); }",
+      depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth, blending: THREE.NoBlending, toneMapped: false });
+    m.name = "rp_shrestore"; var q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m); q.frustumCulled = false; var sc = new THREE.Scene(); sc.add(q); sc.matrixWorldAutoUpdate = false;
+    RC.rq = { m: m, scene: sc, cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) }; return RC.rq;
+  }
+  function rcBlitToCache(S, map) {
+    var P = R.properties, sf = P.get(map).__webglFramebuffer, df = P.get(S.rt).__webglFramebuffer; if (!sf || !df) return false;
+    var gl = R.getContext(), st = R.state, prev = R.getRenderTarget(), cf = R.getActiveCubeFace(), ml = R.getActiveMipmapLevel();
+    st.bindFramebuffer(gl.READ_FRAMEBUFFER, sf); st.bindFramebuffer(gl.DRAW_FRAMEBUFFER, df);
+    gl.blitFramebuffer(0, 0, map.width, map.height, 0, 0, map.width, map.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    st.bindFramebuffer(gl.READ_FRAMEBUFFER, null); R.setRenderTarget(prev, cf, ml); return true;
+  }
+  function rcRestore(S, map, r) {   // r: [x0, y0, x1, y1] in map pixels
+    var Q = rcQuad(), W = map.width, H = map.height, prt = R.getRenderTarget(), cf = R.getActiveCubeFace(), ml = R.getActiveMipmapLevel(), ac = R.autoClear, sm = R.shadowMap, su = sm.autoUpdate, sn = sm.needsUpdate;
+    Q.m.uniforms.tC.value = S.rt.texture; Q.m.uniforms.uR.value.set(r[0] / W * 2 - 1, r[1] / H * 2 - 1, r[2] / W * 2 - 1, r[3] / H * 2 - 1);
+    try { R.autoClear = false; sm.autoUpdate = false; sm.needsUpdate = false; R.setRenderTarget(map); R.render(Q.scene, Q.cam); }
+    finally { R.autoClear = ac; sm.autoUpdate = su; sm.needsUpdate = sn; R.setRenderTarget(prt, cf, ml); }
+    RC.n.restorePx += (r[2] - r[0]) * (r[3] - r[1]);
+  }
+  // this frame's movers for cascade S: the people, animals and moving objects inside its cached map, and their rectangle
+  var FAKE = null;
+  function rcMovers(S, map) {
+    var L2 = RC.list; L2.length = 0; if (!S.rects) S.rects = []; S.rects.length = 0; var W = map.width, H = map.height, e = S.mat.elements, tx = S.w / W, x0 = W, y0 = H, x1 = 0, y1 = 0, scn = scene, pad = RC.K.pad;
+    var key = S.key + "s", fn = FRAME_N;
+    var noSkin = S.i >= 2;   // plan_perf draws no people into the far cascades
+    RC.dyn.forEach(function (o) {
+      if (!o.parent) { RC.dyn.delete(o); return; } if (noSkin && o.isSkinnedMesh === true) return; var sk = o[key]; if (sk !== undefined && sk > fn && o[key + "t"] === S.stamp) return; if (o.castShadow !== true || !effVis(o, scn)) return; var r = rcSphere(o, _rv); if (r === 0) return;
+      var u = e[0] * _rv.x + e[4] * _rv.y + e[8] * _rv.z + e[12], v = e[1] * _rv.x + e[5] * _rv.y + e[9] * _rv.z + e[13], rp = r / tx + pad;
+      var a0 = u * W - rp, a1 = u * W + rp, b0 = v * H - rp, b1 = v * H + rp; if (a1 < 0 || b1 < 0 || a0 > W || b0 > H) { if (a1 < -W || b1 < -H || a0 > 2 * W || b0 > 2 * H) { o[key] = fn + 12; o[key + "t"] = S.stamp; } return; }   /* a map's width or more away: looked at again in 12 frames (people walk under 2 m in that time; the map is 60 m or more) */
+      L2.push(o); if (RC.vq !== null) S.rects.push([o, a0, b0, a1, b1]); if (a0 < x0) x0 = a0; if (b0 < y0) y0 = b0; if (a1 > x1) x1 = a1; if (b1 > y1) y1 = b1; });
+    if (!L2.length) return null; var Hs = map.height > map.width * 1.4 ? Math.round(H * 2 / 3) : H;   // the last cascade's spare strip (the sky-occlusion map) is never restored
+    return [Math.max(0, Math.floor(x0)), Math.max(0, Math.floor(y0)), Math.min(W, Math.ceil(x1)), Math.min(Hs, Math.ceil(y1))];
+  }
+  // a mover's world sphere: instanced sets from their own (instance) bounds, refreshed when the instances change; people around
+  // the skeleton's root bone (their bind-pose geometry need not sit where the bones put it), at least 1.4 m
+  function rcSphere(o, out) {   // once a frame per mover (both cascades use it)
+    if (o.__rpSF === FRAME_N) { out.copy(o.__rpSC); return o.__rpSR; } var r0 = rcSphere0(o, out); if (!o.__rpSC) o.__rpSC = V3(); o.__rpSC.copy(out); o.__rpSR = r0; o.__rpSF = FRAME_N; return r0;
+  }
+  function rcSphere0(o, out) {
+    var r, bs;
+    if (o.isInstancedMesh === true) { if (!o.boundingSphere || o.__rpBV !== o.instanceMatrix.version || o.__rpBC !== o.count) { try { o.computeBoundingSphere(); } catch (x) { return 0; } o.__rpBV = o.instanceMatrix.version; o.__rpBC = o.count; } bs = o.boundingSphere; if (!bs) return 0; out.copy(bs.center).applyMatrix4(o.matrixWorld); return bs.radius * o.matrixWorld.getMaxScaleOnAxis() * 1.05 + 0.5; }
+    var g = o.geometry; if (!g) return 0; bs = g.boundingSphere; if (!bs) { try { g.computeBoundingSphere(); bs = g.boundingSphere; } catch (x) { return 0; } } if (!bs) return 0;
+    r = bs.radius * o.matrixWorld.getMaxScaleOnAxis();
+    if (o.isSkinnedMesh === true && o.skeleton && o.skeleton.bones && o.skeleton.bones[0]) { out.setFromMatrixPosition(o.skeleton.bones[0].matrixWorld); _rv2.copy(bs.center).applyMatrix4(o.matrixWorld); r = Math.min(8, Math.max(1.4, r * 1.6, out.distanceTo(_rv2) + r)); return r + 0.3; }
+    out.copy(bs.center).applyMatrix4(o.matrixWorld); return r * 1.05 + 0.1;
+  }
+  function rcUnion(a, b) { if (!a) return b; if (!b) return a; return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]; }
+  function rcDynPass(S, l, inner, smObj, cam, fresh) {
+    var ta = performance.now(), map = l.shadow.map, cur = rcMovers(S, map), r = fresh ? null : rcUnion(S.prev, cur); S.prev = cur; var tb = performance.now(); RC.n.msMov += tb - ta;
+    if (r && r[2] > r[0] && r[3] > r[1]) rcRestore(S, map, r); var tc = performance.now(); RC.n.msRest += tc - tb;
+    if (!RC.list.length) return;
+    if (!FAKE) { FAKE = new THREE.Group(); FAKE.name = "rp_movers"; FAKE.matrixWorldAutoUpdate = false; }
+    FAKE.children = RC.list; var sm = R.shadowMap, nu = sm.needsUpdate, au = l.shadow.autoUpdate, ln = l.shadow.needsUpdate, clr = R.clear, c0 = R.info.render.calls;
+    try { R.clear = function () {}; sm.needsUpdate = true; l.shadow.needsUpdate = true; inner.call(smObj, [l], FAKE, cam); }
+    finally { R.clear = clr; sm.needsUpdate = nu; l.shadow.autoUpdate = au; l.shadow.needsUpdate = ln; FAKE.children = []; }
+    RC.n.dynDraws += R.info.render.calls - c0; RC.n.dynObjs += RC.list.length; RC.n.msDyn += performance.now() - tc; RC.n.dynPasses++;
+  }
+  function rcSnap(S) {
+    var rec = S.rec, n = rec.length; if (!S.snap || S.snap.length < n * 16) { S.snap = new Float32Array(Math.max(64, n * 2) * 16); S.iv = new Float64Array(Math.max(64, n * 2) * 2); }
+    for (var k = 0; k < n; k++) { var o = rec[k]; S.snap.set(o.matrixWorld.elements, k * 16); if (o.isInstancedMesh === true) { S.iv[k * 2] = o.instanceMatrix.version; S.iv[k * 2 + 1] = o.count; } }
+  }
+  function rcInstall() {
+    var sm = R.shadowMap; if (sm.render === RC.wrapper) return;
+    var inner = sm.render;
+    var w = function (lights, scn, cam) {
+      if (RC.inCall || scn !== scene || !lights || !lights.length || !rcOK() || !(sm.autoUpdate || sm.needsUpdate)) return inner.apply(this, arguments);
+      RC.n.frames++; var c = CS.csm, t0 = performance.now(), nC = Math.min(RC.K.casc, c.lights.length), full = [], reuse = [], i;
+      for (i = 0; i < nC; i++) { var l = c.lights[i], s = l.shadow, S = rcState(i); S.full = false; S.reuse = false;
+        if (s.autoUpdate === true || s.needsUpdate !== true || !s.map || lights.indexOf(l) < 0 || !l.__rpLS) continue;
+        var why = rcCan(S, l, c, i);
+        if (why === null) { S.reuse = true; s.needsUpdate = false; l.position.copy(S.pos); l.target.position.copy(S.tpos); l.updateMatrixWorld(); l.target.updateMatrixWorld(); reuse.push(i); RC.n.reuse[i]++; }
+        else { rcWhy(why); S.full = true; S.ran = false; S.stamp++; S.rec.length = 0; RC.cam2S.set(s.camera, S); full.push(i); RC.n.full[i]++; } }
+      RC.n.msPre += performance.now() - t0; var r;
+      RC.inCall = true;
+      try { r = inner.apply(this, arguments); }
+      finally {
+        RC.inCall = false; RC.cam2S.clear(); var t1 = performance.now();
+        try {
+          for (var a = 0; a < full.length; a++) { var S2 = RC.S[full[a]], l2 = c.lights[full[a]], m2 = l2.shadow.map;
+            if (!m2) { S2.valid = false; continue; }
+            S2.valid = false; S2.mat.copy(l2.shadow.matrix); var sc2 = l2.shadow.camera; S2.w = sc2.right - sc2.left; S2.x = sc2.__rpX || 0;
+            try {
+              if (!S2.rt || S2.rt.width !== m2.width || S2.rt.height !== m2.height) { if (S2.rt) S2.rt.dispose(); S2.rt = new THREE.WebGLRenderTarget(m2.width, m2.height, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, stencilBuffer: false }); S2.rt.texture.name = "rp_shcache" + full[a]; S2.rt.texture.generateMipmaps = false; R.initRenderTarget(S2.rt); }
+              if (S2.ran && rcBlitToCache(S2, m2)) { var lc = l2.__rpLS; S2.live = m2; S2.pos.copy(l2.position); S2.tpos.copy(l2.target.position); S2.dir.copy(c.lightDirection); S2.cen.copy(lc.c); S2.m1i.copy(lc.m1i); S2.frame = FRAME_N; rcSnap(S2); S2.valid = true; }
+            } catch (e) { RC.n.err++; note("rc cache", e); S2.valid = false; }
+            rcDynPass(S2, l2, inner, this, cam, true); }   /* the movers were left out of the static pass: drawn now, cache or not */
+          for (var b = 0; b < reuse.length; b++) { var S3 = RC.S[reuse[b]]; if (RC.K.dyn1Half && S3.i >= 1 && (++S3.half & 1) === 1) continue; rcDynPass(S3, c.lights[reuse[b]], inner, this, cam); }   /* governor: the middle cascade's movers every other time */
+          if (RC.vq !== null) rcVerify(inner, this, cam);
+        } catch (e) { RC.n.err++; note("rc", e); rcInvalidate(); }
+        RC.n.msPost += performance.now() - t1;
+      }
+      return r;
+    };
+    RC.wrapper = w; sm.render = w;
+    try { if (!RC.warm) { RC.warm = true; var Qd = rcQuad(); if (R.compileAsync) R.compileAsync(Qd.scene, Qd.cam).catch(function () {}); else R.compile(Qd.scene, Qd.cam); } } catch (e) { note("rc warm", e); }
+    if (!R.__rpRbd) { R.__rpRbd = true; var rbd = R.renderBufferDirect;
+      R.renderBufferDirect = function (cam, sc, geo, mat, obj, grp) {
+        if (sc === null) { if (RC.vcol) RC.vcol.push(obj); if (RC.cam2S.size !== 0) { var S = RC.cam2S.get(cam); if (S !== undefined && S.full === true && obj) { S.ran = true; if (rcDyn(obj)) { if (!RC.dyn.has(obj)) rcMark(obj, "class"); RC.n.skip++; return; } if (obj[S.key] !== S.stamp) { obj[S.key] = S.stamp; S.rec.push(obj); } } } }
+        else if (obj && obj.isSkinnedMesh === true && obj.__rpDyn !== 1 && obj.castShadow === true) rcMark(obj, "seen");   // people seen in any colour pass
+        return rbd.apply(this, arguments);
+      }; }
+  }
+  // movers from the TAA's tracker (top-level objects that moved this frame): their meshes are redrawn every frame
+  var RCM = { at: 0, seen: new WeakMap() };
+  function rcMoversScan(now) {
+    var P = window.PLAN_POST, sel = P && P.moved ? P.moved() : null; if (!sel) return;
+    for (var i = 0; i < sel.length; i++) { var o = sel[i]; if (!o || !o.isObject3D) continue; var t = RCM.seen.get(o); if (t !== undefined && now - t < 2000) continue; RCM.seen.set(o, now);
+      o.traverse(function (m) { if ((m.isMesh || m.isPoints || m.isLine) && m.castShadow === true && m.__rpDyn !== 1) rcMark(m, "mover"); }); }
+  }
+  function rcFrame(now) {
+    if (!RP.sw.sc) return; try { rcInstall(); } catch (e) { note("rc install", e); RP.sw.sc = false; return; }
+    try { rcMoversScan(now); } catch (e) { note("rc movers", e); }
+  }
+  // test: the map the cache path made this frame against a full redraw with the same light matrix (texels whose packed depth differs)
+  RC.vq = null; RC.vr = null;
+  RC.verify = function (i) { RC.vq = i || 0; RC.vr = null; return new Promise(function (res) { var t0 = performance.now(); (function w() { if (RC.vr || performance.now() - t0 > 5000) res(RC.vr || "timeout"); else requestAnimationFrame(w); })(); }); };
+  function rcVerify(inner, smObj, cam) {
+    var i = RC.vq, S = RC.S[i], c = CS.csm, l = c && c.lights[i]; if (!S || !l || !l.shadow.map) { RC.vq = null; RC.vr = { err: "no cascade" }; return; }
+    if (!S.full && !S.reuse) return;   // not drawn this frame: wait for a frame that draws it
+    RC.vq = null; var other = c.lights[i === c.lights.length - 1 ? 0 : c.lights.length - 1], on0 = other.shadow.needsUpdate, oa = other.shadow.autoUpdate;
+    var map = l.shadow.map, W = map.width, H = map.height, A = new Uint8Array(W * H * 4), B = new Uint8Array(W * H * 4); R.readRenderTargetPixels(map, 0, 0, W, H, A);
+    var sm = R.shadowMap, nu = sm.needsUpdate, ln = l.shadow.needsUpdate; RC.inCall = true;
+    RC.vcol = [];
+    try { sm.needsUpdate = true; l.shadow.needsUpdate = true; other.shadow.needsUpdate = false; other.shadow.autoUpdate = false; inner.call(smObj, [l, other], scene, cam); } finally { RC.inCall = false; sm.needsUpdate = nu; l.shadow.needsUpdate = ln; other.shadow.needsUpdate = on0; other.shadow.autoUpdate = oa; }
+    R.readRenderTargetPixels(map, 0, 0, W, H, B); var n = 0, big = 0, near = 0, x0 = W, y0 = H, x1 = -1, y1 = -1, Hs = H > W * 1.4 ? Math.round(H * 2 / 3) : H;
+    for (var p = 0; p < W * Hs; p++) { var o = p * 4; if (A[o] === B[o] && A[o + 1] === B[o + 1] && A[o + 2] === B[o + 2] && A[o + 3] === B[o + 3]) continue;
+      var da = A[o] / 256 + A[o + 1] / 65536 + A[o + 2] / 16777216, db = B[o] / 256 + B[o + 1] / 65536 + B[o + 2] / 16777216;   /* three r170 packs the most significant byte in r */
+      if (Math.abs(da - db) < 2e-6) continue; n++; if (Math.abs(da - db) > 1e-4) big++; if (da < db) near++; var x = p % W, y = (p / W) | 0; if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; }
+    var vcol = RC.vcol; RC.vcol = null; var who = []; if (n) {
+      var inL = new Set(RC.list), miss = [], e = S.mat.elements; for (var vi = 0; vi < vcol.length && miss.length < 10; vi++) { var vo = vcol[vi]; if (inL.has(vo) || vo[S.key] === S.stamp) continue; var rr2 = rcSphere(vo, _rv); var u2 = (e[0] * _rv.x + e[4] * _rv.y + e[8] * _rv.z + e[12]) * W, v2 = (e[1] * _rv.x + e[5] * _rv.y + e[9] * _rv.z + e[13]) * H, rp2 = rr2 / (S.w / W);
+        if (u2 + rp2 >= x0 && u2 - rp2 <= x1 && v2 + rp2 >= y0 && v2 - rp2 <= y1) miss.push(rcName(vo) + (vo.__rpDyn === 1 ? " dyn" : "") + (vo.isInstancedMesh ? " inst" : vo.isSkinnedMesh ? " skin" : "") + " r" + Math.round(rr2) + " d" + Math.round(Math.hypot(_rv.x - camera.position.x, _rv.z - camera.position.z)) + (effVis(vo, scene) ? "" : " hid")); }
+      who.push("notMine: " + miss.join(" | ")); for (var q = 0; q < S.rects.length && who.length < 8; q++) { var rr = S.rects[q]; if (rr[3] >= x0 && rr[1] <= x1 && rr[4] >= y0 && rr[2] <= y1) who.push(rcName(rr[0]) + (rr[0].isSkinnedMesh ? " skin" : "")); }
+      var C2 = new Uint8Array(W * H * 4); RC.inCall = true; try { sm.needsUpdate = true; l.shadow.needsUpdate = true; inner.call(smObj, [l], scene, cam); } finally { RC.inCall = false; sm.needsUpdate = nu; l.shadow.needsUpdate = ln; }
+      R.readRenderTargetPixels(map, 0, 0, W, H, C2); var n2 = 0; for (var p2 = 0; p2 < W * H; p2++) { var o2 = p2 * 4; if (Math.abs((A[o2] - C2[o2]) * 256 + (A[o2 + 1] - C2[o2 + 1])) > 1) n2++; } who.push("vsNoNear " + n2); }
+    if (Hs < H) { try { soBlit(); } catch (e) {} }   // the full redraws wiped the spare strip: the sky-occlusion map goes back in
+    RC.vr = { who: who, i: i, reuse: S.reuse, age: FRAME_N - S.frame, texels: W * H, diff: n, big: big, extra: near, box: n ? [x0, y0, x1, y1] : null, movers: RC.list.length, rec: S.rec.length };
+  }
+  // knobs for plan_perf's frame governor (CPU side): longer reuse of the cached cascades, the middle cascade's movers at half rate
+  var KD = { age: RC.K.age.slice(), tip: RC.K.tip.slice() };
+  RP.govKnobs.push({ id: "rp.scAge", side: "c", name: "cascade cache: longer reuse", hard: false, order: 104, avail: function () { return !!(RP.sw.sc && CS.csm); },
+    on: function () { RC.K.age = KD.age.map(function (a) { return a * 2; }); RC.K.tip = KD.tip.map(function (a) { return a * 2; }); }, off: function () { RC.K.age = KD.age.slice(); RC.K.tip = KD.tip.slice(); } });
+  RP.govKnobs.push({ id: "rp.scDyn1", side: "c", name: "middle cascade movers at half rate", hard: false, order: 112, avail: function () { return !!(RP.sw.sc && CS.csm); },
+    on: function () { RC.K.dyn1Half = true; }, off: function () { RC.K.dyn1Half = false; } });
+  RC.set = function (v) { RP.sw.sc = !!v; rcInvalidate(); return RP.sw.sc; };
+  RC.state = function () { var o = { on: RP.sw.sc, n: RC.n, dyn: RC.dyn.size, S: RC.S.map(function (S) { return S ? { valid: S.valid, frame: S.frame, rec: S.rec.length, w: +S.w.toFixed(2), x: +S.x.toFixed(2), map: S.rt ? [S.rt.width, S.rt.height] : null } : null; }) }; return o; };
+  RP.sw.set = RP.sw.set || {}; RP.set = RP.set || function (k, v) { var f = RP.sw.set[k]; return f ? f(v) : "no switch " + k; };
+  RP.sw.set.sc = RC.set;
 
   // ── colour: the Sun through clear dry air, the caliche bounce ──
   var COL = L.col = { sun: [1, 1, 1], el: 0, gnd: [0, 0, 0], base: null };
@@ -371,6 +578,7 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
     if (!R) { R = G("renderer"); if (!R) return; }
     if (!ST.inst) { ST.inst = true; try { wrapShadowRender(); wrapDraw(); } catch (e) { note("wrap", e); } }
     ST.tier = tierNow(); now = now || performance.now();
+    try { rcFrame(now); } catch (e) { note("rc", e); }
     try { shadowsFrame(); } catch (e) { note("shadows", e); }
     try { soFrame(now); } catch (e) { note("so", e); }
     try { colourFrame(); } catch (e) { note("colour", e); }

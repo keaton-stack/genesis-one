@@ -260,7 +260,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // plan_gfx's grade, vignette, sRGB, the time-of-day 3D LUT (two keyframes blended), dither
   function finFS(G) {
     return [CL_UNI, G.uni,
-      "uniform highp sampler3D tLutA; uniform highp sampler3D tLutB; uniform float uLutT; uniform float uLutK; uniform float uTM; uniform float uCasK; uniform float uBloomPB; uniform float uBloomAdd; uniform float uDither;",
+      "uniform highp sampler3D tLutA; uniform highp sampler3D tLutB; uniform float uLutT; uniform float uLutK; uniform float uTM; uniform float uCasK; uniform float uBloomPB; uniform float uBloomAdd; uniform float uDither; uniform vec3 uUp;",
       G.fn,
       "float p16Lin(float z){ return 2.0 * uNear * uFar / (uFar + uNear - (z * 2.0 - 1.0) * (uFar - uNear)); }",
       "float p16Ign(vec2 p){ return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }",
@@ -272,7 +272,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       "  c = mi * (c / 0.6); vec3 a = c * (c + 0.0245786) - 0.000090537; vec3 b = c * (0.983729 * c + 0.4329510) + 0.238081; return clamp(mo * (a / b), 0.0, 1.0); }",
       "vec3 pbrNeutral(vec3 c){ float x = min(c.r, min(c.g, c.b)); float off = x < 0.08 ? x - 6.25 * x * x : 0.04; c -= off; float pk = max(c.r, max(c.g, c.b)); if (pk < 0.76) return c; float d = 0.24; float np = 1.0 - d * d / (pk + d - 0.76); c *= np / pk; float g = 1.0 - 1.0 / (0.15 * (pk - np) + 1.0); return mix(c, vec3(np), g); }",
       "vec3 tonemap(vec3 c){ vec3 r; if (uTM < 0.5 || uTM > 2.5) r = agx(c); else if (uTM < 1.5) r = acesHill(c); else r = pbrNeutral(c); return r; }",
-      "vec3 casS(vec2 uv){ vec3 e = texture2D(tCol, uv).rgb; if (uCasK <= 0.0) return e; vec3 b = texture2D(tCol, uv + vec2(0.0, uPx.y)).rgb, d = texture2D(tCol, uv - vec2(uPx.x, 0.0)).rgb, f = texture2D(tCol, uv + vec2(uPx.x, 0.0)).rgb, h = texture2D(tCol, uv - vec2(0.0, uPx.y)).rgb;",
+      // R21 RP: at a lower internal resolution the resolved image is upsampled with a 5-tap Catmull-Rom (sharper than bilinear)
+      "vec3 crUp(vec2 uv){ vec2 sz = uUp.yz; vec2 sp = uv * sz; vec2 tc = floor(sp - 0.5) + 0.5; vec2 f = sp - tc; vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f)); vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f); vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f)); vec2 w3 = f * f * (-0.5 + 0.5 * f);",
+      "  vec2 w12 = w1 + w2; vec2 px = 1.0 / sz; vec2 t0 = (tc - 1.0) * px; vec2 t3 = (tc + 2.0) * px; vec2 t12 = (tc + w2 / w12) * px; float a = w12.x * w0.y, b = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;",
+      "  vec3 r = textureLod(tCol, vec2(t12.x, t0.y), 0.0).rgb * a + textureLod(tCol, vec2(t0.x, t12.y), 0.0).rgb * b + textureLod(tCol, t12, 0.0).rgb * c + textureLod(tCol, vec2(t3.x, t12.y), 0.0).rgb * d + textureLod(tCol, vec2(t12.x, t3.y), 0.0).rgb * e;",
+      "  return max(r / (a + b + c + d + e), vec3(0.0)); }",
+      "vec3 casS(vec2 uv){ vec3 e = uUp.x > 0.5 ? crUp(uv) : texture2D(tCol, uv).rgb; if (uCasK <= 0.0) return e; vec3 b = texture2D(tCol, uv + vec2(0.0, uPx.y)).rgb, d = texture2D(tCol, uv - vec2(uPx.x, 0.0)).rgb, f = texture2D(tCol, uv + vec2(uPx.x, 0.0)).rgb, h = texture2D(tCol, uv - vec2(0.0, uPx.y)).rgb;",
       "  vec3 tb = b / (1.0 + b), td = d / (1.0 + d), te = e / (1.0 + e), tf = f / (1.0 + f), th = h / (1.0 + h); vec3 mn = min(te, min(min(tb, td), min(tf, th))), mx = max(te, max(max(tb, td), max(tf, th)));",
       "  vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, vec3(1e-4)), 0.0, 1.0)); vec3 w = amp * (-1.0 / mix(8.0, 5.0, uCasK));",
       "  vec3 r = (e + (b + d + f + h) * w) / (1.0 + 4.0 * w); vec3 lo = min(e, min(min(b, d), min(f, h))), hi = max(e, max(max(b, d), max(f, h))); return clamp(r, lo, hi); }",
@@ -347,7 +352,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var ST = { built: false, building: false, failed: false, w: 0, h: 0, frame: 0, ping: 0, reset: true, hasPrev: false, gen: 0, luts: {}, lutQ: LUT_ORDER.slice(), bm: 0 };
   var M = {}; var T = { taa: [null, null], ao: [null, null], comp: null, bd: [], bu: [] };
   var V = { vp: null, pvp: null, rot: null, pos: null, ppos: null, fwd: null, pfwd: null, sunV: null };
-  var TR = { sel: [], pool: [], m4: null, m4b: null, v: null, v2: null, q: null, box: null };
+  var TR = { sel: [], mv: [], pool: [], m4: null, m4b: null, v: null, v2: null, q: null, box: null };
   PP.st = ST; PP.T = T; PP.M = M;
 
   function mkRT(w, h, lin) { return new THREE.WebGLRenderTarget(w, h, { minFilter: lin ? THREE.LinearFilter : THREE.NearestFilter, magFilter: lin ? THREE.LinearFilter : THREE.NearestFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: false, stencilBuffer: false }); }
@@ -387,8 +392,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     M.comp = sm(compFS(G), sharedUniforms({ tAO2: { value: null }, uAoSize: { value: new THREE.Vector2(1, 1) }, uAoK4: { value: new THREE.Vector4() }, uAoAlb: { value: 0.42 }, uCsK: { value: new THREE.Vector2() }, uSunW: { value: new THREE.Vector3(0, 1, 0) }, uSunL: { value: new THREE.Color(0, 0, 0) }, uAtm: { value: new THREE.Vector4() }, uAtm2: { value: new THREE.Vector4() }, uAtmOn: { value: 1 }, uDp: { value: new THREE.Vector4() }, uRim: { value: new THREE.Vector4() }, uBand: { value: new THREE.Vector4() }, uAoPow18: { value: 1 }, uFill18: { value: 1 }, uCamP18: { value: new THREE.Vector3() }, tSh0: { value: null }, tSh1: { value: null }, tSh2: { value: null }, uShM: { value: null }, uShP: { value: null }, uShN: { value: 0 } }), "comp");
     M.comp.uniforms.uShM = M.ao.uniforms.uShM; M.comp.uniforms.uShP = M.ao.uniforms.uShP;   // R18: the rim's shadow tap reads the same cascades
     var id = lutFor("night");
-    M.fin = sm(finFS(G), sharedUniforms({ tLutA: { value: id }, tLutB: { value: id }, uLutT: { value: 0 }, uLutK: { value: 0 }, uTM: { value: PP.tm }, uCasK: { value: 0 }, uBloomPB: { value: 0 }, uBloomAdd: { value: 0 }, uDither: { value: 1 } }), "final");
-    ST.gfxGen = PLAN_GFX.post; ST.built = true; PP.n.built++;
+    M.fin = sm(finFS(G), sharedUniforms({ tLutA: { value: id }, tLutB: { value: id }, uLutT: { value: 0 }, uLutK: { value: 0 }, uTM: { value: PP.tm }, uCasK: { value: 0 }, uBloomPB: { value: 0 }, uBloomAdd: { value: 0 }, uDither: { value: 1 }, uUp: { value: new THREE.Vector3(0, 1, 1) } }), "final");
+    ST.gfxGen = PLAN_GFX.post; ST.built = true; PP.n.built++; OWN = null;
     // the other keyframe LUTs: one per task (each is about 30 ms of script), behind the loading screen
     var step = function () { if (!ST.lutQ.length) return; try { lutFor(ST.lutQ.shift()); } catch (e) { note("lut", e); } setTimeout(step, 30); }; setTimeout(step, 30);
   }
@@ -444,14 +449,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ═════════════════════════ movers (TAA): the nearest moving top-level objects and their rigid motion ═════════════════════════
   function trackInit() { if (TR.m4) return; TR.m4 = new THREE.Matrix4(); TR.m4b = new THREE.Matrix4(); TR.v = new THREE.Vector3(); TR.v2 = new THREE.Vector3(); TR.q = new THREE.Quaternion(); TR.box = new THREE.Box3(); for (var i = 0; i < 16; i++) TR.pool.push({ o: null, d2: 0, p: new Float64Array(10) }); }
   var REG = new Set();
+  PP.moved = function () { return PP.active && PP.sw.taa ? TR.mv : null; };
   PP.mover = function (o, on) { if (!o || !o.isObject3D) return REG.size; if (on === false) REG.delete(o); else REG.add(o); return REG.size; };
   function trackPre() {
     trackInit(); try { if (FLY.on && FLY.g && FLY.g.isObject3D) REG.add(FLY.g); } catch (e) {}   // the flight cabin moves with the camera
-    REG.forEach(function (o) { if (!o.parent) { REG.delete(o); return; } var w = o.__p16w || (o.__p16w = new Float64Array(16)); w.set(o.matrixWorld.elements); }); var sel = TR.sel; sel.length = 0; var ch = scene.children, cp = camera.position, R2 = PP.K.trackR * PP.K.trackR, max = PP.K.trackMax, pi = 0;
+    REG.forEach(function (o) { if (!o.parent) { REG.delete(o); return; } var w = o.__p16w || (o.__p16w = new Float64Array(16)); w.set(o.matrixWorld.elements); }); var sel = TR.sel; sel.length = 0; TR.mv.length = 0; var ch = scene.children, cp = camera.position, R2 = PP.K.trackR * PP.K.trackR, max = PP.K.trackMax, pi = 0;
     for (var i = 0; i < ch.length; i++) {
       var o = ch[i]; if (o.isLight || o.isCamera) continue; var p = o.position, q = o.quaternion, s = o.scale, st = o.__p16;
       if (!st) { st = o.__p16 = new Float64Array(10); st[0] = p.x; st[1] = p.y; st[2] = p.z; st[3] = q.x; st[4] = q.y; st[5] = q.z; st[6] = q.w; st[7] = s.x; st[8] = s.y; st[9] = s.z; continue; }
       if (st[0] === p.x && st[1] === p.y && st[2] === p.z && st[3] === q.x && st[4] === q.y && st[5] === q.z && st[6] === q.w && st[7] === s.x && st[8] === s.y && st[9] === s.z) continue;
+      if (o.visible && TR.mv.length < 64) TR.mv.push(o);   /* R21 RP: every top-level object that moved this frame (plan_light's cascade cache redraws them) */
       if (o.visible && !o.isInstancedMesh && (o.isMesh || o.children.length > 0)) {
         var dx = p.x - cp.x, dy = p.y - cp.y, dz = p.z - cp.z, d2 = dx * dx + dy * dy + dz * dz;
         if (d2 < R2 && (sel.length < max || (sel.length > 0 && d2 < sel[sel.length - 1].d2))) {
@@ -485,7 +492,12 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
 
   // ═════════════════════════ the frame ═════════════════════════
-  function pass(mat, target) { POST.quad.material = mat; renderer.setRenderTarget(target); renderer.render(POST.qscene, POST.qcam); }
+  // R21 RP: this module's full-screen passes write every pixel of their target (no depth, no discard): no clear before them
+  // (?rpnc=0 or ?rp=0: three's clear before each pass, as before). The client's SMAA passes keep theirs (their edges pass discards).
+  var NOCLR = !/[?&](rp|rpnc)=0(&|$)/.test(QS), OWN = null;
+  function pass(mat, target) { POST.quad.material = mat; renderer.setRenderTarget(target);
+    if (NOCLR && (OWN || (OWN = new Set([M.taa, M.ao, M.bd, M.bu, M.comp, M.fin]))).has(mat)) { var ac = renderer.autoClear; renderer.autoClear = false; try { renderer.render(POST.qscene, POST.qcam); } finally { renderer.autoClear = ac; } return; }
+    renderer.render(POST.qscene, POST.qcam); }
   function sunWorld(out) {
     try { if (CSMX.on && CSMX.csm) { out.copy(CSMX.csm.lightDirection).negate().normalize(); return out; } } catch (e) {}
     try { out.copy(sun.position).sub(sun.target.position).normalize(); return out; } catch (e) {} return out.set(0, 1, 0);
@@ -533,7 +545,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var bk = on && s.band ? K.bandB * sstep(-0.06, 0.12, gs.el) : 0; C.uBand.value.set(bk, K.bandH, K.band0, K.band1); D18.band = bk;
   }
   function frameMine() {
-    var R = renderer, w = R.domElement.width, h = R.domElement.height, K = PP.K, sw = PP.sw, ti = tierIdx(), now = performance.now();
+    var R = renderer, w = R.domElement.width, h = R.domElement.height; var rs = rsFrame(w, h); w = rs[0]; h = rs[1]; var K = PP.K, sw = PP.sw, ti = tierIdx(), now = performance.now();
     if (!V.vp) { V.vp = new THREE.Matrix4(); V.pvp = new THREE.Matrix4(); V.rot = new THREE.Matrix3(); V.pos = new THREE.Vector3(); V.ppos = new THREE.Vector3(); V.fwd = new THREE.Vector3(); V.pfwd = new THREE.Vector3(); V.sunV = new THREE.Vector3(); V.sunW = new THREE.Vector3(); V.m3 = new THREE.Matrix3(); }
     ensureTargets(w, h);
     var taa = sw.taa; if (taa !== ST.taaWas) { smaaTargets(!taa); if (taa) ST.reset = true; ST.taaWas = taa; } else if (taa && POST.ldr) smaaTargets(false);   // the client's resize rebuilds them
@@ -592,6 +604,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var F = M.fin.uniforms; F.tCol.value = col; F.tDepth.value = depth; F.uPx.value.set(1 / w, 1 / h); F.tRays.value = QUAL.q.rays ? POST.rays.texture : POST.black; F.tBloom.value = bloomTex;
     F.uBloomPB.value = pb >= 0 ? pb : 0; F.uBloomAdd.value = pb < 0 ? 0.3 : 0; F.uSunVis.value = POST.sunVis; F.uNight.value = night; F.uTime.value = now / 1000; F.uExposure.value = POST.exposure; F.uHeat.value = POST.heat || 0;
     F.uUnder.value = (typeof WATER !== "undefined" && WATER && camera.position.y < LAKE.level && waterDepthAt(camera.position.x, camera.position.z) > 0) ? 1 : 0;
+    F.uUp.value.set(ST.rsK < 1 ? 1 : 0, w, h);
     F.uTM.value = PP.tm; F.uCasK.value = sw.cas && taa ? K.cas : 0; F.uDither.value = K.dither;
     var lp = lutPair(gs.el, PLAN_GFX.storm ? PLAN_GFX.storm.k : 0); if (sw.lut && ST.luts[lp[0]] && ST.luts[lp[1]]) { F.tLutA.value = ST.luts[lp[0]]; F.tLutB.value = ST.luts[lp[1]]; F.uLutT.value = lp[2]; F.uLutK.value = K.lutK; } else F.uLutK.value = 0;
     var smaa = !taa && POST.smaa && QUAL.q.smaa && POST.ldr;
@@ -605,12 +618,34 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ═════════════════════════ entry points ═════════════════════════
   // called by plan_gfx.js's renderFrame wrapper; true = this module drew the frame
+  // R21 RP: internal resolution (dynamic resolution for the governor). The scene and every pass up to the TAA resolve run at
+  // K.rs x the canvas, the canvas keeps its full size (the HUD and the final image stay sharp) and the final pass upsamples the
+  // resolved image with a Catmull-Rom filter before CAS. The client's full-size scene target is kept aside and put back at 1.
+  // ?rprs=0 (or ?rp=0): never scaled. PLAN_POST.setScale(k) (0.5 to 1; 1 is exactly as before).
+  PP.K.rs = 1; ST.rsK = 1; PP.sw.rs = !/[?&](rp|rprs)=0(&|$)/.test(QS);
+  function rsRestore() { if (ST.rsFull && POST.rt === ST.rsRT) { POST.rt = ST.rsFull; } ST.rsFull = null; if (ST.rsRT) { if (!ST.rsRT.__rpDead) ST.rsRT.dispose(); ST.rsRT = null; } ST.rsK = 1; }
+  function rsFrame(W, H) {
+    var k = PP.sw.rs && PP.sw.taa ? clamp(+PP.K.rs || 1, 0.5, 1) : 1; if (k > 0.995) { if (ST.rsK !== 1 || ST.rsRT) { rsRestore(); ST.reset = true; } return [W, H]; }
+    var iw = Math.max(64, Math.round(W * k)), ih = Math.max(64, Math.round(H * k)), rt = ST.rsRT;
+    if (!rt || rt.__rpDead || rt.width !== iw || rt.height !== ih) { if (rt) { if (POST.rt === rt) POST.rt = ST.rsFull; if (!rt.__rpDead) rt.dispose(); }
+      rt = ST.rsRT = new THREE.WebGLRenderTarget(iw, ih, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: true, stencilBuffer: false });
+      rt.depthTexture = new THREE.DepthTexture(iw, ih, THREE.UnsignedIntType); rt.texture.name = "rp_scene_scaled"; ST.reset = true;
+      rt.addEventListener("dispose", function () { rt.__rpDead = true; }); }   /* the client's resize disposes whatever POST.rt is */
+    if (POST.rt !== rt) { if (ST.rsFull && ST.rsFull !== POST.rt) { try { ST.rsFull.dispose(); } catch (e) {} } ST.rsFull = POST.rt; POST.rt = rt; }   // the client's resize puts a new full-size target in: kept aside again
+    ST.rsK = k; return [iw, ih];
+  }
+  PP.setScale = function (k) { PP.K.rs = clamp(+k || 1, 0.5, 1); return PP.K.rs; };
+  // knobs for plan_perf's frame governor (GPU side): internal resolution 0.9 and 0.8 (soft), 0.7 (visible)
+  (function () { var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] }; RP.govKnobs = RP.govKnobs || []; var act = {};
+    var apply = function () { var k = 1; for (var q in act) if (act[q] && +q < k) k = +q; PP.setScale(k); };
+    [[0.9, 12, false], [0.8, 32, false], [0.7, 52, true]].forEach(function (L) { RP.govKnobs.push({ id: "rp.res" + Math.round(L[0] * 100), side: "g", name: "internal resolution " + L[0] + " (TAA + bicubic upsample)", hard: L[2], order: L[1],
+      avail: function () { return !!(PP.active && PP.sw.rs && PP.sw.taa); }, on: function () { act[L[0]] = true; apply(); }, off: function () { act[L[0]] = false; apply(); } }); }); })();
   PP.render = function (rf) {
-    if (!wanted()) { if (PP.active) { PP.active = false; smaaTargets(true); ST.taaWas = undefined; ST.hasPrev = false; } return false; }
+    if (!wanted()) { if (ST.rsRT || ST.rsK !== 1) rsRestore(); if (PP.active) { PP.active = false; smaaTargets(true); ST.taaWas = undefined; ST.hasPrev = false; } return false; }
     if (!ST.built || ST.gfxGen !== PLAN_GFX.post) { try { build(); ST.building = false; ST.ready = PP.ready = false; } catch (e) { note("build", e); ST.failed = true; return false; } }
     if (!ST.ready) { if (ST.warm) warmStep(); else if (!ST.building) compileAll(); return false; }
     try { PP.active = true; frameMine(); return true; }
-    catch (e) { note("frame", e); PP.n.fallbacks++; ST.failed = true; PP.active = false; try { smaaTargets(true); } catch (e2) {} return false; }
+    catch (e) { note("frame", e); PP.n.fallbacks++; ST.failed = true; PP.active = false; try { rsRestore(); smaaTargets(true); } catch (e2) {} return false; }
   };
   PP.jitter = function () { return PP.active && PP.sw.taa ? [ST.jx || 0, ST.jy || 0, ST.frame] : [0, 0, ST.frame]; };
   PP.enable = function (on) { PP.enabled = !!on; ST.hasPrev = false; return PP.enabled; };
@@ -621,4 +656,40 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // the pipeline never waits on a link
   (function (a) { for (var i = a.length - 1; i >= 0; i--) if (a[i] && a[i].name === "post16") a.splice(i, 1); })(window.PLAN_HOOKS.frame);
   window.PLAN_HOOKS.frame.push({ name: "post16", fn: function () { if (ST.ready || ST.building || ST.failed || !wanted()) return; try { if (!ST.built) build(); compileAll(); } catch (e) { note("prebuild", e); ST.failed = true; } } });
+})();
+// R21 RP: early-z friendly order for the opaque list (every tier). three sorts opaque draws by material first and depth second, so
+// a far building with a lower material id is shaded before the wall in front of it. Now: depth bands that double in width (0 to 6 m,
+// 6 to 12, 12 to 24 ... ), front to back, and three's own material-then-depth order inside a band (state changes stay grouped).
+// Only plain depth-tested, depth-writing, normally blended draws are re-ordered; draws without the depth test keep three's order at
+// the front, and depth-tested draws that write no depth (decals, glows) or blend go after every banded draw, in three's order (on
+// top of what they cover, as a decal wants). The transparent list keeps three's back-to-front order.
+// ?rpzs=1 opts in (until proven), ?rpzs=0 / ?rp=0 off. Live: PLAN_RP.set("zs", bool).
+(function () {
+  "use strict";
+  var Q = location.search, DEF = false; if (/[?&](rp|rpzs)=0(&|$)/.test(Q)) return;
+  var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] }; RP.sw.set = RP.sw.set || {};
+  if (!RP.set) RP.set = function (k, v) { var f = RP.sw.set[k]; return f ? f(v) : "no switch " + k; };
+  var ZS = RP.zs = { on: DEF || /[?&]rpzs=1(&|$)/.test(Q), base: 6, inst: false };
+  var L2 = Math.log(2);
+  function band(z) { return z < ZS.base ? 1 : 2 + Math.floor(Math.log(Math.max(z, 1e-6) / ZS.base) / L2); }
+  function key(it) { var m = it.material; if (m.depthTest === false) return 0; if (m.depthWrite === false || m.blending > 1) return 1e6; return band(it.z); }
+  function sortZ(a, b) {
+    if (a.groupOrder !== b.groupOrder) return a.groupOrder - b.groupOrder;
+    if (a.renderOrder !== b.renderOrder) return a.renderOrder - b.renderOrder;
+    var ba = a.__rpB, bb = b.__rpB; if (ba !== bb) return ba - bb;
+    if (a.material.id !== b.material.id) return a.material.id - b.material.id;
+    if (a.z !== b.z) return a.z - b.z; return a.id - b.id;
+  }
+  // three's list items are reused frame to frame; the band is computed once per item per sort (a cheap pre-pass in the comparator's place)
+  function sortFn(a, b) { if (a.__rpF !== ZS.f) { a.__rpF = ZS.f; a.__rpB = key(a); } if (b.__rpF !== ZS.f) { b.__rpF = ZS.f; b.__rpB = key(b); } return sortZ(a, b); }
+  function three(a, b) { return a.groupOrder !== b.groupOrder ? a.groupOrder - b.groupOrder : a.renderOrder !== b.renderOrder ? a.renderOrder - b.renderOrder : a.material.id !== b.material.id ? a.material.id - b.material.id : a.z !== b.z ? a.z - b.z : a.id - b.id; }
+  ZS.f = 0;
+  function install() {
+    var R; try { R = renderer; } catch (e) { return false; } if (!R || !R.setOpaqueSort) return false;
+    var r0 = R.render; R.render = function () { ZS.f++; return r0.apply(this, arguments); };
+    R.setOpaqueSort(function (a, b) { return ZS.on ? sortFn(a, b) : three(a, b); }); ZS.inst = true; return true;
+  }
+  RP.sw.zs = ZS.on; RP.sw.set.zs = function (v) { ZS.on = !!v; RP.sw.zs = ZS.on; return ZS.on; };
+  window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], frame: [], interior: [] };
+  window.PLAN_HOOKS.frame.push({ name: "rpZsort", fn: function () { if (ZS.inst || ZS.tried > 3) return; ZS.tried = (ZS.tried || 0) + 1; try { install(); } catch (e) { RP.errs.push("zs: " + e.message); } } });
 })();
