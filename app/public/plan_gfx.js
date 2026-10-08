@@ -64,20 +64,22 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 })();
 // R21 RP: the 2D canvases behind the signs, boards and screens keep their own backing store (in the GPU process) after three has
 // uploaded them: about 600 canvases, 800 MB of backing, 727 MB of GPU memory measured on ultra, for pixels that already live in
-// the WebGL textures. A canvas that has not been uploaded again for 20 s gives its backing up (its width and height read as before,
-// through accessors on the element, so three still sees the same size). Anything that needs the pixels again gets them back first,
+// the WebGL textures. A canvas that has not been uploaded for 120 s (and not more than twice in all: screens and pooled sign slots
+// keep theirs), whose texture matches it (compared on the GPU, read back asynchronously), gives its backing up (its width and height
+// read as before, through accessors on the element, so three still sees the same size). Anything that needs the pixels again gets them back first,
 // in the same task, read from the WebGL texture they were uploaded to (one readPixels, the flip undone, the 2D state put back): a
-// draw call on its 2D context, the canvas used as a source (drawImage, createPattern, createImageBitmap, a texture upload,
+// call on its 2D context (any method or state property), the canvas used as a source (drawImage, createPattern, createImageBitmap, a texture upload,
 // toDataURL / toBlob), a size change, or the deletion of the last WebGL texture holding its pixels. Canvases in the page (the HUD)
 // and canvases under 128 x 128 are left alone. ?rpcv=0 (or ?rp=0) off; PLAN_RP.cv.state(), .restoreAll(), .set(bool), .test(n)
 // (n released canvases restored, released and restored again, their pixels compared).
 (function () {
   "use strict";
-  var Q = location.search, DEF = false; if (/[?&](rp|rpcv)=0(&|$)/.test(Q) || !(DEF || /[?&]rpcv=1(&|$)/.test(Q)) || !window.THREE || !THREE.WebGLRenderer || typeof HTMLCanvasElement === "undefined") return;
+  var Q = location.search, DEF = false; /* integration: opt-in (?rpcv=1) for the Sunday demo build */ if (/[?&](rp|rpcv)=0(&|$)/.test(Q) || !(DEF || /[?&]rpcv=1(&|$)/.test(Q)) || !window.THREE || !THREE.WebGLRenderer || typeof HTMLCanvasElement === "undefined") return;
   var RP = window.PLAN_RP = window.PLAN_RP || { v: "r21", sw: {}, errs: [], govKnobs: [] };
-  var CV = RP.cv = { on: true, rec: new Map(), rel: new Set(), n: { uploads: 0, released: 0, restored: 0, restoreMs: 0, restoreMax: 0, lost: 0, MB: 0, why: {} }, K: { idle: 60000, minPx: 128 * 128, batch: 4 }, dbg: 0, keep: [], gl: null };
+  var CV = RP.cv = { on: true, rec: new Map(), rel: new Set(), n: { uploads: 0, released: 0, restored: 0, restoreMs: 0, restoreMax: 0, lost: 0, MB: 0, why: {} }, K: { idle: 120000, minPx: 128 * 128, batch: 6 }, dbg: 0, keep: [], log: [], gl: null };
   var DW = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, "width"), DH = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, "height");
   function note(m) { if (RP.errs.length < 30) RP.errs.push("cv: " + m); }
+  var SRGB = new WeakMap();
   function why(k) { CV.n.why[k] = (CV.n.why[k] || 0) + 1; }
   // ── the WebGL side: which texture each canvas was last uploaded to (level 0, whole image), and with which flip ──
   function hookGL(R) {
@@ -88,10 +90,11 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     gl.activeTexture = function (u) { unit = u - gl.TEXTURE0; return at.call(gl, u); };
     gl.bindTexture = function (t, tex) { if (t === gl.TEXTURE_2D) bound[unit] = tex; return bt.call(gl, t, tex); };
     gl.pixelStorei = function (p, v) { if (p === gl.UNPACK_FLIP_Y_WEBGL) flip = !!v; return ps.call(gl, p, v); };
-    var seen = function (args, full) { var c = null; for (var i = args.length - 1; i >= 4; i--) if (args[i] instanceof HTMLCanvasElement) { c = args[i]; break; } if (!c) return;
+    var seen = function (args, full) { if (CV.inVer) return; var c = null; for (var i = args.length - 1; i >= 4; i--) if (args[i] instanceof HTMLCanvasElement) { c = args[i]; break; } if (!c) return;
       if (CV.rel.has(c)) restore(c, "upload"); if (args[0] !== gl.TEXTURE_2D || args[1] !== 0 || !full) return; var tex = bound[unit]; if (!tex) return;
-      var r = CV.rec.get(c); if (!r) { r = { tex: new Set(), flip: flip, at: 0, w: 0, h: 0, last: null }; CV.rec.set(c, r); } r.tex.add(tex); r.last = tex; r.flip = flip; r.at = performance.now(); CV.n.uploads++; };
-    gl.texImage2D = function () { seen(arguments, true); return ti.apply(gl, arguments); };
+      var r = CV.rec.get(c); if (!r) { r = { tex: new Set(), flip: flip, at: 0, w: 0, h: 0, last: null }; CV.rec.set(c, r); } r.tex.add(tex); r.last = tex; r.flip = flip; r.at = performance.now(); r.ups = (r.ups || 0) + 1; CV.n.uploads++; };
+    gl.texImage2D = function () { var a = arguments; if (a.length === 6 && a[0] === gl.TEXTURE_2D && bound[unit]) SRGB.set(bound[unit], a[2] === gl.SRGB8_ALPHA8); seen(a, true); return ti.apply(gl, a); };
+    var tst = gl.texStorage2D; gl.texStorage2D = function (t, l, f) { if (t === gl.TEXTURE_2D && bound[unit]) SRGB.set(bound[unit], f === gl.SRGB8_ALPHA8); return tst.apply(gl, arguments); };
     gl.texSubImage2D = function () { var a = arguments; seen(a, a[2] === 0 && a[3] === 0); return ts.apply(gl, a); };
     gl.deleteTexture = function (tex) {
       if (tex) CV.rec.forEach(function (r, c) { if (!r.tex.has(tex)) return; if (r.tex.size === 1 && CV.rel.has(c)) restore(c, "delete"); r.tex.delete(tex); if (r.last === tex) { r.last = null; r.tex.forEach(function (t) { r.last = t; }); } });
@@ -99,29 +102,33 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   // ── release and restore ──
   var STATE = ["font", "fillStyle", "strokeStyle", "lineWidth", "lineCap", "lineJoin", "miterLimit", "textAlign", "textBaseline", "direction", "globalAlpha", "globalCompositeOperation", "shadowBlur", "shadowColor", "shadowOffsetX", "shadowOffsetY", "imageSmoothingEnabled", "imageSmoothingQuality", "filter", "letterSpacing", "wordSpacing", "fontKerning", "lineDashOffset"];
-  // before a canvas gives its backing up: three rows of the texture it was last uploaded to must match the canvas (the right
-  // texture, the right flip), otherwise it keeps its backing for good. The texture rows are read asynchronously (a pixel-pack buffer
-  // and a fence, no GPU stall); the canvas rows when the read is queued.
-  var ROWS = [0.25, 0.5, 0.8];
+  // before a canvas gives its backing up, the texture it was last uploaded to is compared with a fresh upload of the canvas, on
+  // the GPU (a 128 x 128 grid of texels, through three, read back asynchronously): no CPU readback of the canvas, no stall. A canvas
+  // whose texture does not match keeps its backing for good.
+  var VQ = { mat: null, scene: null, cam: null, rt: null, busy: false };
+  function verMat() {
+    if (VQ.mat) return VQ; VQ.mat = new THREE.ShaderMaterial({ uniforms: { tA: { value: null }, tB: { value: null }, uS: { value: new THREE.Vector2(1, 1) } },
+      vertexShader: "void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: "uniform sampler2D tA; uniform sampler2D tB; uniform vec2 uS; void main(){ ivec2 p = ivec2(floor(gl_FragCoord.xy / 128.0 * uS)); vec4 a = texelFetch(tA, p, 0), b = texelFetch(tB, p, 0); vec4 d = abs(a - b); float bad = b.a < 0.98 ? 0.0 : step(0.016, max(d.r, max(d.g, d.b))); gl_FragColor = vec4(bad, 0.0, 0.0, 1.0); }",
+      depthTest: false, depthWrite: false }); VQ.mat.name = "rp_cvverify"; VQ.mat.toneMapped = false;
+    var q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), VQ.mat); q.frustumCulled = false; VQ.scene = new THREE.Scene(); VQ.scene.add(q); VQ.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    VQ.rt = new THREE.WebGLRenderTarget(128, 128, { type: THREE.UnsignedByteType, depthBuffer: false, stencilBuffer: false }); return VQ;
+  }
   function verifyStart(c, r, x, w, h) {
-    var gl = CV.gl; if (!gl || gl.isContextLost() || !r.last) return false; var prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), buf = gl.createBuffer(), ys = ROWS.map(function (f) { return Math.floor(h * f); });
-    if (!FB) FB = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, FB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.last, 0);
-    var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
-    if (ok) { gl.bindBuffer(gl.PIXEL_PACK_BUFFER, buf); gl.bufferData(gl.PIXEL_PACK_BUFFER, w * 4 * ys.length, gl.STREAM_READ);
-      ys.forEach(function (y, k) { gl.readPixels(0, r.flip ? h - 1 - y : y, w, 1, gl.RGBA, gl.UNSIGNED_BYTE, k * w * 4); }); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null); }
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
-    if (!ok) { gl.deleteBuffer(buf); return false; }
-    var rows = ys.map(function (y) { return GET.call(x, 0, y, w, 1).data; });
-    r.ver = { buf: buf, sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), rows: rows, w: w, h: h, tex: r.last, t: performance.now() }; gl.flush(); return true;
+    var R = CV.R; if (!R || !r.last || CV.gl.isContextLost()) return false; var V = verMat(), srgb = !!SRGB.get(r.last);
+    var tA = new THREE.Texture(); var PA = R.properties.get(tA); PA.__webglTexture = r.last; PA.__webglInit = true;   // the texture as three uploaded it (never disposed here)
+    var tB = new THREE.Texture(c); tB.flipY = r.flip; tB.generateMipmaps = false; tB.minFilter = tB.magFilter = THREE.NearestFilter; tB.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; tB.needsUpdate = true;
+    V.mat.uniforms.tA.value = tA; V.mat.uniforms.tB.value = tB; V.mat.uniforms.uS.value.set(w, h);
+    var prt = R.getRenderTarget(), sm = R.shadowMap, su = sm.autoUpdate, sn = sm.needsUpdate, ok = true;
+    CV.inVer = true; try { sm.autoUpdate = false; sm.needsUpdate = false; R.setRenderTarget(V.rt); R.render(V.scene, V.cam); } catch (e) { ok = false; note("verify render " + e.message); } finally { CV.inVer = false; sm.autoUpdate = su; sm.needsUpdate = sn; R.setRenderTarget(prt); }
+    V.mat.uniforms.tA.value = null; V.mat.uniforms.tB.value = null; try { tB.dispose(); } catch (e) {} R.properties.remove(tA);
+    if (!ok) return false; var buf = new Uint8Array(128 * 128 * 4); r.ver = { done: false, res: false, t: performance.now() };
+    var v = r.ver; R.readRenderTargetPixelsAsync(V.rt, 0, 0, 128, 128, buf).then(function () { var bad = 0; for (var i = 0; i < buf.length; i += 4) if (buf[i] > 127) bad++; v.res = bad <= 128 * 128 * 0.005; v.bad = bad; v.done = true; }, function () { v.done = true; v.res = false; });
+    return true;
   }
   function verifyDone(r) {   // null: not ready yet; true / false: the result
-    var gl = CV.gl, v = r.ver; if (!v) return false;
-    var st = gl.getSyncParameter(v.sync, gl.SYNC_STATUS); if (st !== gl.SIGNALED && performance.now() - v.t < 10000) return null;
-    var t = new Uint8Array(v.w * 4 * v.rows.length), ok = 0, all = 0;
-    if (st === gl.SIGNALED) { gl.bindBuffer(gl.PIXEL_PACK_BUFFER, v.buf); gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, t); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-      v.rows.forEach(function (d, k) { var o = k * v.w * 4; for (var i = 0; i < d.length; i += 4) { all++; if (d[i + 3] < 250) { ok++; continue; } if (Math.abs(d[i] - t[o + i]) <= 3 && Math.abs(d[i + 1] - t[o + i + 1]) <= 3 && Math.abs(d[i + 2] - t[o + i + 2]) <= 3) ok++; } }); }
-    gl.deleteSync(v.sync); gl.deleteBuffer(v.buf); r.ver = null;
-    return all > 0 && ok >= all * 0.995 && v.tex === r.last && v.w === DW.get.call(r.c) && v.h === DH.get.call(r.c);
+    var v = r.ver; if (!v) return false; if (!v.done) { if (performance.now() - v.t > 10000) { r.ver = null; return false; } return null; }
+    r.ver = null; if (!v.res) CV.n.badMax = Math.max(CV.n.badMax || 0, v.bad || 0); return v.res;
   }
   function release(c, r) {
     var x = c.getContext("2d"); if (!x) { r.skip = true; return false; }
@@ -142,7 +149,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
       if (r.last && gl && !gl.isContextLost()) {
         var px = new Uint8Array(r.w * r.h * 4), prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
         if (!FB) FB = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, FB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.last, 0);
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) { gl.readPixels(0, 0, r.w, r.h, gl.RGBA, gl.UNSIGNED_BYTE, px); ok = true; }
+        gl.readPixels(0, 0, r.w, r.h, gl.RGBA, gl.UNSIGNED_BYTE, px); ok = true;   /* a colour texture of three's: complete */
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0); gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
         if (ok) { var im = new ImageData(r.w, r.h), d = im.data, row = r.w * 4;
           if (r.flip) { for (var y = 0; y < r.h; y++) d.set(px.subarray(y * row, (y + 1) * row), (r.h - 1 - y) * row); } else d.set(px);
@@ -152,10 +159,19 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (!ok) CV.n.lost++;
     try { var st = r.st; for (var k in st) if (k.charAt(0) !== "_") x[k] = st[k]; if (st.__t) x.setTransform(st.__t); if (st.__d) x.setLineDash(st.__d); } catch (e) {}
     if (reason === "draw" || reason === "resize") r.skip = true;   // it is redrawn: it keeps its backing from now on
-    r.at = performance.now(); CV.n.restored++; var ms = performance.now() - t0; CV.n.restoreMs += ms; if (ms > CV.n.restoreMax) CV.n.restoreMax = ms;
+    r.at = performance.now(); CV.n.restored++; var ms = performance.now() - t0;
+    if (CV.log.length < 40) { var stk = ""; try { stk = (new Error().stack || "").split(String.fromCharCode(10)).slice(3, 7).map(function (q) { return q.trim().replace(/https?:\/\/[^/]+\//, "").slice(0, 90); }).join(" < "); } catch (e) {} CV.log.push([reason, r.w + "x" + r.h, Math.round(ms), Math.round(performance.now() / 1000), stk]); } CV.n.restoreMs += ms; if (ms > CV.n.restoreMax) CV.n.restoreMax = ms;
   }
   // ── the 2D side: anything that draws into a released canvas or reads one brings its pixels back first ──
   var C2 = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype, PUT = C2 && C2.putImageData, GET = C2 && C2.getImageData;
+  // every method and every state property of the 2D context: a released canvas's context is touched only after it is restored (so
+  // the state it gets back is exactly the state it had, and the module's own changes land on top of it)
+  var DRAWS = { fillRect: 1, strokeRect: 1, clearRect: 1, fillText: 1, strokeText: 1, fill: 1, stroke: 1, drawImage: 1, putImageData: 1, drawFocusIfNeeded: 1 };
+  if (C2) Object.getOwnPropertyNames(C2).forEach(function (k) {
+    if (k === "constructor" || k === "canvas") return; var d = Object.getOwnPropertyDescriptor(C2, k); if (!d || !d.configurable) return;
+    if (typeof d.value === "function" && !DRAWS[k] && k !== "getImageData" && k !== "createPattern") { var fn = d.value; C2[k] = function () { var cv = this.canvas; if (cv && cv.__rpRel) restore(cv, "draw"); return fn.apply(this, arguments); }; return; }
+    if (d.set || d.get) { var g = d.get, st = d.set; Object.defineProperty(C2, k, { configurable: true, enumerable: d.enumerable, get: g ? function () { var cv = this.canvas; if (cv && cv.__rpRel) restore(cv, "draw"); return g.call(this); } : undefined, set: st ? function (v) { var cv = this.canvas; if (cv && cv.__rpRel) restore(cv, "draw"); st.call(this, v); } : undefined }); }
+  });
   if (C2) ["fillRect", "strokeRect", "clearRect", "fillText", "strokeText", "fill", "stroke", "drawImage", "putImageData", "getImageData", "drawFocusIfNeeded"].forEach(function (k) {
     var f = C2[k]; if (typeof f !== "function") return;
     C2[k] = function (a) { var cv = this.canvas; if (cv) { if (cv.__rpRel) restore(cv, "draw"); if (k !== "getImageData") cv.__rpDraw = performance.now(); } if (k === "drawImage" && a && a.__rpRel) restore(a, "source"); return f.apply(this, arguments); };
@@ -166,13 +182,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   // ── the sweep: canvases idle for K.idle since their last upload, not in the page, big enough ──
   function sweep() {
     if (!CV.on || !CV.gl) return; var now = performance.now(), n = 0;
-    try { var L = document.getElementById("load"); if (L && !L.classList.contains("off")) return; } catch (e) {}
-    CV.rec.forEach(function (r, c) { if (r.skip || CV.rel.has(c)) return; r.c = c; if (c.__rpDraw > r.at) { if (r.ver) { try { CV.gl.deleteSync(r.ver.sync); CV.gl.deleteBuffer(r.ver.buf); } catch (e) {} r.ver = null; } return; }   /* drawn since its last upload: not idle */
-      if (r.ver) { var res = verifyDone(r); if (res === null) return; if (!res) { r.skip = true; why("mismatch"); return; } if (now - r.at < CV.K.idle) return; try { release(c, r); } catch (e) { note("release " + e.message); r.skip = true; } return; }
+    try { var L = document.getElementById("load"); if (L && !L.classList.contains("off")) { CV.offAt = 0; return; } } catch (e) {}
+    if (!CV.offAt) CV.offAt = now; if (now - CV.offAt < 30000) return;   // not in the busy first seconds of play
+    if (!VQ.ready) { if (!VQ.compiling) { VQ.compiling = true; try { var V0 = verMat(), R0 = CV.R; var pc = R0.compileAsync ? R0.compileAsync(V0.scene, V0.cam) : Promise.resolve(R0.compile(V0.scene, V0.cam)); pc.then(function () { VQ.ready = true; }, function () { VQ.ready = true; }); } catch (e) { note("verify compile " + e.message); VQ.ready = true; } } return; }
+    CV.rec.forEach(function (r, c) { if (r.skip || CV.rel.has(c)) return; r.c = c; if (c.__rpDraw > r.at) { r.ver = null; return; }   /* drawn since its last upload: not idle */
+      if (r.ver) { var res = verifyDone(r); if (res === null) return; if (!res) { r.skip = true; why("mismatch"); return; } if (now - r.at < CV.K.idle) return; var tr = performance.now(); try { release(c, r); } catch (e) { note("release " + e.message); r.skip = true; } var dr = performance.now() - tr; if (dr > (CV.n.relMax || 0)) CV.n.relMax = +dr.toFixed(1); return; }
       if (n >= CV.K.batch || now - r.at < CV.K.idle || !r.last) return;
+      if (r.ups > 2) { r.skip = true; why("redrawn"); return; }   /* uploaded again and again (screens, pooled sign slots): it keeps its backing */
       if (c.isConnected) { r.skip = true; return; } if (DW.get.call(c) * DH.get.call(c) < CV.K.minPx) { r.skip = true; return; }
       var x = c.getContext("2d"); if (!x) { r.skip = true; return; }
-      try { if (verifyStart(c, r, x, DW.get.call(c), DH.get.call(c))) n++; else { r.skip = true; why("noverify"); } } catch (e) { note("verify " + e.message); r.skip = true; } });
+      var tv = performance.now(); try { if (verifyStart(c, r, x, DW.get.call(c), DH.get.call(c))) n++; else { r.skip = true; why("noverify"); } } catch (e) { note("verify " + e.message); r.skip = true; } var dv = performance.now() - tv; if (dv > (CV.n.verMax || 0)) CV.n.verMax = +dv.toFixed(1); });
   }
   setInterval(function () { var t0 = performance.now(); try { sweep(); } catch (e) { note("sweep " + e.message); } var ms = performance.now() - t0; CV.n.sweepMs = (CV.n.sweepMs || 0) + ms; if (ms > (CV.n.sweepMax || 0)) CV.n.sweepMax = +ms.toFixed(1); }, 2000);
   CV.restoreAll = function () { var a = Array.from(CV.rel); a.forEach(function (c) { restore(c, "all"); }); return a.length; };
@@ -184,7 +203,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     return out; };
   // test (with PLAN_RP.cv.dbg = n set before the releases): the canvases released with a copy of their pixels, restored and compared
   CV.testOrig = function () { var out = { n: 0, diff: 0, bytes: 0, max: 0, big: 0 };
-    CV.keep.forEach(function (c) { var r = CV.rec.get(c); if (!r || !r.orig) return; if (CV.rel.has(c)) restore(c, "test"); var d2 = GET.call(r.ctx, 0, 0, r.w, r.h).data, d1 = r.orig;
+    CV.keep.forEach(function (c) { var r = CV.rec.get(c); if (!r || !r.orig) return; if (r.skip) { out.redrawn = (out.redrawn || 0) + 1; r.orig = null; return; }   /* redrawn by its module since: not comparable */ if (CV.rel.has(c)) restore(c, "test"); var d2 = GET.call(r.ctx, 0, 0, r.w, r.h).data, d1 = r.orig;
       for (var i = 0; i < d1.length; i++) { var e = Math.abs(d1[i] - d2[i]); if (e) { out.diff++; if (e > out.max) out.max = e; if (e > 2) out.big++; } } out.n++; out.bytes += d1.length; r.orig = null; });
     CV.keep.length = 0; return out; };
   // the first comparison (no round trip yet): a canvas's own pixels against what it gets back from its texture
