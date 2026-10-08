@@ -411,6 +411,16 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     R.render = function (sc) { if (sc === SC) hemiFix(); return rr0.apply(this, arguments); };   // every pass of the main scene sees the settled spares
     R.compile = function () { if (CW.mine > 0) return c0.apply(this, arguments); var prt = this.getRenderTarget(), rt = prt === null ? mainRT() : null; CW.n++;
       try { hemiFix(); if (rt) this.setRenderTarget(rt); return c0.apply(this, arguments); } finally { if (rt) this.setRenderTarget(prt); } };
+    /* R21 CP (?cpca=0, ?cp=0): three's compileAsync polls every material's currentProgram.isReady() every 10 ms; a material disposed while
+       it polls has no program any more, the poll throws "Cannot read properties of undefined (reading 'isReady')" from a timer (an uncaught
+       exception) and its promise never settles. The same poll, with a material that has no program counted as done. */
+    if (!/[?&](cp|cpca)=0\b/.test(Q) && typeof R.compileAsync === "function" && R.properties && R.extensions && !R.__cpca) { R.__cpca = true; CW.caSkip = 0;
+      R.compileAsync = function (scene, camera, targetScene) { var self = this, mats = this.compile(scene, camera, targetScene === undefined ? null : targetScene);
+        return new Promise(function (resolve) {
+          function check() { mats.forEach(function (m) { var mp = self.properties.get(m), pg = mp && mp.currentProgram; if (!pg || typeof pg.isReady !== "function") { CW.caSkip++; mats.delete(m); return; } if (pg.isReady()) mats.delete(m); });
+            if (mats.size === 0) { resolve(scene); return; } setTimeout(check, 10); }
+          if (self.extensions.get("KHR_parallel_shader_compile") !== null) check(); else setTimeout(check, 10);
+        }); }; }
   }
   // a room's materials are cloned on every entry and disposed on the way out (the gfx floor probes, the FBO's model copies); three.js
   // then deletes a program nobody uses, and the next entry compiles it again. Every program gets one extra user: compiled once per session.
@@ -1817,8 +1827,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   var TGT = { ultra: 25, high: 22.2, medium: 20, low: 16.7 };
   /* R21 CP (HANDOFF_R21_CPU.md, ?cpgov=0 or ?cp=0: the R19 governor exactly): a 60 fps aim on every tier, a GPU timer so headroom is
      seen under a vsync cap, an absolute 30 fps floor (36.7 ms) for the visible steps, and a registry for other modules' knobs */
-  var CPG = OP.cpg = /[?&]cpgov=1\b/.test(Q) && !/[?&]cp=0\b/.test(Q), HARD_MS = 36.7;   /* integration: the R21 governor extension (60 fps aim) is opt-in (?cpgov=1) until proven on ultra; the R19 governor runs otherwise */
-  var TGT0 = TGT; if (CPG) TGT = { ultra: 16.7, high: 16.7, medium: 16.7, low: 16.7 };   /* TGT0: R19's targets, which still set the visible steps' threshold */
+  var CPG = OP.cpg = /[?&]cpgov=1\b/.test(Q) && !/[?&]cp=0\b/.test(Q), HARD_MS = 36.7;   /* opt-in (?cpgov=1), as deployed */
+  var GAB = /[?&]cpgovab=1\b/.test(Q) && !/[?&]cp=0\b/.test(Q);   /* tests: knobs and GPU timer loaded, GV.r21(bool) switches the R21 policy live */
+  var TGT0 = TGT;   /* R21 (?cpgov=1): the R19 tier targets, and a 60 fps aim only while the frame is already near 60 (GV.aim60, below) */
   var qt = +((Q.match(/[?&]optarget=([0-9.]+)/) || [])[1]) || 0;
   function pp() { var p = window.PLAN_POST; return p && p.ready && p.K && p.sw && p.set ? p : null; }
   function tierIdx() { try { return G("QUAL").level === "ultra" ? 0 : 1; } catch (e) { return 1; } }
@@ -1851,20 +1862,22 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   (function () { var ORD = [10, 20, 30, 40, 50, 60, 70, 100, 110, 120, 130, 140]; RUNGS.forEach(function (r, i) { r.order = ORD[i] !== undefined ? ORD[i] : 200 + i; }); })();
   /* R21 CP: other modules' knobs. GV.knob({ id, side: "g" | "c", name, hard, order, avail, on, off }) or window.PLAN_<X>.govKnobs = [spec]
      (scanned every 2 s). GPU steps of R19 sit at 10 to 70, CPU steps at 100 to 140; a multi-level knob is one spec per level. */
+  function isRes(r) { return !!(r.res || /^rp\.res|resolution/i.test((r.id || "") + " " + r.name)); }
+  GV.isRes = isRes;
   GV.knob = function (sp) {
-    try { if (!CPG || !sp || !sp.id || typeof sp.on !== "function" || typeof sp.off !== "function") return false; for (var i = 0; i < RUNGS.length; i++) if (RUNGS[i].id === sp.id) return false;
+    try { if ((!CPG && !GAB) || !sp || !sp.id || typeof sp.on !== "function" || typeof sp.off !== "function") return false; for (var i = 0; i < RUNGS.length; i++) if (RUNGS[i].id === sp.id) return false;
       var r = { id: String(sp.id), ext: true, side: sp.side === "c" ? "c" : "g", name: String(sp.name || sp.id), hard: !!sp.hard, order: isFinite(+sp.order) ? +sp.order : 90, avail: typeof sp.avail === "function" ? sp.avail : null, on: sp.on, off: sp.off, saving: 0, i: RUNGS.length };
       RUNGS.push(r); RUNGS.sort(function (a, b) { return a.order - b.order; }); GV.n.knobs = (GV.n.knobs || 0) + 1; logS("k", r, 0); return true; } catch (e) { note("knob", e); return false; }
   };
   var KS = { at: 0, keys: null, kAt: 0 };
   function knobScan(t) {
-    if (!CPG || t - KS.at < 2000) return; KS.at = t;
+    if ((!CPG && !GAB) || t - KS.at < 2000) return; KS.at = t;
     if (!KS.keys || t - KS.kAt > 20000) { KS.kAt = t; KS.keys = Object.keys(window).filter(function (k) { return k.indexOf("PLAN_") === 0; }); }
     for (var i = 0; i < KS.keys.length; i++) { var m = null; try { m = window[KS.keys[i]]; } catch (e) {} var L = m && m.govKnobs; if (!L || !L.length || L.__gv === L.length) continue; for (var j = 0; j < L.length; j++) GV.knob(L[j]); try { L.__gv = L.length; } catch (e) {} }
   }
   /* R21 CP: GPU time of the client's renderFrame, one frame in four (EXT_disjoint_timer_query_webgl2; skipped while any other timer
      query is open, so measuring tools keep theirs) */
-  var GT = GV.gt = { on: CPG && part("gt"), ext: null, gl: null, q: [], win: [], last: 0, n: 0, err: 0 };
+  var GT = GV.gt = { on: (CPG || GAB) && part("gt"), ext: null, gl: null, q: [], win: [], last: 0, n: 0, err: 0 };
   function gtInstall() {
     if (!GT.on || GT.gl) return; var R = G("renderer"); if (!R) return; var gl = R.getContext(); GT.gl = gl;
     var ext = null; try { ext = gl.getExtension("EXT_disjoint_timer_query_webgl2"); } catch (e) {} if (!ext || typeof gl.getQuery !== "function") { GT.on = false; return; } GT.ext = ext;
@@ -1893,7 +1906,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   GV.propRange = propRange;
   function hasCSM() { try { var c = G("CSMX"); return !!(c && c.csm && G("renderer").shadowMap.enabled); } catch (e) { return false; } }   // the cascade steps do nothing without cascades (low, medium)
-  function ladder(side) { var L = []; for (var i = 0; i < RUNGS.length; i++) { var r = RUNGS[i]; if (r.side !== side) continue; if (r.needPP && !pp()) continue; if (r.csm && !hasCSM()) continue; if (r.avail) { var av = false; try { av = !!r.avail(); } catch (e) {} if (!av) continue; } L.push(r); } return L; }
+  function ladder(side) { var L = []; for (var i = 0; i < RUNGS.length; i++) { var r = RUNGS[i]; if (r.side !== side) continue; if (r.ext && !CPG) continue; if (r.needPP && !pp()) continue; if (r.csm && !hasCSM()) continue; if (r.avail) { var av = false; try { av = !!r.avail(); } catch (e) {} if (!av) continue; } L.push(r); } return L; }
   function logS(s, r, ms) { GV.log.push([Math.round(now() / 1000), s, r.name, +(+ms || 0).toFixed(1)]); if (GV.log.length > 60) GV.log.shift(); }
   function activate(r, ms) { GV.act.push(r); try { r.on(); } catch (e) { note("rung on " + r.name, e); } r.at = now(); r.before = ms; r.after = 0; GV.level = GV.act.length; GV.n.down++; logS("-", r, ms); }
   function release(ms) { var r = GV.act.pop(); if (!r) return; try { r.off(); } catch (e) { note("rung off " + r.name, e); } r.offAt = now(); GV.level = GV.act.length; GV.n.up++; logS("+", r, ms); }
@@ -1902,7 +1915,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   GV.set = function (on) { on = !!on; GV.reset(); GV.on = on; P.opGov = on; return on; };
   // testing: the first n rungs of a ladder ("g", "c" or both) held on, the governor paused (GV.force(0) resumes it)
   GV.force = function (n, side) { GV.reset(); var all = side ? ladder(side) : ladder("g").concat(ladder("c")); for (var i = 0; i < n && i < all.length; i++) activate(all[i], 0); GV.forced = n; return GV.act.map(function (r) { return r.name; }); };
-  GV.state = function () { return { on: GV.on, st: GV.st, tier: GV.tier, target: GV.tgt, level: GV.level, res: GV.res, act: GV.act.map(function (r) { return r.name; }), savings: RUNGS.filter(function (r) { return r.saving; }).map(function (r) { return [r.name, +r.saving.toFixed(1)]; }), bar: GV.bar, n: GV.n, log: GV.log.slice(-16), last: GV.lastWin }; };
+  GV.r21 = function (on) { if (!GAB) return CPG; GV.reset(); CPG = OP.cpg = !!on; GV.tgt = qt || TGT0[GV.tier] || 22; GV.aim60 = false; GV.a60u = 0; GV.a60o = 0; GV.over = GV.under = GV.overH = GV.underH = 0; GV.last = now(); return CPG; };
+  GV.state = function () { return { on: GV.on, st: GV.st, tier: GV.tier, target: GV.tgt, aim60: !!GV.aim60, level: GV.level, res: GV.res, act: GV.act.map(function (r) { return r.name; }), savings: RUNGS.filter(function (r) { return r.saving; }).map(function (r) { return [r.name, +r.saving.toFixed(1)]; }), bar: GV.bar, n: GV.n, log: GV.log.slice(-16), last: GV.lastWin }; };
   P.opGov = GV.on;   // client.js frame(): its own adaptive blocks stand down while this is true
   var F = { last: 0, buf: [], js: [], held: 0, cam: null, w0: 0 };
   function held(t) {
@@ -1915,8 +1929,8 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function govFrame() {
     if (!GV.on || GV.forced) return; var t = now(), Qq = G("QUAL"), cam = G("camera"); if (!Qq || !cam) return;
-    if (CPG) { knobScan(t); if (GT.on) { if (!GT.gl) gtInstall(); gtPoll(); } }
-    if (GV.tier !== Qq.level) { if (GV.tier !== null) GV.reset(); GV.tier = Qq.level; GV.tgt = qt || TGT[Qq.level] || 22; F.held = t + 4000; }
+    if (CPG || GAB) { knobScan(t); if (GT.on) { if (!GT.gl) gtInstall(); gtPoll(); } }
+    if (GV.tier !== Qq.level) { if (GV.tier !== null) GV.reset(); GV.tier = Qq.level; GV.tgt = qt || TGT[Qq.level] || 22; GV.aim60 = false; GV.a60u = 0; GV.a60o = 0; F.held = t + 4000; }
     var dt = F.last ? t - F.last : 0; F.last = t;
     if (F.cam) { var dx = cam.position.x - F.cam.x, dz = cam.position.z - F.cam.z; if (dx * dx + dz * dz > 900) F.held = Math.max(F.held, t + 3000); F.cam.copy(cam.position); } else F.cam = cam.position.clone();   // a warp or a cut: 3 s to settle
     var h = held(t); GV.st = h || "run"; if (h) { F.buf.length = 0; F.js.length = 0; GT.win.length = 0; F.w0 = t; return; }
@@ -1928,18 +1942,20 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var rl = med, gpm = 0, HM = CPG ? Math.max(HARD_MS, (qt || TGT0[GV.tier] || 22) * HARD) : GV.tgt * HARD;   /* R21: never more eager to take a visible step than R19 */
     if (CPG) { if (GT.win.length >= 2) { var gs = GT.win.slice().sort(function (a, c) { return a - c; }); gpm = gs[gs.length >> 1]; } GT.win.length = 0;
       GV.vs = Math.max(6, Math.min(GV.vs || 1e9, med)); var capped = GV.vs < 17.5 && med < GV.vs * 1.15; if (capped && gpm > 0) rl = Math.max(jsm, gpm); GV.lastWin.push(+gpm.toFixed(1), +rl.toFixed(1)); }
+    if (CPG && !qt) { if (rl < 21) { GV.a60u = (GV.a60u || 0) + 1; GV.a60o = 0; } else if (rl > 24) { GV.a60o = (GV.a60o || 0) + 1; GV.a60u = 0; } else { GV.a60u = 0; GV.a60o = 0; }
+      if (!GV.aim60 && GV.a60u >= 8) { GV.aim60 = true; GV.tgt = 16.7; logS("a", { name: "aim 60 fps" }, rl); } else if (GV.aim60 && GV.a60o >= 4) { GV.aim60 = false; GV.tgt = TGT0[GV.tier] || 22; logS("a", { name: "aim the tier target" }, rl); } }
     var T = GV.tgt; GV.over = med > T * 1.12 ? GV.over + 1 : 0; GV.under = rl < T * 0.8 ? GV.under + 1 : 0; GV.overH = med > HM ? (GV.overH || 0) + 1 : 0; GV.underH = rl < HM * 0.8 ? (GV.underH || 0) + 1 : 0;
     var lr = GV.act[GV.act.length - 1]; if (lr && !lr.after && t - lr.at > 2500) { lr.after = rl; if (lr.before) lr.saving = Math.max(0, lr.before - rl); }   // what the last step gave
     if (GV.over >= 3 && t - GV.last > 3000) {
       var r = null, L = ladder(side), i; for (i = 0; i < L.length && !r; i++) if (GV.act.indexOf(L[i]) < 0) r = L[i];   /* only the side that binds: a GPU step does nothing for a CPU-bound frame */
-      if (r && r.hard && GV.overH < 5) r = null;   /* the visible steps only under heavy, sustained load */
+      if (r && (r.hard || (CPG && isRes(r))) && GV.overH < 5) r = null;   /* the visible steps only under heavy, sustained load (R21: every resolution step counts as visible) */
       if (r) { if (r.offAt && t - r.offAt < 20000) { var bb = GV.bar[r.name] || { n: 0, until: 0 }; bb.n++; bb.until = t + 120000 * Math.pow(2, Math.min(3, bb.n - 1)); GV.bar[r.name] = bb; GV.n.bounce++; }   // it had to go back on: barred from coming off for a while
         activate(r, rl); GV.last = t; GV.over = 0; }
     } else if (GV.act.length && t - GV.last > 8000) {
       /* a visible step comes off once the frame is back under 0.8 x its own threshold (1.6 x target) with the step's saving added;
          the near-invisible ones need the frame under 0.8 x target (and the saving added under 0.92 x target) */
       var top = GV.act[GV.act.length - 1], bar = GV.bar[top.name]; if (bar && t < bar.until) return;
-      var ok = top.hard ? GV.underH >= 8 && rl + (top.saving || 0) * 1.15 < HM * 0.85 : GV.under >= 8 && rl + (top.saving || 0) * 1.15 < T * 0.92;
+      var ok = (top.hard || (CPG && isRes(top))) ? GV.underH >= 8 && rl + (top.saving || 0) * 1.15 < HM * 0.85 : GV.under >= 8 && rl + (top.saving || 0) * 1.15 < T * 0.92;
       if (ok) { release(med); GV.last = t; GV.under = 0; GV.underH = 0; }
     }
   }
