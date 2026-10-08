@@ -321,7 +321,7 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
   function rcWhy(k) { RC.n.why[k] = (RC.n.why[k] || 0) + 1; }
   function rcDyn(o) { return o.__rpDyn === 1 || o.isSkinnedMesh === true || o.customDepthMaterial !== undefined || o.isPoints === true || o.isLine === true; }
   function rcName(o) { var p = o, s = ""; for (var k = 0; k < 3 && p; k++) { s += (p.name || p.type || "?").slice(0, 24) + "<"; p = p.parent; } return s; }
-  function rcMark(o, why) { if (o.__rpDyn !== 1) { o.__rpDyn = 1; RC.n.marked++; if (RC.log.length < 300) RC.log.push([why || "?", rcName(o), o.isInstancedMesh ? "inst" : o.isSkinnedMesh ? "skin" : "mesh", FRAME_N]); } RC.dyn.add(o); }
+  function rcMark(o, why) { CAND.dirty = true; if (o.__rpDyn !== 1) { o.__rpDyn = 1; RC.n.marked++; if (RC.log.length < 300) RC.log.push([why || "?", rcName(o), o.isInstancedMesh ? "inst" : o.isSkinnedMesh ? "skin" : "mesh", FRAME_N]); } RC.dyn.add(o); }
   function effVis(o, scn) { var p = o; while (p) { if (p.visible !== true) return false; if (p === scn) return true; p = p.parent; } return false; }
   function rcOK() {
     if (!RP.sw.sc || !L.on) return false; var c = CS.csm; if (!c || c.lights.length < 2 || !R.shadowMap.enabled) return false;
@@ -374,15 +374,23 @@ window.PLAN_LIGHT = window.PLAN_LIGHT || { v: "r16-0", errs: [], n: {} };
   }
   // this frame's movers for cascade S: the people, animals and moving objects inside its cached map, and their rectangle
   var FAKE = null;
+  // this frame's movers that can cast (shown, casting) and their world spheres: gathered once a frame for every cascade's pass
+  var CAND = { f: -1, n: 0, o: [], d: new Float64Array(4 * 256), dirty: false };
+  function rcCand() {
+    if (CAND.f === FRAME_N && !CAND.dirty) return CAND; CAND.f = FRAME_N; CAND.dirty = false; var n = 0, scn = scene, A = CAND.o;
+    if (CAND.d.length < RC.dyn.size * 4) CAND.d = new Float64Array(RC.dyn.size * 8); var D = CAND.d;
+    RC.dyn.forEach(function (o) { if (!o.parent) { RC.dyn.delete(o); return; } if (o.castShadow !== true || !effVis(o, scn)) return; var r = rcSphere(o, _rv); if (r === 0) return;
+      A[n] = o; D[n * 4] = _rv.x; D[n * 4 + 1] = _rv.y; D[n * 4 + 2] = _rv.z; D[n * 4 + 3] = r; n++; });
+    A.length = n; CAND.n = n; return CAND;
+  }
   function rcMovers(S, map) {
-    var L2 = RC.list; L2.length = 0; if (!S.rects) S.rects = []; S.rects.length = 0; var W = map.width, H = map.height, e = S.mat.elements, tx = S.w / W, x0 = W, y0 = H, x1 = 0, y1 = 0, scn = scene, pad = RC.K.pad;
-    var key = S.key + "s", fn = FRAME_N;
+    var L2 = RC.list; L2.length = 0; if (!S.rects) S.rects = []; S.rects.length = 0; var W = map.width, H = map.height, e = S.mat.elements, tx = S.w / W, x0 = W, y0 = H, x1 = 0, y1 = 0, pad = RC.K.pad;
     var noSkin = S.i >= 2;   // plan_perf draws no people into the far cascades
-    RC.dyn.forEach(function (o) {
-      if (!o.parent) { RC.dyn.delete(o); return; } if (noSkin && o.isSkinnedMesh === true) return; var sk = o[key]; if (sk !== undefined && sk > fn && o[key + "t"] === S.stamp) return; if (o.castShadow !== true || !effVis(o, scn)) return; var r = rcSphere(o, _rv); if (r === 0) return;
-      var u = e[0] * _rv.x + e[4] * _rv.y + e[8] * _rv.z + e[12], v = e[1] * _rv.x + e[5] * _rv.y + e[9] * _rv.z + e[13], rp = r / tx + pad;
-      var a0 = u * W - rp, a1 = u * W + rp, b0 = v * H - rp, b1 = v * H + rp; if (a1 < 0 || b1 < 0 || a0 > W || b0 > H) { if (a1 < -W || b1 < -H || a0 > 2 * W || b0 > 2 * H) { o[key] = fn + 12; o[key + "t"] = S.stamp; } return; }   /* a map's width or more away: looked at again in 12 frames (people walk under 2 m in that time; the map is 60 m or more) */
-      L2.push(o); if (RC.vq !== null) S.rects.push([o, a0, b0, a1, b1]); if (a0 < x0) x0 = a0; if (b0 < y0) y0 = b0; if (a1 > x1) x1 = a1; if (b1 > y1) y1 = b1; });
+    var C = rcCand(), A = C.o, D = C.d;
+    for (var k = 0; k < C.n; k++) { var o = A[k]; if (noSkin && o.isSkinnedMesh === true) continue; var x = D[k * 4], y = D[k * 4 + 1], z = D[k * 4 + 2];
+      var u = e[0] * x + e[4] * y + e[8] * z + e[12], v = e[1] * x + e[5] * y + e[9] * z + e[13], rp = D[k * 4 + 3] / tx + pad;
+      var a0 = u * W - rp, a1 = u * W + rp, b0 = v * H - rp, b1 = v * H + rp; if (a1 < 0 || b1 < 0 || a0 > W || b0 > H) continue;
+      L2.push(o); if (RC.vq !== null) S.rects.push([o, a0, b0, a1, b1]); if (a0 < x0) x0 = a0; if (b0 < y0) y0 = b0; if (a1 > x1) x1 = a1; if (b1 > y1) y1 = b1; }
     if (!L2.length) return null; var Hs = map.height > map.width * 1.4 ? Math.round(H * 2 / 3) : H;   // the last cascade's spare strip (the sky-occlusion map) is never restored
     return [Math.max(0, Math.floor(x0)), Math.max(0, Math.floor(y0)), Math.min(W, Math.ceil(x1)), Math.min(Hs, Math.ceil(y1))];
   }
