@@ -1066,7 +1066,7 @@
     clearTimeout(ST.saveT); ST.saveT = setTimeout(function () { persist(); }, 600); ST.dirty = true; syncUI();
   }
   AV._apply = function () { applyLook(); };
-  function persist() { var l = Object.assign({}, ST.look); for (var k in l) if (l[k] === undefined) delete l[k]; try { localStorage.setItem("g1:look", JSON.stringify(l)); } catch (e) {} ST.sentAt = performance.now(); ST.sent = l; try { act({ t: "look", look: l }); } catch (e) {} }
+  function persist() { var l = Object.assign({}, ST.look); for (var k in l) if (l[k] === undefined) delete l[k]; try { profileSet("g1:look", JSON.stringify(l)); } catch (e) {} ST.sentAt = performance.now(); ST.sent = l; try { act({ t: "look", look: l }); } catch (e) {} }
   AV.pendingLook = function () { return ST.sent && performance.now() - (ST.sentAt || 0) < 5000 ? ST.sent : null; };
   function setL(k, v) { ST.look[k] = v; applyLook(); if (k === "body" || k === "hw") prebuild(); try { if (typeof sfx === "function") sfx("ui"); } catch (e) {} }
   function hideLabels(on) { var u = player && player.userData; if (!u) return; for (var s of [u.label, u.bubble, u.emote, u.blob]) if (s) { if (on) { if (s.userData.avsWas === undefined) s.userData.avsWas = s.visible; s.visible = false; } else if (s.userData.avsWas !== undefined) { s.visible = s.userData.avsWas; delete s.userData.avsWas; } } }
@@ -1119,7 +1119,7 @@
     $q("#creator").classList.add("on"); document.body.classList.add("avs-on"); if (document.exitPointerLock) document.exitPointerLock(); hideOthers(true); hideLabels(true); studioDome(); hideWorld(true); applyLook(); renderPanel(); prebuild(); AV.prewarm(player); return true;
   };
   function closeStudio(save, noChain) { if (!AV.studio.on) return; clearTimeout(ST.saveT); if (save !== false) persist(); AV.studio.on = false; AV.studioOff(); hideOthers(false); hideLabels(false); document.body.classList.remove("avs-on"); var C = $q("#creator"); if (C) C.classList.remove("on");
-    if (!noChain) try { if (save && !localStorage.getItem("g1:flown")) startFlyIn(); else if (save && !localStorage.getItem("g1:tut")) startTutorial(); } catch (e) {} setTimeout(function () { AV.evict(28); }, 1500); }
+    if (!noChain) try { if (save && !profileGet("g1:flown")) startFlyIn(); else if (save && !profileGet("g1:tut")) startTutorial(); } catch (e) {} setTimeout(function () { AV.evict(28); }, 1500); }
   AV.closeStudio = closeStudio;
   // the studio camera: a 3/4 portrait that zooms from the face to full length; the subject sits left of the panel
   var _ct = new THREE.Vector3(), _cp = new THREE.Vector3(), _hd = new THREE.Vector3();

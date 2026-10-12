@@ -1,7 +1,11 @@
 /**
  * The Worker entry — everything that is not a static file lands here.
  *
- * Its whole job is routing a WebSocket upgrade to the right room. Static files
+ * Its job is routing a WebSocket upgrade to the right room, plus the sign-in
+ * routes under `/api/auth/` and the signed-in wallet's `/api/gback/balance`
+ * (./auth-routes). A room is only entered with a valid session cookie: the
+ * Worker resolves the wallet and its player id and hands them to the room in
+ * `X-GB-*` headers (see WALLET_HEADERS). Static files
  * (`dist/client`) are served by the platform BEFORE this runs, so `/`,
  * `/client.js` and friends never reach this code.
  *
@@ -10,6 +14,8 @@
  */
 
 import type { Env } from "./env";
+import { WALLET_HEADERS, playerIdFor } from "./auth";
+import { handleAuth, handleBalance, sessionOf } from "./auth-routes";
 import { Room } from "./room";
 
 export { Room };
@@ -20,9 +26,10 @@ const WS_PREFIX = "/ws";
 /**
  * A room name comes from the URL, so it is untrusted: it is used as a Durable
  * Object name, and an unbounded or exotic value would let anyone mint unlimited
- * rooms with unreadable ids. Restrict it to a short, boring label.
+ * rooms with unreadable ids. Restrict it to a short, boring label. Names starting
+ * with "__" are reserved for internal instances (the sign-in store, ./auth-store).
  */
-const ROOM_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const ROOM_RE = /^(?!__)[A-Za-z0-9_-]{1,64}$/;
 const DEFAULT_ROOM = "main";
 
 export default {
@@ -41,11 +48,24 @@ export default {
       if (!ROOM_RE.test(room)) {
         return new Response("invalid room name", { status: 400 });
       }
+      // No session, no room. The upgrade is same-origin, so the browser sends the cookie along.
+      if (!env.SIWS_JWT_SECRET || !env.APP_DOMAIN) return new Response("sign-in is not configured", { status: 503 });
+      const session = await sessionOf(request, env);
+      if (!session) return new Response("not signed in", { status: 401 });
+      const headers = new Headers(request.headers);
+      for (const name of Object.values(WALLET_HEADERS)) headers.delete(name);
+      headers.set(WALLET_HEADERS.wallet, session.claims.publicKey);
+      headers.set(WALLET_HEADERS.player, await playerIdFor(env, session.claims.publicKey));
+      headers.set(WALLET_HEADERS.exp, String(session.claims.expiresAt));
       // One DO instance per room name. Same name anywhere in the world = same
       // room, so all its players share one authoritative state.
       const id = env.ROOMS.idFromName(room);
-      return env.ROOMS.get(id).fetch(request);
+      return env.ROOMS.get(id).fetch(new Request(request, { headers }));
     }
+
+    const auth = await handleAuth(request, env, url);
+    if (auth) return auth;
+    if (url.pathname === "/api/gback/balance") return handleBalance(request, env);
 
     // A path that is neither a static file nor /ws. `not_found_handling: "none"`
     // means the platform already tried the assets, so this is a real 404 —

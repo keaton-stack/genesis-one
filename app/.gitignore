@@ -15,3 +15,5 @@ dist
 
 .DS_Store
 dist_cf/
+
+local

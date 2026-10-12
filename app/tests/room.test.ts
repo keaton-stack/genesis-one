@@ -9,11 +9,17 @@
 
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { signedInWallet } from "./signin";
 
-/** Open a socket to a room and collect frames as they arrive. */
-async function open(room = "main") {
+/**
+ * Open a socket to a room and collect frames as they arrive. A room is only
+ * entered with a session, so each call signs in a fresh wallet unless one is
+ * passed (the same wallet = the same player). `me` is the id the room gives it.
+ */
+async function open(room = "main", wallet?: { cookie: string; playerId: string }) {
+  const who = wallet ?? (await signedInWallet());
   const res = await SELF.fetch(`https://game.test/ws/${room}`, {
-    headers: { Upgrade: "websocket" },
+    headers: { Upgrade: "websocket", Cookie: who.cookie },
   });
   expect(res.status).toBe(101);
   const ws = res.webSocket;
@@ -44,6 +50,7 @@ async function open(room = "main") {
 
   return {
     ws,
+    me: who.playerId,
     frames,
     next,
     send: (msg: unknown) => ws.send(JSON.stringify(msg)),
@@ -261,8 +268,8 @@ describe("isolation and persistence", () => {
     const s1 = await one.state();
     const s2 = await two.state();
     // Each room saw only its own player.
-    expect(s1.seats).toEqual(["alice"]);
-    expect(s2.seats).toEqual(["bob"]);
+    expect(s1.seats).toEqual([one.me]);
+    expect(s2.seats).toEqual([two.me]);
     expect(s1.connected).toBe(1);
     expect(s2.connected).toBe(1);
 
@@ -311,8 +318,8 @@ describe("isolation and persistence", () => {
       (f) => f?.type === "state" && f.connected === 1,
       "the count to drop",
     );
-    // The seat is kept (bob can reclaim it); only the connection went away.
-    expect(afterLeave.seats).toEqual(["alice", "bob"]);
+    // The seat is kept (b can reclaim it); only the connection went away.
+    expect(afterLeave.seats).toEqual([a.me, b.me]);
     a.ws.close();
   });
 });

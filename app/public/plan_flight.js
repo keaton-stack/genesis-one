@@ -426,10 +426,10 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   FL.scoreOf = scoreOf;
   function finish(s) {
     const td = RUN.tds[RUN.tds.length - 1]; const sc = scoreOf(RUN, td, RUN.t); RUN.res = sc; runSet("done"); showGates(false);
-    let best = null; try { best = JSON.parse(localStorage.getItem("g1:flightbest") || "null"); } catch (e) {}
+    let best = null; try { best = JSON.parse(profileGet("g1:flightbest") || "null"); } catch (e) {}
     RUN.pb = !best || sc.total > best.score; RUN.prevBest = best;
-    if (RUN.pb) localStorage.setItem("g1:flightbest", JSON.stringify({ score: sc.total, t: Math.round(RUN.t), at: Date.now() }));
-    try { const lg = JSON.parse(localStorage.getItem("g1:flightlog") || "[]"); lg.push({ by: (player && player.userData && player.userData.name) || localStorage.getItem("g1:name") || "You", score: sc.total, at: Date.now() }); lg.sort((a, b) => b.score - a.score); localStorage.setItem("g1:flightlog", JSON.stringify(lg.slice(0, 10))); } catch (e) {}
+    if (RUN.pb) profileSet("g1:flightbest", JSON.stringify({ score: sc.total, t: Math.round(RUN.t), at: Date.now() }));
+    try { const lg = JSON.parse(profileGet("g1:flightlog") || "[]"); lg.push({ by: (player && player.userData && player.userData.name) || profileGet("g1:name") || "You", score: sc.total, at: Date.now() }); lg.sort((a, b) => b.score - a.score); profileSet("g1:flightlog", JSON.stringify(lg.slice(0, 10))); } catch (e) {}
     if (sc.total > 0) { FL.scoreAt = performance.now(); act({ t: "score", game: "flight", v: Math.max(1, 100000 - sc.total) }); }
     try { if (window.PLAN_PROGRESS && typeof window.PLAN_PROGRESS.award === "function") window.PLAN_PROGRESS.award("flight", { score: Math.round(sc.total / 100), landed: true, points: sc.total }); } catch (e) { log("progress", e); }   // plan_progress reads score on a 0..100 scale
     try { if (typeof logLine === "function") logLine("Scenic Flight", `${(player && player.userData && player.userData.name) || "A pilot"} landed Giveback One with ${sc.total.toLocaleString("en-US")} points`); } catch (e) {}
@@ -765,7 +765,7 @@ body.touch #fl-keys{display:none!important}
   function boardRows() {
     const out = []; const B = view && view.boards && Array.isArray(view.boards.flight) ? view.boards.flight : null;
     if (B && B.length) { for (const e of B) out.push({ by: e.by, score: 100000 - e.v }); return { rows: out, shared: true }; }
-    try { for (const e of JSON.parse(localStorage.getItem("g1:flightlog") || "[]")) out.push({ by: e.by, score: e.score }); } catch (e) {} return { rows: out, shared: false };
+    try { for (const e of JSON.parse(profileGet("g1:flightlog") || "[]")) out.push({ by: e.by, score: e.score }); } catch (e) {} return { rows: out, shared: false };
   }
   function showResult() {
     const R = RUN, sc = R.res; let html;

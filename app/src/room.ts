@@ -35,6 +35,8 @@ import { DurableObject } from "cloudflare:workers";
 
 import type { Env } from "./env";
 import * as logic from "./logic.js";
+import { WALLET_HEADERS } from "./auth";
+import { balanceGate, balanceStore, consumeNonce, hit, isKeyRevoked, revokeKey, type BalanceGate } from "./auth-store";
 import { parseClientMessage } from "./protocol";
 import { newNtHist, roomBroadcast, NT_VERSION, type NtCaps, type NtConn } from "./net";
 
@@ -43,8 +45,15 @@ import { newNtHist, roomBroadcast, NT_VERSION, type NtCaps, type NtConn } from "
  *  stays as the trailing flush. Set to 0 to go back to alarm-only broadcasting. */
 const NT_INLINE_FLUSH_MS = 100;
 
-/** What a socket carries across hibernation: its id and the state protocol it announced (src/net.ts). */
-interface Attachment { connId?: string; nt?: number; ntc?: string[] }
+/**
+ * What a socket carries across hibernation: its id, the signed-in identity the Worker vouched for at the upgrade
+ * (`pid` player id, `wallet` address, `exp` session expiry in unix seconds) and the state protocol it announced
+ * (src/net.ts).
+ */
+interface Attachment { connId?: string; pid?: string; wallet?: string; exp?: number; nt?: number; ntc?: string[] }
+
+/** Close code for a socket whose session ran out; the client checks its session and signs in again. */
+export const CLOSE_SESSION_EXPIRED = 4401;
 
 /** Server-authoritative room state. Persisted; `view` is derived per player. */
 interface Game {
@@ -133,6 +142,34 @@ export class Room extends DurableObject<Env> {
     // Registered on every construction (cheap, idempotent) rather than on first
     // connect, so a room revived from hibernation keeps answering pings.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
+  }
+
+  // ── sign-in store (RPC) ────────────────────────────────────────────────
+  // Called by the Worker on the one instance named AUTH_STORE_NAME only (see ./auth-store). Never reachable
+  // from a client: the Worker routes nothing but WebSocket upgrades here, and refuses that reserved name.
+
+  authConsumeNonce(id: string, rememberSeconds: number): boolean {
+    return consumeNonce(this.ctx.storage.sql, id, rememberSeconds);
+  }
+
+  authRevoke(key: string, expSeconds: number): void {
+    revokeKey(this.ctx.storage.sql, key, expSeconds);
+  }
+
+  authIsRevoked(key: string): boolean {
+    return isKeyRevoked(this.ctx.storage.sql, key);
+  }
+
+  authHit(key: string, limit: number, windowSeconds: number): boolean {
+    return hit(this.ctx.storage.sql, key, limit, windowSeconds);
+  }
+
+  balanceGate(owner: string, windowSeconds: number): BalanceGate {
+    return balanceGate(this.ctx.storage.sql, owner, windowSeconds);
+  }
+
+  balanceStore(owner: string, balance: string): void {
+    balanceStore(this.ctx.storage.sql, owner, balance);
   }
 
   // ── persistence ────────────────────────────────────────────────────────
@@ -234,6 +271,12 @@ export class Room extends DurableObject<Env> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("expected a websocket upgrade", { status: 426 });
     }
+    // Who this is was settled by the Worker from the session cookie (src/worker.ts). Without it, no socket:
+    // only the Worker reaches this object, so a missing header is a routing bug, not a client to serve.
+    const pid = request.headers.get(WALLET_HEADERS.player);
+    const wallet = request.headers.get(WALLET_HEADERS.wallet);
+    const exp = Number(request.headers.get(WALLET_HEADERS.exp));
+    if (!pid || !wallet || !Number.isFinite(exp)) return new Response("not signed in", { status: 401 });
     const pair = new WebSocketPair();
     const server = pair[1]!;
     // Hibernatable accept (NOT server.accept()): the room may be evicted while
@@ -241,7 +284,7 @@ export class Room extends DurableObject<Env> {
     this.ctx.acceptWebSocket(server);
     const connId = crypto.randomUUID().slice(0, 8);
     // The connId must survive eviction — the socket carries it.
-    server.serializeAttachment({ connId });
+    server.serializeAttachment({ connId, pid, wallet, exp } satisfies Attachment);
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -250,8 +293,19 @@ export class Room extends DurableObject<Env> {
   }
 
   override async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
-    const connId = this.connIdOf(ws);
+    const att = this.attOf(ws);
+    const connId = att?.connId;
     if (!connId) return;
+    // The session this socket was opened with ran out: the client signs in again and reconnects.
+    if (att.exp !== undefined && Date.now() / 1000 >= att.exp) {
+      try {
+        ws.close(CLOSE_SESSION_EXPIRED, "session expired");
+      } catch {
+        /* already closing */
+      }
+      await this.webSocketClose(ws);
+      return;
+    }
     try {
       await this.dispatch(await this.onMessage(connId, raw, ws));
     } catch (err) {
@@ -307,18 +361,25 @@ export class Room extends DurableObject<Env> {
     const { game, conns } = await this.load();
 
     // A client introduces itself before it may act. Re-joining with the same
-    // playerId reclaims that seat (a reconnect after a dropped socket).
+    // wallet reclaims that seat (a reconnect after a dropped socket). The player
+    // id is the one the Worker derived from the session; `msg.playerId` is
+    // ignored, so a client cannot pick who it is.
     if (msg.type === "join") {
-      conns[connId] = msg.playerId;
+      const signed = ws ? this.attOf(ws) : null;
+      if (!signed?.pid) return this.error(connId, "not signed in");
+      const playerId = signed.pid;
+      conns[connId] = playerId;
       // R21 NT: remember which state protocol this socket speaks, on the socket itself so it survives hibernation
       if (ws) {
-        const att: Attachment = { connId };
+        const att: Attachment = { ...signed, connId };
+        delete att.nt;
+        delete att.ntc;
         if (msg.nt === NT_VERSION) { att.nt = NT_VERSION; if (msg.ntc && msg.ntc.length) att.ntc = msg.ntc; }
         ws.serializeAttachment(att);
       }
       this.ntConns.delete(connId);
-      if (!game.seats.includes(msg.playerId) && game.seats.length < META.maxPlayers) {
-        game.seats.push(msg.playerId);
+      if (!game.seats.includes(playerId) && game.seats.length < META.maxPlayers) {
+        game.seats.push(playerId);
       }
       if (game.status === "waiting" && game.seats.length >= META.minPlayers) {
         game.state = logic.setup(game.seats);
@@ -368,14 +429,9 @@ export class Room extends DurableObject<Env> {
       return [];
     }
 
-    // msg.type === "reset"
-    if (!game.seats.includes(playerId)) return this.error(connId, "spectators cannot reset");
-    const enough = game.seats.length >= META.minPlayers;
-    game.state = enough ? logic.setup(game.seats) : null;
-    game.status = enough ? "playing" : "waiting";
-    game.result = null;
-    await this.save(game, conns);
-    return this.broadcast(game, conns);
+    // msg.type === "reset". Disabled: it re-runs logic.setup() and wipes every player's coins, homes and
+    // progress, and any signed-in player could send it (docs/auth.md, open points: reset).
+    return this.error(connId, "reset is disabled");
   }
 
   /** Turn-based games schedule no timers; override for real-time loops. */

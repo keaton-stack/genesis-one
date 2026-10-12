@@ -635,7 +635,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   // ───────────────────────────── start ─────────────────────────────
   function startFlyInR2() {
     if (FLY.on || !T) return; if (F.active) cleanup();   // a previous flight whose clean-up frame has not run yet closeCards(); if (inside) leaveInterior(); if (cartMode) toggleCart(); towerView = false; if (SIT.on) { SIT.on = false; } RIDE_ON.id = null;
-    const nflights = +(localStorage.getItem("g1:flights") || 0); FLY.route = 0; planFlyTimes(); localStorage.setItem("g1:flights", String(nflights + 1));
+    const nflights = +(profileGet("g1:flights") || 0); FLY.route = 0; planFlyTimes(); profileSet("g1:flights", String(nflights + 1));
     F.shots = shots(); FLY_T.ext = F.shots[4].t0; pathMarks(); F.dipL = dips(); try { cabLoad("flight"); } catch (e) { log("cab load", e); }
     if (!FLY.g) { FLY.g = buildCabin(); scene.add(FLY.g); }
     FLY.on = true; FLY.t = 0; FLY.seenLm = {}; FLY.order = null; FLY.start = performance.now(); FLY.done = false; FLY.phase = "ext";
@@ -1225,7 +1225,7 @@ body.g1fly .hud:not(#skipfly):not(#prompt){opacity:0!important;transition:opacit
   F.swapCabin = swapCabin;
   function cabFrame() {
     try {
-      if (!F.cabP && typeof window.PLAN_LOAD_KINDS === "function" && window.PLAN && (FLY.on || !localStorage.getItem("g1:flown"))) cabLoad(FLY.on ? "flight" : "new player");
+      if (!F.cabP && typeof window.PLAN_LOAD_KINDS === "function" && window.PLAN && (FLY.on || !profileGet("g1:flown"))) cabLoad(FLY.on ? "flight" : "new player");
       // plan_hangars.js furnishes its hangar lounges with cab_divan when it exists (it does not declare it): fetched on its own, in the
       // background, 20 s into play, so those interiors keep the model without it weighing on the first load
       { const now = performance.now(); if (F.t0 === undefined) F.t0 = now; if (!F.divP && !F.cabP && now - F.t0 > 20000 && typeof window.PLAN_LOAD_KINDS === "function" && window.PLAN) F.divP = window.PLAN_LOAD_KINDS(["cab_divan"]); }

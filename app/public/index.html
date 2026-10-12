@@ -43,8 +43,12 @@
       #tr button { pointer-events:auto; margin:8px 0 0 4px; padding:6px 9px; border-radius:6px; border:1px solid var(--line2); background:rgba(245,241,230,.04); color:var(--cream); cursor:pointer; font:600 9.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.12em; text-transform:uppercase; transition:border-color .15s, color .15s, background .15s; }
       #tr button:hover { border-color:var(--green); color:var(--green); background:rgba(77,222,111,.1); }
       #wallet { margin-top:12px !important; padding-top:10px; border-top:1px solid var(--line2); }
-      #coins { font-family:"Anton", Impact, sans-serif; font-size:24px; letter-spacing:.04em; }
-      #wallet > div:first-child { color:var(--dim); } #wallet > div:first-child b { font-size:24px; }
+      #wbal-n { font-family:"Anton", Impact, sans-serif; font-size:24px; letter-spacing:.04em; }
+      #wbal { color:var(--dim); } #wbal b { font-size:24px; }
+      /* a click on the amount (#wbal in the game, #wmenu-bal on the loading screen) refreshes it (web3.js), at most once per 30 s */
+      #wbal, #wmenu-bal { pointer-events:auto; cursor:pointer; user-select:none; } #wbal.wait, #wmenu-bal.wait { cursor:default; }
+      #wbal.reading b, #wmenu-bal.reading { animation:wpulse .9s ease-in-out infinite; }
+      @keyframes wpulse { 50% { opacity:.35; } }
       #rank { color:var(--gold) !important; font-size:9.5px; }
       #wallet > div:last-child { background:rgba(245,241,230,.1) !important; height:5px !important; border-radius:3px !important; position:relative; }
       #energy { background:linear-gradient(90deg, var(--green), var(--gold)) !important; border-radius:3px; }
@@ -127,6 +131,55 @@
       .btn:hover { filter:brightness(1.08); }
       .btn.ghost { background:transparent; color:var(--cream); border:1px solid var(--line2); }
       .btn.ghost:hover { border-color:var(--green); color:var(--green); filter:none; }
+      /* wallet sign-in (web3.js): over the loading screen's backdrop. The game only starts loading after sign-in (boot.js) */
+      #signin { z-index:40; }
+      body.gate #load .ld-prog, body.gate #loadmsg, body.gate #ldsteps, body.gate #ldgo { visibility:hidden; }
+      /* the signed-in wallet (web3.js): top right on the loading screen, then the first row of #wallet (top-right panel) in the game.
+         The button names the wallet; its menu shows the full address and the on-chain amount, copies and signs out. */
+      #wbox { position:relative; pointer-events:auto; letter-spacing:normal; }
+      #wbox[hidden], #wallet #wbox[hidden] { display:none; }
+      #wbtn { display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(7,17,12,.55); color:var(--cream); cursor:pointer; font:600 10px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.1em; transition:border-color .15s, color .15s; }
+      #wbtn:hover, #wbtn[aria-expanded="true"] { border-color:var(--green); color:var(--green); }
+      #wbtn i { flex:none; width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); }
+      #wbtn::after { content:"\25BE"; color:var(--dim); font-size:9px; }
+      #wmenu { position:absolute; right:0; top:calc(100% + 6px); z-index:5; width:min(300px, 86vw); padding:12px 14px; text-align:left; background:rgba(7,17,12,.96); border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 50px rgba(0,0,0,.55); cursor:default; user-select:text; }
+      #wmenu[hidden] { display:none; }
+      /* tooltip (web3.js tipShow), after the dashboard's atoms/tooltip.tsx: one element on <body>, fixed under its trigger */
+      #gtip { position:fixed; left:0; top:0; z-index:45; width:max-content; max-width:240px; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:rgba(7,17,12,.96); color:var(--cream); font:400 12px/1.4 "Space Grotesk", system-ui, sans-serif; letter-spacing:normal; text-transform:none; text-align:left; box-shadow:0 10px 30px rgba(0,0,0,.45); pointer-events:none; opacity:0; transform:translateY(-3px); transition:opacity .12s ease, transform .12s ease; }
+      #gtip.on { opacity:1; transform:none; }
+      /* the top-right panel (.mono) sets uppercase and wide spacing; a Solana address is case-sensitive */
+      #wmenu { text-transform:none; letter-spacing:.04em; }
+      /* while the menu is open its panel goes over the rest of the HUD (the places list under it), below cards and sign-in */
+      body.wmenu-on #tr { z-index:25; }
+      #wmenu .k { color:var(--dim); font:600 9px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.16em; text-transform:uppercase; }
+      #wmenu code { display:block; margin:4px 0 10px; font:11px/1.45 "JetBrains Mono", ui-monospace, monospace; color:var(--cream); word-break:break-all; user-select:all; }
+      #wmenu-bal { margin:3px 0 4px; color:var(--green); font:600 13px "JetBrains Mono", ui-monospace, monospace; }
+      #wmenu .wrow { display:flex; gap:6px; justify-content:flex-end; margin-top:10px; }
+      #wmenu .wrow button { padding:6px 9px; border-radius:6px; border:1px solid var(--line2); background:rgba(245,241,230,.04); color:var(--cream); cursor:pointer; font:600 9.5px "JetBrains Mono", ui-monospace, monospace; letter-spacing:.12em; text-transform:uppercase; }
+      #wmenu .wrow button:hover { border-color:var(--green); color:var(--green); }
+      #wmenu #wout { border-color:rgba(255,145,128,.45); color:#ff9180; } #wmenu #wout:hover { background:rgba(255,145,128,.12); color:#ff9180; }
+      /* in #wallet: the top-right panel's button styling (uppercase, margins) does not apply to it */
+      #wallet #wbox { display:flex; justify-content:flex-end; margin-bottom:8px; }
+      #tr #wbtn { margin:0; text-transform:none; letter-spacing:.1em; font-size:10px; padding:6px 11px; border-radius:999px; border-color:var(--line); }
+      #tr #wbtn:hover, #tr #wbtn[aria-expanded="true"] { background:rgba(77,222,111,.1); }
+      #tr #wmenu .wrow button { margin:0; }
+      #wallet #wmenu-balsec { display:none; } /* the amount is right under the button there (#wbal), and refreshes on a click */
+      #signin.on { display:block; }
+      #signin-list { display:flex; flex-direction:column; gap:8px; margin:12px 0 6px; }
+      .signin-w { display:flex; align-items:center; gap:10px; width:100%; text-align:left; }
+      .signin-w img { width:24px; height:24px; border-radius:6px; }
+      .signin-w:disabled { opacity:.5; cursor:wait; }
+      #signin-msg { min-height:18px; font-size:12px; color:var(--dim); }
+      #signin-msg.err { color:#ff8a7a; }
+      #signin-none, #signin-mobile { display:none; font-size:13px; }
+      #signin.mobile #signin-mobile { display:block; }
+      #signin a { color:var(--green); }
+      /* wallet switched in the extension (web3.js): over the game and the loading screen */
+      #wswitch { z-index:41; }
+      #wswitch b { font-family:"JetBrains Mono", ui-monospace, monospace; font-weight:600; color:var(--green); }
+      #wswitch .btn:disabled { opacity:.5; cursor:wait; }
+      #wswitch-msg { min-height:18px; margin-top:10px; font-size:12px; color:var(--dim); }
+      #wswitch-msg.err { color:#ff8a7a; }
       #gb-list, .blist { max-height:40vh; overflow:auto; margin:8px 0; padding-right:6px; }
       #gb-list div, .blist div { padding:8px 0; border-bottom:1px solid rgba(245,241,230,.1); display:flex; justify-content:space-between; }
       #gb-list b, .blist b { color:var(--green); }
@@ -242,7 +295,7 @@
     <div id="load" role="status" aria-live="polite" aria-label="Loading Genesis: The Awakening">
       <div class="ld-show" aria-hidden="true"><div class="ld-s" style="animation-delay:0.0s"><i style="background-image:url(/tex/ld_arrivals_sungate_gold.webp)"></i><b>Arrivals Court<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:8.0s"><i style="background-image:url(/tex/ld_mercado_blue.webp)"></i><b>Mercado Plaza<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:16.0s"><i style="background-image:url(/tex/ld_library_reading.webp)"></i><b>The Expanse Library reading room<em>Late afternoon</em></b></div><div class="ld-s" style="animation-delay:24.0s"><i style="background-image:url(/tex/ld_arrivals_canopy_blue.webp)"></i><b>Arrivals Court<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:32.0s"><i style="background-image:url(/tex/ld_rodeo_night.webp)"></i><b>The Copper Chute<em>Rodeo night</em></b></div><div class="ld-s" style="animation-delay:40.0s"><i style="background-image:url(/tex/ld_mercado_air_gold.webp)"></i><b>Mercado Plaza from the air<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:48.0s"><i style="background-image:url(/tex/ld_pyramids_milkyway.webp)"></i><b>Stargazer Pyramids<em>Under the stars</em></b></div><div class="ld-s" style="animation-delay:56.0s"><i style="background-image:url(/tex/ld_mainstreet_gold.webp)"></i><b>Main Street<em>Late afternoon</em></b></div><div class="ld-s" style="animation-delay:64.0s"><i style="background-image:url(/tex/ld_saloon_bar.webp)"></i><b>The Copper Chute saloon<em>Evening</em></b></div><div class="ld-s" style="animation-delay:72.0s"><i style="background-image:url(/tex/ld_domes_gold.webp)"></i><b>The Dome Suites<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:80.0s"><i style="background-image:url(/tex/ld_arrivals_air_blue.webp)"></i><b>Arrivals Court from the air<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:88.0s"><i style="background-image:url(/tex/ld_library_gold.webp)"></i><b>The Expanse Library<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:96.0s"><i style="background-image:url(/tex/ld_museum_night.webp)"></i><b>Genesis Block Museum<em>Night</em></b></div><div class="ld-s" style="animation-delay:104.0s"><i style="background-image:url(/tex/ld_carts_gold.webp)"></i><b>Crosswind Racquet Club<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:112.0s"><i style="background-image:url(/tex/ld_homes_blue.webp)"></i><b>Desert-modern homes<em>Blue hour</em></b></div><div class="ld-s" style="animation-delay:120.0s"><i style="background-image:url(/tex/ld_apron_gold.webp)"></i><b>The Flight Line<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:128.0s"><i style="background-image:url(/tex/ld_pyramids_air_night.webp)"></i><b>Stargazer Pyramids<em>Night</em></b></div><div class="ld-s" style="animation-delay:136.0s"><i style="background-image:url(/tex/ld_rodeo_gold.webp)"></i><b>The Copper Chute arena<em>Golden hour</em></b></div><div class="ld-s" style="animation-delay:144.0s"><i style="background-image:url(/tex/ld_racquet_air_blue.webp)"></i><b>Crosswind Racquet Club<em>Blue hour</em></b></div></div>
       <div class="ld-veil"></div>
-      <div class="ld-top"><div class="ld-brand"><img src="/logo.png" alt="Giveback Ventures" /><span>Giveback Ventures</span></div></div>
+      <div class="ld-top"><div class="ld-brand"><img src="/logo.png" alt="Giveback Ventures" /><span>Giveback Ventures</span></div><div id="wbox" hidden><button id="wbtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="wmenu" aria-label="Your wallet"><i></i><span id="wbtn-addr"></span></button><div id="wmenu" role="dialog" aria-label="Your wallet" hidden><div class="k">Signed in as</div><code id="wmenu-addr"></code><div id="wmenu-balsec"><div class="k">Balance</div><div id="wmenu-bal" role="button" tabindex="0">…</div></div><div class="wrow"><button id="wcopy" type="button">Copy address</button><button id="wout" type="button">Sign out</button></div></div></div></div>
       <div class="in">
         <div class="mono ld-kick">A Giveback world</div>
         <h1 aria-label="Genesis: The Awakening">GENESIS<span>THE AWAKENING</span></h1>
@@ -257,7 +310,7 @@
 
     <div id="tl" class="hud brk"><img src="/logo.png" alt="" /><div><div class="t">GENESIS</div><div class="s mono">The Awakening</div><div id="gback" style="margin-top:6px;font-family:Anton,Impact,sans-serif;font-size:18px;letter-spacing:.04em;color:#4DDE6F;text-shadow:0 2px 8px rgba(0,0,0,.6)">500 $GBACK</div></div></div>
     <div id="compass" class="hud"><canvas id="cmp" width="900" height="56"></canvas></div>
-    <div id="tr" class="hud mono brk"><div><b id="online">1</b> online now</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist"></div><button id="snd">SOUND OFF</button> <button id="aud">SETTINGS</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button> <button id="emo">EMOTES</button> <button id="bikebtn">BIKE</button> <button id="cartbtn">CART</button> <button id="fpvbtn" title="First person (O)">VIEW 3RD</button> <button id="vrbtn" style="display:none" title="Put on your headset and walk the site in VR">ENTER VR</button><div id="wallet" style="margin-top:10px;text-align:right"><div><b id="coins">500</b> GB</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
+    <div id="tr" class="hud mono brk"><div><b id="online">1</b> online now</div><div id="coords" style="margin-top:4px;color:rgba(245,241,230,.6)"></div><div id="clock" style="margin-top:4px;color:rgba(77,222,111,.85)"></div><div id="plist"></div><button id="snd">SOUND OFF</button> <button id="aud">SETTINGS</button> <button id="voice">VOICE OFF</button> <button id="char">CHARACTER</button> <button id="emo">EMOTES</button> <button id="bikebtn">BIKE</button> <button id="cartbtn">CART</button> <button id="fpvbtn" title="First person (O)">VIEW 3RD</button> <button id="vrbtn" style="display:none" title="Put on your headset and walk the site in VR">ENTER VR</button><div id="wallet" style="margin-top:10px;text-align:right"><div id="wbal" role="button" tabindex="0"><b id="wbal-n">…</b> $GBACK</div><div id="rank" style="margin-top:3px;color:rgba(245,241,230,.7)">Passenger</div><div style="width:120px;height:4px;background:rgba(245,241,230,.15);border-radius:2px;margin:6px 0 0 auto;overflow:hidden"><i id="energy" style="display:block;height:100%;width:100%;background:#f4cd5a"></i></div></div></div>
     <div id="zone" class="hud"><div class="n" id="zone-n"></div><div class="k mono" id="zone-k"></div></div>
     <div id="veh" class="hud mono"><b id="veh-n"></b><div id="veh-s" style="margin-top:4px"></div></div>
     <div id="game" class="hud mono"><b id="game-n"></b><div class="big" id="game-big"></div><div id="game-s" style="margin-top:4px"></div><div id="power"><i></i></div></div>
@@ -277,6 +330,22 @@
     <div id="joy" class="hud"><i></i></div>
     <div id="tbtns" class="hud"><button data-k="Space">JUMP</button><button data-k="KeyC">CART</button><button data-k="KeyF">RIDE</button><button data-k="KeyE">INFO</button><button data-k="Enter">CHAT</button><button data-k="KeyL">SCORES</button><button data-k="KeyM">TOWER</button><button data-k="KeyN">TIME</button><button data-k="Digit1">WAVE</button><button data-k="KeyQ">DOWN</button></div>
 
+    <div id="signin" class="card" role="dialog" aria-labelledby="signin-h">
+      <h2 id="signin-h">Sign in with your wallet</h2>
+      <div class="k mono">Solana wallet required</div>
+      <p>Genesis: The Awakening is open to everyone with a Solana wallet. Signing in only proves the wallet is yours: it costs nothing and does not move any tokens.</p>
+      <div id="signin-list"></div>
+      <div id="signin-none">No Solana wallet found in this browser. Install <a href="https://phantom.app" target="_blank" rel="noopener">Phantom</a> or <a href="https://solflare.com" target="_blank" rel="noopener">Solflare</a>, then reload this page.</div>
+      <div id="signin-mobile">On a phone, open this page inside your wallet app: <a id="signin-phantom" href="#">open in Phantom</a> · <a id="signin-solflare" href="#">open in Solflare</a></div>
+      <div id="signin-msg" class="mono" aria-live="polite"></div>
+    </div>
+    <div id="wswitch" class="card" role="dialog" aria-labelledby="wswitch-h">
+      <h2 id="wswitch-h">Wallet switched</h2>
+      <div class="k mono">Another account in your wallet</div>
+      <p>You're playing as <b id="wswitch-from"></b>, but your wallet switched to <b id="wswitch-to"></b>. Sign in with it to play as that wallet, with its own name, look, progress and $GBACK. To keep playing as <b id="wswitch-from2"></b>, switch back in your wallet.</p>
+      <div class="row"><button class="btn" id="wswitch-go" type="button">Continue</button><button class="btn ghost" id="wswitch-out" type="button">Sign out</button></div>
+      <div id="wswitch-msg" class="mono" aria-live="polite"></div>
+    </div>
     <div id="name" class="card">
       <h2>Welcome to Genesis: The Awakening</h2>
       <div class="k mono">Choose a name for the site</div>
@@ -385,8 +454,8 @@
       <div class="row"><button class="btn ghost" id="board-x">Close</button></div>
     </div>
 
-    <script src="/lib/three-bundle.js"></script>
-    <script src="/lib/smaa_tex.js"></script>
+    <script type="gb/game" data-three src="/lib/three-bundle.js"></script>
+    <script type="gb/game" src="/lib/smaa_tex.js"></script>
     <script>window.BUILD = "dev";</script>
     <script>
       // content-addressed asset URLs. A deploy ships /asset_v.js (window.ASSET_V: path -> short hash of the file's bytes, written by
@@ -400,81 +469,84 @@
         var q = (m[3] || "").slice(1).split("&").filter(function (p) { return p && p.slice(0, 2) !== "v="; }); q.unshift("v=" + h);
         return (m[1] || "") + m[2] + "?" + q.join("&") + (m[4] || "");
       };
-      try { THREE.DefaultLoadingManager.setURLModifier(window.AV); } catch (e) { console.warn("asset versions: no URL modifier", e); }
+      // THREE is not loaded yet: boot.js sets AV as the URL modifier once three-bundle.js has run.
     </script>
-    <script src="/arcade_games.js?v=dev"></script>
-    <script src="/arcade_room.js?v=dev"></script>
-    <script src="/plan_models.js?v=dev"></script>
-    <script src="/plan_models_r2.js?v=dev"></script>
-    <script src="/plan_signs.js?v=dev"></script>
-    <script src="/plan_park.js?v=dev"></script>
-    <script src="/plan_crossing.js?v=dev"></script>
-    <script src="/plan_outpost.js?v=dev"></script>
-    <script src="/plan_enrich.js?v=dev"></script>
-    <script src="/plan_land.js?v=dev"></script>
-    <script src="/plan_bounds.js?v=dev"></script>
-    <script src="/plan_gbank.js?v=dev"></script>
-    <script src="/plan_terminal.js?v=dev"></script>
-    <script src="/plan_flyin.js?v=dev"></script>
-    <script src="/plan_jetaudio.js?v=dev"></script>
-    <script src="/plan_showcase.js?v=dev"></script>
-    <script src="/plan_rides.js?v=dev"></script>
-    <script src="/plan_hangars.js?v=dev"></script>
-    <script src="/plan_progress.js?v=dev"></script>
-    <script src="/plan_quests.js?v=dev"></script>
-    <script src="/plan_coin.js?v=dev"></script>
-    <script src="/plan_convention.js?v=dev"></script>
-    <script src="/plan_market.js?v=dev"></script>
-    <script src="/plan_festival.js?v=dev"></script>
-    <script src="/plan_solarpark.js?v=dev"></script>
-    <script src="/plan_bodyshop.js?v=dev"></script>
-    <script src="/plan_aaron.js?v=dev"></script>
-    <script src="/plan_rooms.js?v=dev"></script>
-    <script src="/plan_rooms_shops.js?v=dev"></script>
-    <script src="/plan_rooms_venues.js?v=dev"></script>
-    <script src="/plan_rooms_homes.js?v=dev"></script>
-    <script src="/plan_porches.js?v=dev"></script>
-    <script src="/plan_paths.js?v=dev"></script>
-    <script src="/plan_ext_town.js?v=dev"></script>
-    <script src="/plan_ext_homes.js?v=dev"></script>
-    <script src="/plan_library.js?v=dev"></script>
-    <script src="/plan_chainmuseum.js?v=dev"></script>
-    <script src="/plan_maytrixxx.js?v=dev"></script>
-    <script src="/plan_mercado.js?v=dev"></script>
-    <script src="/plan_rodeo.js?v=dev"></script>
-    <script src="/plan_sportsclub.js?v=dev"></script>
-    <script src="/plan_spa.js?v=dev"></script>
-    <script src="/plan_flightacademy.js?v=dev"></script>
-    <script src="/plan_sanctuary.js?v=dev"></script>
-    <script src="/plan_fill_a.js?v=dev"></script>
-    <script src="/plan_fill_b.js?v=dev"></script>
-    <script src="/plan_arrivals.js?v=dev"></script>
-    <script src="/plan_roomlight.js?v=dev"></script>
-    <script src="/plan_tidy.js?v=dev"></script>
-    <script src="/plan_streetscape.js?v=dev"></script>
-    <script src="/plan_flora.js?v=dev"></script>
-    <script src="/plan_flight.js?v=dev"></script>
-    <script src="/plan_interiors.js?v=dev"></script>
-    <script src="/plan_gfx.js?v=dev"></script>
-    <script src="/plan_perf.js?v=dev"></script>
-    <script src="/plan_cull.js?v=dev"></script>
-    <script src="/plan_workers.js?v=dev"></script>
-    <script src="/plan_stream.js?v=dev"></script>
-    <script src="/plan_stargaze.js?v=dev"></script>
-    <script src="/plan_domes.js?v=dev"></script>
-    <script src="/plan_vr.js?v=dev"></script>
-    <script src="/plan_avatar.js?v=dev"></script>
-    <script src="/plan_seat.js?v=dev"></script>
-    <script src="/plan_post.js?v=dev"></script>
-    <script src="/plan_terrain.js?v=dev"></script>
-    <script src="/plan_light.js?v=dev"></script>
-    <script src="/plan_foliage.js?v=dev"></script>
-    <script src="/plan_bmat.js?v=dev"></script>
-    <script src="/plan_ext_civic.js?v=dev"></script>
-    <script src="/plan_props.js?v=dev"></script>
-    <script src="/plan_charfx.js?v=dev"></script>
-    <script src="/plan_charshade.js?v=dev"></script>
-    <script src="/net_nt.js?v=dev"></script>
-    <script src="/client.js?v=dev"></script>
+    <script src="/web3.js?v=dev"></script>
+    <script src="/boot.js?v=dev"></script>
+    <script type="gb/game" src="/profile.js?v=dev"></script>
+    <script type="gb/game" src="/arcade_games.js?v=dev"></script>
+    <script type="gb/game" src="/arcade_room.js?v=dev"></script>
+    <script type="gb/game" src="/plan_models.js?v=dev"></script>
+    <script type="gb/game" src="/plan_models_r2.js?v=dev"></script>
+    <script type="gb/game" src="/plan_signs.js?v=dev"></script>
+    <script type="gb/game" src="/plan_park.js?v=dev"></script>
+    <script type="gb/game" src="/plan_crossing.js?v=dev"></script>
+    <script type="gb/game" src="/plan_outpost.js?v=dev"></script>
+    <script type="gb/game" src="/plan_enrich.js?v=dev"></script>
+    <script type="gb/game" src="/plan_land.js?v=dev"></script>
+    <script type="gb/game" src="/plan_bounds.js?v=dev"></script>
+    <script type="gb/game" src="/plan_gbank.js?v=dev"></script>
+    <script type="gb/game" src="/plan_terminal.js?v=dev"></script>
+    <script type="gb/game" src="/plan_flyin.js?v=dev"></script>
+    <script type="gb/game" src="/plan_jetaudio.js?v=dev"></script>
+    <script type="gb/game" src="/plan_showcase.js?v=dev"></script>
+    <script type="gb/game" src="/plan_rides.js?v=dev"></script>
+    <script type="gb/game" src="/plan_hangars.js?v=dev"></script>
+    <script type="gb/game" src="/plan_progress.js?v=dev"></script>
+    <script type="gb/game" src="/plan_quests.js?v=dev"></script>
+    <script type="gb/game" src="/plan_coin.js?v=dev"></script>
+    <script type="gb/game" src="/plan_convention.js?v=dev"></script>
+    <script type="gb/game" src="/plan_market.js?v=dev"></script>
+    <script type="gb/game" src="/plan_festival.js?v=dev"></script>
+    <script type="gb/game" src="/plan_solarpark.js?v=dev"></script>
+    <script type="gb/game" src="/plan_bodyshop.js?v=dev"></script>
+    <script type="gb/game" src="/plan_aaron.js?v=dev"></script>
+    <script type="gb/game" src="/plan_rooms.js?v=dev"></script>
+    <script type="gb/game" src="/plan_rooms_shops.js?v=dev"></script>
+    <script type="gb/game" src="/plan_rooms_venues.js?v=dev"></script>
+    <script type="gb/game" src="/plan_rooms_homes.js?v=dev"></script>
+    <script type="gb/game" src="/plan_porches.js?v=dev"></script>
+    <script type="gb/game" src="/plan_paths.js?v=dev"></script>
+    <script type="gb/game" src="/plan_ext_town.js?v=dev"></script>
+    <script type="gb/game" src="/plan_ext_homes.js?v=dev"></script>
+    <script type="gb/game" src="/plan_library.js?v=dev"></script>
+    <script type="gb/game" src="/plan_chainmuseum.js?v=dev"></script>
+    <script type="gb/game" src="/plan_maytrixxx.js?v=dev"></script>
+    <script type="gb/game" src="/plan_mercado.js?v=dev"></script>
+    <script type="gb/game" src="/plan_rodeo.js?v=dev"></script>
+    <script type="gb/game" src="/plan_sportsclub.js?v=dev"></script>
+    <script type="gb/game" src="/plan_spa.js?v=dev"></script>
+    <script type="gb/game" src="/plan_flightacademy.js?v=dev"></script>
+    <script type="gb/game" src="/plan_sanctuary.js?v=dev"></script>
+    <script type="gb/game" src="/plan_fill_a.js?v=dev"></script>
+    <script type="gb/game" src="/plan_fill_b.js?v=dev"></script>
+    <script type="gb/game" src="/plan_arrivals.js?v=dev"></script>
+    <script type="gb/game" src="/plan_roomlight.js?v=dev"></script>
+    <script type="gb/game" src="/plan_tidy.js?v=dev"></script>
+    <script type="gb/game" src="/plan_streetscape.js?v=dev"></script>
+    <script type="gb/game" src="/plan_flora.js?v=dev"></script>
+    <script type="gb/game" src="/plan_flight.js?v=dev"></script>
+    <script type="gb/game" src="/plan_interiors.js?v=dev"></script>
+    <script type="gb/game" src="/plan_gfx.js?v=dev"></script>
+    <script type="gb/game" src="/plan_perf.js?v=dev"></script>
+    <script type="gb/game" src="/plan_cull.js?v=dev"></script>
+    <script type="gb/game" src="/plan_workers.js?v=dev"></script>
+    <script type="gb/game" src="/plan_stream.js?v=dev"></script>
+    <script type="gb/game" src="/plan_stargaze.js?v=dev"></script>
+    <script type="gb/game" src="/plan_domes.js?v=dev"></script>
+    <script type="gb/game" src="/plan_vr.js?v=dev"></script>
+    <script type="gb/game" src="/plan_avatar.js?v=dev"></script>
+    <script type="gb/game" src="/plan_seat.js?v=dev"></script>
+    <script type="gb/game" src="/plan_post.js?v=dev"></script>
+    <script type="gb/game" src="/plan_terrain.js?v=dev"></script>
+    <script type="gb/game" src="/plan_light.js?v=dev"></script>
+    <script type="gb/game" src="/plan_foliage.js?v=dev"></script>
+    <script type="gb/game" src="/plan_bmat.js?v=dev"></script>
+    <script type="gb/game" src="/plan_ext_civic.js?v=dev"></script>
+    <script type="gb/game" src="/plan_props.js?v=dev"></script>
+    <script type="gb/game" src="/plan_charfx.js?v=dev"></script>
+    <script type="gb/game" src="/plan_charshade.js?v=dev"></script>
+    <script type="gb/game" src="/net_nt.js?v=dev"></script>
+    <script type="gb/game" src="/client.js?v=dev"></script>
   </body>
 </html>

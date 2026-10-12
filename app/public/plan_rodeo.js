@@ -921,7 +921,9 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── the mechanical bull: a padded bull on a hydraulic head in its ring; E to ride, A and D (or the arrows) and SPACE to stay on ─────────────────────────
   const MB = R.mb = R.mb || { on: false, best: 0 };
-  try { MB.best = +(localStorage.getItem("g1:ro_mbull") || 0) || 0; } catch (e) {}
+  // the wallet's best (profile.js): read again once the profile is known, the server copy wins
+  function mbBest() { try { MB.best = +(profileGet("g1:ro_mbull") || 0) || 0; } catch (e) {} }
+  mbBest(); try { if (window.PROFILE) PROFILE.whenReady(mbBest); } catch (e) {}
   function buildMBull(G) { const [cu, cv] = BULL_C, F = S.dS; const root = new THREE.Group(); root.name = "ro mech bull"; root.userData.noBatch = true; root.position.set(cu, F + 0.31, cv); G.add(root);
     const K = new Kit(); K.cyl("isteel", 0x262626, 0.72, 0.78, 0.14, 0, 0.07, 0, 22); K.cyl("isteel", 0xa8a8a8, 0.15, 0.17, 0.62, 0, 0.45, 0, 14); for (let k = 0; k < 5; k++) K.place("isteel", new THREE.TorusGeometry(0.2, 0.035, 6, 16), 0x1a1a1a, 0, 0.22 + k * 0.1, 0, 0, PI / 2); K.build(root, { isteel: MT.isteel }, { tag: "mbull base" });
     const spin = new THREE.Group(); spin.position.y = 0.82; root.add(spin); const tilt = new THREE.Group(); spin.add(tilt);
@@ -936,7 +938,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     Object.assign(MB, { on: true, t: 0, grip: 1, next: 1.1, want: null, wt: 0, dir: 1, dirT: 1.6, prev: {}, hits: 0, misses: 0, lean: 0, kick: 0, thrown: null }); player.userData.sit = true; try { sitOffset(player, 0.02); } catch (e) {}
     try { $("#game").classList.add("on"); $("#game-big").textContent = ""; $("#game-s").textContent = ""; } catch (e) {} status(C("prompts.ride", "Hold on! Lean with A and D (or the arrows) when it turns, SPACE when it bucks."), false); try { sfx("board"); } catch (e) {} cnt("mbRides"); return true; }
   function mbEnd(won, thrown) { if (!MB.on) return; MB.on = false; RIDE.on = false; SITES.bull = MB.saved || SITES.bull; player.userData.sit = false; try { sitClear(player); } catch (e) {}
-    const secs = Math.min(8, MB.t); if (secs > MB.best) { MB.best = +secs.toFixed(2); try { localStorage.setItem("g1:ro_mbull", String(MB.best)); } catch (e) {} }
+    const secs = Math.min(8, MB.t); if (secs > MB.best) { MB.best = +secs.toFixed(2); try { profileSet("g1:ro_mbull", String(MB.best)); } catch (e) {} }
     try { $("#game").classList.remove("on"); const gm = $("#game-n"); if (gm) gm.innerHTML = ""; } catch (e) {}
     // off the bull onto the mat: thrown in an arc, or a clean hop off
     const q = w2l(player.position.x, player.position.z), side = MB.dir > 0 ? 1 : -1, a = MB.yaw + PI / 2 * side, du = Math.sin(a), dv = Math.cos(a); const tu = BULL_C[0] + du * 1.9, tv = BULL_C[1] + dv * 1.9; MB.land = { u0: q[0], v0: q[1], u1: tu, v1: tv, t: 0, T: thrown ? 0.55 : 0.35, y0: player.position.y, y1: S.YA + S.dS + 0.31, thrown };

@@ -58,6 +58,21 @@ const PROG_V = 1, PROG_HEX_RE = /^[0-9a-f]{0,128}$/, PROG_TITLE_RE = /^[a-z0-9_]
 const IMPACT_KEYS = ["stamps", "talks", "flights", "landings", "acts", "rides", "visits"], IMPACT_STEP = 20;
 function progInt(v, max) { return Number.isInteger(v) && v >= 0 && v <= max; }
 function hexOr(a, b) { a = a || ""; b = b || ""; let out = ""; for (let i = 0; i < Math.max(a.length, b.length); i++) out += (parseInt(a[i] || "0", 16) | parseInt(b[i] || "0", 16)).toString(16); return out.replace(/0+$/, ""); }
+/* The per-wallet profile (docs/auth.md): what the browser used to keep in localStorage, now kept per
+   player in progs[id].pf. Keys and values are the client's localStorage keys and strings, so the client code reading them
+   did not change. Private: viewFor sends a player only their own progs entry. Bests here are the player's own copy only;
+   the public boards still take nothing but `score` actions. */
+const PREF_KEYS = ["g1:bestdrag", "g1:bestlap", "g1:bestobby", "g1:bestrings", "g1:quest", "g1:hunt", "g1:huntdone", "g1:huntt0", "g1:tut", "g1:flown", "g1:visited", "g1:flights", "g1:bike",
+  "g1:flightbest", "g1:flightlog", "g1:fa2log", "g1:ro_mbull", "g1:rhkinds"];
+const PREF_VALUE_MAX = 4096, PREF_TOTAL_MAX = 16384;
+function prefOk(k, v) {
+  return PREF_KEYS.includes(k) && (v === null || (typeof v === "string" && v.length <= PREF_VALUE_MAX && !/[\u0000-\u001F\u007F]/.test(v)));
+}
+function pfSize(pf) {
+  let n = 0;
+  for (const k in pf) n += pf[k].length;
+  return n;
+}
 const LOT_NAME_RE = /^[A-Za-z0-9 '.\-]{1,24}$/;
 // ── R13 Copper Canyon Customs: golf cart and bike customization (public/plan_bodyshop.js, public/plan/bodyshop.json) ──
 // Each item is [id, price, rank]: rank 0 Passenger, 1 Pilot, 2 Captain, 3 Tower (the Sol Passport rank the client reports in "prog",
@@ -339,10 +354,42 @@ export function validateAction(state, playerId, action) {
     if (/[\u0000-\u001F\u007F]/.test(text)) return { ok: false, error: "no control characters" };
     return { ok: true };
   }
+  if (action.t === "pref") {
+    if (!prefOk(action.k, action.v)) return { ok: false, error: "bad pref" };
+    const pf = ((state.progs || {})[playerId] || {}).pf || {};
+    if (action.v !== null && pfSize({ ...pf, [action.k]: action.v }) > PREF_TOTAL_MAX) return { ok: false, error: "profile too large" };
+    return { ok: true };
+  }
+  if (action.t === "migrate") {
+    // once per player: the browser's old data moves in at the first sign-in, after that the server copy is the truth
+    if (((state.progs || {})[playerId] || {}).mig) return { ok: false, error: "already migrated" };
+    if (action.pf !== undefined && (!action.pf || typeof action.pf !== "object" || Array.isArray(action.pf))) return { ok: false, error: "bad migrate" };
+    return { ok: true };
+  }
   return { ok: false, error: "unknown action" };
 }
 
+/* The one-time move of a browser's local profile to the wallet. Every field is checked as if it came in through its own
+   action, and a bad one is dropped rather than failing the rest. Nothing the server already has is overwritten (another
+   browser of the same wallet, or a name set before this arrived). */
+function applyMigrate(state, playerId, action) {
+  let s = state;
+  const me = s.players[playerId];
+  if ((!me || me.name === defaultName(playerId)) && validateAction(s, playerId, { t: "name", name: action.name }).ok) s = applyAction(s, playerId, { t: "name", name: action.name });
+  if (!(s.players[playerId] && s.players[playerId].look) && validateAction(s, playerId, { t: "look", look: action.look }).ok) s = applyAction(s, playerId, { t: "look", look: action.look });
+  const P = { ...((s.progs || {})[playerId] || {}) };
+  const pf = { ...(P.pf || {}) };
+  if (action.pf) for (const k of PREF_KEYS) {
+    const v = action.pf[k];
+    if (pf[k] === undefined && v !== null && prefOk(k, v) && pfSize(pf) + v.length <= PREF_TOTAL_MAX) pf[k] = v;
+  }
+  P.pf = pf;
+  P.mig = 1;
+  return { ...s, tick: s === state ? state.tick + 1 : s.tick, progs: { ...(s.progs || {}), [playerId]: P } };
+}
+
 export function applyAction(state, playerId, action) {
+  if (action.t === "migrate") return applyMigrate(state, playerId, action);
   const tick = state.tick + 1;
   const players = { ...state.players };
   const me = { ...(players[playerId] || freshPlayer(playerId)) };
@@ -474,6 +521,13 @@ export function applyAction(state, playerId, action) {
     const pr = me.pr || { x: 0, r: 0, t: null };
     me.pr = { x: action.x !== undefined ? action.x : pr.x, r: action.r !== undefined ? action.r : pr.r, t: action.ti !== undefined ? action.ti || null : pr.t };
     if (action.add) { const I = { ...impact }; for (const k in action.add) I[k] = (I[k] || 0) + action.add[k]; impact = I; }
+  } else if (action.t === "pref") {
+    const P = { ...(progs[playerId] || {}) };
+    const pf = { ...(P.pf || {}) };
+    if (action.v === null) delete pf[action.k];
+    else pf[action.k] = action.v;
+    P.pf = pf;
+    progs = { ...progs, [playerId]: P };
   } else if (action.t === "bodyshop") {
     const need = bsNeed(me, action.cart || null, action.bike || null); let cost = 0; for (const id of need) cost += BS[id].price;
     me.coins = (me.coins || 0) - cost; if (need.length) { me.bso = bsWith(me.bso, need); me.xp = (me.xp || 0) + 10; }
