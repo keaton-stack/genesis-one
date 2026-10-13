@@ -1054,16 +1054,16 @@ window.PLAN_FLIGHTACADEMY = window.PLAN_FLIGHTACADEMY || { v: "r17-0", errs: [],
   function closeCard() { var c = $id("fa2c"); if (c) c.classList.remove("on"); UI.open = null; }
   FA.closeCard = closeCard;
   function tag(on, t) { css(); var e = $id("fa2tag"); if (!e) { e = document.createElement("div"); e.id = "fa2tag"; document.body.appendChild(e); } if (t) e.textContent = t; e.classList.toggle("on", !!on); }
-  // the lesson log (this device): every lesson flown from a pod
-  function logGet() { try { var a = JSON.parse(localStorage.getItem("g1:fa2log") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-  function logAdd(r) { var a = logGet(); a.push(r); while (a.length > 40) a.shift(); try { localStorage.setItem("g1:fa2log", JSON.stringify(a)); } catch (e) {} return a.length; }
+  // the lesson log (the wallet's profile, profile.js): every lesson flown from a pod. 25 kept, so it fits one profile value (4 KB)
+  function logGet() { try { var a = JSON.parse(profileGet("g1:fa2log") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function logAdd(r) { var a = logGet(); a.push(r); while (a.length > 25) a.shift(); try { profileSet("g1:fa2log", JSON.stringify(a)); } catch (e) {} return a.length; }
   function num(v) { return Math.round(v || 0).toLocaleString("en-US"); }
   function lessonCard(i) {
     var L = C("lesson", {}), steps = (L.steps || []).map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("");
     var c = openCard("<h2>" + esc(L.title || "Sim lesson") + "</h2><div class='k mono'>Sim Pod " + (i + 1) + " · Instructor Maya Torres</div><div class='fa2b'>" + esc(L.brief || "") + "</div><ol>" + steps + "</ol><div class='row'><button class='btn' id='fa2-go'>Start the lesson (E)</button><button class='btn ghost' id='fa2-x'>Not now (Esc)</button></div>", "lesson");
     UI.pod = i; $id("fa2-go").onclick = function () { closeCard(); lessonStart(UI.pod); }; $id("fa2-x").onclick = closeCard; return c; }
   function logbookCard() {
-    var nm = (player && player.userData && player.userData.name) || localStorage.getItem("g1:name") || "Pilot"; var st = C("stamps", []), all = true;
+    var nm = (player && player.userData && player.userData.name) || profileGet("g1:name") || "Pilot"; var st = C("stamps", []), all = true;
     var rows = st.map(function (s) { var ok = hasStamp(s.id); if (!ok) all = false; return "<div class='st" + (ok ? " ok" : "") + "'><i></i><b>" + esc(s.name) + "</b><small>" + esc(ok ? "Stamped" : s.how || "") + "</small></div>"; }).join("");
     var lg = logGet().slice().reverse(), best = lg.reduce(function (a, r) { return Math.max(a, r.score || 0); }, 0);
     var list = lg.slice(0, 12).map(function (r) { var d = new Date(r.t); return "<div><span>" + d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " · Pod " + (r.pod + 1) + "</span><span>" + (r.landed ? num(r.score) + " pts · " + num(r.fpm) + " FPM" : "no landing") + "</span></div>"; }).join("") || "<div><span>No lessons yet. Climb into a sim pod in the hangar.</span></div>";

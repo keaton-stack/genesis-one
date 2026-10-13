@@ -887,7 +887,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 
   // ───────────────────────── passport stamps (ids proposed in HANDOFF_R14_HOMES.md; no-ops until progress.json has them) ─────────────────────────
   function award(id) { try { var PP = window.PLAN_PROGRESS; if (id && PP && PP.award) PP.award("stamp", { id: id }); } catch (e) {} }
-  function stampFor(kind) { try { award(C("stamps." + kind, null)); var seen = {}; try { (localStorage.getItem("g1:rhkinds") || "").split(",").forEach(function (k) { if (k) seen[k] = 1; }); } catch (e) {} seen[kind] = 1; var ks = Object.keys(seen); try { localStorage.setItem("g1:rhkinds", ks.join(",")); } catch (e) {} if (seen.villa && seen.ranch && seen.lakehouse && seen.glamp) award(C("stamps.all", null)); } catch (e) { note("stamp", e); } }
+  function stampFor(kind) { try { award(C("stamps." + kind, null)); var seen = {}; try { (profileGet("g1:rhkinds") || "").split(",").forEach(function (k) { if (k) seen[k] = 1; }); } catch (e) {} seen[kind] = 1; var ks = Object.keys(seen); try { profileSet("g1:rhkinds", ks.join(",")); } catch (e) {} if (seen.villa && seen.ranch && seen.lakehouse && seen.glamp) award(C("stamps.all", null)); } catch (e) { note("stamp", e); } }
 
   // ───────────────────────── E in a home: the fire, the lamps, coffee, a book, the house card, the dog, a record ─────────────────────────
   function inHome() { var c = RH.cur; try { return c && inside && inside.g === c.g ? c : null; } catch (e) { return null; } }

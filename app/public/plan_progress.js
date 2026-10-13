@@ -16,7 +16,14 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
 (function () {
   "use strict";
   var HK = window.PLAN_HOOKS;
-  var LS_KEY = "g1:prog:v1";
+  /* The ledger belongs to one wallet, like the rest of the profile (profile.js). It is merged both ways with the player's room
+     copy, so a ledger shared by two wallets in one browser would hand each one the other's stamps. The original key stays
+     with the wallet that owns this browser's old data (g1:local-owner); any other wallet keeps its own. The game loads only
+     after sign-in (boot.js), so the wallet's player id is known here, and a wallet switch reloads the page. */
+  var LS_KEY = (function () {
+    var base = "g1:prog:v1";
+    try { var id = window.GB_WALLET && GB_WALLET.playerId, owner = localStorage.getItem("g1:local-owner"); return id && owner && owner !== id ? base + ":" + id : base; } catch (e) { return base; }
+  })();
   var API = window.PLAN_PROGRESS = window.PLAN_PROGRESS || {};
   var S = API._s = { data: null, ready: false, hooked: false, built: false, queue: [], ev: {}, errs: [], rec: null, cur: null,
     stampIdx: {}, stampByN: {}, placeStamps: [], talkStamps: {}, awardBits: {}, bitAwards: {}, server: false, serverSeen: "", lastPush: 0,
@@ -766,7 +773,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     var ld = $id("load"), fl = false; try { fl = !!FLY.on; } catch (e) {}
     if (!S.built || !S.cur || !player || fl || (ld && !ld.classList.contains("off"))) { S.r9t0 = 0; return; }
     if (!S.r9t0) { S.r9t0 = now; return; } if (now - S.r9t0 < 3000) return; S.r9w = true;
-    var nm = ""; try { nm = (localStorage.getItem("g1:name") || "").trim(); } catch (e) {}
+    var nm = ""; try { nm = (profileGet("g1:name") || "").trim(); } catch (e) {}
     var t = S.r9back ? (nm ? "Welcome back, " + nm : "Welcome back") : "Welcome to Genesis: The Awakening";
     toast(copy("welcomeK", "Sol Passport"), t, 0, false, insigniaSVG(S.cur.rank || 0, "w"));
   }
@@ -799,7 +806,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     else if (f.type === "chapter") { var c = f.chapter; emit("district", { id: c.id, name: c.name, xp: f.xp }); emit("reward", { chapter: c.id, rewards: chapterRewards(c).map(function (r) { return r.id; }) }); queueMoment({ kind: "chapter", chapter: c, xp: f.xp }); }
     else if (f.type === "passport") { queueMoment({ kind: "passport", xp: f.xp }); }
     else if (f.type === "milestone") { toast("Community milestone", f.m.name + " unlocked", f.xp); emit("milestone", { id: f.m.id, name: f.m.name }); try { sfx("rank"); } catch (e) {} }
-    else if (f.type === "rank") { emit("rank", { rank: f.rank, prev: f.prev, name: rankDef(f.rank).name }); queueMoment({ kind: "rank", rank: f.rank }); try { logLine("Genesis", (localStorage.getItem("g1:name") || "You") + " is now a " + rankDef(f.rank).name); } catch (e) {} }
+    else if (f.type === "rank") { emit("rank", { rank: f.rank, prev: f.prev, name: rankDef(f.rank).name }); queueMoment({ kind: "rank", rank: f.rank }); try { logLine("Genesis", (profileGet("g1:name") || "You") + " is now a " + rankDef(f.rank).name); } catch (e) {} }
   }
 
   // ───────────────────────── the celebration moments (rank up, chapter complete, passport complete) ─────────────────────────
@@ -867,7 +874,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     S.open = true; $id("pp").classList.add("on"); renderPassport(); try { if (document.exitPointerLock) document.exitPointerLock(); } catch (e) {} try { sfx("ui"); } catch (e) {}
   }
   function closePassport(quiet) { if (!S.open) return; S.open = false; var p = $id("pp"); if (p) p.classList.remove("on"); if (!quiet) try { sfx("ui"); } catch (e) {} }
-  function holderName() { try { var n = view && view.players && view.players[ME] && view.players[ME].name; if (n) return n; } catch (e) {} return localStorage.getItem("g1:name") || "Visitor"; }
+  function holderName() { try { var n = view && view.players && view.players[ME] && view.players[ME].name; if (n) return n; } catch (e) {} return profileGet("g1:name") || "Visitor"; }
   function renderPassport() {
     var pp = $id("pp"); if (!pp || !S.cur) return; var c = S.cur, r = S.rec, R = rankDef(c.rank);
     var pl = pp.querySelector(".pl"), sc = pp.querySelector(".pr .sc");
@@ -931,7 +938,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
   }
   function applyPaint(ci) {
     var p = (D().paints || []).filter(function (q) { return q.cartc === ci; })[0]; if (p && !unlockedBy(p.unlock)) { setStatus(unlockText(p.unlock) + " to unlock " + p.name, true); return; }
-    safe("paint", function () { var lk = savedLook() || { skin: "e8c19a", shirt: "4dde6f", pants: "2b3a4a" }; lk.cartc = ci; localStorage.setItem("g1:look", JSON.stringify(lk)); act({ t: "look", look: lk }); applyCartLook(player, lk); setStatus("your cart is now " + (p ? p.name : "repainted")); try { sfx("buy"); } catch (e) {} });
+    safe("paint", function () { var lk = savedLook() || { skin: "e8c19a", shirt: "4dde6f", pants: "2b3a4a" }; lk.cartc = ci; profileSet("g1:look", JSON.stringify(lk)); act({ t: "look", look: lk }); applyCartLook(player, lk); setStatus("your cart is now " + (p ? p.name : "repainted")); try { sfx("buy"); } catch (e) {} });
   }
   // the golf cart card: the reward paints appear after the ten stock colours, locked until earned
   function paintButtons() {

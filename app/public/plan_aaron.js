@@ -206,7 +206,7 @@ window.PLAN_HOOKS = window.PLAN_HOOKS || { terrain: [], world: [], defer: [], fr
     if (mode === "show") { var gr = x.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, "#7fb2e6"); gr.addColorStop(0.62, "#e9dcc4"); gr.addColorStop(1, "#c9b391"); x.fillStyle = gr; x.fillRect(0, 0, W, H);
       x.fillStyle = "rgba(255,255,255,.85)"; x.beginPath(); x.ellipse(256, -40, 300, 95, 0, 0, TAU); x.fill();
       x.fillStyle = "#0a1610"; x.font = "800 40px 'Space Grotesk', system-ui, sans-serif"; x.textAlign = "center"; x.fillText("YOU'RE LIVE!", 256, 128);
-      var nm = ""; try { nm = (localStorage.getItem("g1:name") || "").slice(0, 18); } catch (e) {} x.font = "600 22px 'Space Grotesk', system-ui, sans-serif"; x.fillStyle = "#1d7a45"; x.fillText(nm ? "say hi, " + nm + "!" : "say hi to the stream!", 256, 160); }
+      var nm = ""; try { nm = (profileGet("g1:name") || "").slice(0, 18); } catch (e) {} x.font = "600 22px 'Space Grotesk', system-ui, sans-serif"; x.fillStyle = "#1d7a45"; x.fillText(nm ? "say hi, " + nm + "!" : "say hi to the stream!", 256, 160); }
     else if (img && img.complete && img.naturalWidth) x.drawImage(img, 0, 0, W, H);
     else { x.fillStyle = "#1a2a22"; x.fillRect(0, 0, W, H); }
     // LIVE pill and the viewer count
